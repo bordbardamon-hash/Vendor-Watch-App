@@ -1,0 +1,57 @@
+import db
+from config import CONFIG
+from scraper import scrape
+from detector import detect_event
+from alerts import send_alert
+
+VENDORS = [
+    # Generic HTML (simple change detection)
+    {"key": "microsoft365", "name": "Microsoft 365", "url": "https://status.office.com", "parser": "generic_html"},
+    {"key": "azure",       "name": "Azure",        "url": "https://status.azure.com", "parser": "generic_html"},
+    {"key": "aws",         "name": "AWS",          "url": "https://status.aws.amazon.com", "parser": "generic_html"},
+    {"key": "googlews",    "name": "Google Workspace", "url": "https://www.google.com/appsstatus/dashboard/", "parser": "generic_html"},
+    {"key": "salesforce",  "name": "Salesforce",   "url": "https://status.salesforce.com", "parser": "generic_html"},
+
+    # Statuspage.io JSON (better precision)
+    {"key": "cloudflare",  "name": "Cloudflare",   "url": "https://www.cloudflarestatus.com", "parser": "statuspage_json"},
+    {"key": "okta",        "name": "Okta",         "url": "https://status.okta.com", "parser": "statuspage_json"},
+    {"key": "zoom",        "name": "Zoom",         "url": "https://status.zoom.us", "parser": "statuspage_json"},
+    {"key": "atlassian",   "name": "Atlassian",    "url": "https://status.atlassian.com", "parser": "statuspage_json"},
+]
+
+def seed():
+    for v in VENDORS:
+        db.upsert_vendor(v["key"], v["name"], v["url"], v["parser"])
+
+def run_cycle():
+    for v in db.get_vendors():
+        vendor_key = v["key"]
+        vendor_name = v["name"]
+        url = v["status_url"]
+        parser = v["parser"]
+
+        try:
+            incidents = scrape(vendor_key, url, parser)
+        except Exception as e:
+            print(f"[ERROR] Scrape failed for {vendor_name}: {e}")
+            continue
+
+        for inc in incidents:
+            prior = db.get_incident(inc["vendor_key"], inc["incident_id"])
+            event = detect_event(prior, inc)
+
+            db.upsert_incident(inc)
+
+            if event:
+                try:
+                    send_alert(vendor_name, inc, event)
+                    print(f"[ALERT] {vendor_name} {event} {inc['title']}")
+                except Exception as e:
+                    print(f"[ERROR] Alert failed for {vendor_name}: {e}")
+
+if __name__ == "__main__":
+    db.init_db()
+    seed()
+
+    from scheduler import run_forever
+    run_forever(run_cycle, CONFIG.scrape_interval_minutes)
