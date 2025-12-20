@@ -73,6 +73,8 @@ export interface IStorage {
   // Vendor Subscriptions
   getUserVendorSubscriptions(userId: string): Promise<string[]>;
   setUserVendorSubscriptions(userId: string, vendorKeys: string[]): Promise<void>;
+  hasUserSetSubscriptions(userId: string): Promise<boolean>;
+  resetUserSubscriptions(userId: string): Promise<void>;
   getUsersSubscribedToVendor(vendorKey: string): Promise<User[]>;
   getVendorsForUser(userId: string): Promise<Vendor[]>;
   getIncidentsForUser(userId: string): Promise<Incident[]>;
@@ -378,6 +380,18 @@ export class DatabaseStorage implements IStorage {
         vendorKeys.map(vendorKey => ({ userId, vendorKey }))
       );
     }
+    
+    await this.setConfig(`vendor_subscriptions_set:${userId}`, 'true');
+  }
+  
+  async hasUserSetSubscriptions(userId: string): Promise<boolean> {
+    const configEntry = await this.getConfig(`vendor_subscriptions_set:${userId}`);
+    return configEntry?.value === 'true';
+  }
+  
+  async resetUserSubscriptions(userId: string): Promise<void> {
+    await db.delete(userVendorSubscriptions).where(eq(userVendorSubscriptions.userId, userId));
+    await db.delete(config).where(eq(config.key, `vendor_subscriptions_set:${userId}`));
   }
   
   async getUsersSubscribedToVendor(vendorKey: string): Promise<User[]> {
@@ -398,10 +412,15 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getVendorsForUser(userId: string): Promise<Vendor[]> {
+    const hasSetSubscriptions = await this.hasUserSetSubscriptions(userId);
     const subscribedKeys = await this.getUserVendorSubscriptions(userId);
     
-    if (subscribedKeys.length === 0) {
+    if (!hasSetSubscriptions) {
       return await this.getVendors();
+    }
+    
+    if (subscribedKeys.length === 0) {
+      return [];
     }
     
     return await db
@@ -412,10 +431,15 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getIncidentsForUser(userId: string): Promise<Incident[]> {
+    const hasSetSubscriptions = await this.hasUserSetSubscriptions(userId);
     const subscribedKeys = await this.getUserVendorSubscriptions(userId);
     
-    if (subscribedKeys.length === 0) {
+    if (!hasSetSubscriptions) {
       return await this.getIncidents();
+    }
+    
+    if (subscribedKeys.length === 0) {
+      return [];
     }
     
     return await db

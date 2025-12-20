@@ -326,7 +326,8 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const subscriptions = await storage.getUserVendorSubscriptions(userId);
-      res.json({ vendorKeys: subscriptions });
+      const hasSetSubscriptions = await storage.hasUserSetSubscriptions(userId);
+      res.json({ vendorKeys: subscriptions, hasSetSubscriptions });
     } catch (error) {
       console.error("Error fetching vendor subscriptions:", error);
       res.status(500).json({ error: "Failed to fetch vendor subscriptions" });
@@ -347,6 +348,17 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error updating vendor subscriptions:", error);
       res.status(500).json({ error: "Failed to update vendor subscriptions" });
+    }
+  });
+
+  app.delete("/api/vendor-subscriptions", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      await storage.resetUserSubscriptions(userId);
+      res.json({ success: true, message: "Reset to monitor all vendors" });
+    } catch (error) {
+      console.error("Error resetting vendor subscriptions:", error);
+      res.status(500).json({ error: "Failed to reset vendor subscriptions" });
     }
   });
 

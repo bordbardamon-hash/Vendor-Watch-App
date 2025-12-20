@@ -125,8 +125,17 @@ export async function dispatchIncidentNotification(notification: IncidentNotific
   const usersWithNotifications = await storage.getUsersWithNotificationsEnabled();
   
   for (const user of usersWithNotifications) {
+    const hasSetSubscriptions = await storage.hasUserSetSubscriptions(user.id);
     const userSubscriptions = await storage.getUserVendorSubscriptions(user.id);
-    const isSubscribed = userSubscriptions.length === 0 || userSubscriptions.includes(vendor.key);
+    
+    let isSubscribed: boolean;
+    if (!hasSetSubscriptions) {
+      isSubscribed = true;
+    } else if (userSubscriptions.length === 0) {
+      isSubscribed = false;
+    } else {
+      isSubscribed = userSubscriptions.includes(vendor.key);
+    }
     
     if (!isSubscribed) {
       continue;

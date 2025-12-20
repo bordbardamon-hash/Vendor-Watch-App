@@ -11,6 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import type { Vendor } from "@shared/schema";
 
 const EMAIL_CONSENT_TEXT = "I agree to receive vendor incident alerts and system notifications via email. I understand I can unsubscribe at any time by disabling email notifications in my settings.";
 const SMS_CONSENT_TEXT = "I agree to receive vendor incident alerts via SMS text messages. Message and data rates may apply. I understand I can opt out at any time by disabling SMS notifications in my settings or replying STOP.";
@@ -37,6 +38,98 @@ export default function Settings() {
       const res = await fetch("/api/email/config");
       if (!res.ok) throw new Error("Failed to fetch email config");
       return res.json();
+    },
+  });
+  
+  // Fetch all vendors for subscription selection
+  const { data: allVendors = [] } = useQuery<Vendor[]>({
+    queryKey: ["/api/vendors"],
+    queryFn: async () => {
+      const res = await fetch("/api/vendors");
+      if (!res.ok) throw new Error("Failed to fetch vendors");
+      return res.json();
+    },
+  });
+  
+  // Fetch user's vendor subscriptions
+  const { data: vendorSubscriptions, refetch: refetchSubscriptions } = useQuery<{ vendorKeys: string[]; hasSetSubscriptions: boolean }>({
+    queryKey: ["/api/vendor-subscriptions"],
+    queryFn: async () => {
+      const res = await fetch("/api/vendor-subscriptions");
+      if (!res.ok) throw new Error("Failed to fetch subscriptions");
+      return res.json();
+    },
+  });
+  
+  const [selectedVendors, setSelectedVendors] = useState<string[]>([]);
+  const [vendorsInitialized, setVendorsInitialized] = useState(false);
+  
+  // Sync vendor subscriptions from API - wait for both vendors and subscriptions to load
+  useEffect(() => {
+    if (vendorSubscriptions && allVendors.length > 0 && !vendorsInitialized) {
+      if (vendorSubscriptions.hasSetSubscriptions) {
+        setSelectedVendors(vendorSubscriptions.vendorKeys);
+      } else {
+        setSelectedVendors(allVendors.map(v => v.key));
+      }
+      setVendorsInitialized(true);
+    }
+  }, [vendorSubscriptions, vendorsInitialized, allVendors]);
+  
+  const saveVendorSubscriptions = useMutation({
+    mutationFn: async (vendorKeys: string[]) => {
+      const res = await fetch("/api/vendor-subscriptions", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vendorKeys }),
+      });
+      if (!res.ok) throw new Error("Failed to save subscriptions");
+      return res.json();
+    },
+    onSuccess: () => {
+      refetchSubscriptions();
+      queryClient.invalidateQueries({ queryKey: ["/api/my-vendors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/my-incidents"] });
+      toast({
+        title: "Vendor Subscriptions Saved",
+        description: "Your vendor monitoring preferences have been updated.",
+        className: "bg-emerald-500 border-emerald-500 text-white"
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Save Failed",
+        description: "Could not save vendor subscriptions.",
+        variant: "destructive"
+      });
+    },
+  });
+
+  const resetSubscriptions = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/vendor-subscriptions", {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to reset subscriptions");
+      return res.json();
+    },
+    onSuccess: () => {
+      refetchSubscriptions();
+      setVendorsInitialized(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/my-vendors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/my-incidents"] });
+      toast({
+        title: "Reset to Monitor All",
+        description: "You will now receive notifications for all vendors, including new ones.",
+        className: "bg-emerald-500 border-emerald-500 text-white"
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Reset Failed",
+        description: "Could not reset vendor subscriptions.",
+        variant: "destructive"
+      });
     },
   });
   
@@ -575,6 +668,114 @@ CONFIG = AppConfig(
                   ? "You will receive alerts via SMS only."
                   : "No notification channels are enabled. Enable at least one to receive alerts."}
               </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-sidebar-border bg-sidebar/30 backdrop-blur-sm hover-lift">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Shield className="w-5 h-5 text-primary" />
+                <CardTitle>Vendor Subscriptions</CardTitle>
+              </div>
+              <CardDescription>
+                Choose which vendors you want to monitor and receive notifications for.
+                {!vendorSubscriptions?.hasSetSubscriptions && (
+                  <span className="block mt-1 text-primary">You haven't set preferences yet - monitoring all vendors by default.</span>
+                )}
+                {vendorSubscriptions?.hasSetSubscriptions && selectedVendors.length === 0 && (
+                  <span className="block mt-1 text-amber-500">No vendors selected - you won't receive any notifications.</span>
+                )}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {allVendors.map((vendor) => (
+                  <div 
+                    key={vendor.key}
+                    className="flex items-center gap-3 p-3 rounded-lg border border-sidebar-border bg-background/50 hover:bg-background/80 transition-colors"
+                  >
+                    <Checkbox 
+                      id={`vendor-${vendor.key}`}
+                      checked={selectedVendors.includes(vendor.key)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedVendors(prev => [...prev, vendor.key]);
+                        } else {
+                          setSelectedVendors(prev => prev.filter(k => k !== vendor.key));
+                        }
+                      }}
+                      data-testid={`checkbox-vendor-${vendor.key}`}
+                    />
+                    <div className="flex flex-col">
+                      <Label htmlFor={`vendor-${vendor.key}`} className="text-sm font-medium cursor-pointer">
+                        {vendor.name}
+                      </Label>
+                      <span className="text-xs text-muted-foreground capitalize">
+                        {vendor.status === 'operational' ? '✓ Operational' : vendor.status}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              <div className="flex flex-col gap-4 pt-4 border-t border-sidebar-border">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-muted-foreground">
+                    {!vendorSubscriptions?.hasSetSubscriptions 
+                      ? "Monitoring all vendors (default)" 
+                      : selectedVendors.length === 0 
+                      ? "No vendors selected" 
+                      : `${selectedVendors.length} of ${allVendors.length} vendors selected`}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setSelectedVendors(allVendors.map(v => v.key))}
+                      data-testid="button-select-all-vendors"
+                    >
+                      Select All
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setSelectedVendors([])}
+                      data-testid="button-clear-vendors"
+                    >
+                      Clear All
+                    </Button>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground max-w-md">
+                    {vendorSubscriptions?.hasSetSubscriptions 
+                      ? "You have customized your vendor list. New vendors won't be added automatically."
+                      : "Monitoring all vendors includes any new vendors added in the future."}
+                  </p>
+                  <div className="flex gap-2">
+                    {vendorSubscriptions?.hasSetSubscriptions && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => resetSubscriptions.mutate()}
+                        disabled={resetSubscriptions.isPending}
+                        data-testid="button-reset-vendors"
+                      >
+                        Reset to Monitor All
+                      </Button>
+                    )}
+                    <Button 
+                      size="sm"
+                      onClick={() => saveVendorSubscriptions.mutate(selectedVendors)}
+                      disabled={saveVendorSubscriptions.isPending}
+                      data-testid="button-save-vendors"
+                    >
+                      <Save className="w-4 h-4 mr-2" />
+                      Save Custom Selection
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

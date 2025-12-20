@@ -61,6 +61,8 @@ export default function Dashboard() {
       return res.json();
     },
     onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/my-vendors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/my-incidents"] });
       queryClient.invalidateQueries({ queryKey: ["/api/vendors"] });
       queryClient.invalidateQueries({ queryKey: ["/api/incidents"] });
       if (data.synced > 0) {
@@ -79,18 +81,18 @@ export default function Dashboard() {
   }, [user]);
 
   const { data: vendors = [] } = useQuery({
-    queryKey: ["/api/vendors"],
+    queryKey: ["/api/my-vendors"],
     queryFn: async () => {
-      const res = await fetch("/api/vendors");
+      const res = await fetch("/api/my-vendors");
       if (!res.ok) return [];
       return res.json();
     },
   });
 
   const { data: incidents = [] } = useQuery({
-    queryKey: ["/api/incidents"],
+    queryKey: ["/api/my-incidents"],
     queryFn: async () => {
-      const res = await fetch("/api/incidents");
+      const res = await fetch("/api/my-incidents");
       if (!res.ok) return [];
       return res.json();
     },
