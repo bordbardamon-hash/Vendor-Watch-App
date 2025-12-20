@@ -31,6 +31,24 @@ const signupSchema = z.object({
   tier: z.enum(['standard', 'gold', 'platinum']).default('standard'),
 });
 
+// Admin-only middleware - requires isAuthenticated to run first
+const isAdmin = async (req: any, res: any, next: any) => {
+  try {
+    const userId = req.user?.claims?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    const user = await storage.getUser(userId);
+    if (!user?.isAdmin) {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+    next();
+  } catch (error) {
+    console.error("Admin check error:", error);
+    res.status(500).json({ error: "Failed to verify admin status" });
+  }
+};
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -179,10 +197,10 @@ export async function registerRoutes(
     }
   });
   
-  // ============ JOBS ============
+  // ============ JOBS (Admin Only) ============
   
-  // Get all jobs (protected)
-  app.get("/api/jobs", isAuthenticated, async (req, res) => {
+  // Get all jobs (admin only)
+  app.get("/api/jobs", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const jobs = await storage.getJobs();
       res.json(jobs);
@@ -192,8 +210,8 @@ export async function registerRoutes(
     }
   });
   
-  // Get job by id (protected)
-  app.get("/api/jobs/:id", isAuthenticated, async (req, res) => {
+  // Get job by id (admin only)
+  app.get("/api/jobs/:id", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const job = await storage.getJob(req.params.id);
       if (!job) {
@@ -206,8 +224,8 @@ export async function registerRoutes(
     }
   });
   
-  // Create job (protected)
-  app.post("/api/jobs", isAuthenticated, async (req, res) => {
+  // Create job (admin only)
+  app.post("/api/jobs", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const validatedData = insertJobSchema.parse(req.body);
       const job = await storage.createJob(validatedData);
@@ -218,8 +236,8 @@ export async function registerRoutes(
     }
   });
   
-  // Update job (protected)
-  app.patch("/api/jobs/:id", isAuthenticated, async (req, res) => {
+  // Update job (admin only)
+  app.patch("/api/jobs/:id", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const job = await storage.updateJob(req.params.id, req.body);
       if (!job) {
@@ -232,8 +250,8 @@ export async function registerRoutes(
     }
   });
   
-  // Delete job (protected)
-  app.delete("/api/jobs/:id", isAuthenticated, async (req, res) => {
+  // Delete job (admin only)
+  app.delete("/api/jobs/:id", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const success = await storage.deleteJob(req.params.id);
       if (!success) {
@@ -775,7 +793,8 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/consents", isAuthenticated, async (req: any, res) => {
+  // Get all consents (admin only - for viewing consent records)
+  app.get("/api/consents", isAuthenticated, isAdmin, async (req: any, res) => {
     try {
       const channel = req.query.channel as string | undefined;
       const limit = parseInt(req.query.limit as string) || 100;

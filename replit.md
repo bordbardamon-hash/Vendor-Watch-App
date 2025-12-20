@@ -126,3 +126,13 @@ The application monitors status pages for:
 - **UI**: Vendors page shows tier-appropriate dialog (request form for Gold, direct add for Platinum, upgrade prompt for Standard)
 - **Stripe Integration**: Price IDs configured via `STRIPE_PRICE_STANDARD`, `STRIPE_PRICE_GOLD`, `STRIPE_PRICE_PLATINUM` env vars
 - **Key Files**: `shared/schema.ts` (SUBSCRIPTION_TIERS constant), `server/routes.ts` (tier validation)
+
+### Admin-Only Features
+- **Field**: `users.isAdmin` boolean field (default false)
+- **Middleware**: `isAdmin` middleware in `server/routes.ts` checks user's admin status
+- **Admin-Only Pages**: Jobs, Logs, Consents tabs are hidden from sidebar for non-admins
+- **Admin-Only Routes**: 
+  - All `/api/jobs/*` endpoints require admin
+  - GET `/api/consents` (view all consents) requires admin
+- **User Access**: Users can still POST consents, view their own consents via `/api/consents/user`, and revoke their own
+- **UI**: `client/src/components/layout.tsx` filters navItems based on `user?.isAdmin`

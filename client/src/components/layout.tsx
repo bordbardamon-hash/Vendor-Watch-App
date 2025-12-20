@@ -37,13 +37,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   };
 
   const navItems = [
-    { href: "/", icon: LayoutDashboard, label: UI_LABELS.nav.overview },
-    { href: "/vendors", icon: Shield, label: UI_LABELS.nav.vendorsIncidents },
-    { href: "/jobs", icon: List, label: UI_LABELS.nav.scrapers },
-    { href: "/logs", icon: Terminal, label: UI_LABELS.nav.logs },
-    { href: "/consents", icon: FileCheck, label: "Consents" },
-    { href: "/settings", icon: Settings, label: UI_LABELS.nav.config },
+    { href: "/", icon: LayoutDashboard, label: UI_LABELS.nav.overview, adminOnly: false },
+    { href: "/vendors", icon: Shield, label: UI_LABELS.nav.vendorsIncidents, adminOnly: false },
+    { href: "/jobs", icon: List, label: UI_LABELS.nav.scrapers, adminOnly: true },
+    { href: "/logs", icon: Terminal, label: UI_LABELS.nav.logs, adminOnly: true },
+    { href: "/consents", icon: FileCheck, label: "Consents", adminOnly: true },
+    { href: "/settings", icon: Settings, label: UI_LABELS.nav.config, adminOnly: false },
   ];
+
+  // Filter out admin-only items for non-admin users
+  const visibleNavItems = navItems.filter(item => !item.adminOnly || user?.isAdmin);
 
   return (
     <div className="flex h-screen bg-background text-foreground font-sans overflow-hidden">
@@ -62,7 +65,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav className="flex-1 p-2 space-y-1">
-          {navItems.map((item, index) => (
+          {visibleNavItems.map((item, index) => (
             <Link key={item.href} href={item.href}>
               <div
                 className={cn(
