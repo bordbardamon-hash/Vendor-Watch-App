@@ -41,6 +41,7 @@ export default function Dashboard() {
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [emailAddress, setEmailAddress] = useState(user?.email || "");
   const [notifyOnIncidents, setNotifyOnIncidents] = useState(true);
+  const [notifyOnUpdates, setNotifyOnUpdates] = useState(true);
   const [notifyOnResolutions, setNotifyOnResolutions] = useState(true);
 
   const handleSaveEmail = () => {
@@ -114,6 +115,17 @@ export default function Dashboard() {
                 />
                 <Label htmlFor="notify-incidents" className="text-sm font-normal cursor-pointer">
                   Notify me when incidents are detected
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="notify-updates" 
+                  checked={notifyOnUpdates}
+                  onCheckedChange={(checked) => setNotifyOnUpdates(!!checked)}
+                  data-testid="checkbox-notify-updates"
+                />
+                <Label htmlFor="notify-updates" className="text-sm font-normal cursor-pointer">
+                  Notify me when incidents are updated
                 </Label>
               </div>
               <div className="flex items-center space-x-2">
