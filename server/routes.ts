@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertVendorSchema, insertIncidentSchema, insertJobSchema, insertConfigSchema, insertFeedbackSchema } from "@shared/schema";
+import { insertVendorSchema, insertIncidentSchema, insertJobSchema, insertConfigSchema, insertFeedbackSchema, insertNotificationConsentSchema } from "@shared/schema";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
 import { sendSMS } from "./twilioClient";
@@ -388,6 +388,167 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error sending test SMS:", error);
       res.status(500).json({ error: "Failed to send test SMS" });
+    }
+  });
+
+  // ============ CONSENT MANAGEMENT ============
+
+  app.post("/api/consents", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const consentData = {
+        userId: user.id,
+        userEmail: user.email || undefined,
+        channel: req.body.channel,
+        destination: req.body.destination,
+        consentText: req.body.consentText,
+        consentMethod: req.body.consentMethod || 'checkbox',
+        sourceContext: req.body.sourceContext || 'Dashboard',
+        ipAddress: req.headers['x-forwarded-for']?.toString() || req.socket.remoteAddress || null,
+        userAgent: req.headers['user-agent'] || null,
+      };
+
+      const validatedData = insertNotificationConsentSchema.parse(consentData);
+      const consent = await storage.recordConsent(validatedData);
+      res.status(201).json(consent);
+    } catch (error: any) {
+      console.error("Error recording consent:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: "Invalid consent data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to record consent" });
+    }
+  });
+
+  app.get("/api/consents", isAuthenticated, async (req: any, res) => {
+    try {
+      const channel = req.query.channel as string | undefined;
+      const limit = parseInt(req.query.limit as string) || 100;
+      const offset = parseInt(req.query.offset as string) || 0;
+      
+      const consents = await storage.getConsents({ channel, limit, offset });
+      const total = await storage.getConsentsCount();
+      
+      res.json({ consents, total, limit, offset });
+    } catch (error) {
+      console.error("Error fetching consents:", error);
+      res.status(500).json({ error: "Failed to fetch consents" });
+    }
+  });
+
+  app.get("/api/consents/user", isAuthenticated, async (req: any, res) => {
+    try {
+      const consents = await storage.getConsentsByUser(req.user.claims.sub);
+      res.json(consents);
+    } catch (error) {
+      console.error("Error fetching user consents:", error);
+      res.status(500).json({ error: "Failed to fetch consents" });
+    }
+  });
+
+  app.post("/api/consents/:id/revoke", isAuthenticated, async (req: any, res) => {
+    try {
+      const consent = await storage.revokeConsent(req.params.id);
+      if (!consent) {
+        return res.status(404).json({ error: "Consent not found" });
+      }
+      res.json(consent);
+    } catch (error) {
+      console.error("Error revoking consent:", error);
+      res.status(500).json({ error: "Failed to revoke consent" });
+    }
+  });
+
+  // ============ COMPLIANCE ENDPOINT (Token-protected for Twilio) ============
+  
+  app.get("/compliance/consents", async (req, res) => {
+    const token = req.query.token as string;
+    const expectedToken = process.env.COMPLIANCE_ACCESS_TOKEN;
+    
+    if (!expectedToken) {
+      return res.status(503).send("Compliance access not configured. Set COMPLIANCE_ACCESS_TOKEN environment variable.");
+    }
+    
+    if (token !== expectedToken) {
+      return res.status(401).send("Unauthorized: Invalid or missing access token");
+    }
+    
+    try {
+      const channel = req.query.channel as string | undefined;
+      const consents = await storage.getConsents({ channel, limit: 500 });
+      
+      const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Vendor Watch - Notification Consent Records</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 40px; background: #f5f5f5; }
+    h1 { color: #333; }
+    .info { background: #e3f2fd; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+    table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+    th { background: #333; color: white; }
+    tr:hover { background: #f9f9f9; }
+    .channel-sms { background: #e8f5e9; color: #2e7d32; padding: 2px 8px; border-radius: 4px; }
+    .channel-email { background: #e3f2fd; color: #1565c0; padding: 2px 8px; border-radius: 4px; }
+    .revoked { color: #d32f2f; }
+    .active { color: #2e7d32; }
+  </style>
+</head>
+<body>
+  <h1>Vendor Watch - Notification Consent Records</h1>
+  <div class="info">
+    <strong>Compliance Report</strong><br>
+    Generated: ${new Date().toISOString()}<br>
+    Total Records: ${consents.length}
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>User ID</th>
+        <th>User Email</th>
+        <th>Channel</th>
+        <th>Destination</th>
+        <th>Consent Text</th>
+        <th>Method</th>
+        <th>Source</th>
+        <th>IP Address</th>
+        <th>Consented At</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${consents.map(c => `
+        <tr>
+          <td>${c.id}</td>
+          <td>${c.userId}</td>
+          <td>${c.userEmail || '-'}</td>
+          <td><span class="channel-${c.channel}">${c.channel.toUpperCase()}</span></td>
+          <td>${c.destination}</td>
+          <td>${c.consentText}</td>
+          <td>${c.consentMethod}</td>
+          <td>${c.sourceContext}</td>
+          <td>${c.ipAddress || '-'}</td>
+          <td>${new Date(c.consentedAt).toISOString()}</td>
+          <td class="${c.revokedAt ? 'revoked' : 'active'}">${c.revokedAt ? 'Revoked ' + new Date(c.revokedAt).toISOString() : 'Active'}</td>
+        </tr>
+      `).join('')}
+    </tbody>
+  </table>
+</body>
+</html>`;
+      
+      res.setHeader('Content-Type', 'text/html');
+      res.send(html);
+    } catch (error) {
+      console.error("Error generating compliance report:", error);
+      res.status(500).send("Failed to generate compliance report");
     }
   });
 
