@@ -51,6 +51,7 @@ export default function Dashboard() {
           change="+2" 
           icon={Globe}
           trend="up"
+          primary
         />
         <MetricCard 
           title="Active Incidents" 
@@ -198,11 +199,15 @@ export default function Dashboard() {
   );
 }
 
-function MetricCard({ title, value, change, icon: Icon, trend, alert }: any) {
+function MetricCard({ title, value, change, icon: Icon, trend, alert, primary }: any) {
   return (
-    <Card className="border-sidebar-border bg-sidebar/50 backdrop-blur-sm">
+    <Card className={`backdrop-blur-sm ${
+      primary 
+        ? 'border-primary/35 bg-primary/5 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.12)]' 
+        : 'border-sidebar-border bg-sidebar/50'
+    }`}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
+        <CardTitle className={`text-sm font-medium ${primary ? 'text-foreground/85' : 'text-muted-foreground'}`}>
           {title}
         </CardTitle>
         <Icon className={`h-4 w-4 ${alert ? 'text-amber-500' : 'text-primary'}`} />
