@@ -60,16 +60,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav className="flex-1 p-2 space-y-1">
-          {navItems.map((item) => (
+          {navItems.map((item, index) => (
             <Link key={item.href} href={item.href}>
               <div
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors cursor-pointer",
+                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 cursor-pointer",
                   location === item.href
                     ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                    : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground",
-                  !sidebarOpen && "justify-center px-2"
+                    : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground hover:translate-x-1",
+                  !sidebarOpen && "justify-center px-2",
+                  "animate-slide-in-left opacity-0"
                 )}
+                style={{ animationDelay: `${index * 50}ms` }}
                 data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
               >
                 <item.icon size={18} className="shrink-0" />

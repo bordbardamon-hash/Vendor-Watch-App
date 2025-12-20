@@ -162,10 +162,11 @@ export default function Vendors() {
         <div className="col-span-12 lg:col-span-5 flex flex-col gap-4 overflow-hidden">
           <ScrollArea className="h-full pr-4">
             <div className="space-y-4">
-              {filteredVendors.map((vendor) => (
+              {filteredVendors.map((vendor, index) => (
                 <Card 
                   key={vendor.key}
-                  className={`cursor-pointer transition-all hover:bg-sidebar/50 border-sidebar-border ${selectedVendor?.key === vendor.key ? 'bg-sidebar border-primary/50 shadow-[0_0_15px_rgba(16,185,129,0.1)]' : 'bg-sidebar/20'}`}
+                  className={`cursor-pointer transition-all duration-200 hover:bg-sidebar/50 hover:-translate-y-0.5 border-sidebar-border animate-fade-in-up opacity-0 ${selectedVendor?.key === vendor.key ? 'bg-sidebar border-primary/50 shadow-[0_0_15px_rgba(16,185,129,0.1)]' : 'bg-sidebar/20'}`}
+                  style={{ animationDelay: `${index * 50}ms` }}
                   onClick={() => setSelectedVendor(vendor)}
                   data-testid={`card-vendor-${vendor.key}`}
                 >
@@ -207,7 +208,7 @@ export default function Vendors() {
         {/* Detail View */}
         <div className="col-span-12 lg:col-span-7 h-full">
           {selectedVendor ? (
-            <Card className="h-full border-sidebar-border bg-sidebar/10 flex flex-col">
+            <Card className="h-full border-sidebar-border bg-sidebar/10 flex flex-col animate-fade-in-scale">
               <CardHeader className="border-b border-sidebar-border bg-sidebar/20">
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">

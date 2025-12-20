@@ -155,8 +155,13 @@ export default function Jobs() {
       </div>
 
       <div className="grid gap-4">
-        {jobs.map((job) => (
-          <Card key={job.id} className="border-sidebar-border bg-sidebar/30 backdrop-blur-sm transition-all hover:bg-sidebar/50" data-testid={`card-job-${job.id}`}>
+        {jobs.map((job, index) => (
+          <Card 
+            key={job.id} 
+            className="border-sidebar-border bg-sidebar/30 backdrop-blur-sm transition-all duration-200 hover:bg-sidebar/50 hover:-translate-y-0.5 animate-fade-in-up opacity-0" 
+            style={{ animationDelay: `${index * 60}ms` }}
+            data-testid={`card-job-${job.id}`}
+          >
             <CardContent className="p-6 flex items-center justify-between">
               <div className="flex items-center gap-6">
                 <div className={`p-3 rounded-full ${job.status === 'running' ? 'bg-primary/20 text-primary animate-pulse' : 'bg-secondary text-muted-foreground'}`}>

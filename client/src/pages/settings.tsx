@@ -156,8 +156,8 @@ CONFIG = AppConfig(
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="general" className="space-y-6">
-          <Card className="border-sidebar-border bg-sidebar/30 backdrop-blur-sm">
+        <TabsContent value="general" className="space-y-6 animate-fade-in">
+          <Card className="border-sidebar-border bg-sidebar/30 backdrop-blur-sm hover-lift">
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Clock className="w-5 h-5 text-primary" />
@@ -203,8 +203,8 @@ CONFIG = AppConfig(
           </Card>
         </TabsContent>
 
-        <TabsContent value="notifications" className="space-y-6">
-          <Card className="border-sidebar-border bg-sidebar/30 backdrop-blur-sm">
+        <TabsContent value="notifications" className="space-y-6 animate-fade-in">
+          <Card className="border-sidebar-border bg-sidebar/30 backdrop-blur-sm hover-lift">
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Mail className="w-5 h-5 text-primary" />

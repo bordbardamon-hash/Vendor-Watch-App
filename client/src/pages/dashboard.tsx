@@ -328,7 +328,7 @@ export default function Dashboard() {
       </Dialog>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Link href="/vendors" data-testid="link-vendors-metric">
+        <Link href="/vendors" data-testid="link-vendors-metric" className="animate-fade-in-up opacity-0 stagger-1">
           <MetricCard 
             title={UI_LABELS.cards.monitoredVendors}
             value={vendorCount.toString()} 
@@ -338,7 +338,7 @@ export default function Dashboard() {
             clickable
           />
         </Link>
-        <Link href="/vendors" data-testid="link-incidents-metric">
+        <Link href="/vendors" data-testid="link-incidents-metric" className="animate-fade-in-up opacity-0 stagger-2">
           <MetricCard 
             title={UI_LABELS.cards.activeIncidents}
             value={incidentCount.toString()} 
@@ -349,24 +349,28 @@ export default function Dashboard() {
             clickable
           />
         </Link>
-        <MetricCard 
-          title={UI_LABELS.cards.dbSize}
-          value="12.4 MB" 
-          change="+0.2 MB" 
-          icon={Database}
-          trend="up"
-        />
-        <MetricCard 
-          title={UI_LABELS.cards.uptime}
-          value="4d 12h" 
-          change="" 
-          icon={Clock}
-          trend="neutral" 
-        />
+        <div className="animate-fade-in-up opacity-0 stagger-3">
+          <MetricCard 
+            title={UI_LABELS.cards.dbSize}
+            value="12.4 MB" 
+            change="+0.2 MB" 
+            icon={Database}
+            trend="up"
+          />
+        </div>
+        <div className="animate-fade-in-up opacity-0 stagger-4">
+          <MetricCard 
+            title={UI_LABELS.cards.uptime}
+            value="4d 12h" 
+            change="" 
+            icon={Clock}
+            trend="neutral" 
+          />
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-7">
-        <Card className="col-span-4 border-sidebar-border bg-sidebar/50 backdrop-blur-sm">
+        <Card className="col-span-4 border-sidebar-border bg-sidebar/50 backdrop-blur-sm animate-fade-in-up opacity-0 stagger-5">
           <CardHeader>
             <CardTitle>{UI_LABELS.cards.requestVolume24h}</CardTitle>
           </CardHeader>
@@ -417,9 +421,9 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <div className="col-span-3 space-y-4">
+        <div className="col-span-3 space-y-4 animate-fade-in-up opacity-0 stagger-6">
           {/* Main Loop Status */}
-          <Card className="border-sidebar-border bg-sidebar/50 backdrop-blur-sm">
+          <Card className="border-sidebar-border bg-sidebar/50 backdrop-blur-sm hover-lift">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                 <Terminal className="w-4 h-4" />
