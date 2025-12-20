@@ -558,6 +558,33 @@ export async function registerRoutes(
     }
   });
 
+  // Create customer portal session for subscription management
+  app.post("/api/subscription/portal", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      if (!user.stripeCustomerId) {
+        return res.status(400).json({ error: "No active subscription found. Please subscribe first." });
+      }
+
+      const stripe = await getUncachableStripeClient();
+      const returnUrl = `${req.protocol}://${req.get('host')}/settings`;
+      
+      const session = await stripe.billingPortal.sessions.create({
+        customer: user.stripeCustomerId,
+        return_url: returnUrl,
+      });
+
+      res.json({ url: session.url });
+    } catch (error) {
+      console.error("Error creating portal session:", error);
+      res.status(500).json({ error: "Failed to open subscription management portal" });
+    }
+  });
+
   // ============ CUSTOM VENDOR REQUESTS ============
   
   // Get user's custom vendor requests

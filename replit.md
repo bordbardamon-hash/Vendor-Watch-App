@@ -127,6 +127,22 @@ The application monitors status pages for:
 - **Stripe Integration**: Price IDs configured via `STRIPE_PRICE_STANDARD`, `STRIPE_PRICE_GOLD`, `STRIPE_PRICE_PLATINUM` env vars
 - **Key Files**: `shared/schema.ts` (SUBSCRIPTION_TIERS constant), `server/routes.ts` (tier validation)
 
+### User Notification Preferences
+- **Fields**: `users.notificationEmail` (separate from auth email), `users.phone`, `users.notifyEmail`, `users.notifySms`
+- **Routes**: `/api/notifications/preferences` (GET/PUT) - manage notification email, phone, and toggles
+- **Logic**: 
+  - `notificationEmail` is separate from auth email - user can change it without affecting login
+  - Falls back to auth email if `notificationEmail` is null
+  - Toggles allow users to unsubscribe from email/SMS without deleting contact info
+- **UI**: Settings > Notifications tab shows editable email and phone fields with clear subscribe/unsubscribe toggles
+- **Consent**: TCPA consent is recorded when user enables notifications
+
+### Subscription Management (Stripe Customer Portal)
+- **Route**: `/api/subscription/portal` (POST) - creates Stripe Billing Portal session
+- **Requirements**: User must have `stripeCustomerId` set (i.e., have an active subscription)
+- **Features**: Update payment method, view invoices, change plan, cancel subscription
+- **UI**: Settings > Notifications tab has "Manage My Subscription" button that opens Stripe portal
+
 ### Admin-Only Features
 - **Field**: `users.isAdmin` boolean field (default false)
 - **Middleware**: `isAdmin` middleware in `server/routes.ts` checks user's admin status

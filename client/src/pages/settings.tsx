@@ -746,6 +746,51 @@ CONFIG = AppConfig(
           <Card className="border-sidebar-border bg-sidebar/30 backdrop-blur-sm hover-lift">
             <CardHeader>
               <div className="flex items-center gap-2">
+                <Server className="w-5 h-5 text-primary" />
+                <CardTitle>Subscription Management</CardTitle>
+              </div>
+              <CardDescription>
+                Manage your plan, update payment methods, view billing history, or cancel your subscription.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Button 
+                variant="outline" 
+                onClick={async () => {
+                  try {
+                    const res = await fetch('/api/subscription/portal', { method: 'POST' });
+                    if (res.ok) {
+                      const data = await res.json();
+                      window.location.href = data.url;
+                    } else {
+                      const error = await res.json();
+                      toast({
+                        title: "Unable to Open Portal",
+                        description: error.error || "Could not access subscription management.",
+                        variant: "destructive"
+                      });
+                    }
+                  } catch {
+                    toast({
+                      title: "Error",
+                      description: "Could not connect to subscription management.",
+                      variant: "destructive"
+                    });
+                  }
+                }}
+                data-testid="button-manage-subscription"
+              >
+                Manage My Subscription
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Opens Stripe's secure portal where you can update your payment method, view invoices, change your plan, or cancel your subscription.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-sidebar-border bg-sidebar/30 backdrop-blur-sm hover-lift">
+            <CardHeader>
+              <div className="flex items-center gap-2">
                 <Shield className="w-5 h-5 text-primary" />
                 <CardTitle>Vendor Subscriptions</CardTitle>
               </div>
