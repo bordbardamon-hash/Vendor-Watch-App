@@ -21,7 +21,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const navItems = [
     { href: "/", icon: LayoutDashboard, label: "Overview" },
     { href: "/vendors", icon: Shield, label: "Vendors & Incidents" },
-    { href: "/jobs", icon: List, label: "Scrapers" },
+    { href: "/jobs", icon: List, label: "Monitors" },
     { href: "/logs", icon: Terminal, label: "Live Logs" },
     { href: "/settings", icon: Settings, label: "Configuration" },
   ];

@@ -73,7 +73,7 @@ export default function Dashboard() {
       <div className="grid gap-4 md:grid-cols-7">
         <Card className="col-span-4 border-sidebar-border bg-sidebar/50 backdrop-blur-sm">
           <CardHeader>
-            <CardTitle>Request Volume (24h)</CardTitle>
+            <CardTitle>Vendor Checks (24h)</CardTitle>
           </CardHeader>
           <CardContent className="pl-2">
             <div className="h-[300px] w-full">
