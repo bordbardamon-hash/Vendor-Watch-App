@@ -1,8 +1,8 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Play, Pause, Trash2, Clock, Globe, AlertCircle, RotateCw, FlaskConical, Code, ChevronRight, CheckCircle2, History } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Play, Pause, Trash2, Clock, Globe, AlertCircle, RotateCw, FlaskConical, CheckCircle2, History, Loader2 } from "lucide-react";
+import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,60 +12,87 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { stableHash } from "@/lib/hash";
 import { Switch } from "@/components/ui/switch";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
-const initialJobs = [
-  { id: 1, name: "Amazon Price Monitor", target: "amazon.com/products/tech", schedule: "Every 1h", status: "Running", lastRun: "10m ago", success: true, nextRun: 3600 },
-  { id: 2, name: "TechCrunch Scraper", target: "techcrunch.com", schedule: "Every 6h", status: "Idle", lastRun: "2h ago", success: true, nextRun: 14400 },
-  { id: 3, name: "Weather API Poll", target: "api.weather.com/v1", schedule: "Every 15m", status: "Failed", lastRun: "5m ago", success: false, nextRun: 900 },
-  { id: 4, name: "Twitter Sentiment", target: "twitter.com/search", schedule: "Daily", status: "Idle", lastRun: "1d ago", success: true, nextRun: 86400 },
-];
+interface Job {
+  id: string;
+  name: string;
+  target: string;
+  schedule: string;
+  status: string;
+  lastRun?: string | null;
+  nextRun?: string | null;
+  success: boolean;
+  createdAt: string;
+}
 
 export default function Jobs() {
-  const [jobs, setJobs] = useState(initialJobs);
   const [schedulerActive, setSchedulerActive] = useState(true);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  // Simulate scheduler loop
-  useEffect(() => {
-    if (!schedulerActive) return;
+  // Fetch jobs
+  const { data: jobs = [], isLoading } = useQuery<Job[]>({
+    queryKey: ["jobs"],
+    queryFn: async () => {
+      const res = await fetch("/api/jobs");
+      if (!res.ok) throw new Error("Failed to fetch jobs");
+      return res.json();
+    },
+  });
 
-    const interval = setInterval(() => {
-      setJobs(prevJobs => prevJobs.map(job => {
-        if (job.status !== "Running") return job;
-        
-        const newNextRun = job.nextRun > 0 ? job.nextRun - 1 : 10; // Reset to 10s for demo loop
-        
-        // Simulate job execution when timer hits 0
-        if (job.nextRun === 1) {
+  // Update job mutation
+  const updateJobMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<Job> }) => {
+      const res = await fetch(`/api/jobs/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Failed to update job");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+    },
+  });
+
+  // Delete job mutation
+  const deleteJobMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/jobs/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete job");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      toast({
+        title: "Job Deleted",
+        description: "Successfully deleted job",
+      });
+    },
+  });
+
+  const toggleStatus = (id: string, currentStatus: string) => {
+    const newStatus = currentStatus === "running" ? "idle" : "running";
+    updateJobMutation.mutate(
+      { id, data: { status: newStatus } },
+      {
+        onSuccess: () => {
           toast({
-            title: "Job Executed",
-            description: `Scheduled run for ${job.name} completed.`,
-            duration: 2000,
+            title: `Job ${newStatus === "running" ? "Started" : "Stopped"}`,
+            description: `Successfully ${newStatus === "running" ? "started" : "stopped"} job`,
           });
-        }
-        
-        return { ...job, nextRun: newNextRun };
-      }));
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [schedulerActive, toast]);
-
-  const toggleStatus = (id: number) => {
-    setJobs(jobs.map(job => {
-      if (job.id === id) {
-        const newStatus = job.status === "Running" ? "Idle" : "Running";
-        toast({
-          title: `Job ${newStatus === "Running" ? "Started" : "Stopped"}`,
-          description: `Successfully ${newStatus === "Running" ? "started" : "stopped"} ${job.name}`,
-        });
-        return { ...job, status: newStatus };
+        },
       }
-      return job;
-    }));
+    );
   };
 
-  const formatTime = (seconds: number) => {
+  const formatTime = (date: string | null | undefined) => {
+    if (!date) return "--:--:--";
+    const diff = new Date(date).getTime() - Date.now();
+    if (diff <= 0) return "Ready";
+    
+    const seconds = Math.floor(diff / 1000);
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
     const s = seconds % 60;
@@ -73,6 +100,28 @@ export default function Jobs() {
     if (m > 0) return `${m}m ${s}s`;
     return `${s}s`;
   };
+
+  const formatLastRun = (date: string | null | undefined) => {
+    if (!date) return "Never";
+    const diff = Date.now() - new Date(date).getTime();
+    const seconds = Math.floor(diff / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+    
+    if (days > 0) return `${days}d ago`;
+    if (hours > 0) return `${hours}h ago`;
+    if (minutes > 0) return `${minutes}m ago`;
+    return `${seconds}s ago`;
+  };
+
+  if (isLoading) {
+    return (
+      <div className="p-8 h-full flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-8 space-y-8 max-w-7xl mx-auto">
@@ -96,6 +145,7 @@ export default function Jobs() {
                 size="sm"
                 onClick={() => setSchedulerActive(!schedulerActive)}
                 className={!schedulerActive ? "bg-red-500/10 text-red-500 border-red-500/20" : ""}
+                data-testid="button-toggle-scheduler"
             >
                 {schedulerActive ? <Pause className="w-4 h-4 mr-2" /> : <Play className="w-4 h-4 mr-2" />}
                 {schedulerActive ? "Pause System" : "Resume System"}
@@ -106,17 +156,17 @@ export default function Jobs() {
 
       <div className="grid gap-4">
         {jobs.map((job) => (
-          <Card key={job.id} className="border-sidebar-border bg-sidebar/30 backdrop-blur-sm transition-all hover:bg-sidebar/50">
+          <Card key={job.id} className="border-sidebar-border bg-sidebar/30 backdrop-blur-sm transition-all hover:bg-sidebar/50" data-testid={`card-job-${job.id}`}>
             <CardContent className="p-6 flex items-center justify-between">
               <div className="flex items-center gap-6">
-                <div className={`p-3 rounded-full ${job.status === 'Running' ? 'bg-primary/20 text-primary animate-pulse' : 'bg-secondary text-muted-foreground'}`}>
-                  <RotateCw size={24} className={job.status === 'Running' ? 'animate-spin' : ''} />
+                <div className={`p-3 rounded-full ${job.status === 'running' ? 'bg-primary/20 text-primary animate-pulse' : 'bg-secondary text-muted-foreground'}`}>
+                  <RotateCw size={24} className={job.status === 'running' ? 'animate-spin' : ''} />
                 </div>
                 
                 <div className="space-y-1">
                   <div className="flex items-center gap-3">
-                    <h3 className="font-semibold text-lg">{job.name}</h3>
-                    <Badge variant={job.status === 'Running' ? 'default' : 'secondary'} className={job.status === 'Running' ? 'bg-primary/20 text-primary border-primary/20 hover:bg-primary/30' : ''}>
+                    <h3 className="font-semibold text-lg" data-testid={`text-job-name-${job.id}`}>{job.name}</h3>
+                    <Badge variant={job.status === 'running' ? 'default' : 'secondary'} className={job.status === 'running' ? 'bg-primary/20 text-primary border-primary/20 hover:bg-primary/30' : ''} data-testid={`badge-status-${job.id}`}>
                       {job.status}
                     </Badge>
                     {!job.success && (
@@ -128,6 +178,7 @@ export default function Jobs() {
                   <div className="flex items-center gap-4 text-sm text-muted-foreground font-mono">
                     <span className="flex items-center gap-1"><Globe size={12} /> {job.target}</span>
                     <span className="flex items-center gap-1"><Clock size={12} /> {job.schedule}</span>
+                    <span className="text-xs opacity-50">Last: {formatLastRun(job.lastRun)}</span>
                   </div>
                 </div>
               </div>
@@ -135,22 +186,29 @@ export default function Jobs() {
               <div className="flex items-center gap-6">
                 <div className="text-right">
                     <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Next Run In</p>
-                    <p className={`font-mono text-xl font-bold ${job.status === 'Running' ? 'text-primary' : 'text-muted-foreground opacity-50'}`}>
-                        {job.status === 'Running' ? formatTime(job.nextRun) : '--:--:--'}
+                    <p className={`font-mono text-xl font-bold ${job.status === 'running' ? 'text-primary' : 'text-muted-foreground opacity-50'}`}>
+                        {job.status === 'running' ? formatTime(job.nextRun) : '--:--:--'}
                     </p>
                 </div>
                 <div className="h-10 w-px bg-sidebar-border mx-2" />
                 <div className="flex items-center gap-3">
                     <Button 
-                    variant="outline" 
-                    size="icon"
-                    onClick={() => toggleStatus(job.id)}
-                    className="rounded-full hover:bg-primary/20 hover:text-primary border-sidebar-border"
+                      variant="outline" 
+                      size="icon"
+                      onClick={() => toggleStatus(job.id, job.status)}
+                      className="rounded-full hover:bg-primary/20 hover:text-primary border-sidebar-border"
+                      data-testid={`button-toggle-${job.id}`}
                     >
-                    {job.status === 'Running' ? <Pause size={16} /> : <Play size={16} />}
+                      {job.status === 'running' ? <Pause size={16} /> : <Play size={16} />}
                     </Button>
-                    <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full">
-                    <Trash2 size={16} />
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full"
+                      onClick={() => deleteJobMutation.mutate(job.id)}
+                      data-testid={`button-delete-${job.id}`}
+                    >
+                      <Trash2 size={16} />
                     </Button>
                 </div>
               </div>
@@ -164,6 +222,7 @@ export default function Jobs() {
 
 function NewJobDialog() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("configure");
   const [testUrl, setTestUrl] = useState("");
   const [isTesting, setIsTesting] = useState(false);
@@ -172,32 +231,54 @@ function NewJobDialog() {
   const [simulateChange, setSimulateChange] = useState(false);
   const [changeStatus, setChangeStatus] = useState<string | null>(null);
   const [alertPreview, setAlertPreview] = useState<{subject: string, body: string} | null>(null);
+  const [formData, setFormData] = useState({
+    name: "",
+    target: "",
+    schedule: "Every 1h",
+  });
+
+  // Create job mutation
+  const createJobMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await fetch("/api/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...data,
+          status: "idle",
+          success: true,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to create job");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      toast({
+        title: "Job Created",
+        description: "New scraping job has been added to the queue.",
+      });
+      setFormData({ name: "", target: "", schedule: "Every 1h" });
+    },
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Job Created",
-      description: "New scraping job has been added to the queue.",
-    });
+    createJobMutation.mutate(formData);
   };
 
   const handleTestScrape = async () => {
     if (!testUrl) return;
     
-    // Store previous result if exists
     if (testResult) {
       setLastResult(testResult);
     }
     
     setIsTesting(true);
-    // Do not clear testResult immediately so we don't flash empty screen, but we will replace it.
     
-    // Simulate network delay
     setTimeout(async () => {
-      // Base mock text
       let mockText = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Status Update: System is fully operational as of today.";
       
-      // If simulate change is checked, modify the text
       if (simulateChange) {
         mockText += " [UPDATED: Service degradation detected in eu-west-1]";
       }
@@ -218,7 +299,6 @@ function NewJobDialog() {
 
       setTestResult([result]);
       
-      // Perform Detection Logic
       if (lastResult && lastResult[0]) {
         const oldHash = lastResult[0].raw_hash;
         if (oldHash !== rawHash) {
@@ -252,7 +332,7 @@ function NewJobDialog() {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
+        <Button className="bg-primary text-primary-foreground hover:bg-primary/90" data-testid="button-new-job">
           + New Scraper Job
         </Button>
       </DialogTrigger>
@@ -274,40 +354,48 @@ function NewJobDialog() {
             <form onSubmit={handleSubmit} className="grid gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="name">Job Name</Label>
-                <Input id="name" placeholder="e.g. Price Monitor" className="bg-background" />
+                <Input 
+                  id="name" 
+                  placeholder="e.g. Price Monitor" 
+                  className="bg-background" 
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  data-testid="input-job-name"
+                />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="url">Target URL</Label>
-                <Input id="url" placeholder="https://..." className="bg-background" />
+                <Input 
+                  id="url" 
+                  placeholder="https://..." 
+                  className="bg-background" 
+                  value={formData.target}
+                  onChange={(e) => setFormData({ ...formData, target: e.target.value })}
+                  data-testid="input-job-target"
+                />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="schedule">Schedule</Label>
-                  <Select defaultValue="hourly">
+                  <Select 
+                    value={formData.schedule}
+                    onValueChange={(value) => setFormData({ ...formData, schedule: value })}
+                  >
                     <SelectTrigger className="bg-background">
                       <SelectValue placeholder="Select" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="hourly">Hourly</SelectItem>
-                      <SelectItem value="daily">Daily</SelectItem>
-                      <SelectItem value="weekly">Weekly</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="method">Method</Label>
-                  <Select defaultValue="get">
-                    <SelectTrigger className="bg-background">
-                      <SelectValue placeholder="Select" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="get">GET</SelectItem>
-                      <SelectItem value="post">POST</SelectItem>
+                      <SelectItem value="Every 5m">Every 5m</SelectItem>
+                      <SelectItem value="Every 10m">Every 10m</SelectItem>
+                      <SelectItem value="Every 1h">Hourly</SelectItem>
+                      <SelectItem value="Every 6h">Every 6h</SelectItem>
+                      <SelectItem value="Daily">Daily</SelectItem>
+                      <SelectItem value="Weekly">Weekly</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
-              <Button type="submit" className="mt-4 w-full">Create Job</Button>
+              <Button type="submit" className="mt-4 w-full" data-testid="button-submit-job">Create Job</Button>
             </form>
           </TabsContent>
 
@@ -322,8 +410,9 @@ function NewJobDialog() {
                     className="bg-background font-mono text-sm"
                     value={testUrl}
                     onChange={(e) => setTestUrl(e.target.value)}
+                    data-testid="input-test-url"
                   />
-                  <Button onClick={handleTestScrape} disabled={isTesting || !testUrl}>
+                  <Button onClick={handleTestScrape} disabled={isTesting || !testUrl} data-testid="button-run-test">
                     {isTesting ? <RotateCw className="w-4 h-4 animate-spin" /> : <FlaskConical className="w-4 h-4" />}
                     <span className="ml-2">Run Test</span>
                   </Button>

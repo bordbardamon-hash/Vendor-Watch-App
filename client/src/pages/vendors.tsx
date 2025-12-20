@@ -3,7 +3,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { 
   Shield, 
   AlertTriangle, 
@@ -13,140 +12,63 @@ import {
   Activity,
   Server,
   Code,
-  Hash
+  Hash,
+  Loader2
 } from "lucide-react";
-import { useState, useEffect } from "react";
-import { stableHash } from "@/lib/hash";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 
-// Types matching the Python dataclasses
 interface Vendor {
+  id: string;
   key: string;
   name: string;
   statusUrl: string;
   parser: string;
-  status: 'operational' | 'degraded' | 'outage';
+  status: string;
+  lastChecked?: string;
+  createdAt: string;
 }
 
 interface Incident {
+  id: string;
   vendorKey: string;
   incidentId: string;
   title: string;
   status: string;
-  severity: 'critical' | 'major' | 'minor' | 'maintenance';
+  severity: string;
   impact: string;
   url: string;
   startedAt: string;
   updatedAt: string;
   rawHash?: string;
+  createdAt: string;
 }
-
-const mockVendors: Vendor[] = [
-  { 
-    key: "atlassian", 
-    name: "Atlassian", 
-    statusUrl: "https://status.atlassian.com", 
-    parser: "parsers.statuspage.Standard",
-    status: 'operational'
-  },
-  { 
-    key: "cloudflare", 
-    name: "Cloudflare", 
-    statusUrl: "https://www.cloudflarestatus.com", 
-    parser: "parsers.statuspage.Standard",
-    status: 'operational'
-  },
-  { 
-    key: "aws-us-east-1", 
-    name: "AWS US-East-1", 
-    statusUrl: "https://health.aws.amazon.com", 
-    parser: "parsers.aws.HealthDashboard",
-    status: 'degraded'
-  },
-// ... (rest of mockVendors remains same)
-  { 
-    key: "github", 
-    name: "GitHub", 
-    statusUrl: "https://www.githubstatus.com", 
-    parser: "parsers.statuspage.Standard",
-    status: 'operational'
-  },
-  { 
-    key: "stripe", 
-    name: "Stripe API", 
-    statusUrl: "https://status.stripe.com", 
-    parser: "parsers.statuspage.Standard",
-    status: 'operational'
-  },
-  { 
-    key: "openai", 
-    name: "OpenAI API", 
-    statusUrl: "https://status.openai.com", 
-    parser: "parsers.statuspage.Standard",
-    status: 'outage'
-  },
-  { 
-    key: "vercel", 
-    name: "Vercel", 
-    statusUrl: "https://www.vercel-status.com", 
-    parser: "parsers.statuspage.Standard",
-    status: 'operational'
-  }
-];
-
-const mockIncidents: Incident[] = [
-  {
-    vendorKey: "aws-us-east-1",
-    incidentId: "inc-12345",
-    title: "Increased Error Rates for EC2 Instances",
-    status: "Investigating",
-    severity: "major",
-    impact: "EC2 API calls may fail in us-east-1 region",
-    url: "https://health.aws.amazon.com/issue/123",
-    startedAt: "2024-03-21 10:30:00 UTC",
-    updatedAt: "2024-03-21 11:15:00 UTC"
-  },
-  {
-    vendorKey: "openai",
-    incidentId: "inc-99887",
-    title: "API Latency and Timeouts",
-    status: "Identified",
-    severity: "critical",
-    impact: "All API models experiencing high latency",
-    url: "https://status.openai.com/incidents/xyz",
-    startedAt: "2024-03-21 09:00:00 UTC",
-    updatedAt: "2024-03-21 09:45:00 UTC"
-  },
-  {
-    vendorKey: "github",
-    incidentId: "inc-github-1",
-    title: "Webhook delivery delays",
-    status: "Resolved",
-    severity: "minor",
-    impact: "Webhooks may be delayed by up to 5 minutes",
-    url: "https://githubstatus.com/incidents/1",
-    startedAt: "2024-03-20 14:00:00 UTC",
-    updatedAt: "2024-03-20 15:30:00 UTC"
-  }
-];
 
 export default function Vendors() {
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [incidents, setIncidents] = useState<Incident[]>(mockIncidents);
 
-  // Generate hashes for mock incidents on load
-  useEffect(() => {
-    const enrichIncidents = async () => {
-      const enriched = await Promise.all(mockIncidents.map(async (inc) => ({
-        ...inc,
-        rawHash: await stableHash(inc.vendorKey + inc.incidentId + inc.title)
-      })));
-      setIncidents(enriched);
-    };
-    enrichIncidents();
-  }, []);
+  // Fetch vendors
+  const { data: vendors = [], isLoading: vendorsLoading } = useQuery<Vendor[]>({
+    queryKey: ["vendors"],
+    queryFn: async () => {
+      const res = await fetch("/api/vendors");
+      if (!res.ok) throw new Error("Failed to fetch vendors");
+      return res.json();
+    },
+  });
 
-  const filteredVendors = mockVendors.filter(v => 
+  // Fetch all incidents
+  const { data: incidents = [] } = useQuery<Incident[]>({
+    queryKey: ["incidents"],
+    queryFn: async () => {
+      const res = await fetch("/api/incidents");
+      if (!res.ok) throw new Error("Failed to fetch incidents");
+      return res.json();
+    },
+  });
+
+  const filteredVendors = vendors.filter(v => 
     v.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     v.key.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -155,9 +77,8 @@ export default function Vendors() {
     return incidents.filter(i => i.vendorKey === vendorKey);
   };
 
-
   const getSeverityColor = (severity: string) => {
-    switch(severity) {
+    switch(severity.toLowerCase()) {
       case 'critical': return 'bg-red-500/10 text-red-500 border-red-500/20';
       case 'major': return 'bg-orange-500/10 text-orange-500 border-orange-500/20';
       case 'minor': return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20';
@@ -165,14 +86,13 @@ export default function Vendors() {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch(status) {
-      case 'operational': return 'text-emerald-500';
-      case 'degraded': return 'text-orange-500';
-      case 'outage': return 'text-red-500';
-      default: return 'text-muted-foreground';
-    }
-  };
+  if (vendorsLoading) {
+    return (
+      <div className="p-8 h-full flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-8 space-y-8 h-full flex flex-col">
@@ -189,9 +109,10 @@ export default function Vendors() {
               className="pl-8 bg-sidebar border-sidebar-border" 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              data-testid="input-search-vendors"
             />
           </div>
-          <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
+          <Button className="bg-primary text-primary-foreground hover:bg-primary/90" data-testid="button-add-vendor">
             + Add Vendor
           </Button>
         </div>
@@ -207,14 +128,19 @@ export default function Vendors() {
                   key={vendor.key}
                   className={`cursor-pointer transition-all hover:bg-sidebar/50 border-sidebar-border ${selectedVendor?.key === vendor.key ? 'bg-sidebar border-primary/50 shadow-[0_0_15px_rgba(16,185,129,0.1)]' : 'bg-sidebar/20'}`}
                   onClick={() => setSelectedVendor(vendor)}
+                  data-testid={`card-vendor-${vendor.key}`}
                 >
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <Shield className="w-4 h-4 text-muted-foreground" />
-                        <span className="font-semibold">{vendor.name}</span>
+                        <span className="font-semibold" data-testid={`text-vendor-name-${vendor.key}`}>{vendor.name}</span>
                       </div>
-                      <Badge variant="outline" className={`bg-transparent border ${vendor.status === 'operational' ? 'border-emerald-500/30 text-emerald-500' : vendor.status === 'degraded' ? 'border-orange-500/30 text-orange-500' : 'border-red-500/30 text-red-500'}`}>
+                      <Badge 
+                        variant="outline" 
+                        className={`bg-transparent border ${vendor.status === 'operational' ? 'border-emerald-500/30 text-emerald-500' : vendor.status === 'degraded' ? 'border-orange-500/30 text-orange-500' : 'border-red-500/30 text-red-500'}`}
+                        data-testid={`badge-status-${vendor.key}`}
+                      >
                         {vendor.status}
                       </Badge>
                     </div>
@@ -270,7 +196,7 @@ export default function Vendors() {
                   {getVendorIncidents(selectedVendor.key).length > 0 ? (
                     <div className="space-y-4">
                       {getVendorIncidents(selectedVendor.key).map((incident) => (
-                        <div key={incident.incidentId} className="border border-sidebar-border rounded-lg bg-background/50 p-4 transition-all hover:border-primary/30">
+                        <div key={incident.id} className="border border-sidebar-border rounded-lg bg-background/50 p-4 transition-all hover:border-primary/30" data-testid={`card-incident-${incident.incidentId}`}>
                           <div className="flex items-start justify-between mb-2">
                             <h4 className="font-semibold text-lg">{incident.title}</h4>
                             <Badge className={getSeverityColor(incident.severity)}>
@@ -317,7 +243,7 @@ export default function Vendors() {
                       <span className="text-primary">endpoint:</span>
                       <span>{selectedVendor.statusUrl}</span>
                       <span className="text-primary">last_sync:</span>
-                      <span>{new Date().toISOString()}</span>
+                      <span>{selectedVendor.lastChecked || 'Never'}</span>
                     </div>
                   </div>
                 </div>
