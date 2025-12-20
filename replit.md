@@ -74,3 +74,20 @@ The application monitors status pages for:
 - Custom Vite plugins for dev banner and cartographer
 - Meta images plugin for OpenGraph tags
 - Runtime error overlay for development
+
+### Email Notifications (Resend)
+- **Provider**: Resend API (not using Replit integration - user preference)
+- **API Key**: Stored in `RESEND_API_KEY` environment secret
+- **From Email**: Configurable via Settings page, stored in database config (`email_from` key)
+- **Routes**: `/api/email/config` (GET/PUT), `/api/email/test` (POST)
+- **Client**: `server/emailClient.ts` - uses Resend API directly
+
+### SMS Notifications (Twilio)
+- **Provider**: Twilio via Replit integration
+- **Routes**: `/api/sms/test` for testing
+
+### Notification System
+- **Dispatcher**: `server/notificationDispatcher.ts` - sends alerts on incident create/update/resolve
+- **Alert Tracking**: `incident_alerts` table prevents duplicate notifications
+- **Consent**: TCPA-compliant consent tracking in `notification_consents` table
+- **Compliance Endpoint**: `/compliance/consents?token=COMPLIANCE_ACCESS_TOKEN`

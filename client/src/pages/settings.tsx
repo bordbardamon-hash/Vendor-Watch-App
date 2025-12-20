@@ -30,6 +30,16 @@ export default function Settings() {
     },
   });
   
+  // Fetch email config
+  const { data: emailConfig, refetch: refetchEmailConfig } = useQuery({
+    queryKey: ["/api/email/config"],
+    queryFn: async () => {
+      const res = await fetch("/api/email/config");
+      if (!res.ok) throw new Error("Failed to fetch email config");
+      return res.json();
+    },
+  });
+  
   // State for configuration
   const [config, setConfig] = useState({
     monitorInterval: "10",
@@ -50,6 +60,14 @@ export default function Settings() {
   const [smsConsentChecked, setSmsConsentChecked] = useState(false);
   const [originalEmailEnabled, setOriginalEmailEnabled] = useState<boolean | null>(null);
   const [originalSmsEnabled, setOriginalSmsEnabled] = useState<boolean | null>(null);
+  const [fromEmail, setFromEmail] = useState("");
+  
+  // Sync email config from API
+  useEffect(() => {
+    if (emailConfig?.fromEmail) {
+      setFromEmail(emailConfig.fromEmail);
+    }
+  }, [emailConfig]);
 
   // Sync notification prefs from API
   useEffect(() => {
@@ -281,97 +299,119 @@ CONFIG = AppConfig(
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Mail className="w-5 h-5 text-primary" />
-                <CardTitle>SMTP Configuration</CardTitle>
+                <CardTitle>Email Configuration (Resend)</CardTitle>
               </div>
               <CardDescription>
-                Configure email alerts for failed jobs and system critical events.
+                Configure email notifications using Resend. API key is managed securely via environment.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="smtp-host">SMTP Host</Label>
-                  <Input 
-                    id="smtp-host" 
-                    value={config.smtpHost}
-                    onChange={(e) => updateConfig('smtpHost', e.target.value)}
-                    className="bg-background" 
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="smtp-port">SMTP Port</Label>
-                  <Input 
-                    id="smtp-port" 
-                    value={config.smtpPort}
-                    onChange={(e) => updateConfig('smtpPort', e.target.value)}
-                    className="bg-background" 
-                  />
-                </div>
+              <div className="flex items-center gap-2 text-sm">
+                {emailConfig?.configured ? (
+                  <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
+                    <CheckCircle2 className="w-3 h-3 mr-1" /> API Key Configured
+                  </Badge>
+                ) : (
+                  <Badge variant="destructive" className="bg-red-500/20 text-red-400 border-red-500/30">
+                    API Key Not Set
+                  </Badge>
+                )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="smtp-user">SMTP User</Label>
-                  <Input 
-                    id="smtp-user" 
-                    value={config.smtpUser}
-                    onChange={(e) => updateConfig('smtpUser', e.target.value)}
-                    className="bg-background" 
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="smtp-pass">SMTP Password</Label>
-                  <Input 
-                    id="smtp-pass" 
-                    type="password" 
-                    value={config.smtpPass}
-                    onChange={(e) => updateConfig('smtpPass', e.target.value)}
-                    className="bg-background" 
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2 pt-2 border-t border-sidebar-border">
-                <Label htmlFor="alert-to">Alert Recipient</Label>
+              <div className="space-y-2">
+                <Label htmlFor="from-email">Sender Email Address</Label>
                 <Input 
-                  id="alert-to" 
-                  value={config.alertTo}
-                  onChange={(e) => updateConfig('alertTo', e.target.value)}
-                  className="bg-background" 
+                  id="from-email" 
+                  placeholder="notifications@yourdomain.com"
+                  value={fromEmail}
+                  onChange={(e) => setFromEmail(e.target.value)}
+                  className="bg-background max-w-[400px]" 
+                  data-testid="input-from-email"
                 />
                 <p className="text-[0.8rem] text-muted-foreground">
-                  Where to send critical system alerts (ALERT_TO).
+                  The "From" address for all email notifications. Must be verified in your Resend account.
                 </p>
               </div>
 
-              <div className="flex items-center justify-between space-x-2 pt-2">
+              <div className="flex items-center gap-2 pt-2">
+                <Button variant="secondary" size="sm" onClick={async () => {
+                  if (!fromEmail) {
+                    toast({
+                      title: "Email Required",
+                      description: "Please enter a sender email address first.",
+                      variant: "destructive"
+                    });
+                    return;
+                  }
+                  try {
+                    const res = await fetch('/api/email/config', {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ fromEmail })
+                    });
+                    if (res.ok) {
+                      refetchEmailConfig();
+                      toast({
+                        title: "Email Settings Saved",
+                        description: `Sender address updated to ${fromEmail}`,
+                        className: "bg-emerald-500 border-emerald-500 text-white"
+                      });
+                    } else {
+                      throw new Error("Failed to save");
+                    }
+                  } catch {
+                    toast({
+                      title: "Save Failed",
+                      description: "Could not save email settings.",
+                      variant: "destructive"
+                    });
+                  }
+                }} data-testid="button-save-email-config">
+                  <Save className="w-4 h-4 mr-2" /> Save Email Settings
+                </Button>
+                <Button variant="outline" size="sm" onClick={async () => {
+                  toast({
+                    title: "Sending Test Email...",
+                    description: "Sending to your account email...",
+                  });
+                  try {
+                    const res = await fetch('/api/email/test', { method: 'POST' });
+                    if (res.ok) {
+                      toast({
+                        title: "Test Email Sent",
+                        description: "Check your inbox for the test message.",
+                        className: "bg-emerald-500 border-emerald-500 text-white"
+                      });
+                    } else {
+                      const error = await res.json();
+                      toast({
+                        title: "Test Failed",
+                        description: error.error || "Could not send test email.",
+                        variant: "destructive"
+                      });
+                    }
+                  } catch {
+                    toast({
+                      title: "Test Failed",
+                      description: "Could not send test email.",
+                      variant: "destructive"
+                    });
+                  }
+                }} data-testid="button-test-email">
+                  Test Email
+                </Button>
+              </div>
+
+              <div className="flex items-center justify-between space-x-2 pt-4 border-t border-sidebar-border">
                 <div className="flex flex-col space-y-1">
                   <Label htmlFor="email-enabled" className="font-medium">Enable Email Alerts</Label>
-                  <span className="text-xs text-muted-foreground">Send notifications on job failure.</span>
+                  <span className="text-xs text-muted-foreground">Receive incident notifications via email.</span>
                 </div>
-                <div className="flex items-center gap-4">
-                   <Button variant="secondary" size="sm" onClick={() => {
-                     toast({
-                       title: "Sending Test Email...",
-                       description: `Connecting to ${config.smtpHost}:${config.smtpPort}...`,
-                     });
-                     setTimeout(() => {
-                       toast({
-                         title: "Email Sent",
-                         description: `Test alert successfully sent to ${config.alertTo}`,
-                         variant: "default",
-                         className: "bg-emerald-500 border-emerald-500 text-white"
-                       });
-                     }, 2000);
-                   }}>
-                     Test Connection
-                   </Button>
-                   <Switch 
-                     id="email-enabled" 
-                     checked={config.enableEmail}
-                     onCheckedChange={(c) => updateConfig('enableEmail', c)}
-                   />
-                </div>
+                <Switch 
+                  id="email-enabled" 
+                  checked={config.enableEmail}
+                  onCheckedChange={(c) => updateConfig('enableEmail', c)}
+                />
               </div>
 
               {isEnablingEmail && (

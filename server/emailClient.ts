@@ -1,59 +1,10 @@
-import nodemailer from 'nodemailer';
 import { storage } from './storage';
 
-let transporter: nodemailer.Transporter | null = null;
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
 
-async function getSmtpConfig(): Promise<{
-  host: string;
-  port: number;
-  user: string;
-  pass: string;
-  from: string;
-} | null> {
-  try {
-    const hostConfig = await storage.getConfig('smtp_host');
-    const portConfig = await storage.getConfig('smtp_port');
-    const userConfig = await storage.getConfig('smtp_user');
-    const passConfig = await storage.getConfig('smtp_pass');
-    const fromConfig = await storage.getConfig('smtp_from');
-    
-    if (!hostConfig || !userConfig || !passConfig) {
-      return null;
-    }
-    
-    return {
-      host: hostConfig.value,
-      port: parseInt(portConfig?.value || '587'),
-      user: userConfig.value,
-      pass: passConfig.value,
-      from: fromConfig?.value || userConfig.value,
-    };
-  } catch (error) {
-    console.error('[email] Failed to get SMTP config:', error);
-    return null;
-  }
-}
-
-async function getTransporter(): Promise<nodemailer.Transporter | null> {
-  if (transporter) return transporter;
-  
-  const config = await getSmtpConfig();
-  if (!config) {
-    console.warn('[email] SMTP not configured. Email notifications disabled.');
-    return null;
-  }
-  
-  transporter = nodemailer.createTransport({
-    host: config.host,
-    port: config.port,
-    secure: config.port === 465,
-    auth: {
-      user: config.user,
-      pass: config.pass,
-    },
-  });
-  
-  return transporter;
+async function getFromEmail(): Promise<string> {
+  const fromConfig = await storage.getConfig('email_from');
+  return fromConfig?.value || 'notifications@resend.dev';
 }
 
 export async function sendEmail(
@@ -62,25 +13,37 @@ export async function sendEmail(
   htmlBody: string,
   textBody?: string
 ): Promise<boolean> {
+  if (!RESEND_API_KEY) {
+    console.log(`[email] Resend not configured. Would send to ${to}: ${subject}`);
+    return false;
+  }
+
   try {
-    const transport = await getTransporter();
-    if (!transport) {
-      console.log(`[email] SMTP not configured. Would send to ${to}: ${subject}`);
+    const fromEmail = await getFromEmail();
+    
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: `Vendor Watch <${fromEmail}>`,
+        to: [to],
+        subject,
+        html: htmlBody,
+        text: textBody || htmlBody.replace(/<[^>]*>/g, ''),
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('[email] Resend error:', error);
       return false;
     }
-    
-    const config = await getSmtpConfig();
-    if (!config) return false;
-    
-    await transport.sendMail({
-      from: `"Vendor Watch" <${config.from}>`,
-      to,
-      subject,
-      text: textBody || htmlBody.replace(/<[^>]*>/g, ''),
-      html: htmlBody,
-    });
-    
-    console.log(`[email] Email sent to ${to}: ${subject}`);
+
+    const result = await response.json();
+    console.log(`[email] Email sent via Resend to ${to}: ${subject} (id: ${result.id})`);
     return true;
   } catch (error) {
     console.error('[email] Failed to send email:', error);
@@ -88,6 +51,14 @@ export async function sendEmail(
   }
 }
 
-export function isEmailConfigured(): Promise<boolean> {
-  return getSmtpConfig().then(config => !!config);
+export async function isEmailConfigured(): Promise<boolean> {
+  return !!RESEND_API_KEY;
+}
+
+export async function getEmailConfig(): Promise<{ configured: boolean; fromEmail: string }> {
+  const fromEmail = await getFromEmail();
+  return {
+    configured: !!RESEND_API_KEY,
+    fromEmail,
+  };
 }

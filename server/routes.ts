@@ -263,6 +263,63 @@ export async function registerRoutes(
     }
   });
 
+  // ============ EMAIL CONFIGURATION ============
+
+  // Get email config (protected)
+  app.get("/api/email/config", isAuthenticated, async (req, res) => {
+    try {
+      const fromConfig = await storage.getConfig('email_from');
+      res.json({
+        configured: !!process.env.RESEND_API_KEY,
+        fromEmail: fromConfig?.value || 'notifications@resend.dev',
+      });
+    } catch (error) {
+      console.error("Error fetching email config:", error);
+      res.status(500).json({ error: "Failed to fetch email config" });
+    }
+  });
+
+  // Update email from address (protected)
+  app.put("/api/email/config", isAuthenticated, async (req, res) => {
+    try {
+      const { fromEmail } = req.body;
+      if (!fromEmail || typeof fromEmail !== 'string') {
+        return res.status(400).json({ error: "fromEmail is required" });
+      }
+      await storage.setConfig('email_from', fromEmail);
+      res.json({ success: true, fromEmail });
+    } catch (error) {
+      console.error("Error updating email config:", error);
+      res.status(500).json({ error: "Failed to update email config" });
+    }
+  });
+
+  // Test email (protected)
+  app.post("/api/email/test", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.email) {
+        return res.status(400).json({ error: "No email address on your account" });
+      }
+      
+      const { sendEmail } = await import('./emailClient');
+      const success = await sendEmail(
+        user.email,
+        'Vendor Watch - Test Email',
+        `<h1>Test Email</h1><p>This is a test email from Vendor Watch to confirm your email notifications are working correctly.</p><p>If you received this, your email alerts are configured properly!</p>`
+      );
+      
+      if (success) {
+        res.json({ success: true, message: `Test email sent to ${user.email}` });
+      } else {
+        res.status(500).json({ error: "Failed to send test email. Check Resend API key configuration." });
+      }
+    } catch (error) {
+      console.error("Error sending test email:", error);
+      res.status(500).json({ error: "Failed to send test email" });
+    }
+  });
+
   // ============ STRIPE / SIGNUP ============
 
   app.get("/api/stripe/publishable-key", async (_req, res) => {
