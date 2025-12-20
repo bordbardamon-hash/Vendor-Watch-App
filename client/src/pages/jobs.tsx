@@ -1,13 +1,16 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Play, Pause, Trash2, Clock, Globe, AlertCircle, RotateCw } from "lucide-react";
+import { Play, Pause, Trash2, Clock, Globe, AlertCircle, RotateCw, FlaskConical, Code, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
+import { stableHash } from "@/lib/hash";
 
 const initialJobs = [
   { id: 1, name: "Amazon Price Monitor", target: "amazon.com/products/tech", schedule: "Every 1h", status: "Running", lastRun: "10m ago", success: true },
@@ -95,6 +98,10 @@ export default function Jobs() {
 
 function NewJobDialog() {
   const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState("configure");
+  const [testUrl, setTestUrl] = useState("");
+  const [isTesting, setIsTesting] = useState(false);
+  const [testResult, setTestResult] = useState<any>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,6 +111,39 @@ function NewJobDialog() {
     });
   };
 
+  const handleTestScrape = async () => {
+    if (!testUrl) return;
+    
+    setIsTesting(true);
+    setTestResult(null);
+
+    // Simulate network delay
+    setTimeout(async () => {
+      const mockText = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Status Update: System is fully operational as of today.";
+      const incidentId = await stableHash(testUrl);
+      const rawHash = await stableHash(mockText);
+      
+      const result = [{
+        "vendor_key": "custom_vendor",
+        "incident_id": incidentId.substring(0, 16),
+        "title": "Status Update: Operational",
+        "status": "page_change",
+        "severity": "UNKNOWN",
+        "impact": "",
+        "url": testUrl,
+        "raw_hash": rawHash
+      }];
+
+      setTestResult(result);
+      setIsTesting(false);
+      
+      toast({
+        title: "Test Complete",
+        description: "Scraper successfully extracted data.",
+      });
+    }, 1500);
+  };
+
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -111,51 +151,104 @@ function NewJobDialog() {
           + New Scraper Job
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[600px] bg-sidebar border-sidebar-border">
         <DialogHeader>
-          <DialogTitle>Create New Job</DialogTitle>
+          <DialogTitle>Job Configuration</DialogTitle>
           <DialogDescription>
-            Configure a new scraping task using requests and BeautifulSoup.
+            Configure a scraping task or test the parser logic.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="name">Job Name</Label>
-            <Input id="name" placeholder="e.g. Price Monitor" />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="url">Target URL</Label>
-            <Input id="url" placeholder="https://..." />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="schedule">Schedule</Label>
-              <Select defaultValue="hourly">
-                <SelectTrigger>
-                  <SelectValue placeholder="Select" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="hourly">Hourly</SelectItem>
-                  <SelectItem value="daily">Daily</SelectItem>
-                  <SelectItem value="weekly">Weekly</SelectItem>
-                </SelectContent>
-              </Select>
+        
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 bg-black/20">
+            <TabsTrigger value="configure">Configure Job</TabsTrigger>
+            <TabsTrigger value="test">Test Scraper</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="configure" className="py-4">
+            <form onSubmit={handleSubmit} className="grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="name">Job Name</Label>
+                <Input id="name" placeholder="e.g. Price Monitor" className="bg-background" />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="url">Target URL</Label>
+                <Input id="url" placeholder="https://..." className="bg-background" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="schedule">Schedule</Label>
+                  <Select defaultValue="hourly">
+                    <SelectTrigger className="bg-background">
+                      <SelectValue placeholder="Select" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="hourly">Hourly</SelectItem>
+                      <SelectItem value="daily">Daily</SelectItem>
+                      <SelectItem value="weekly">Weekly</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="method">Method</Label>
+                  <Select defaultValue="get">
+                    <SelectTrigger className="bg-background">
+                      <SelectValue placeholder="Select" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="get">GET</SelectItem>
+                      <SelectItem value="post">POST</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <Button type="submit" className="mt-4 w-full">Create Job</Button>
+            </form>
+          </TabsContent>
+
+          <TabsContent value="test" className="py-4 space-y-4">
+            <div className="space-y-4">
+              <div className="grid gap-2">
+                <Label htmlFor="test-url">Test URL</Label>
+                <div className="flex gap-2">
+                  <Input 
+                    id="test-url" 
+                    placeholder="https://example.com/status" 
+                    className="bg-background font-mono text-sm"
+                    value={testUrl}
+                    onChange={(e) => setTestUrl(e.target.value)}
+                  />
+                  <Button onClick={handleTestScrape} disabled={isTesting || !testUrl}>
+                    {isTesting ? <RotateCw className="w-4 h-4 animate-spin" /> : <FlaskConical className="w-4 h-4" />}
+                    <span className="ml-2">Run Test</span>
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Simulates <code>requests.get(url)</code> and runs <code>scrape_generic</code>.
+                </p>
+              </div>
+
+              {testResult && (
+                <div className="rounded-md border border-sidebar-border bg-black/40 overflow-hidden">
+                  <div className="bg-sidebar border-b border-sidebar-border px-4 py-2 flex items-center justify-between">
+                    <span className="text-xs font-medium flex items-center gap-2">
+                      <Code className="w-3 h-3 text-primary" />
+                      Output Payload
+                    </span>
+                    <Badge variant="outline" className="text-[10px] h-5 border-emerald-500/30 text-emerald-500">
+                      SUCCESS
+                    </Badge>
+                  </div>
+                  <ScrollArea className="h-[200px] w-full p-4">
+                    <pre className="text-xs font-mono text-muted-foreground">
+                      {JSON.stringify(testResult, null, 2)}
+                    </pre>
+                  </ScrollArea>
+                </div>
+              )}
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="method">Method</Label>
-              <Select defaultValue="get">
-                <SelectTrigger>
-                  <SelectValue placeholder="Select" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="get">GET</SelectItem>
-                  <SelectItem value="post">POST</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <Button type="submit" className="mt-2">Create Job</Button>
-        </form>
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );
