@@ -5,6 +5,7 @@ import { insertVendorSchema, insertIncidentSchema, insertJobSchema, insertConfig
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
 import { sendSMS } from "./twilioClient";
+import { syncVendorStatus } from "./statusSync";
 import { z } from "zod";
 
 const PRICE_ID = "price_1SgJviBHVJ1HPGTMdYAPJFNi";
@@ -95,6 +96,24 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting vendor:", error);
       res.status(500).json({ error: "Failed to delete vendor" });
+    }
+  });
+  
+  // Sync vendor statuses from real status pages (protected)
+  app.post("/api/vendors/sync", isAuthenticated, async (req, res) => {
+    try {
+      const vendorKey = req.body?.vendorKey;
+      console.log(`[sync] Starting status sync${vendorKey ? ` for ${vendorKey}` : ' for all vendors'}...`);
+      const result = await syncVendorStatus(vendorKey);
+      res.json({ 
+        success: true, 
+        synced: result.synced, 
+        errors: result.errors,
+        message: `Successfully synced ${result.synced} vendor(s)`
+      });
+    } catch (error) {
+      console.error("Error syncing vendor statuses:", error);
+      res.status(500).json({ error: "Failed to sync vendor statuses" });
     }
   });
   

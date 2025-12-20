@@ -22,9 +22,9 @@ async function seed() {
     { 
       key: "aws", 
       name: "AWS", 
-      statusUrl: "https://status.aws.amazon.com", 
-      parser: "generic_html",
-      status: 'degraded'
+      statusUrl: "https://health.aws.amazon.com/health/status", 
+      parser: "aws_health",
+      status: 'operational'
     },
     { 
       key: "googlews", 
@@ -84,30 +84,8 @@ async function seed() {
     }
   }
 
-  // Add sample incidents
-  const incidentsData = [
-    {
-      vendorKey: "aws",
-      incidentId: "inc-12345",
-      title: "Increased Error Rates for EC2 Instances",
-      status: "Investigating",
-      severity: "major",
-      impact: "EC2 API calls may fail in us-east-1 region",
-      url: "https://health.aws.amazon.com/issue/123",
-      startedAt: "2024-03-21 10:30:00 UTC",
-      updatedAt: "2024-03-21 11:15:00 UTC",
-      rawHash: "abc123def456"
-    },
-  ];
-
-  for (const incident of incidentsData) {
-    try {
-      await storage.createIncident(incident);
-      console.log(`✓ Created incident: ${incident.title}`);
-    } catch (error) {
-      console.error(`✗ Failed to create incident:`, error);
-    }
-  }
+  // No sample incidents - real incidents will be detected by the status sync service
+  console.log("Note: Incidents will be populated by real-time status monitoring");
 
   // Add sample jobs
   const jobsData = [
