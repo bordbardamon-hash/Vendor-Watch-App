@@ -109,3 +109,20 @@ The application monitors status pages for:
 - **Logic**: `/api/my-vendors` returns vendors sorted by user's saved order (unordered vendors appear at end)
 - **UI**: Settings > Notifications tab has drag-and-drop reordering with @dnd-kit/sortable
 - **Key Files**: `client/src/pages/settings.tsx` (SortableVendorItem component), `server/storage.ts` (getOrderedVendorsForUser)
+
+### Subscription Tiers
+- **Tiers**: Standard ($89.99, 10 vendors), Gold ($99.99, 25 vendors + 5 custom requests), Platinum ($129.99, unlimited)
+- **Table**: `users.subscriptionTier` stores current tier (standard/gold/platinum)
+- **Custom Requests Table**: `custom_vendor_requests` for Gold users to request new vendor integrations
+- **Routes**:
+  - `/api/vendor-limit` - Get current user's tier info and limits
+  - `/api/vendor-requests` (GET/POST/DELETE) - Custom vendor request management
+  - `/api/vendors/direct` (POST) - Direct vendor add for Platinum users
+- **Tier Enforcement**:
+  - Standard: Can monitor up to 10 vendors, no custom vendor requests
+  - Gold: Can monitor up to 25 vendors, submit up to 5 custom vendor requests
+  - Platinum: Unlimited vendors, can add vendors directly to system
+- **Security**: POST `/api/vendors` and `/api/vendors/direct` both require Platinum tier
+- **UI**: Vendors page shows tier-appropriate dialog (request form for Gold, direct add for Platinum, upgrade prompt for Standard)
+- **Stripe Integration**: Price IDs configured via `STRIPE_PRICE_STANDARD`, `STRIPE_PRICE_GOLD`, `STRIPE_PRICE_PLATINUM` env vars
+- **Key Files**: `shared/schema.ts` (SUBSCRIPTION_TIERS constant), `server/routes.ts` (tier validation)

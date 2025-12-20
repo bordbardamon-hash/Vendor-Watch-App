@@ -73,8 +73,20 @@ export async function registerRoutes(
   });
   
   // Create vendor (protected)
-  app.post("/api/vendors", isAuthenticated, async (req, res) => {
+  app.post("/api/vendors", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Only Platinum users can create vendors directly
+      if (user.subscriptionTier !== 'platinum') {
+        return res.status(403).json({ error: "Only Platinum users can add vendors directly. Use the vendor request form instead." });
+      }
+      
       const validatedData = insertVendorSchema.parse(req.body);
       const vendor = await storage.createVendor(validatedData);
       res.status(201).json(vendor);
@@ -525,6 +537,146 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching subscription:", error);
       res.status(500).json({ error: "Failed to fetch subscription status" });
+    }
+  });
+
+  // ============ CUSTOM VENDOR REQUESTS ============
+  
+  // Get user's custom vendor requests
+  app.get("/api/vendor-requests", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const requests = await storage.getCustomVendorRequests({ userId });
+      res.json(requests);
+    } catch (error) {
+      console.error("Error fetching vendor requests:", error);
+      res.status(500).json({ error: "Failed to fetch vendor requests" });
+    }
+  });
+  
+  // Create a custom vendor request (Standard/Gold users)
+  app.post("/api/vendor-requests", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      const tier = user.subscriptionTier as 'standard' | 'gold' | 'platinum' | null;
+      
+      // Platinum users should use direct vendor add endpoint
+      if (tier === 'platinum') {
+        return res.status(400).json({ error: "Platinum users can add vendors directly" });
+      }
+      
+      // Check if Standard user (no custom requests allowed)
+      if (tier === 'standard') {
+        return res.status(403).json({ error: "Standard plan does not include custom vendor requests. Upgrade to Gold or Platinum." });
+      }
+      
+      // Gold users get 5 custom requests max
+      if (tier === 'gold') {
+        const requestCount = await storage.getUserRequestCount(userId);
+        if (requestCount >= SUBSCRIPTION_TIERS.gold.customVendorRequests!) {
+          return res.status(403).json({ 
+            error: "You have reached your custom vendor request limit (5). Upgrade to Platinum for unlimited additions.",
+            limit: SUBSCRIPTION_TIERS.gold.customVendorRequests,
+            current: requestCount
+          });
+        }
+      }
+      
+      const validated = insertCustomVendorRequestSchema.parse({
+        ...req.body,
+        userId,
+      });
+      
+      const request = await storage.createCustomVendorRequest(validated);
+      res.status(201).json(request);
+    } catch (error: any) {
+      console.error("Error creating vendor request:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: "Invalid request data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create vendor request" });
+    }
+  });
+  
+  // Delete a custom vendor request (only pending requests)
+  app.delete("/api/vendor-requests/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const request = await storage.getCustomVendorRequest(req.params.id);
+      
+      if (!request) {
+        return res.status(404).json({ error: "Request not found" });
+      }
+      
+      if (request.userId !== userId) {
+        return res.status(403).json({ error: "Not authorized to delete this request" });
+      }
+      
+      if (request.status !== 'pending') {
+        return res.status(400).json({ error: "Can only delete pending requests" });
+      }
+      
+      await storage.deleteCustomVendorRequest(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting vendor request:", error);
+      res.status(500).json({ error: "Failed to delete vendor request" });
+    }
+  });
+  
+  // Check vendor limit for current user
+  app.get("/api/vendor-limit", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const limitInfo = await storage.checkVendorLimit(userId);
+      const user = await storage.getUser(userId);
+      const requestCount = await storage.getUserRequestCount(userId);
+      
+      const tier = user?.subscriptionTier as 'standard' | 'gold' | 'platinum' | null;
+      const tierInfo = tier ? SUBSCRIPTION_TIERS[tier] : null;
+      
+      res.json({
+        ...limitInfo,
+        requestCount,
+        requestLimit: tierInfo?.customVendorRequests ?? 0,
+        canRequestVendors: tier === 'gold' && requestCount < (tierInfo?.customVendorRequests || 0),
+        canAddVendorsDirectly: tier === 'platinum',
+      });
+    } catch (error) {
+      console.error("Error checking vendor limit:", error);
+      res.status(500).json({ error: "Failed to check vendor limit" });
+    }
+  });
+  
+  // Direct vendor add for Platinum users
+  app.post("/api/vendors/direct", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      if (user.subscriptionTier !== 'platinum') {
+        return res.status(403).json({ error: "Only Platinum users can add vendors directly" });
+      }
+      
+      const validated = insertVendorSchema.parse(req.body);
+      const vendor = await storage.createVendor(validated);
+      res.status(201).json(vendor);
+    } catch (error: any) {
+      console.error("Error adding vendor directly:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: "Invalid vendor data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to add vendor" });
     }
   });
 

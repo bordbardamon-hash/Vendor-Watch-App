@@ -1,5 +1,5 @@
 import { 
-  users, vendors, incidents, jobs, config, feedback, notificationConsents, incidentAlerts, userVendorSubscriptions, userVendorOrder,
+  users, vendors, incidents, jobs, config, feedback, notificationConsents, incidentAlerts, userVendorSubscriptions, userVendorOrder, customVendorRequests,
   type User, type UpsertUser,
   type Vendor, type InsertVendor,
   type Incident, type InsertIncident,
@@ -9,7 +9,9 @@ import {
   type NotificationConsent, type InsertNotificationConsent,
   type IncidentAlert, type InsertIncidentAlert,
   type UserVendorSubscription,
-  type UserVendorOrder
+  type UserVendorOrder,
+  type CustomVendorRequest, type InsertCustomVendorRequest,
+  SUBSCRIPTION_TIERS
 } from "@shared/schema";
 import { and, isNull, inArray } from "drizzle-orm";
 import { db } from "./db";
@@ -84,6 +86,18 @@ export interface IStorage {
   getUserVendorOrder(userId: string): Promise<UserVendorOrder[]>;
   setUserVendorOrder(userId: string, vendorKeys: string[]): Promise<void>;
   getOrderedVendorsForUser(userId: string): Promise<Vendor[]>;
+  
+  // Custom Vendor Requests
+  createCustomVendorRequest(request: InsertCustomVendorRequest): Promise<CustomVendorRequest>;
+  getCustomVendorRequests(options?: { userId?: string; status?: string }): Promise<CustomVendorRequest[]>;
+  getCustomVendorRequest(id: string): Promise<CustomVendorRequest | undefined>;
+  updateCustomVendorRequest(id: string, data: Partial<InsertCustomVendorRequest>): Promise<CustomVendorRequest | undefined>;
+  deleteCustomVendorRequest(id: string): Promise<boolean>;
+  getUserRequestCount(userId: string): Promise<number>;
+  
+  // Subscription Tier Helpers
+  updateUserSubscriptionTier(userId: string, tier: 'standard' | 'gold' | 'platinum' | null): Promise<User | undefined>;
+  checkVendorLimit(userId: string): Promise<{ allowed: boolean; current: number; limit: number | null; tier: string | null }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -493,6 +507,94 @@ export class DatabaseStorage implements IStorage {
       const orderB = orderMap.get(b.key) ?? 999;
       return orderA - orderB;
     });
+  }
+  
+  // Custom Vendor Requests
+  async createCustomVendorRequest(request: InsertCustomVendorRequest): Promise<CustomVendorRequest> {
+    const [created] = await db.insert(customVendorRequests).values(request).returning();
+    return created;
+  }
+  
+  async getCustomVendorRequests(options?: { userId?: string; status?: string }): Promise<CustomVendorRequest[]> {
+    let query = db.select().from(customVendorRequests);
+    
+    if (options?.userId && options?.status) {
+      query = query.where(and(
+        eq(customVendorRequests.userId, options.userId),
+        eq(customVendorRequests.status, options.status)
+      )) as any;
+    } else if (options?.userId) {
+      query = query.where(eq(customVendorRequests.userId, options.userId)) as any;
+    } else if (options?.status) {
+      query = query.where(eq(customVendorRequests.status, options.status)) as any;
+    }
+    
+    return await query.orderBy(desc(customVendorRequests.createdAt));
+  }
+  
+  async getCustomVendorRequest(id: string): Promise<CustomVendorRequest | undefined> {
+    const [request] = await db.select().from(customVendorRequests).where(eq(customVendorRequests.id, id));
+    return request || undefined;
+  }
+  
+  async updateCustomVendorRequest(id: string, data: Partial<InsertCustomVendorRequest>): Promise<CustomVendorRequest | undefined> {
+    const [updated] = await db
+      .update(customVendorRequests)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(customVendorRequests.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async deleteCustomVendorRequest(id: string): Promise<boolean> {
+    const result = await db.delete(customVendorRequests).where(eq(customVendorRequests.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+  
+  async getUserRequestCount(userId: string): Promise<number> {
+    const requests = await db
+      .select()
+      .from(customVendorRequests)
+      .where(eq(customVendorRequests.userId, userId));
+    return requests.length;
+  }
+  
+  // Subscription Tier Helpers
+  async updateUserSubscriptionTier(userId: string, tier: 'standard' | 'gold' | 'platinum' | null): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set({ subscriptionTier: tier, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return user || undefined;
+  }
+  
+  async checkVendorLimit(userId: string): Promise<{ allowed: boolean; current: number; limit: number | null; tier: string | null }> {
+    const user = await this.getUser(userId);
+    if (!user) {
+      return { allowed: false, current: 0, limit: 0, tier: null };
+    }
+    
+    const tier = user.subscriptionTier as 'standard' | 'gold' | 'platinum' | null;
+    if (!tier) {
+      return { allowed: false, current: 0, limit: 0, tier: null };
+    }
+    
+    const tierInfo = SUBSCRIPTION_TIERS[tier];
+    const subscriptions = await this.getUserVendorSubscriptions(userId);
+    const currentCount = subscriptions.length;
+    
+    // Platinum has no limit
+    if (tierInfo.vendorLimit === null) {
+      return { allowed: true, current: currentCount, limit: null, tier };
+    }
+    
+    return {
+      allowed: currentCount < tierInfo.vendorLimit,
+      current: currentCount,
+      limit: tierInfo.vendorLimit,
+      tier
+    };
   }
 }
 

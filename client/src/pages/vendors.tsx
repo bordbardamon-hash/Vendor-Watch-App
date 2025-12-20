@@ -3,6 +3,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Shield, 
   AlertTriangle, 
@@ -14,11 +18,34 @@ import {
   Code,
   Hash,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  Plus,
+  Crown,
+  Star
 } from "lucide-react";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+
+interface VendorLimit {
+  tier: string | null;
+  allowed: boolean;
+  current: number;
+  limit: number | null;
+  requestCount: number;
+  requestLimit: number;
+  canRequestVendors: boolean;
+  canAddVendorsDirectly: boolean;
+}
+
+interface CustomVendorRequest {
+  id: string;
+  vendorName: string;
+  statusPageUrl: string;
+  integrationNotes: string | null;
+  status: string;
+  createdAt: string;
+}
 
 interface Vendor {
   id: string;
@@ -49,8 +76,83 @@ interface Incident {
 export default function Vendors() {
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [requestForm, setRequestForm] = useState({ vendorName: "", statusPageUrl: "", integrationNotes: "" });
+  const [directAddForm, setDirectAddForm] = useState({ key: "", name: "", statusUrl: "", parser: "statuspage_json" });
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Fetch vendor limit info
+  const { data: vendorLimit } = useQuery<VendorLimit>({
+    queryKey: ["vendor-limit"],
+    queryFn: async () => {
+      const res = await fetch("/api/vendor-limit");
+      if (!res.ok) throw new Error("Failed to fetch vendor limit");
+      return res.json();
+    },
+  });
+
+  // Fetch user's vendor requests
+  const { data: vendorRequests = [] } = useQuery<CustomVendorRequest[]>({
+    queryKey: ["vendor-requests"],
+    queryFn: async () => {
+      const res = await fetch("/api/vendor-requests");
+      if (!res.ok) throw new Error("Failed to fetch vendor requests");
+      return res.json();
+    },
+  });
+
+  // Create vendor request mutation (for Gold users)
+  const createRequestMutation = useMutation({
+    mutationFn: async (data: { vendorName: string; statusPageUrl: string; integrationNotes?: string }) => {
+      const res = await fetch("/api/vendor-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to submit request");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["vendor-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["vendor-limit"] });
+      setShowAddDialog(false);
+      setRequestForm({ vendorName: "", statusPageUrl: "", integrationNotes: "" });
+      toast({ title: "Request Submitted", description: "Your vendor request has been submitted for review." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Request Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Direct vendor add mutation (for Platinum users)
+  const directAddMutation = useMutation({
+    mutationFn: async (data: { key: string; name: string; statusUrl: string; parser: string }) => {
+      const res = await fetch("/api/vendors/direct", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to add vendor");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["vendors"] });
+      queryClient.invalidateQueries({ queryKey: ["vendor-limit"] });
+      setShowAddDialog(false);
+      setDirectAddForm({ key: "", name: "", statusUrl: "", parser: "statuspage_json" });
+      toast({ title: "Vendor Added", description: "New vendor has been added successfully." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Add Failed", description: error.message, variant: "destructive" });
+    },
+  });
 
   // Sync mutation
   const syncMutation = useMutation({
@@ -151,11 +253,189 @@ export default function Vendors() {
             <RefreshCw className={`w-4 h-4 mr-2 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
             {syncMutation.isPending ? 'Syncing...' : 'Refresh Status'}
           </Button>
-          <Button className="bg-primary text-primary-foreground hover:bg-primary/90" data-testid="button-add-vendor">
-            + Add Vendor
-          </Button>
+          <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+            <DialogTrigger asChild>
+              <Button className="bg-primary text-primary-foreground hover:bg-primary/90" data-testid="button-add-vendor">
+                <Plus className="w-4 h-4 mr-2" />
+                {vendorLimit?.canAddVendorsDirectly ? 'Add Vendor' : 'Request Vendor'}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px]">
+              {vendorLimit?.canAddVendorsDirectly ? (
+                <>
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <Crown className="w-5 h-5 text-yellow-500" />
+                      Add New Vendor
+                    </DialogTitle>
+                    <DialogDescription>
+                      As a Platinum member, you can add vendors directly to the system.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="vendor-key">Vendor Key</Label>
+                      <Input
+                        id="vendor-key"
+                        placeholder="e.g., cloudflare, datadog"
+                        value={directAddForm.key}
+                        onChange={(e) => setDirectAddForm(prev => ({ ...prev, key: e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, '') }))}
+                        data-testid="input-vendor-key"
+                      />
+                      <p className="text-xs text-muted-foreground">Lowercase letters, numbers, hyphens only</p>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="vendor-name">Vendor Name</Label>
+                      <Input
+                        id="vendor-name"
+                        placeholder="e.g., Cloudflare, Datadog"
+                        value={directAddForm.name}
+                        onChange={(e) => setDirectAddForm(prev => ({ ...prev, name: e.target.value }))}
+                        data-testid="input-vendor-name"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="status-url">Status Page URL</Label>
+                      <Input
+                        id="status-url"
+                        placeholder="https://status.example.com"
+                        value={directAddForm.statusUrl}
+                        onChange={(e) => setDirectAddForm(prev => ({ ...prev, statusUrl: e.target.value }))}
+                        data-testid="input-status-url"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="parser">Parser Type</Label>
+                      <Select value={directAddForm.parser} onValueChange={(value) => setDirectAddForm(prev => ({ ...prev, parser: value }))}>
+                        <SelectTrigger data-testid="select-parser">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="statuspage_json">Statuspage.io (JSON API)</SelectItem>
+                          <SelectItem value="generic_html">Generic HTML Parser</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">Statuspage.io sites provide real-time API sync</p>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setShowAddDialog(false)}>Cancel</Button>
+                    <Button 
+                      onClick={() => directAddMutation.mutate(directAddForm)}
+                      disabled={directAddMutation.isPending || !directAddForm.key || !directAddForm.name || !directAddForm.statusUrl}
+                      data-testid="button-submit-vendor"
+                    >
+                      {directAddMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                      Add Vendor
+                    </Button>
+                  </DialogFooter>
+                </>
+              ) : vendorLimit?.canRequestVendors ? (
+                <>
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <Star className="w-5 h-5 text-amber-500" />
+                      Request Custom Vendor
+                    </DialogTitle>
+                    <DialogDescription>
+                      Submit a request for a new vendor to be added. Our team will review and integrate it.
+                      <span className="block mt-1 text-xs">
+                        Requests used: {vendorLimit.requestCount} / {vendorLimit.requestLimit}
+                      </span>
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="req-vendor-name">Vendor Name</Label>
+                      <Input
+                        id="req-vendor-name"
+                        placeholder="e.g., Cloudflare, Datadog"
+                        value={requestForm.vendorName}
+                        onChange={(e) => setRequestForm(prev => ({ ...prev, vendorName: e.target.value }))}
+                        data-testid="input-request-vendor-name"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="req-status-url">Status Page URL</Label>
+                      <Input
+                        id="req-status-url"
+                        placeholder="https://status.example.com"
+                        value={requestForm.statusPageUrl}
+                        onChange={(e) => setRequestForm(prev => ({ ...prev, statusPageUrl: e.target.value }))}
+                        data-testid="input-request-status-url"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="req-notes">Integration Notes (Optional)</Label>
+                      <Textarea
+                        id="req-notes"
+                        placeholder="Any specific requirements or notes about this vendor..."
+                        value={requestForm.integrationNotes}
+                        onChange={(e) => setRequestForm(prev => ({ ...prev, integrationNotes: e.target.value }))}
+                        data-testid="input-request-notes"
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setShowAddDialog(false)}>Cancel</Button>
+                    <Button 
+                      onClick={() => createRequestMutation.mutate(requestForm)}
+                      disabled={createRequestMutation.isPending || !requestForm.vendorName || !requestForm.statusPageUrl}
+                      data-testid="button-submit-request"
+                    >
+                      {createRequestMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                      Submit Request
+                    </Button>
+                  </DialogFooter>
+                </>
+              ) : (
+                <>
+                  <DialogHeader>
+                    <DialogTitle>Upgrade Required</DialogTitle>
+                    <DialogDescription>
+                      {vendorLimit?.tier === 'standard' 
+                        ? "Standard plan does not include custom vendor requests. Upgrade to Gold for 5 custom requests or Platinum for unlimited additions."
+                        : "Please upgrade your subscription to add custom vendors."}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="py-6 text-center">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-sidebar rounded-lg border border-sidebar-border">
+                      <span className="text-sm text-muted-foreground">Current tier:</span>
+                      <Badge variant="outline">{vendorLimit?.tier || 'None'}</Badge>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setShowAddDialog(false)}>Close</Button>
+                  </DialogFooter>
+                </>
+              )}
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
+      
+      {/* Pending Vendor Requests */}
+      {vendorRequests.length > 0 && (
+        <div className="bg-sidebar/20 border border-sidebar-border rounded-lg p-4">
+          <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+            <Star className="w-4 h-4 text-amber-500" />
+            Your Vendor Requests
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {vendorRequests.map(req => (
+              <div key={req.id} className="flex items-center gap-2 bg-background/50 border border-sidebar-border rounded px-3 py-1.5 text-sm">
+                <span>{req.vendorName}</span>
+                <Badge 
+                  variant="outline" 
+                  className={req.status === 'pending' ? 'text-yellow-500 border-yellow-500/30' : req.status === 'approved' ? 'text-emerald-500 border-emerald-500/30' : req.status === 'integrated' ? 'text-primary border-primary/30' : 'text-red-500 border-red-500/30'}
+                >
+                  {req.status}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-12 gap-6 flex-1 min-h-0">
         {/* Vendor List */}
