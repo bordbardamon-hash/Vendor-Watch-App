@@ -66,6 +66,22 @@ export const feedback = pgTable("feedback", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Notification Consents - proof of opt-in for SMS/Email (Twilio compliance)
+export const notificationConsents = pgTable("notification_consents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: text("user_id").notNull(),
+  userEmail: text("user_email"),
+  channel: text("channel").notNull(), // 'sms' or 'email'
+  destination: text("destination").notNull(), // phone number or email address
+  consentText: text("consent_text").notNull(), // the exact text user agreed to
+  consentMethod: text("consent_method").notNull(), // 'checkbox', 'dialog', etc.
+  sourceContext: text("source_context").notNull(), // where consent was collected (e.g., 'Dashboard > SMS Alerts')
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  consentedAt: timestamp("consented_at").notNull().defaultNow(),
+  revokedAt: timestamp("revoked_at"),
+});
+
 // Insert schemas
 export const insertVendorSchema = createInsertSchema(vendors).omit({
   id: true,
@@ -92,6 +108,12 @@ export const insertFeedbackSchema = createInsertSchema(feedback).omit({
   createdAt: true,
 });
 
+export const insertNotificationConsentSchema = createInsertSchema(notificationConsents).omit({
+  id: true,
+  consentedAt: true,
+  revokedAt: true,
+});
+
 // Types
 export type InsertVendor = z.infer<typeof insertVendorSchema>;
 export type Vendor = typeof vendors.$inferSelect;
@@ -107,3 +129,6 @@ export type Config = typeof config.$inferSelect;
 
 export type InsertFeedback = z.infer<typeof insertFeedbackSchema>;
 export type Feedback = typeof feedback.$inferSelect;
+
+export type InsertNotificationConsent = z.infer<typeof insertNotificationConsentSchema>;
+export type NotificationConsent = typeof notificationConsents.$inferSelect;
