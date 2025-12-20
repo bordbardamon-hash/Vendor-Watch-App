@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Play, Pause, Trash2, Clock, Globe, AlertCircle, RotateCw, FlaskConical, Code, ChevronRight } from "lucide-react";
+import { Play, Pause, Trash2, Clock, Globe, AlertCircle, RotateCw, FlaskConical, Code, ChevronRight, CheckCircle2, History } from "lucide-react";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { stableHash } from "@/lib/hash";
+import { Switch } from "@/components/ui/switch";
 
 const initialJobs = [
   { id: 1, name: "Amazon Price Monitor", target: "amazon.com/products/tech", schedule: "Every 1h", status: "Running", lastRun: "10m ago", success: true },
@@ -102,6 +103,9 @@ function NewJobDialog() {
   const [testUrl, setTestUrl] = useState("");
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<any>(null);
+  const [lastResult, setLastResult] = useState<any>(null);
+  const [simulateChange, setSimulateChange] = useState(false);
+  const [changeStatus, setChangeStatus] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,34 +118,60 @@ function NewJobDialog() {
   const handleTestScrape = async () => {
     if (!testUrl) return;
     
+    // Store previous result if exists
+    if (testResult) {
+      setLastResult(testResult);
+    }
+    
     setIsTesting(true);
-    setTestResult(null);
-
+    // Do not clear testResult immediately so we don't flash empty screen, but we will replace it.
+    
     // Simulate network delay
     setTimeout(async () => {
-      const mockText = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Status Update: System is fully operational as of today.";
+      // Base mock text
+      let mockText = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Status Update: System is fully operational as of today.";
+      
+      // If simulate change is checked, modify the text
+      if (simulateChange) {
+        mockText += " [UPDATED: Service degradation detected in eu-west-1]";
+      }
+
       const incidentId = await stableHash(testUrl);
       const rawHash = await stableHash(mockText);
       
-      const result = [{
+      const result = {
         "vendor_key": "custom_vendor",
         "incident_id": incidentId.substring(0, 16),
-        "title": "Status Update: Operational",
+        "title": simulateChange ? "Status Update: Degradation" : "Status Update: Operational",
         "status": "page_change",
-        "severity": "UNKNOWN",
-        "impact": "",
+        "severity": simulateChange ? "MAJOR" : "UNKNOWN",
+        "impact": simulateChange ? "Service degradation" : "",
         "url": testUrl,
         "raw_hash": rawHash
-      }];
+      };
 
-      setTestResult(result);
-      setIsTesting(false);
+      setTestResult([result]);
       
-      toast({
-        title: "Test Complete",
-        description: "Scraper successfully extracted data.",
-      });
-    }, 1500);
+      // Perform Detection Logic
+      if (lastResult && lastResult[0]) {
+        const oldHash = lastResult[0].raw_hash;
+        if (oldHash !== rawHash) {
+          setChangeStatus("CHANGED");
+          toast({
+             title: "Change Detected",
+             description: "Content hash mismatch found. New incident generated.",
+             variant: "default", 
+             className: "border-primary text-primary-foreground bg-primary"
+          });
+        } else {
+          setChangeStatus("NO_CHANGE");
+        }
+      } else {
+        setChangeStatus("NEW_INCIDENT");
+      }
+
+      setIsTesting(false);
+    }, 1000);
   };
 
   return (
@@ -151,7 +181,7 @@ function NewJobDialog() {
           + New Scraper Job
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px] bg-sidebar border-sidebar-border">
+      <DialogContent className="sm:max-w-[700px] bg-sidebar border-sidebar-border">
         <DialogHeader>
           <DialogTitle>Job Configuration</DialogTitle>
           <DialogDescription>
@@ -223,27 +253,62 @@ function NewJobDialog() {
                     <span className="ml-2">Run Test</span>
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Simulates <code>requests.get(url)</code> and runs <code>scrape_generic</code>.
-                </p>
+              </div>
+
+              <div className="flex items-center justify-between bg-black/20 p-3 rounded-md border border-sidebar-border">
+                <div className="flex items-center gap-2">
+                   <Switch 
+                     id="simulate-change" 
+                     checked={simulateChange}
+                     onCheckedChange={setSimulateChange}
+                   />
+                   <Label htmlFor="simulate-change" className="text-xs font-normal cursor-pointer">Simulate Content Update</Label>
+                </div>
+                
+                {changeStatus && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground uppercase">Result:</span>
+                    <Badge variant="outline" className={`
+                      ${changeStatus === 'CHANGED' ? 'border-primary text-primary bg-primary/10' : 
+                        changeStatus === 'NEW_INCIDENT' ? 'border-blue-500 text-blue-500 bg-blue-500/10' : 
+                        'border-muted text-muted-foreground'}
+                    `}>
+                      {changeStatus === 'CHANGED' ? 'CHANGE DETECTED' : 
+                       changeStatus === 'NEW_INCIDENT' ? 'NEW INCIDENT' : 'NO CHANGE'}
+                    </Badge>
+                  </div>
+                )}
               </div>
 
               {testResult && (
-                <div className="rounded-md border border-sidebar-border bg-black/40 overflow-hidden">
-                  <div className="bg-sidebar border-b border-sidebar-border px-4 py-2 flex items-center justify-between">
-                    <span className="text-xs font-medium flex items-center gap-2">
-                      <Code className="w-3 h-3 text-primary" />
-                      Output Payload
-                    </span>
-                    <Badge variant="outline" className="text-[10px] h-5 border-emerald-500/30 text-emerald-500">
-                      SUCCESS
-                    </Badge>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {lastResult && (
+                    <div className="space-y-2 opacity-60 hover:opacity-100 transition-opacity">
+                      <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                        <History className="w-3 h-3" /> Previous State
+                      </div>
+                      <div className="rounded-md border border-sidebar-border bg-black/40 overflow-hidden">
+                        <ScrollArea className="h-[200px] w-full p-4">
+                          <pre className="text-xs font-mono text-muted-foreground">
+                            {JSON.stringify(lastResult, null, 2)}
+                          </pre>
+                        </ScrollArea>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className={`space-y-2 ${!lastResult ? 'col-span-2' : ''}`}>
+                    <div className="flex items-center gap-2 text-xs font-medium text-primary">
+                      <CheckCircle2 className="w-3 h-3" /> Current State
+                    </div>
+                    <div className="rounded-md border border-primary/30 bg-black/40 overflow-hidden shadow-[0_0_15px_-5px_hsl(var(--primary))]">
+                      <ScrollArea className="h-[200px] w-full p-4">
+                        <pre className="text-xs font-mono text-primary/80">
+                          {JSON.stringify(testResult, null, 2)}
+                        </pre>
+                      </ScrollArea>
+                    </div>
                   </div>
-                  <ScrollArea className="h-[200px] w-full p-4">
-                    <pre className="text-xs font-mono text-muted-foreground">
-                      {JSON.stringify(testResult, null, 2)}
-                    </pre>
-                  </ScrollArea>
                 </div>
               )}
             </div>
