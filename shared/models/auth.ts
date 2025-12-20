@@ -29,6 +29,7 @@ export const users = pgTable("users", {
   stripeCustomerId: varchar("stripe_customer_id"),
   stripeSubscriptionId: varchar("stripe_subscription_id"),
   subscriptionTier: varchar("subscription_tier"), // 'standard', 'gold', 'platinum'
+  isAdmin: boolean("is_admin").default(false),
   notifyEmail: boolean("notify_email").default(true),
   notifySms: boolean("notify_sms").default(false),
   createdAt: timestamp("created_at").defaultNow(),
