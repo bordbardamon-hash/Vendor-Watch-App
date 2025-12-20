@@ -1,5 +1,5 @@
 import { 
-  users, vendors, incidents, jobs, config, feedback, notificationConsents, incidentAlerts, userVendorSubscriptions,
+  users, vendors, incidents, jobs, config, feedback, notificationConsents, incidentAlerts, userVendorSubscriptions, userVendorOrder,
   type User, type UpsertUser,
   type Vendor, type InsertVendor,
   type Incident, type InsertIncident,
@@ -8,7 +8,8 @@ import {
   type Feedback, type InsertFeedback,
   type NotificationConsent, type InsertNotificationConsent,
   type IncidentAlert, type InsertIncidentAlert,
-  type UserVendorSubscription
+  type UserVendorSubscription,
+  type UserVendorOrder
 } from "@shared/schema";
 import { and, isNull, inArray } from "drizzle-orm";
 import { db } from "./db";
@@ -78,6 +79,11 @@ export interface IStorage {
   getUsersSubscribedToVendor(vendorKey: string): Promise<User[]>;
   getVendorsForUser(userId: string): Promise<Vendor[]>;
   getIncidentsForUser(userId: string): Promise<Incident[]>;
+  
+  // Vendor Ordering
+  getUserVendorOrder(userId: string): Promise<UserVendorOrder[]>;
+  setUserVendorOrder(userId: string, vendorKeys: string[]): Promise<void>;
+  getOrderedVendorsForUser(userId: string): Promise<Vendor[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -447,6 +453,46 @@ export class DatabaseStorage implements IStorage {
       .from(incidents)
       .where(inArray(incidents.vendorKey, subscribedKeys))
       .orderBy(desc(incidents.createdAt));
+  }
+  
+  // Vendor Ordering
+  async getUserVendorOrder(userId: string): Promise<UserVendorOrder[]> {
+    return await db
+      .select()
+      .from(userVendorOrder)
+      .where(eq(userVendorOrder.userId, userId))
+      .orderBy(userVendorOrder.displayOrder);
+  }
+  
+  async setUserVendorOrder(userId: string, vendorKeys: string[]): Promise<void> {
+    await db.delete(userVendorOrder).where(eq(userVendorOrder.userId, userId));
+    
+    if (vendorKeys.length > 0) {
+      await db.insert(userVendorOrder).values(
+        vendorKeys.map((vendorKey, index) => ({ 
+          userId, 
+          vendorKey, 
+          displayOrder: index 
+        }))
+      );
+    }
+  }
+  
+  async getOrderedVendorsForUser(userId: string): Promise<Vendor[]> {
+    const vendorsList = await this.getVendorsForUser(userId);
+    const orderData = await this.getUserVendorOrder(userId);
+    
+    if (orderData.length === 0) {
+      return vendorsList;
+    }
+    
+    const orderMap = new Map(orderData.map(o => [o.vendorKey, o.displayOrder]));
+    
+    return vendorsList.sort((a, b) => {
+      const orderA = orderMap.get(a.key) ?? 999;
+      const orderB = orderMap.get(b.key) ?? 999;
+      return orderA - orderB;
+    });
   }
 }
 
