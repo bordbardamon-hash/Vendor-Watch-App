@@ -5,6 +5,7 @@ import { createServer } from "http";
 import { runMigrations } from 'stripe-replit-sync';
 import { getStripeSync } from './stripeClient';
 import { WebhookHandlers } from './webhookHandlers';
+import { seedVendorsIfEmpty } from './storage';
 
 const app = express();
 const httpServer = createServer(app);
@@ -122,6 +123,9 @@ app.use((req, res, next) => {
 (async () => {
   // Initialize Stripe integration
   await initStripe();
+
+  // Seed vendors if database is empty (for new deployments)
+  await seedVendorsIfEmpty();
 
   // Health check endpoint - registered first
   app.get("/api/health", (_req, res) => {
