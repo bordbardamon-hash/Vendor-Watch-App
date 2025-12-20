@@ -1,11 +1,12 @@
 import { 
-  users, vendors, incidents, jobs, config, feedback,
+  users, vendors, incidents, jobs, config, feedback, notificationConsents,
   type User, type UpsertUser,
   type Vendor, type InsertVendor,
   type Incident, type InsertIncident,
   type Job, type InsertJob,
   type Config, type InsertConfig,
-  type Feedback, type InsertFeedback
+  type Feedback, type InsertFeedback,
+  type NotificationConsent, type InsertNotificationConsent
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
@@ -49,6 +50,13 @@ export interface IStorage {
   
   // User notifications
   updateUserNotifications(userId: string, prefs: { phone?: string; notifyEmail?: boolean; notifySms?: boolean }): Promise<User | undefined>;
+  
+  // Notification Consents
+  recordConsent(consent: InsertNotificationConsent): Promise<NotificationConsent>;
+  getConsents(options?: { channel?: string; limit?: number; offset?: number }): Promise<NotificationConsent[]>;
+  getConsentsByUser(userId: string): Promise<NotificationConsent[]>;
+  revokeConsent(id: string): Promise<NotificationConsent | undefined>;
+  getConsentsCount(): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -234,6 +242,50 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return user || undefined;
+  }
+  
+  // Notification Consents
+  async recordConsent(consent: InsertNotificationConsent): Promise<NotificationConsent> {
+    const [newConsent] = await db
+      .insert(notificationConsents)
+      .values(consent)
+      .returning();
+    return newConsent;
+  }
+  
+  async getConsents(options?: { channel?: string; limit?: number; offset?: number }): Promise<NotificationConsent[]> {
+    let query = db.select().from(notificationConsents).orderBy(desc(notificationConsents.consentedAt));
+    
+    if (options?.channel) {
+      query = query.where(eq(notificationConsents.channel, options.channel)) as typeof query;
+    }
+    
+    const limit = options?.limit || 100;
+    const offset = options?.offset || 0;
+    
+    return await query.limit(limit).offset(offset);
+  }
+  
+  async getConsentsByUser(userId: string): Promise<NotificationConsent[]> {
+    return await db
+      .select()
+      .from(notificationConsents)
+      .where(eq(notificationConsents.userId, userId))
+      .orderBy(desc(notificationConsents.consentedAt));
+  }
+  
+  async revokeConsent(id: string): Promise<NotificationConsent | undefined> {
+    const [updated] = await db
+      .update(notificationConsents)
+      .set({ revokedAt: new Date() })
+      .where(eq(notificationConsents.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async getConsentsCount(): Promise<number> {
+    const result = await db.select().from(notificationConsents);
+    return result.length;
   }
 }
 
