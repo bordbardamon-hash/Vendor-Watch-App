@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
   Activity, 
@@ -10,11 +11,19 @@ import {
   PlayCircle,
   Terminal,
   Server,
-  Bell
+  Bell,
+  Mail
 } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { UI_LABELS } from "@/lib/labels";
+import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 
 const data = [
   { time: "00:00", requests: 120, errors: 2 },
@@ -27,6 +36,29 @@ const data = [
 ];
 
 export default function Dashboard() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [emailAddress, setEmailAddress] = useState(user?.email || "");
+  const [notifyOnIncidents, setNotifyOnIncidents] = useState(true);
+  const [notifyOnResolutions, setNotifyOnResolutions] = useState(true);
+
+  const handleSaveEmail = () => {
+    if (!emailAddress.trim()) {
+      toast({
+        title: "Email Required",
+        description: "Please enter a valid email address.",
+        variant: "destructive",
+      });
+      return;
+    }
+    toast({
+      title: "Preferences Saved",
+      description: `Alert notifications will be sent to ${emailAddress}`,
+    });
+    setEmailDialogOpen(false);
+  };
+
   return (
     <div className="p-8 space-y-8">
       <div className="flex items-center justify-between">
@@ -38,11 +70,75 @@ export default function Dashboard() {
           <div className="flex items-center gap-2 text-sm bg-sidebar/50 px-4 py-2 rounded-full border border-sidebar-border">
             <Bell size={14} className="text-primary" />
             <span className="text-muted-foreground">{UI_LABELS.alerts.label}:</span>
-            <strong className="text-foreground">{UI_LABELS.alerts.email}</strong>
+            <button 
+              onClick={() => setEmailDialogOpen(true)}
+              className="flex items-center gap-1 text-foreground hover:text-primary transition-colors cursor-pointer font-semibold"
+              data-testid="button-email-alerts"
+            >
+              <Mail size={14} />
+              {UI_LABELS.alerts.email}
+            </button>
             <span className="text-muted-foreground/60">• {UI_LABELS.alerts.slackComingSoon}</span>
           </div>
         </div>
       </div>
+
+      <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-email-subscription">
+          <DialogHeader>
+            <DialogTitle>Email Alert Subscription</DialogTitle>
+            <DialogDescription>
+              Configure your email notification preferences for vendor incidents.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="email">Email Address</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="you@example.com"
+                value={emailAddress}
+                onChange={(e) => setEmailAddress(e.target.value)}
+                data-testid="input-email"
+              />
+            </div>
+            <div className="space-y-3">
+              <Label>Notification Preferences</Label>
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="notify-incidents" 
+                  checked={notifyOnIncidents}
+                  onCheckedChange={(checked) => setNotifyOnIncidents(!!checked)}
+                  data-testid="checkbox-notify-incidents"
+                />
+                <Label htmlFor="notify-incidents" className="text-sm font-normal cursor-pointer">
+                  Notify me when incidents are detected
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="notify-resolutions" 
+                  checked={notifyOnResolutions}
+                  onCheckedChange={(checked) => setNotifyOnResolutions(!!checked)}
+                  data-testid="checkbox-notify-resolutions"
+                />
+                <Label htmlFor="notify-resolutions" className="text-sm font-normal cursor-pointer">
+                  Notify me when incidents are resolved
+                </Label>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEmailDialogOpen(false)} data-testid="button-cancel-email">
+              Cancel
+            </Button>
+            <Button onClick={handleSaveEmail} data-testid="button-save-email">
+              Save Preferences
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <MetricCard 

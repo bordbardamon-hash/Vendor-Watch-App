@@ -3,12 +3,8 @@ import { pgTable, text, varchar, timestamp, integer, boolean } from "drizzle-orm
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Users table (keep for auth if needed later)
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
-});
+// Export auth models (users and sessions tables for Replit Auth)
+export * from "./models/auth";
 
 // Vendors - third-party services being monitored
 export const vendors = pgTable("vendors", {
@@ -60,11 +56,6 @@ export const config = pgTable("config", {
 });
 
 // Insert schemas
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
-});
-
 export const insertVendorSchema = createInsertSchema(vendors).omit({
   id: true,
   createdAt: true,
@@ -86,9 +77,6 @@ export const insertConfigSchema = createInsertSchema(config).omit({
 });
 
 // Types
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
-
 export type InsertVendor = z.infer<typeof insertVendorSchema>;
 export type Vendor = typeof vendors.$inferSelect;
 

@@ -1,3 +1,5 @@
+export const APP_NAME = "Vendor Watch";
+
 export const UI_LABELS = {
   nav: {
     overview: "Overview",

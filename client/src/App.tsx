@@ -3,15 +3,18 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useAuth } from "@/hooks/use-auth";
 import NotFound from "@/pages/not-found";
 import Layout from "@/components/layout";
+import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
 import Jobs from "@/pages/jobs";
 import Logs from "@/pages/logs";
 import Settings from "@/pages/settings";
 import Vendors from "@/pages/vendors";
+import { Loader2 } from "lucide-react";
 
-function Router() {
+function AuthenticatedRouter() {
   return (
     <Layout>
       <Switch>
@@ -24,6 +27,24 @@ function Router() {
       </Switch>
     </Layout>
   );
+}
+
+function Router() {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Landing />;
+  }
+
+  return <AuthenticatedRouter />;
 }
 
 function App() {

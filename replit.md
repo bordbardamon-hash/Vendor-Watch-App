@@ -28,12 +28,22 @@ The frontend follows a page-based architecture with shared layout components. Pa
 
 The server handles CRUD operations for vendors, incidents, jobs, and configuration. Routes are registered in `server/routes.ts` and storage operations are abstracted in `server/storage.ts`.
 
+### Authentication
+- **Provider**: Replit Auth via OpenID Connect
+- **Session Storage**: PostgreSQL-backed sessions via connect-pg-simple
+- **Auth Routes**: `/api/login`, `/api/logout`, `/api/callback`, `/api/auth/user`
+- **Protected Routes**: All API endpoints require authentication via `isAuthenticated` middleware
+- **Client Integration**: `useAuth` hook provides user state, loading status, and logout
+- **Landing Page**: Unauthenticated users see a marketing landing page with login button
+
 ### Data Model
-Four main entities:
-1. **Vendors**: Third-party services being monitored (Microsoft 365, AWS, Azure, etc.)
-2. **Incidents**: Detected outages and issues with severity/impact tracking
-3. **Jobs**: Scraping task definitions with schedules and status
-4. **Config**: Key-value configuration storage
+Six main entities:
+1. **Users**: Authenticated users from Replit Auth (stored in `users` table)
+2. **Sessions**: User sessions for authentication persistence (stored in `sessions` table)
+3. **Vendors**: Third-party services being monitored (Microsoft 365, AWS, Azure, etc.)
+4. **Incidents**: Detected outages and issues with severity/impact tracking
+5. **Jobs**: Scraping task definitions with schedules and status
+6. **Config**: Key-value configuration storage
 
 ### Development vs Production
 - Development uses Vite dev server with HMR proxied through Express

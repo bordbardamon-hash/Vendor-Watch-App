@@ -8,16 +8,31 @@ import {
   Activity,
   Shield,
   PanelLeftClose,
-  PanelLeft
+  PanelLeft,
+  LogOut,
+  User
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { UI_LABELS } from "@/lib/labels";
+import { UI_LABELS, APP_NAME } from "@/lib/labels";
+import { useAuth } from "@/hooks/use-auth";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const { user } = useAuth();
+
+  const getInitials = () => {
+    if (user?.firstName && user?.lastName) {
+      return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
+    }
+    if (user?.email) {
+      return user.email[0].toUpperCase();
+    }
+    return "U";
+  };
 
   const navItems = [
     { href: "/", icon: LayoutDashboard, label: UI_LABELS.nav.overview },
@@ -64,6 +79,40 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </nav>
 
         <div className="p-2 border-t border-sidebar-border space-y-2">
+          {user && (
+            <div className={cn(
+              "flex items-center gap-3 px-2 py-2 rounded-md bg-sidebar-accent/30",
+              !sidebarOpen && "justify-center px-1"
+            )}>
+              <Avatar className="h-7 w-7">
+                <AvatarImage src={user.profileImageUrl || undefined} />
+                <AvatarFallback className="text-xs bg-primary text-primary-foreground">
+                  {getInitials()}
+                </AvatarFallback>
+              </Avatar>
+              {sidebarOpen && (
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate" data-testid="text-user-name">
+                    {user.firstName || user.email || "User"}
+                  </p>
+                </div>
+              )}
+              {sidebarOpen && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                  asChild
+                  data-testid="button-logout"
+                >
+                  <a href="/api/logout">
+                    <LogOut size={14} />
+                  </a>
+                </Button>
+              )}
+            </div>
+          )}
+
           <Button
             variant="ghost"
             size="sm"
