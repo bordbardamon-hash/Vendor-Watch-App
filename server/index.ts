@@ -60,7 +60,18 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Health check endpoint - registered first
+  app.get("/api/health", (_req, res) => {
+    res.json({ status: "ok", env: process.env.NODE_ENV });
+  });
+
   await registerRoutes(httpServer, app);
+
+  // API 404 handler - catches unmatched API routes
+  app.use("/api/*", (req, res) => {
+    log(`API 404: ${req.method} ${req.path}`);
+    res.status(404).json({ error: "API endpoint not found", path: req.path });
+  });
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -74,6 +85,7 @@ app.use((req, res, next) => {
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
   if (process.env.NODE_ENV === "production") {
+    log("Setting up static file serving for production");
     serveStatic(app);
   } else {
     const { setupVite } = await import("./vite");

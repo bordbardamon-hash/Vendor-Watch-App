@@ -10,8 +10,13 @@ export async function registerRoutes(
 ): Promise<Server> {
   
   // Setup authentication BEFORE other routes
-  await setupAuth(app);
-  registerAuthRoutes(app);
+  try {
+    await setupAuth(app);
+    registerAuthRoutes(app);
+    console.log("[auth] Authentication routes registered successfully");
+  } catch (error) {
+    console.error("[auth] Failed to setup authentication:", error);
+  }
   
   // ============ VENDORS ============
   
