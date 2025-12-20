@@ -129,7 +129,7 @@ export default function Jobs() {
         <div className="flex items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Job Scheduler</h1>
-            <p className="text-muted-foreground mt-1">Manage and monitor your Python scraping tasks</p>
+            <p className="text-muted-foreground mt-1">Manage and monitor your Python monitoring tasks</p>
           </div>
           <div className="h-8 w-px bg-border mx-2" />
           <div className="flex items-center gap-2 bg-sidebar/50 px-3 py-1.5 rounded-full border border-sidebar-border">
@@ -256,7 +256,7 @@ function NewJobDialog() {
       queryClient.invalidateQueries({ queryKey: ["jobs"] });
       toast({
         title: "Job Created",
-        description: "New scraping job has been added to the queue.",
+        description: "New monitoring job has been added to the queue.",
       });
       setFormData({ name: "", target: "", schedule: "Every 1h" });
     },
@@ -267,7 +267,7 @@ function NewJobDialog() {
     createJobMutation.mutate(formData);
   };
 
-  const handleTestScrape = async () => {
+  const handleTestMonitor = async () => {
     if (!testUrl) return;
     
     if (testResult) {
@@ -333,21 +333,21 @@ function NewJobDialog() {
     <Dialog>
       <DialogTrigger asChild>
         <Button className="bg-primary text-primary-foreground hover:bg-primary/90" data-testid="button-new-job">
-          + New Scraper Job
+          + New Monitor Job
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[700px] bg-sidebar border-sidebar-border">
         <DialogHeader>
           <DialogTitle>Job Configuration</DialogTitle>
           <DialogDescription>
-            Configure a scraping task or test the parser logic.
+            Configure a monitoring task or test the parser logic.
           </DialogDescription>
         </DialogHeader>
         
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2 bg-black/20">
             <TabsTrigger value="configure">Configure Job</TabsTrigger>
-            <TabsTrigger value="test">Test Scraper</TabsTrigger>
+            <TabsTrigger value="test">Test Monitor</TabsTrigger>
           </TabsList>
           
           <TabsContent value="configure" className="py-4">
@@ -412,7 +412,7 @@ function NewJobDialog() {
                     onChange={(e) => setTestUrl(e.target.value)}
                     data-testid="input-test-url"
                   />
-                  <Button onClick={handleTestScrape} disabled={isTesting || !testUrl} data-testid="button-run-test">
+                  <Button onClick={handleTestMonitor} disabled={isTesting || !testUrl} data-testid="button-run-test">
                     {isTesting ? <RotateCw className="w-4 h-4 animate-spin" /> : <FlaskConical className="w-4 h-4" />}
                     <span className="ml-2">Run Test</span>
                   </Button>

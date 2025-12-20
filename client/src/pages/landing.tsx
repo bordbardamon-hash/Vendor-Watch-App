@@ -57,7 +57,7 @@ export default function Landing() {
                 <Activity className="h-10 w-10 text-primary mb-2" />
                 <CardTitle>Real-time Monitoring</CardTitle>
                 <CardDescription>
-                  Continuously scrape vendor status pages to detect incidents as they happen
+                  Continuously monitor vendor status pages to detect incidents as they happen
                 </CardDescription>
               </CardHeader>
             </Card>

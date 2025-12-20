@@ -12,7 +12,8 @@ import {
   Terminal,
   Server,
   Bell,
-  Mail
+  Mail,
+  MessageSquare
 } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +25,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { UI_LABELS } from "@/lib/labels";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
 
 const data = [
   { time: "00:00", requests: 120, errors: 2 },
@@ -43,6 +46,36 @@ export default function Dashboard() {
   const [notifyOnIncidents, setNotifyOnIncidents] = useState(true);
   const [notifyOnUpdates, setNotifyOnUpdates] = useState(true);
   const [notifyOnResolutions, setNotifyOnResolutions] = useState(true);
+
+  const { data: vendors = [] } = useQuery({
+    queryKey: ["/api/vendors"],
+    queryFn: async () => {
+      const res = await fetch("/api/vendors");
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const { data: incidents = [] } = useQuery({
+    queryKey: ["/api/incidents"],
+    queryFn: async () => {
+      const res = await fetch("/api/incidents");
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const { data: notifPrefs } = useQuery({
+    queryKey: ["/api/notifications/preferences"],
+    queryFn: async () => {
+      const res = await fetch("/api/notifications/preferences");
+      if (!res.ok) return null;
+      return res.json();
+    },
+  });
+
+  const vendorCount = vendors.length;
+  const incidentCount = incidents.filter((i: any) => i.status !== 'resolved').length;
 
   const handleSaveEmail = () => {
     if (!emailAddress.trim()) {
@@ -73,13 +106,19 @@ export default function Dashboard() {
             <span className="text-muted-foreground">{UI_LABELS.alerts.label}:</span>
             <button 
               onClick={() => setEmailDialogOpen(true)}
-              className="flex items-center gap-1 text-foreground hover:text-primary transition-colors cursor-pointer font-semibold"
+              className={`flex items-center gap-1 transition-colors cursor-pointer font-semibold ${notifPrefs?.notifyEmail ? 'text-foreground hover:text-primary' : 'text-muted-foreground/60 hover:text-muted-foreground'}`}
               data-testid="button-email-alerts"
             >
               <Mail size={14} />
               {UI_LABELS.alerts.email}
             </button>
-            <span className="text-muted-foreground/60">• {UI_LABELS.alerts.slackComingSoon}</span>
+            <span className="text-muted-foreground/60">•</span>
+            <Link href="/settings">
+              <span className={`flex items-center gap-1 transition-colors cursor-pointer font-semibold ${notifPrefs?.notifySms ? 'text-foreground hover:text-primary' : 'text-muted-foreground/60 hover:text-muted-foreground'}`} data-testid="button-sms-alerts">
+                <MessageSquare size={14} />
+                SMS
+              </span>
+            </Link>
           </div>
         </div>
       </div>
@@ -153,21 +192,27 @@ export default function Dashboard() {
       </Dialog>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <MetricCard 
-          title={UI_LABELS.cards.monitoredVendors}
-          value="7" 
-          change="+2" 
-          icon={Globe}
-          trend="up"
-        />
-        <MetricCard 
-          title={UI_LABELS.cards.activeIncidents}
-          value="3" 
-          change="+1" 
-          icon={AlertTriangle}
-          trend="up"
-          primary
-        />
+        <Link href="/vendors" data-testid="link-vendors-metric">
+          <MetricCard 
+            title={UI_LABELS.cards.monitoredVendors}
+            value={vendorCount.toString()} 
+            change="" 
+            icon={Globe}
+            trend="neutral"
+            clickable
+          />
+        </Link>
+        <Link href="/vendors" data-testid="link-incidents-metric">
+          <MetricCard 
+            title={UI_LABELS.cards.activeIncidents}
+            value={incidentCount.toString()} 
+            change="" 
+            icon={AlertTriangle}
+            trend="neutral"
+            primary
+            clickable
+          />
+        </Link>
         <MetricCard 
           title={UI_LABELS.cards.dbSize}
           value="12.4 MB" 
@@ -281,8 +326,8 @@ export default function Dashboard() {
             <CardContent>
               <div className="space-y-6">
                 {[
-                  { type: "success", msg: "Scraped atlassian", time: "2m ago" },
-                  { type: "success", msg: "Scraped cloudflare", time: "2m ago" },
+                  { type: "success", msg: "Monitored atlassian", time: "2m ago" },
+                  { type: "success", msg: "Monitored cloudflare", time: "2m ago" },
                   { type: "pending", msg: "Analysis complete: 0 alerts", time: "2m ago" },
                   { type: "success", msg: "DB Snapshot saved", time: "1h ago" },
                 ].map((item, i) => (
@@ -306,13 +351,13 @@ export default function Dashboard() {
   );
 }
 
-function MetricCard({ title, value, change, icon: Icon, trend, alert, primary }: any) {
+function MetricCard({ title, value, change, icon: Icon, trend, alert, primary, clickable }: any) {
   return (
     <Card className={`backdrop-blur-sm ${
       primary 
         ? 'border-primary/35 bg-primary/5 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.12)]' 
         : 'border-sidebar-border bg-sidebar/50'
-    }`}>
+    } ${clickable ? 'cursor-pointer hover:border-primary/50 hover:bg-sidebar/70 transition-all' : ''}`}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className={`text-sm font-medium ${primary ? 'text-foreground/85' : 'text-muted-foreground'}`}>
           {title}

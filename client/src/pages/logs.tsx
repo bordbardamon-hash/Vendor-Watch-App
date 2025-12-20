@@ -16,10 +16,10 @@ interface LogEntry {
 const mockLogs: LogEntry[] = [
   { id: 1, timestamp: "2024-03-20 14:23:01", level: 'INFO', module: 'scheduler', message: 'Starting job scheduler service...' },
   { id: 2, timestamp: "2024-03-20 14:23:02", level: 'INFO', module: 'worker.main', message: 'Worker pool initialized with 4 threads' },
-  { id: 3, timestamp: "2024-03-20 14:23:05", level: 'DEBUG', module: 'scraper.amazon', message: 'Requesting https://amazon.com/dp/B08...' },
-  { id: 4, timestamp: "2024-03-20 14:23:06", level: 'INFO', module: 'scraper.amazon', message: 'Successfully parsed product data: "Wireless Headphones"' },
+  { id: 3, timestamp: "2024-03-20 14:23:05", level: 'DEBUG', module: 'monitor.amazon', message: 'Requesting https://amazon.com/dp/B08...' },
+  { id: 4, timestamp: "2024-03-20 14:23:06", level: 'INFO', module: 'monitor.amazon', message: 'Successfully parsed product data: "Wireless Headphones"' },
   { id: 5, timestamp: "2024-03-20 14:23:10", level: 'WARN', module: 'network', message: 'High latency detected on proxy server us-east-1' },
-  { id: 6, timestamp: "2024-03-20 14:23:15", level: 'ERROR', module: 'scraper.weather', message: 'ConnectionRefusedError: [Errno 111] Connection refused' },
+  { id: 6, timestamp: "2024-03-20 14:23:15", level: 'ERROR', module: 'monitor.weather', message: 'ConnectionRefusedError: [Errno 111] Connection refused' },
   { id: 7, timestamp: "2024-03-20 14:23:16", level: 'INFO', module: 'scheduler', message: 'Retrying job weather-api in 60s...' },
 ];
 
@@ -37,7 +37,7 @@ export default function Logs() {
         id: Date.now(),
         timestamp: new Date().toISOString().replace('T', ' ').split('.')[0],
         level: Math.random() > 0.9 ? 'ERROR' : Math.random() > 0.7 ? 'WARN' : 'INFO',
-        module: ['scraper.core', 'network', 'db.writer', 'scheduler'][Math.floor(Math.random() * 4)],
+        module: ['monitor.core', 'network', 'db.writer', 'scheduler'][Math.floor(Math.random() * 4)],
         message: `Processing batch operation #${Math.floor(Math.random() * 1000)}...`
       };
       setLogs(prev => [...prev.slice(-100), newLog]);
@@ -84,7 +84,7 @@ export default function Logs() {
           <div className="w-3 h-3 rounded-full bg-red-500/50" />
           <div className="w-3 h-3 rounded-full bg-amber-500/50" />
           <div className="w-3 h-3 rounded-full bg-emerald-500/50" />
-          <span className="ml-2">runner@scraper-os:~/logs/production.log</span>
+          <span className="ml-2">runner@monitor-os:~/logs/production.log</span>
         </div>
         
         <div 

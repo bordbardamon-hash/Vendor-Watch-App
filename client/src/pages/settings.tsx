@@ -28,7 +28,7 @@ export default function Settings() {
   
   // State for configuration
   const [config, setConfig] = useState({
-    scrapeInterval: "10",
+    monitorInterval: "10",
     longRunningHours: "4",
     smtpHost: "smtp.gmail.com",
     smtpPort: "587",
@@ -122,13 +122,13 @@ class EmailConfig:
 @dataclass(frozen=True)
 class AppConfig:
     db_path: str
-    scrape_interval_minutes: int
+    monitor_interval_minutes: int
     long_running_hours: int
     email: EmailConfig
 
 CONFIG = AppConfig(
     db_path=os.getenv("DB_PATH", "${config.dbPath}"),
-    scrape_interval_minutes=int(os.getenv("SCRAPE_INTERVAL_MINUTES", "${config.scrapeInterval}")),
+    monitor_interval_minutes=int(os.getenv("MONITOR_INTERVAL_MINUTES", "${config.monitorInterval}")),
     long_running_hours=int(os.getenv("LONG_RUNNING_HOURS", "${config.longRunningHours}")),
     email=EmailConfig(
         host=os.getenv("SMTP_HOST", "${config.smtpHost}"),
@@ -169,18 +169,18 @@ CONFIG = AppConfig(
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-2">
-                <Label htmlFor="interval">Global Scrape Interval (Minutes)</Label>
+                <Label htmlFor="interval">Global Monitor Interval (Minutes)</Label>
                 <div className="flex items-center gap-2">
                   <Input 
                     id="interval" 
-                    value={config.scrapeInterval}
-                    onChange={(e) => updateConfig('scrapeInterval', e.target.value)}
+                    value={config.monitorInterval}
+                    onChange={(e) => updateConfig('monitorInterval', e.target.value)}
                     className="max-w-[150px] bg-background" 
                   />
                   <span className="text-sm text-muted-foreground">min</span>
                 </div>
                 <p className="text-[0.8rem] text-muted-foreground">
-                  Base interval for checking job queues (SCRAPE_INTERVAL_MINUTES).
+                  Base interval for checking job queues (MONITOR_INTERVAL_MINUTES).
                 </p>
               </div>
 
