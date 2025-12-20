@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bell, Database, Mail, Save, Server, Shield, Clock, Code, Copy, Check, CheckCircle2, Smartphone, MessageSquare } from "lucide-react";
+import { Bell, Database, Mail, Save, Server, Shield, Clock, Code, Copy, Check, CheckCircle2, Smartphone, MessageSquare, GripVertical } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -12,6 +12,23 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Vendor } from "@shared/schema";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 const EMAIL_CONSENT_TEXT = "I agree to receive vendor incident alerts and system notifications via email. I understand I can unsubscribe at any time by disabling email notifications in my settings.";
 const SMS_CONSENT_TEXT = "I agree to receive vendor incident alerts via SMS text messages. Message and data rates may apply. I understand I can opt out at any time by disabling SMS notifications in my settings or replying STOP.";
@@ -63,6 +80,51 @@ export default function Settings() {
   
   const [selectedVendors, setSelectedVendors] = useState<string[]>([]);
   const [vendorsInitialized, setVendorsInitialized] = useState(false);
+  const [orderedVendors, setOrderedVendors] = useState<Vendor[]>([]);
+  
+  // Fetch vendor order
+  const { data: vendorOrder } = useQuery<{ vendorKeys: string[] }>({
+    queryKey: ["/api/vendor-order"],
+    queryFn: async () => {
+      const res = await fetch("/api/vendor-order");
+      if (!res.ok) throw new Error("Failed to fetch vendor order");
+      return res.json();
+    },
+  });
+  
+  // Save vendor order mutation
+  const saveVendorOrder = useMutation({
+    mutationFn: async (vendorKeys: string[]) => {
+      const res = await fetch("/api/vendor-order", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vendorKeys }),
+      });
+      if (!res.ok) throw new Error("Failed to save vendor order");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/my-vendors"] });
+      toast({
+        title: "Vendor Order Saved",
+        description: "Your vendor display order has been updated.",
+        className: "bg-emerald-500 border-emerald-500 text-white"
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Save Failed",
+        description: "Could not save vendor order.",
+        variant: "destructive"
+      });
+    },
+  });
+  
+  // dnd-kit sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
   
   // Sync vendor subscriptions from API - wait for both vendors and subscriptions to load
   useEffect(() => {
@@ -75,6 +137,38 @@ export default function Settings() {
       setVendorsInitialized(true);
     }
   }, [vendorSubscriptions, vendorsInitialized, allVendors]);
+  
+  // Sync vendor order from API - recompute whenever vendors or order changes
+  useEffect(() => {
+    if (allVendors.length > 0) {
+      const orderKeys = vendorOrder?.vendorKeys || [];
+      if (orderKeys.length > 0) {
+        const orderMap = new Map(orderKeys.map((key, i) => [key, i]));
+        const sorted = [...allVendors].sort((a, b) => {
+          const orderA = orderMap.get(a.key) ?? 999;
+          const orderB = orderMap.get(b.key) ?? 999;
+          return orderA - orderB;
+        });
+        setOrderedVendors(sorted);
+      } else {
+        setOrderedVendors(allVendors);
+      }
+    }
+  }, [allVendors, vendorOrder]);
+  
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (over && active.id !== over.id) {
+      setOrderedVendors((items) => {
+        const oldIndex = items.findIndex(v => v.key === active.id);
+        const newIndex = items.findIndex(v => v.key === over.id);
+        const newItems = arrayMove(items, oldIndex, newIndex);
+        saveVendorOrder.mutate(newItems.map(v => v.key));
+        return newItems;
+      });
+    }
+  };
   
   const saveVendorSubscriptions = useMutation({
     mutationFn: async (vendorKeys: string[]) => {
@@ -688,35 +782,36 @@ CONFIG = AppConfig(
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {allVendors.map((vendor) => (
-                  <div 
-                    key={vendor.key}
-                    className="flex items-center gap-3 p-3 rounded-lg border border-sidebar-border bg-background/50 hover:bg-background/80 transition-colors"
-                  >
-                    <Checkbox 
-                      id={`vendor-${vendor.key}`}
-                      checked={selectedVendors.includes(vendor.key)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedVendors(prev => [...prev, vendor.key]);
-                        } else {
-                          setSelectedVendors(prev => prev.filter(k => k !== vendor.key));
-                        }
-                      }}
-                      data-testid={`checkbox-vendor-${vendor.key}`}
-                    />
-                    <div className="flex flex-col">
-                      <Label htmlFor={`vendor-${vendor.key}`} className="text-sm font-medium cursor-pointer">
-                        {vendor.name}
-                      </Label>
-                      <span className="text-xs text-muted-foreground capitalize">
-                        {vendor.status === 'operational' ? '✓ Operational' : vendor.status}
-                      </span>
-                    </div>
+              <p className="text-xs text-muted-foreground flex items-center gap-2">
+                <GripVertical className="w-3 h-3" /> Drag to reorder vendors. Order is saved automatically.
+              </p>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={orderedVendors.map(v => v.key)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {orderedVendors.map((vendor) => (
+                      <SortableVendorItem
+                        key={vendor.key}
+                        vendor={vendor}
+                        isSelected={selectedVendors.includes(vendor.key)}
+                        onToggle={(checked) => {
+                          if (checked) {
+                            setSelectedVendors(prev => [...prev, vendor.key]);
+                          } else {
+                            setSelectedVendors(prev => prev.filter(k => k !== vendor.key));
+                          }
+                        }}
+                      />
+                    ))}
                   </div>
-                ))}
-              </div>
+                </SortableContext>
+              </DndContext>
               
               <div className="flex flex-col gap-4 pt-4 border-t border-sidebar-border">
                 <div className="flex items-center justify-between">
@@ -903,6 +998,62 @@ CREATE TABLE IF NOT EXISTS alerts_sent (
         <Button onClick={handleSave} className="gap-2">
           <Save className="w-4 h-4" /> Save Changes
         </Button>
+      </div>
+    </div>
+  );
+}
+
+interface SortableVendorItemProps {
+  vendor: Vendor;
+  isSelected: boolean;
+  onToggle: (checked: boolean) => void;
+}
+
+function SortableVendorItem({ vendor, isSelected, onToggle }: SortableVendorItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id: vendor.key });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-3 p-3 rounded-lg border border-sidebar-border bg-background/50 hover:bg-background/80 transition-colors ${isDragging ? 'shadow-lg' : ''}`}
+      data-testid={`sortable-vendor-${vendor.key}`}
+    >
+      <div
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground"
+        data-testid={`drag-handle-${vendor.key}`}
+      >
+        <GripVertical className="w-4 h-4" />
+      </div>
+      <Checkbox
+        id={`vendor-${vendor.key}`}
+        checked={isSelected}
+        onCheckedChange={onToggle}
+        data-testid={`checkbox-vendor-${vendor.key}`}
+      />
+      <div className="flex flex-col flex-1">
+        <Label htmlFor={`vendor-${vendor.key}`} className="text-sm font-medium cursor-pointer">
+          {vendor.name}
+        </Label>
+        <span className="text-xs text-muted-foreground capitalize">
+          {vendor.status === 'operational' ? '✓ Operational' : vendor.status}
+        </span>
       </div>
     </div>
   );
