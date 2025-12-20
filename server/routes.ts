@@ -3,6 +3,18 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertVendorSchema, insertIncidentSchema, insertJobSchema, insertConfigSchema } from "@shared/schema";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
+import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
+import { z } from "zod";
+
+const PRICE_ID = "price_1SgJviBHVJ1HPGTMdYAPJFNi";
+
+const signupSchema = z.object({
+  firstName: z.string().min(1),
+  lastName: z.string().min(1),
+  companyName: z.string().min(1),
+  phone: z.string().min(1),
+  email: z.string().email(),
+});
 
 export async function registerRoutes(
   httpServer: Server,
@@ -227,6 +239,77 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error setting config:", error);
       res.status(500).json({ error: "Failed to set config" });
+    }
+  });
+
+  // ============ STRIPE / SIGNUP ============
+
+  app.get("/api/stripe/publishable-key", async (_req, res) => {
+    try {
+      const publishableKey = await getStripePublishableKey();
+      res.json({ publishableKey });
+    } catch (error) {
+      console.error("Error getting publishable key:", error);
+      res.status(500).json({ error: "Failed to get publishable key" });
+    }
+  });
+
+  app.post("/api/signup/checkout", async (req, res) => {
+    try {
+      const validatedData = signupSchema.parse(req.body);
+      const stripe = await getUncachableStripeClient();
+
+      const customer = await stripe.customers.create({
+        email: validatedData.email,
+        name: `${validatedData.firstName} ${validatedData.lastName}`,
+        phone: validatedData.phone,
+        metadata: {
+          companyName: validatedData.companyName,
+          firstName: validatedData.firstName,
+          lastName: validatedData.lastName,
+        },
+      });
+
+      const session = await stripe.checkout.sessions.create({
+        customer: customer.id,
+        payment_method_types: ['card'],
+        line_items: [{ price: PRICE_ID, quantity: 1 }],
+        mode: 'subscription',
+        success_url: `${req.protocol}://${req.get('host')}/signup/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${req.protocol}://${req.get('host')}/signup`,
+        subscription_data: {
+          trial_period_days: 7,
+        },
+      });
+
+      res.json({ url: session.url });
+    } catch (error: any) {
+      console.error("Error creating checkout session:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: "Invalid signup data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create checkout session" });
+    }
+  });
+
+  app.get("/api/subscription/status", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.id);
+      if (!user?.stripeSubscriptionId) {
+        return res.json({ status: 'none', subscription: null });
+      }
+
+      const stripe = await getUncachableStripeClient();
+      const subscription = await stripe.subscriptions.retrieve(user.stripeSubscriptionId);
+      
+      res.json({ 
+        status: subscription.status,
+        trialEnd: subscription.trial_end,
+        currentPeriodEnd: (subscription as any).current_period_end,
+      });
+    } catch (error) {
+      console.error("Error fetching subscription:", error);
+      res.status(500).json({ error: "Failed to fetch subscription status" });
     }
   });
 

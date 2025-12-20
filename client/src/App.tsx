@@ -12,6 +12,8 @@ import Jobs from "@/pages/jobs";
 import Logs from "@/pages/logs";
 import Settings from "@/pages/settings";
 import Vendors from "@/pages/vendors";
+import Signup from "@/pages/signup";
+import SignupSuccess from "@/pages/signup-success";
 import { Loader2 } from "lucide-react";
 
 function AuthenticatedRouter() {
@@ -40,11 +42,15 @@ function Router() {
     );
   }
 
-  if (!user) {
-    return <Landing />;
-  }
-
-  return <AuthenticatedRouter />;
+  return (
+    <Switch>
+      <Route path="/signup" component={Signup} />
+      <Route path="/signup/success" component={SignupSuccess} />
+      <Route>
+        {user ? <AuthenticatedRouter /> : <Landing />}
+      </Route>
+    </Switch>
+  );
 }
 
 function App() {

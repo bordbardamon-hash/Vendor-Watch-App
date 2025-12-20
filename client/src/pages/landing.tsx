@@ -2,6 +2,7 @@ import { APP_NAME } from "@/lib/labels";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Shield, Activity, Bell, Zap } from "lucide-react";
+import { Link } from "wouter";
 
 export default function Landing() {
   return (
@@ -12,9 +13,16 @@ export default function Landing() {
             <Shield className="h-8 w-8 text-primary" />
             <span className="text-xl font-bold tracking-tight">{APP_NAME}</span>
           </div>
-          <Button asChild data-testid="button-login">
-            <a href="/api/login">Sign In</a>
-          </Button>
+          <div className="flex items-center gap-3">
+            <Link href="/signup">
+              <Button variant="outline" data-testid="button-signup">
+                Sign Up
+              </Button>
+            </Link>
+            <Button asChild data-testid="button-login">
+              <a href="/api/login">Sign In</a>
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -28,11 +36,18 @@ export default function Landing() {
             {APP_NAME} tracks third-party service status pages and alerts you 
             instantly when incidents are detected. Never be caught off guard by vendor downtime again.
           </p>
-          <Button size="lg" asChild data-testid="button-get-started">
-            <a href="/api/login" className="text-lg px-8 py-6">
-              Get Started
-            </a>
-          </Button>
+          <div className="flex items-center justify-center gap-4">
+            <Link href="/signup">
+              <Button size="lg" className="text-lg px-8 py-6" data-testid="button-get-started">
+                Start Free Trial
+              </Button>
+            </Link>
+            <Button size="lg" variant="outline" asChild data-testid="button-signin-hero">
+              <a href="/api/login" className="text-lg px-8 py-6">
+                Sign In
+              </a>
+            </Button>
+          </div>
         </section>
 
         <section className="container mx-auto px-4 py-16">
