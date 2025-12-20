@@ -41,6 +41,20 @@ interface Incident {
 
 const mockVendors: Vendor[] = [
   { 
+    key: "atlassian", 
+    name: "Atlassian", 
+    statusUrl: "https://status.atlassian.com", 
+    parser: "parsers.statuspage.Standard",
+    status: 'operational'
+  },
+  { 
+    key: "cloudflare", 
+    name: "Cloudflare", 
+    statusUrl: "https://www.cloudflarestatus.com", 
+    parser: "parsers.statuspage.Standard",
+    status: 'operational'
+  },
+  { 
     key: "aws-us-east-1", 
     name: "AWS US-East-1", 
     statusUrl: "https://health.aws.amazon.com", 
