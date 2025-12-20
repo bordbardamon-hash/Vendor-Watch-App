@@ -4,12 +4,70 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Shield, Check, CreditCard, ArrowRight } from "lucide-react";
+import { Shield, Check, CreditCard, ArrowRight, Crown, Star, Zap } from "lucide-react";
 import { APP_NAME } from "@/lib/labels";
+import { cn } from "@/lib/utils";
+
+type SubscriptionTier = 'standard' | 'gold' | 'platinum';
+
+const TIERS = {
+  standard: {
+    name: "Standard",
+    price: "$89.99",
+    icon: Shield,
+    color: "text-blue-500",
+    borderColor: "border-blue-500/50",
+    bgColor: "bg-blue-500/10",
+    features: [
+      "Monitor up to 10 vendors",
+      "Real-time incident detection",
+      "Email alerts for outages",
+      "Detailed incident tracking",
+      "7-day free trial",
+    ],
+  },
+  gold: {
+    name: "Gold",
+    price: "$99.99",
+    icon: Star,
+    color: "text-yellow-500",
+    borderColor: "border-yellow-500/50",
+    bgColor: "bg-yellow-500/10",
+    popular: true,
+    features: [
+      "Monitor up to 25 vendors",
+      "Real-time incident detection",
+      "Email & SMS alerts",
+      "Detailed incident tracking",
+      "Request up to 5 custom vendors",
+      "Priority support",
+      "7-day free trial",
+    ],
+  },
+  platinum: {
+    name: "Platinum",
+    price: "$129.99",
+    icon: Crown,
+    color: "text-purple-500",
+    borderColor: "border-purple-500/50",
+    bgColor: "bg-purple-500/10",
+    features: [
+      "Unlimited vendor monitoring",
+      "Real-time incident detection",
+      "Email & SMS alerts",
+      "Detailed incident tracking",
+      "Add vendors directly to system",
+      "API access for integrations",
+      "Priority support",
+      "7-day free trial",
+    ],
+  },
+};
 
 export default function Signup() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [selectedTier, setSelectedTier] = useState<SubscriptionTier>('gold');
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -30,7 +88,7 @@ export default function Signup() {
       const response = await fetch("/api/signup/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, tier: selectedTier }),
       });
 
       const data = await response.json();
@@ -52,61 +110,75 @@ export default function Signup() {
     }
   };
 
-  const features = [
-    "Monitor unlimited vendor status pages",
-    "Real-time incident detection",
-    "Email alerts for outages",
-    "Detailed incident tracking",
-    "API access for integrations",
-    "Priority support",
-  ];
+  const currentTier = TIERS[selectedTier];
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-sidebar flex items-center justify-center p-4">
-      <div className="w-full max-w-5xl grid md:grid-cols-2 gap-8">
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Shield className="h-8 w-8 text-primary" />
-              <h1 className="text-3xl font-bold">{APP_NAME}</h1>
-            </div>
-            <p className="text-muted-foreground text-lg">
-              Start monitoring your vendors today
-            </p>
+      <div className="w-full max-w-6xl space-y-8">
+        <div className="text-center space-y-2">
+          <div className="flex items-center justify-center gap-2">
+            <Shield className="h-10 w-10 text-primary" />
+            <h1 className="text-4xl font-bold">{APP_NAME}</h1>
           </div>
-
-          <Card className="bg-sidebar/50 border-sidebar-border">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Pro Plan</span>
-                <div className="text-right">
-                  <span className="text-3xl font-bold">$89.99</span>
-                  <span className="text-muted-foreground">/month</span>
-                </div>
-              </CardTitle>
-              <CardDescription className="flex items-center gap-2 text-primary font-medium">
-                <Check className="h-4 w-4" />
-                7-day free trial included
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {features.map((feature, i) => (
-                <div key={i} className="flex items-center gap-2 text-sm">
-                  <Check className="h-4 w-4 text-green-500 flex-shrink-0" />
-                  <span>{feature}</span>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          <p className="text-sm text-muted-foreground">
-            Cancel anytime during your trial. No charge until the trial ends.
+          <p className="text-muted-foreground text-lg">
+            Choose the plan that's right for your business
           </p>
         </div>
 
-        <Card className="border-sidebar-border">
+        <div className="grid md:grid-cols-3 gap-6">
+          {(['standard', 'gold', 'platinum'] as SubscriptionTier[]).map((tier) => {
+            const config = TIERS[tier];
+            const Icon = config.icon;
+            const isSelected = selectedTier === tier;
+            const isPopular = tier === 'gold';
+            return (
+              <Card
+                key={tier}
+                className={cn(
+                  "cursor-pointer transition-all duration-200 hover:scale-[1.02] relative",
+                  isSelected 
+                    ? `${config.borderColor} border-2 ${config.bgColor}` 
+                    : "border-sidebar-border bg-sidebar/30 hover:bg-sidebar/50"
+                )}
+                onClick={() => setSelectedTier(tier)}
+                data-testid={`card-tier-${tier}`}
+              >
+                {isPopular && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <span className="bg-yellow-500 text-black text-xs font-bold px-3 py-1 rounded-full">
+                      Most Popular
+                    </span>
+                  </div>
+                )}
+                <CardHeader className="text-center pb-2">
+                  <div className={cn("mx-auto p-3 rounded-full mb-2", config.bgColor)}>
+                    <Icon className={cn("h-6 w-6", config.color)} />
+                  </div>
+                  <CardTitle className="text-xl">{config.name}</CardTitle>
+                  <div className="mt-2">
+                    <span className="text-3xl font-bold">{config.price}</span>
+                    <span className="text-muted-foreground">/month</span>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {config.features.map((feature, i) => (
+                    <div key={i} className="flex items-start gap-2 text-sm">
+                      <Check className={cn("h-4 w-4 mt-0.5 flex-shrink-0", config.color)} />
+                      <span>{feature}</span>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+
+        <Card className="border-sidebar-border max-w-lg mx-auto">
           <CardHeader>
-            <CardTitle>Create your account</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <currentTier.icon className={cn("h-5 w-5", currentTier.color)} />
+              Create your {currentTier.name} account
+            </CardTitle>
             <CardDescription>
               Fill in your details to start your 7-day free trial
             </CardDescription>
@@ -193,7 +265,7 @@ export default function Signup() {
                 ) : (
                   <>
                     <CreditCard className="mr-2 h-4 w-4" />
-                    Start 7-Day Free Trial
+                    Start 7-Day Free Trial - {currentTier.price}/mo
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </>
                 )}
@@ -206,6 +278,10 @@ export default function Signup() {
             </form>
           </CardContent>
         </Card>
+
+        <p className="text-sm text-muted-foreground text-center">
+          Cancel anytime during your trial. No charge until the trial ends.
+        </p>
       </div>
     </div>
   );
