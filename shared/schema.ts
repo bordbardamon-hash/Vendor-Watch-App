@@ -78,6 +78,15 @@ export const incidentAlerts = pgTable("incident_alerts", {
   sentAt: timestamp("sent_at").notNull().defaultNow(),
 });
 
+// User Vendor Order - custom ordering of vendors per user
+export const userVendorOrder = pgTable("user_vendor_order", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: text("user_id").notNull(),
+  vendorKey: text("vendor_key").notNull(),
+  displayOrder: integer("display_order").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // User Vendor Subscriptions - which vendors each user monitors
 export const userVendorSubscriptions = pgTable("user_vendor_subscriptions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -144,6 +153,11 @@ export const insertUserVendorSubscriptionSchema = createInsertSchema(userVendorS
   createdAt: true,
 });
 
+export const insertUserVendorOrderSchema = createInsertSchema(userVendorOrder).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type InsertVendor = z.infer<typeof insertVendorSchema>;
 export type Vendor = typeof vendors.$inferSelect;
@@ -168,3 +182,6 @@ export type IncidentAlert = typeof incidentAlerts.$inferSelect;
 
 export type InsertUserVendorSubscription = z.infer<typeof insertUserVendorSubscriptionSchema>;
 export type UserVendorSubscription = typeof userVendorSubscriptions.$inferSelect;
+
+export type InsertUserVendorOrder = z.infer<typeof insertUserVendorOrderSchema>;
+export type UserVendorOrder = typeof userVendorOrder.$inferSelect;
