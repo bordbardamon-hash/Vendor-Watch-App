@@ -29,7 +29,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <div className="h-8 w-8 rounded bg-primary flex items-center justify-center text-primary-foreground">
             <Bot size={20} />
           </div>
-          <span className="font-bold text-lg tracking-tight">ScraperOS</span>
+          <span className="font-bold text-lg tracking-tight">Vendor Watch</span>
         </div>
 
         <nav className="flex-1 p-4 space-y-1">

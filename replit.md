@@ -1,8 +1,8 @@
-# ScraperOS - Vendor Status Monitoring Dashboard
+# Vendor Watch - Vendor Status Monitoring Dashboard
 
 ## Overview
 
-ScraperOS is a full-stack web application for monitoring third-party vendor status pages and detecting service incidents. It provides a dashboard for managing web scraping jobs, viewing vendor health status, tracking incidents, and monitoring system logs. The application is designed as a control center for Python-based scraping tasks that detect outages across major cloud providers and SaaS platforms.
+Vendor Watch is a full-stack web application for monitoring third-party vendor status pages and detecting service incidents. It provides a dashboard for managing web scraping jobs, viewing vendor health status, tracking incidents, and monitoring system logs. The application is designed as a control center for Python-based scraping tasks that detect outages across major cloud providers and SaaS platforms.
 
 ## User Preferences
 
