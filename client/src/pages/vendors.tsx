@@ -11,11 +11,11 @@ import {
   Search, 
   Activity,
   Server,
-  Code
+  Code,
+  Hash
 } from "lucide-react";
-import { useState } from "react";
-import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { useState, useEffect } from "react";
+import { stableHash } from "@/lib/hash";
 
 // Types matching the Python dataclasses
 interface Vendor {
@@ -36,6 +36,7 @@ interface Incident {
   url: string;
   startedAt: string;
   updatedAt: string;
+  rawHash?: string;
 }
 
 const mockVendors: Vendor[] = [
@@ -46,6 +47,7 @@ const mockVendors: Vendor[] = [
     parser: "parsers.aws.HealthDashboard",
     status: 'degraded'
   },
+// ... (rest of mockVendors remains same)
   { 
     key: "github", 
     name: "GitHub", 
@@ -115,6 +117,19 @@ const mockIncidents: Incident[] = [
 export default function Vendors() {
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [incidents, setIncidents] = useState<Incident[]>(mockIncidents);
+
+  // Generate hashes for mock incidents on load
+  useEffect(() => {
+    const enrichIncidents = async () => {
+      const enriched = await Promise.all(mockIncidents.map(async (inc) => ({
+        ...inc,
+        rawHash: await stableHash(inc.vendorKey + inc.incidentId + inc.title)
+      })));
+      setIncidents(enriched);
+    };
+    enrichIncidents();
+  }, []);
 
   const filteredVendors = mockVendors.filter(v => 
     v.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -122,8 +137,9 @@ export default function Vendors() {
   );
 
   const getVendorIncidents = (vendorKey: string) => {
-    return mockIncidents.filter(i => i.vendorKey === vendorKey);
+    return incidents.filter(i => i.vendorKey === vendorKey);
   };
+
 
   const getSeverityColor = (severity: string) => {
     switch(severity) {
@@ -248,7 +264,15 @@ export default function Vendors() {
                           </div>
                           <p className="text-sm text-muted-foreground mb-3">{incident.impact}</p>
                           <div className="flex items-center justify-between text-xs font-mono text-muted-foreground/70 bg-sidebar/50 p-2 rounded">
-                            <span>ID: {incident.incidentId}</span>
+                            <span className="flex items-center gap-2">
+                              <span>ID: {incident.incidentId}</span>
+                              {incident.rawHash && (
+                                <span className="text-[10px] text-muted-foreground/50 border-l border-white/10 pl-2 flex items-center gap-1" title="Stable Hash">
+                                  <Hash className="w-3 h-3" />
+                                  {incident.rawHash.substring(0, 8)}...
+                                </span>
+                              )}
+                            </span>
                             <span>{incident.startedAt}</span>
                           </div>
                           <div className="mt-3 flex items-center justify-between">
