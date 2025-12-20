@@ -1,13 +1,15 @@
 import { 
-  users, vendors, incidents, jobs, config, feedback, notificationConsents,
+  users, vendors, incidents, jobs, config, feedback, notificationConsents, incidentAlerts,
   type User, type UpsertUser,
   type Vendor, type InsertVendor,
   type Incident, type InsertIncident,
   type Job, type InsertJob,
   type Config, type InsertConfig,
   type Feedback, type InsertFeedback,
-  type NotificationConsent, type InsertNotificationConsent
+  type NotificationConsent, type InsertNotificationConsent,
+  type IncidentAlert, type InsertIncidentAlert
 } from "@shared/schema";
+import { and, isNull } from "drizzle-orm";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
 
@@ -57,6 +59,15 @@ export interface IStorage {
   getConsentsByUser(userId: string): Promise<NotificationConsent[]>;
   revokeConsent(id: string): Promise<NotificationConsent | undefined>;
   getConsentsCount(): Promise<number>;
+  
+  // Incident Alerts
+  recordAlert(alert: InsertIncidentAlert): Promise<IncidentAlert>;
+  hasAlertBeenSent(incidentId: string, userId: string, channel: string, eventType: string): Promise<boolean>;
+  getAlertsByIncident(incidentId: string): Promise<IncidentAlert[]>;
+  
+  // Users with notifications enabled
+  getUsersWithNotificationsEnabled(): Promise<User[]>;
+  getActiveConsentsForChannel(channel: string): Promise<NotificationConsent[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -286,6 +297,56 @@ export class DatabaseStorage implements IStorage {
   async getConsentsCount(): Promise<number> {
     const result = await db.select().from(notificationConsents);
     return result.length;
+  }
+  
+  // Incident Alerts
+  async recordAlert(alert: InsertIncidentAlert): Promise<IncidentAlert> {
+    const [newAlert] = await db
+      .insert(incidentAlerts)
+      .values(alert)
+      .returning();
+    return newAlert;
+  }
+  
+  async hasAlertBeenSent(incidentId: string, userId: string, channel: string, eventType: string): Promise<boolean> {
+    const [existing] = await db
+      .select()
+      .from(incidentAlerts)
+      .where(
+        and(
+          eq(incidentAlerts.incidentId, incidentId),
+          eq(incidentAlerts.userId, userId),
+          eq(incidentAlerts.channel, channel),
+          eq(incidentAlerts.eventType, eventType)
+        )
+      );
+    return !!existing;
+  }
+  
+  async getAlertsByIncident(incidentId: string): Promise<IncidentAlert[]> {
+    return await db
+      .select()
+      .from(incidentAlerts)
+      .where(eq(incidentAlerts.incidentId, incidentId))
+      .orderBy(desc(incidentAlerts.sentAt));
+  }
+  
+  // Users with notifications enabled
+  async getUsersWithNotificationsEnabled(): Promise<User[]> {
+    const allUsers = await db.select().from(users);
+    return allUsers.filter(u => u.notifyEmail || u.notifySms);
+  }
+  
+  async getActiveConsentsForChannel(channel: string): Promise<NotificationConsent[]> {
+    return await db
+      .select()
+      .from(notificationConsents)
+      .where(
+        and(
+          eq(notificationConsents.channel, channel),
+          isNull(notificationConsents.revokedAt)
+        )
+      );
   }
 }
 
