@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertVendorSchema, insertIncidentSchema, insertJobSchema, insertConfigSchema } from "@shared/schema";
+import { insertVendorSchema, insertIncidentSchema, insertJobSchema, insertConfigSchema, insertFeedbackSchema } from "@shared/schema";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
 import { z } from "zod";
@@ -294,7 +294,7 @@ export async function registerRoutes(
 
   app.get("/api/subscription/status", isAuthenticated, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.id);
+      const user = await storage.getUser(req.user.claims.sub);
       if (!user?.stripeSubscriptionId) {
         return res.json({ status: 'none', subscription: null });
       }
@@ -310,6 +310,35 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching subscription:", error);
       res.status(500).json({ error: "Failed to fetch subscription status" });
+    }
+  });
+
+  // ============ FEEDBACK ============
+
+  app.get("/api/feedback", isAuthenticated, async (req, res) => {
+    try {
+      const allFeedback = await storage.getFeedback();
+      res.json(allFeedback);
+    } catch (error) {
+      console.error("Error fetching feedback:", error);
+      res.status(500).json({ error: "Failed to fetch feedback" });
+    }
+  });
+
+  app.post("/api/feedback", isAuthenticated, async (req: any, res) => {
+    try {
+      const validatedData = insertFeedbackSchema.parse({
+        ...req.body,
+        userId: req.user.claims.sub,
+      });
+      const newFeedback = await storage.createFeedback(validatedData);
+      res.status(201).json(newFeedback);
+    } catch (error: any) {
+      console.error("Error creating feedback:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: "Invalid feedback data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to submit feedback" });
     }
   });
 

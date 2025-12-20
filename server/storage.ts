@@ -1,10 +1,11 @@
 import { 
-  users, vendors, incidents, jobs, config,
+  users, vendors, incidents, jobs, config, feedback,
   type User, type UpsertUser,
   type Vendor, type InsertVendor,
   type Incident, type InsertIncident,
   type Job, type InsertJob,
-  type Config, type InsertConfig
+  type Config, type InsertConfig,
+  type Feedback, type InsertFeedback
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
@@ -39,6 +40,10 @@ export interface IStorage {
   getConfig(key: string): Promise<Config | undefined>;
   setConfig(key: string, value: string): Promise<Config>;
   getAllConfig(): Promise<Config[]>;
+  
+  // Feedback
+  getFeedback(): Promise<Feedback[]>;
+  createFeedback(feedbackData: InsertFeedback): Promise<Feedback>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -187,6 +192,19 @@ export class DatabaseStorage implements IStorage {
   
   async getAllConfig(): Promise<Config[]> {
     return await db.select().from(config);
+  }
+  
+  // Feedback
+  async getFeedback(): Promise<Feedback[]> {
+    return await db.select().from(feedback).orderBy(desc(feedback.createdAt)).limit(100);
+  }
+  
+  async createFeedback(feedbackData: InsertFeedback): Promise<Feedback> {
+    const [newFeedback] = await db
+      .insert(feedback)
+      .values(feedbackData)
+      .returning();
+    return newFeedback;
   }
 }
 

@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { UI_LABELS, APP_NAME } from "@/lib/labels";
 import { useAuth } from "@/hooks/use-auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { FeedbackDialog } from "@/components/feedback-dialog";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -133,6 +134,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             )}
           </Button>
           
+          <FeedbackDialog collapsed={!sidebarOpen} />
+
           {sidebarOpen && (
             <div className="flex items-center gap-3 px-3 py-2 rounded-md bg-sidebar-accent/30 text-xs text-muted-foreground">
               <Activity size={14} className="text-primary animate-pulse" />

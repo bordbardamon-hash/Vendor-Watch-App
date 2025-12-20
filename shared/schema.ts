@@ -55,6 +55,17 @@ export const config = pgTable("config", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+// Feedback - user suggestions and bug reports
+export const feedback = pgTable("feedback", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: text("user_id"),
+  type: text("type").notNull(), // 'suggestion' or 'bug'
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  status: text("status").notNull().default('open'), // 'open', 'in_progress', 'resolved', 'closed'
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Insert schemas
 export const insertVendorSchema = createInsertSchema(vendors).omit({
   id: true,
@@ -76,6 +87,11 @@ export const insertConfigSchema = createInsertSchema(config).omit({
   updatedAt: true,
 });
 
+export const insertFeedbackSchema = createInsertSchema(feedback).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type InsertVendor = z.infer<typeof insertVendorSchema>;
 export type Vendor = typeof vendors.$inferSelect;
@@ -88,3 +104,6 @@ export type Job = typeof jobs.$inferSelect;
 
 export type InsertConfig = z.infer<typeof insertConfigSchema>;
 export type Config = typeof config.$inferSelect;
+
+export type InsertFeedback = z.infer<typeof insertFeedbackSchema>;
+export type Feedback = typeof feedback.$inferSelect;
