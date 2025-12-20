@@ -117,7 +117,7 @@ function formatEmailHtml(notification: IncidentNotification): string {
 }
 
 export async function dispatchIncidentNotification(notification: IncidentNotification): Promise<{ sms: number; email: number; errors: string[] }> {
-  const { incident, eventType } = notification;
+  const { incident, vendor, eventType } = notification;
   const errors: string[] = [];
   let smsSent = 0;
   let emailSent = 0;
@@ -125,6 +125,12 @@ export async function dispatchIncidentNotification(notification: IncidentNotific
   const usersWithNotifications = await storage.getUsersWithNotificationsEnabled();
   
   for (const user of usersWithNotifications) {
+    const userSubscriptions = await storage.getUserVendorSubscriptions(user.id);
+    const isSubscribed = userSubscriptions.length === 0 || userSubscriptions.includes(vendor.key);
+    
+    if (!isSubscribed) {
+      continue;
+    }
     if (user.notifySms && user.phone) {
       const alreadySent = await storage.hasAlertBeenSent(incident.incidentId, user.id, 'sms', eventType, incident.status);
       if (!alreadySent) {
