@@ -9,7 +9,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+
+const EMAIL_CONSENT_TEXT = "I agree to receive vendor incident alerts and system notifications via email. I understand I can unsubscribe at any time by disabling email notifications in my settings.";
+const SMS_CONSENT_TEXT = "I agree to receive vendor incident alerts via SMS text messages. Message and data rates may apply. I understand I can opt out at any time by disabling SMS notifications in my settings or replying STOP.";
 
 export default function Settings() {
   const { toast } = useToast();
@@ -42,6 +46,11 @@ export default function Settings() {
     enableBackup: true
   });
 
+  const [emailConsentChecked, setEmailConsentChecked] = useState(false);
+  const [smsConsentChecked, setSmsConsentChecked] = useState(false);
+  const [originalEmailEnabled, setOriginalEmailEnabled] = useState<boolean | null>(null);
+  const [originalSmsEnabled, setOriginalSmsEnabled] = useState<boolean | null>(null);
+
   // Sync notification prefs from API
   useEffect(() => {
     if (notifPrefs) {
@@ -51,8 +60,14 @@ export default function Settings() {
         enableEmail: notifPrefs.notifyEmail ?? true,
         enableSms: notifPrefs.notifySms ?? false,
       }));
+      if (originalEmailEnabled === null) {
+        setOriginalEmailEnabled(notifPrefs.notifyEmail ?? true);
+      }
+      if (originalSmsEnabled === null) {
+        setOriginalSmsEnabled(notifPrefs.notifySms ?? false);
+      }
     }
-  }, [notifPrefs]);
+  }, [notifPrefs, originalEmailEnabled, originalSmsEnabled]);
 
   const saveNotificationPrefs = useMutation({
     mutationFn: async (prefs: { phone: string; notifyEmail: boolean; notifySms: boolean }) => {
@@ -83,12 +98,70 @@ export default function Settings() {
 
   const [copied, setCopied] = useState(false);
 
-  const handleSave = () => {
+  const recordConsent = async (channel: 'email' | 'sms', destination: string, consentText: string) => {
+    try {
+      await fetch('/api/consents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channel,
+          destination,
+          consentText,
+          consentMethod: 'checkbox',
+          sourceContext: 'Settings - Notification Preferences'
+        })
+      });
+    } catch (error) {
+      console.error('Failed to record consent:', error);
+    }
+  };
+
+  const isEnablingEmail = config.enableEmail && !originalEmailEnabled;
+  const isEnablingSms = config.enableSms && !originalSmsEnabled;
+
+  const handleSave = async () => {
+    if (isEnablingEmail && !emailConsentChecked) {
+      toast({
+        title: "Consent Required",
+        description: "Please check the consent box to enable email notifications.",
+        variant: "destructive"
+      });
+      return;
+    }
+    if (isEnablingSms && !smsConsentChecked) {
+      toast({
+        title: "Consent Required",
+        description: "Please check the consent box to enable SMS notifications.",
+        variant: "destructive"
+      });
+      return;
+    }
+    if (isEnablingSms && !config.smsPhone) {
+      toast({
+        title: "Phone Required",
+        description: "Please enter your phone number to enable SMS notifications.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (isEnablingEmail) {
+      await recordConsent('email', config.alertTo, EMAIL_CONSENT_TEXT);
+    }
+    if (isEnablingSms) {
+      await recordConsent('sms', config.smsPhone, SMS_CONSENT_TEXT);
+    }
+
     saveNotificationPrefs.mutate({
       phone: config.smsPhone,
       notifyEmail: config.enableEmail,
       notifySms: config.enableSms,
     });
+
+    setOriginalEmailEnabled(config.enableEmail);
+    setOriginalSmsEnabled(config.enableSms);
+    setEmailConsentChecked(false);
+    setSmsConsentChecked(false);
   };
 
   const copyToClipboard = () => {
@@ -300,6 +373,27 @@ CONFIG = AppConfig(
                    />
                 </div>
               </div>
+
+              {isEnablingEmail && (
+                <div className="mt-4 p-4 rounded-lg border border-primary/30 bg-primary/5 animate-fade-in">
+                  <div className="flex items-start gap-3">
+                    <Checkbox 
+                      id="email-consent"
+                      checked={emailConsentChecked}
+                      onCheckedChange={(c) => setEmailConsentChecked(!!c)}
+                      data-testid="checkbox-email-consent"
+                    />
+                    <div className="space-y-1">
+                      <Label htmlFor="email-consent" className="text-sm font-medium cursor-pointer">
+                        Email Notification Consent
+                      </Label>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        {EMAIL_CONSENT_TEXT}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -386,6 +480,27 @@ CONFIG = AppConfig(
                    />
                 </div>
               </div>
+
+              {isEnablingSms && (
+                <div className="mt-4 p-4 rounded-lg border border-primary/30 bg-primary/5 animate-fade-in">
+                  <div className="flex items-start gap-3">
+                    <Checkbox 
+                      id="sms-consent"
+                      checked={smsConsentChecked}
+                      onCheckedChange={(c) => setSmsConsentChecked(!!c)}
+                      data-testid="checkbox-sms-consent"
+                    />
+                    <div className="space-y-1">
+                      <Label htmlFor="sms-consent" className="text-sm font-medium cursor-pointer">
+                        SMS Notification Consent
+                      </Label>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        {SMS_CONSENT_TEXT}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 

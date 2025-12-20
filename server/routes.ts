@@ -400,6 +400,11 @@ export async function registerRoutes(
         return res.status(404).json({ error: "User not found" });
       }
 
+      const forwardedFor = req.headers['x-forwarded-for'];
+      const ipAddress = forwardedFor 
+        ? (Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor.split(',')[0].trim())
+        : req.socket.remoteAddress || null;
+
       const consentData = {
         userId: user.id,
         userEmail: user.email || undefined,
@@ -408,7 +413,7 @@ export async function registerRoutes(
         consentText: req.body.consentText,
         consentMethod: req.body.consentMethod || 'checkbox',
         sourceContext: req.body.sourceContext || 'Dashboard',
-        ipAddress: req.headers['x-forwarded-for']?.toString() || req.socket.remoteAddress || null,
+        ipAddress,
         userAgent: req.headers['user-agent'] || null,
       };
 

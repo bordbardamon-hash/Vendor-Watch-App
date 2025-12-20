@@ -10,7 +10,8 @@ import {
   PanelLeftClose,
   PanelLeft,
   LogOut,
-  User
+  User,
+  FileCheck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -40,6 +41,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { href: "/vendors", icon: Shield, label: UI_LABELS.nav.vendorsIncidents },
     { href: "/jobs", icon: List, label: UI_LABELS.nav.scrapers },
     { href: "/logs", icon: Terminal, label: UI_LABELS.nav.logs },
+    { href: "/consents", icon: FileCheck, label: "Consents" },
     { href: "/settings", icon: Settings, label: UI_LABELS.nav.config },
   ];
 

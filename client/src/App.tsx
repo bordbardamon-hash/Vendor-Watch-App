@@ -12,6 +12,7 @@ import Jobs from "@/pages/jobs";
 import Logs from "@/pages/logs";
 import Settings from "@/pages/settings";
 import Vendors from "@/pages/vendors";
+import Consents from "@/pages/consents";
 import Signup from "@/pages/signup";
 import SignupSuccess from "@/pages/signup-success";
 import { Loader2 } from "lucide-react";
@@ -25,6 +26,7 @@ function AuthenticatedRouter() {
         <Route path="/jobs" component={Jobs} />
         <Route path="/logs" component={Logs} />
         <Route path="/settings" component={Settings} />
+        <Route path="/consents" component={Consents} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
