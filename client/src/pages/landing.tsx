@@ -1,7 +1,7 @@
 import { APP_NAME } from "@/lib/labels";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Shield, Activity, Bell, Zap } from "lucide-react";
+import { Shield, Activity, Bell, Zap, Smartphone, Mail } from "lucide-react";
 import { Link } from "wouter";
 
 export default function Landing() {
@@ -65,9 +65,9 @@ export default function Landing() {
             <Card className="bg-card/50" data-testid="card-feature-alerts">
               <CardHeader>
                 <Bell className="h-10 w-10 text-primary mb-2" />
-                <CardTitle>Instant Alerts</CardTitle>
+                <CardTitle>SMS & Email Alerts</CardTitle>
                 <CardDescription>
-                  Get notified via email when your critical vendors experience issues
+                  Get notified via SMS, email, or both when your critical vendors experience issues
                 </CardDescription>
               </CardHeader>
             </Card>

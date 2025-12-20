@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { insertVendorSchema, insertIncidentSchema, insertJobSchema, insertConfigSchema, insertFeedbackSchema } from "@shared/schema";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
+import { sendSMS } from "./twilioClient";
 import { z } from "zod";
 
 const PRICE_ID = "price_1SgJviBHVJ1HPGTMdYAPJFNi";
@@ -310,6 +311,63 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching subscription:", error);
       res.status(500).json({ error: "Failed to fetch subscription status" });
+    }
+  });
+
+  // ============ NOTIFICATIONS ============
+
+  app.get("/api/notifications/preferences", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      res.json({
+        phone: user.phone || "",
+        notifyEmail: user.notifyEmail ?? true,
+        notifySms: user.notifySms ?? false,
+      });
+    } catch (error) {
+      console.error("Error fetching notification preferences:", error);
+      res.status(500).json({ error: "Failed to fetch preferences" });
+    }
+  });
+
+  app.put("/api/notifications/preferences", isAuthenticated, async (req: any, res) => {
+    try {
+      const { phone, notifyEmail, notifySms } = req.body;
+      const user = await storage.updateUserNotifications(req.user.claims.sub, {
+        phone,
+        notifyEmail,
+        notifySms,
+      });
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      res.json({ success: true, preferences: { phone: user.phone, notifyEmail: user.notifyEmail, notifySms: user.notifySms } });
+    } catch (error) {
+      console.error("Error updating notification preferences:", error);
+      res.status(500).json({ error: "Failed to update preferences" });
+    }
+  });
+
+  // ============ SMS ============
+
+  app.post("/api/sms/test", isAuthenticated, async (req, res) => {
+    try {
+      const { phone } = req.body;
+      if (!phone) {
+        return res.status(400).json({ error: "Phone number is required" });
+      }
+      const success = await sendSMS(phone, "Vendor Watch: This is a test alert. Your SMS notifications are working correctly!");
+      if (success) {
+        res.json({ success: true, message: "Test SMS sent successfully" });
+      } else {
+        res.status(500).json({ error: "Failed to send SMS" });
+      }
+    } catch (error) {
+      console.error("Error sending test SMS:", error);
+      res.status(500).json({ error: "Failed to send test SMS" });
     }
   });
 

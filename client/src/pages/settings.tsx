@@ -4,15 +4,27 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bell, Database, Mail, Save, Server, Shield, Clock, Code, Copy, Check, CheckCircle2 } from "lucide-react";
+import { Bell, Database, Mail, Save, Server, Shield, Clock, Code, Copy, Check, CheckCircle2, Smartphone, MessageSquare } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export default function Settings() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("general");
+  const queryClient = useQueryClient();
+  
+  // Fetch notification preferences
+  const { data: notifPrefs } = useQuery({
+    queryKey: ["/api/notifications/preferences"],
+    queryFn: async () => {
+      const res = await fetch("/api/notifications/preferences");
+      if (!res.ok) throw new Error("Failed to fetch preferences");
+      return res.json();
+    },
+  });
   
   // State for configuration
   const [config, setConfig] = useState({
@@ -25,15 +37,57 @@ export default function Settings() {
     alertTo: "alerts_to@example.com",
     dbPath: "vendorwatch.db",
     enableEmail: true,
+    enableSms: false,
+    smsPhone: "",
     enableBackup: true
+  });
+
+  // Sync notification prefs from API
+  useEffect(() => {
+    if (notifPrefs) {
+      setConfig(prev => ({
+        ...prev,
+        smsPhone: notifPrefs.phone || "",
+        enableEmail: notifPrefs.notifyEmail ?? true,
+        enableSms: notifPrefs.notifySms ?? false,
+      }));
+    }
+  }, [notifPrefs]);
+
+  const saveNotificationPrefs = useMutation({
+    mutationFn: async (prefs: { phone: string; notifyEmail: boolean; notifySms: boolean }) => {
+      const res = await fetch("/api/notifications/preferences", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(prefs),
+      });
+      if (!res.ok) throw new Error("Failed to save preferences");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications/preferences"] });
+      toast({
+        title: "Preferences Saved",
+        description: "Your notification preferences have been updated.",
+        className: "bg-emerald-500 border-emerald-500 text-white"
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Save Failed",
+        description: "Could not save notification preferences.",
+        variant: "destructive"
+      });
+    },
   });
 
   const [copied, setCopied] = useState(false);
 
   const handleSave = () => {
-    toast({
-      title: "Configuration Saved",
-      description: "System settings have been updated successfully.",
+    saveNotificationPrefs.mutate({
+      phone: config.smsPhone,
+      notifyEmail: config.enableEmail,
+      notifySms: config.enableSms,
     });
   };
 
@@ -246,6 +300,126 @@ CONFIG = AppConfig(
                    />
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-sidebar-border bg-sidebar/30 backdrop-blur-sm">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Smartphone className="w-5 h-5 text-primary" />
+                <CardTitle>SMS Alerts</CardTitle>
+              </div>
+              <CardDescription>
+                Receive text message alerts for critical incidents on your phone.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="sms-phone">Phone Number</Label>
+                <Input 
+                  id="sms-phone" 
+                  placeholder="+1 (555) 123-4567"
+                  value={config.smsPhone}
+                  onChange={(e) => updateConfig('smsPhone', e.target.value)}
+                  className="bg-background max-w-[300px]" 
+                  data-testid="input-sms-phone"
+                />
+                <p className="text-[0.8rem] text-muted-foreground">
+                  Enter your phone number with country code for SMS alerts.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between space-x-2 pt-2 border-t border-sidebar-border">
+                <div className="flex flex-col space-y-1">
+                  <Label htmlFor="sms-enabled" className="font-medium">Enable SMS Alerts</Label>
+                  <span className="text-xs text-muted-foreground">Get text messages for critical incidents.</span>
+                </div>
+                <div className="flex items-center gap-4">
+                   <Button variant="secondary" size="sm" onClick={async () => {
+                     if (!config.smsPhone) {
+                       toast({
+                         title: "Phone Required",
+                         description: "Please enter a phone number first.",
+                         variant: "destructive"
+                       });
+                       return;
+                     }
+                     toast({
+                       title: "Sending Test SMS...",
+                       description: `Sending to ${config.smsPhone}...`,
+                     });
+                     try {
+                       const res = await fetch('/api/sms/test', {
+                         method: 'POST',
+                         headers: { 'Content-Type': 'application/json' },
+                         body: JSON.stringify({ phone: config.smsPhone })
+                       });
+                       if (res.ok) {
+                         toast({
+                           title: "SMS Sent",
+                           description: `Test message sent to ${config.smsPhone}`,
+                           variant: "default",
+                           className: "bg-emerald-500 border-emerald-500 text-white"
+                         });
+                       } else {
+                         toast({
+                           title: "SMS Failed",
+                           description: "Could not send test SMS. Please check your phone number.",
+                           variant: "destructive"
+                         });
+                       }
+                     } catch {
+                       toast({
+                         title: "SMS Failed",
+                         description: "Could not send test SMS. Please try again.",
+                         variant: "destructive"
+                       });
+                     }
+                   }} data-testid="button-test-sms">
+                     Test SMS
+                   </Button>
+                   <Switch 
+                     id="sms-enabled" 
+                     checked={config.enableSms}
+                     onCheckedChange={(c) => updateConfig('enableSms', c)}
+                     data-testid="switch-enable-sms"
+                   />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-primary/30 bg-primary/5 backdrop-blur-sm">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Bell className="w-5 h-5 text-primary" />
+                <CardTitle>Notification Preferences Summary</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2">
+                  <Mail className={`w-5 h-5 ${config.enableEmail ? 'text-primary' : 'text-muted-foreground'}`} />
+                  <span className={config.enableEmail ? 'font-medium' : 'text-muted-foreground'}>
+                    Email {config.enableEmail ? 'Enabled' : 'Disabled'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <MessageSquare className={`w-5 h-5 ${config.enableSms ? 'text-primary' : 'text-muted-foreground'}`} />
+                  <span className={config.enableSms ? 'font-medium' : 'text-muted-foreground'}>
+                    SMS {config.enableSms ? 'Enabled' : 'Disabled'}
+                  </span>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground mt-3">
+                {config.enableEmail && config.enableSms 
+                  ? "You will receive alerts via both email and SMS."
+                  : config.enableEmail 
+                  ? "You will receive alerts via email only."
+                  : config.enableSms 
+                  ? "You will receive alerts via SMS only."
+                  : "No notification channels are enabled. Enable at least one to receive alerts."}
+              </p>
             </CardContent>
           </Card>
         </TabsContent>

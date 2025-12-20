@@ -44,6 +44,9 @@ export interface IStorage {
   // Feedback
   getFeedback(): Promise<Feedback[]>;
   createFeedback(feedbackData: InsertFeedback): Promise<Feedback>;
+  
+  // User notifications
+  updateUserNotifications(userId: string, prefs: { phone?: string; notifyEmail?: boolean; notifySms?: boolean }): Promise<User | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -205,6 +208,16 @@ export class DatabaseStorage implements IStorage {
       .values(feedbackData)
       .returning();
     return newFeedback;
+  }
+  
+  // User notifications
+  async updateUserNotifications(userId: string, prefs: { phone?: string; notifyEmail?: boolean; notifySms?: boolean }): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set({ ...prefs, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return user || undefined;
   }
 }
 
