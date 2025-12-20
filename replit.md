@@ -91,3 +91,14 @@ The application monitors status pages for:
 - **Alert Tracking**: `incident_alerts` table prevents duplicate notifications
 - **Consent**: TCPA-compliant consent tracking in `notification_consents` table
 - **Compliance Endpoint**: `/compliance/consents?token=COMPLIANCE_ACCESS_TOKEN`
+
+### Vendor Subscriptions
+- **Table**: `user_vendor_subscriptions` tracks which vendors each user monitors
+- **Logic**: 
+  - No preferences set = monitor all vendors (including future vendors)
+  - Custom selection saved = monitor only selected vendors
+  - Empty selection = monitor no vendors (no notifications)
+- **Routes**: `/api/vendor-subscriptions` (GET/PUT/DELETE), `/api/my-vendors`, `/api/my-incidents`
+- **Config Flag**: `vendor_subscriptions_set:{userId}` tracks if user has customized preferences
+- **Reset**: DELETE `/api/vendor-subscriptions` clears custom preferences to restore default (all vendors)
+- **UI**: Settings > Notifications tab includes vendor selection checkboxes with Select All, Clear All, Reset to Monitor All, and Save Custom Selection buttons
