@@ -1,5 +1,5 @@
 import { 
-  users, vendors, incidents, jobs, config, feedback, notificationConsents, incidentAlerts,
+  users, vendors, incidents, jobs, config, feedback, notificationConsents, incidentAlerts, userVendorSubscriptions,
   type User, type UpsertUser,
   type Vendor, type InsertVendor,
   type Incident, type InsertIncident,
@@ -7,9 +7,10 @@ import {
   type Config, type InsertConfig,
   type Feedback, type InsertFeedback,
   type NotificationConsent, type InsertNotificationConsent,
-  type IncidentAlert, type InsertIncidentAlert
+  type IncidentAlert, type InsertIncidentAlert,
+  type UserVendorSubscription
 } from "@shared/schema";
-import { and, isNull } from "drizzle-orm";
+import { and, isNull, inArray } from "drizzle-orm";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
 
@@ -68,6 +69,13 @@ export interface IStorage {
   // Users with notifications enabled
   getUsersWithNotificationsEnabled(): Promise<User[]>;
   getActiveConsentsForChannel(channel: string): Promise<NotificationConsent[]>;
+  
+  // Vendor Subscriptions
+  getUserVendorSubscriptions(userId: string): Promise<string[]>;
+  setUserVendorSubscriptions(userId: string, vendorKeys: string[]): Promise<void>;
+  getUsersSubscribedToVendor(vendorKey: string): Promise<User[]>;
+  getVendorsForUser(userId: string): Promise<Vendor[]>;
+  getIncidentsForUser(userId: string): Promise<Incident[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -351,6 +359,70 @@ export class DatabaseStorage implements IStorage {
           isNull(notificationConsents.revokedAt)
         )
       );
+  }
+  
+  // Vendor Subscriptions
+  async getUserVendorSubscriptions(userId: string): Promise<string[]> {
+    const subs = await db
+      .select()
+      .from(userVendorSubscriptions)
+      .where(eq(userVendorSubscriptions.userId, userId));
+    return subs.map(s => s.vendorKey);
+  }
+  
+  async setUserVendorSubscriptions(userId: string, vendorKeys: string[]): Promise<void> {
+    await db.delete(userVendorSubscriptions).where(eq(userVendorSubscriptions.userId, userId));
+    
+    if (vendorKeys.length > 0) {
+      await db.insert(userVendorSubscriptions).values(
+        vendorKeys.map(vendorKey => ({ userId, vendorKey }))
+      );
+    }
+  }
+  
+  async getUsersSubscribedToVendor(vendorKey: string): Promise<User[]> {
+    const subs = await db
+      .select()
+      .from(userVendorSubscriptions)
+      .where(eq(userVendorSubscriptions.vendorKey, vendorKey));
+    
+    if (subs.length === 0) {
+      return [];
+    }
+    
+    const userIds = subs.map(s => s.userId);
+    return await db
+      .select()
+      .from(users)
+      .where(inArray(users.id, userIds));
+  }
+  
+  async getVendorsForUser(userId: string): Promise<Vendor[]> {
+    const subscribedKeys = await this.getUserVendorSubscriptions(userId);
+    
+    if (subscribedKeys.length === 0) {
+      return await this.getVendors();
+    }
+    
+    return await db
+      .select()
+      .from(vendors)
+      .where(inArray(vendors.key, subscribedKeys))
+      .orderBy(vendors.name);
+  }
+  
+  async getIncidentsForUser(userId: string): Promise<Incident[]> {
+    const subscribedKeys = await this.getUserVendorSubscriptions(userId);
+    
+    if (subscribedKeys.length === 0) {
+      return await this.getIncidents();
+    }
+    
+    return await db
+      .select()
+      .from(incidents)
+      .where(inArray(incidents.vendorKey, subscribedKeys))
+      .orderBy(desc(incidents.createdAt));
   }
 }
 
