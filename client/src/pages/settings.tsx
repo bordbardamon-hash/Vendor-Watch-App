@@ -4,11 +4,30 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bell, Database, Mail, Save, Server, Shield, Clock } from "lucide-react";
+import { Bell, Database, Mail, Save, Server, Shield, Clock, Code, Copy, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export default function Settings() {
   const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState("general");
+  
+  // State for configuration
+  const [config, setConfig] = useState({
+    scrapeInterval: "10",
+    longRunningHours: "4",
+    smtpHost: "smtp.gmail.com",
+    smtpPort: "587",
+    smtpUser: "your_email@gmail.com",
+    smtpPass: "your_app_password",
+    alertTo: "alerts_to@example.com",
+    dbPath: "vendorwatch.db",
+    enableEmail: true,
+    enableBackup: true
+  });
+
+  const [copied, setCopied] = useState(false);
 
   const handleSave = () => {
     toast({
@@ -17,6 +36,54 @@ export default function Settings() {
     });
   };
 
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(pythonCode);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+    toast({
+      title: "Copied to Clipboard",
+      description: "Python configuration code copied.",
+    });
+  };
+
+  const updateConfig = (key: string, value: any) => {
+    setConfig(prev => ({ ...prev, [key]: value }));
+  };
+
+  const pythonCode = `import os
+from dataclasses import dataclass
+from dotenv import load_dotenv
+
+load_dotenv()
+
+@dataclass(frozen=True)
+class EmailConfig:
+    host: str
+    port: int
+    user: str
+    password: str
+    alert_to: str
+
+@dataclass(frozen=True)
+class AppConfig:
+    db_path: str
+    scrape_interval_minutes: int
+    long_running_hours: int
+    email: EmailConfig
+
+CONFIG = AppConfig(
+    db_path=os.getenv("DB_PATH", "${config.dbPath}"),
+    scrape_interval_minutes=int(os.getenv("SCRAPE_INTERVAL_MINUTES", "${config.scrapeInterval}")),
+    long_running_hours=int(os.getenv("LONG_RUNNING_HOURS", "${config.longRunningHours}")),
+    email=EmailConfig(
+        host=os.getenv("SMTP_HOST", "${config.smtpHost}"),
+        port=int(os.getenv("SMTP_PORT", "${config.smtpPort}")),
+        user=os.getenv("SMTP_USER", "${config.smtpUser}"),
+        password=os.getenv("SMTP_PASS", "${config.smtpPass}"),
+        alert_to=os.getenv("ALERT_TO", "${config.alertTo}"),
+    )
+)`;
+
   return (
     <div className="p-8 space-y-8 max-w-5xl mx-auto">
       <div>
@@ -24,11 +91,14 @@ export default function Settings() {
         <p className="text-muted-foreground mt-1">Manage system variables and environment settings</p>
       </div>
 
-      <Tabs defaultValue="general" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 lg:w-[400px] bg-sidebar border border-sidebar-border">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4 lg:w-[500px] bg-sidebar border border-sidebar-border">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="database">System</TabsTrigger>
+          <TabsTrigger value="code" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
+            <Code className="w-4 h-4 mr-2" /> Code
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="space-y-6">
@@ -46,7 +116,12 @@ export default function Settings() {
               <div className="grid gap-2">
                 <Label htmlFor="interval">Global Scrape Interval (Minutes)</Label>
                 <div className="flex items-center gap-2">
-                  <Input id="interval" defaultValue="10" className="max-w-[150px] bg-background" />
+                  <Input 
+                    id="interval" 
+                    value={config.scrapeInterval}
+                    onChange={(e) => updateConfig('scrapeInterval', e.target.value)}
+                    className="max-w-[150px] bg-background" 
+                  />
                   <span className="text-sm text-muted-foreground">min</span>
                 </div>
                 <p className="text-[0.8rem] text-muted-foreground">
@@ -57,7 +132,12 @@ export default function Settings() {
               <div className="grid gap-2">
                 <Label htmlFor="timeout">Long Running Threshold (Hours)</Label>
                 <div className="flex items-center gap-2">
-                  <Input id="timeout" defaultValue="4" className="max-w-[150px] bg-background" />
+                  <Input 
+                    id="timeout" 
+                    value={config.longRunningHours}
+                    onChange={(e) => updateConfig('longRunningHours', e.target.value)}
+                    className="max-w-[150px] bg-background" 
+                  />
                   <span className="text-sm text-muted-foreground">hrs</span>
                 </div>
                 <p className="text-[0.8rem] text-muted-foreground">
@@ -83,28 +163,54 @@ export default function Settings() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="smtp-host">SMTP Host</Label>
-                  <Input id="smtp-host" defaultValue="smtp.gmail.com" className="bg-background" />
+                  <Input 
+                    id="smtp-host" 
+                    value={config.smtpHost}
+                    onChange={(e) => updateConfig('smtpHost', e.target.value)}
+                    className="bg-background" 
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="smtp-port">SMTP Port</Label>
-                  <Input id="smtp-port" defaultValue="587" className="bg-background" />
+                  <Input 
+                    id="smtp-port" 
+                    value={config.smtpPort}
+                    onChange={(e) => updateConfig('smtpPort', e.target.value)}
+                    className="bg-background" 
+                  />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="smtp-user">SMTP User</Label>
-                  <Input id="smtp-user" defaultValue="your_email@gmail.com" className="bg-background" />
+                  <Input 
+                    id="smtp-user" 
+                    value={config.smtpUser}
+                    onChange={(e) => updateConfig('smtpUser', e.target.value)}
+                    className="bg-background" 
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="smtp-pass">SMTP Password</Label>
-                  <Input id="smtp-pass" type="password" defaultValue="your_app_password" className="bg-background" />
+                  <Input 
+                    id="smtp-pass" 
+                    type="password" 
+                    value={config.smtpPass}
+                    onChange={(e) => updateConfig('smtpPass', e.target.value)}
+                    className="bg-background" 
+                  />
                 </div>
               </div>
 
               <div className="space-y-2 pt-2 border-t border-sidebar-border">
                 <Label htmlFor="alert-to">Alert Recipient</Label>
-                <Input id="alert-to" defaultValue="alerts_to@example.com" className="bg-background" />
+                <Input 
+                  id="alert-to" 
+                  value={config.alertTo}
+                  onChange={(e) => updateConfig('alertTo', e.target.value)}
+                  className="bg-background" 
+                />
                 <p className="text-[0.8rem] text-muted-foreground">
                   Where to send critical system alerts (ALERT_TO).
                 </p>
@@ -115,7 +221,11 @@ export default function Settings() {
                   <Label htmlFor="email-enabled" className="font-medium">Enable Email Alerts</Label>
                   <span className="text-xs text-muted-foreground">Send notifications on job failure.</span>
                 </div>
-                <Switch id="email-enabled" defaultChecked />
+                <Switch 
+                  id="email-enabled" 
+                  checked={config.enableEmail}
+                  onCheckedChange={(c) => updateConfig('enableEmail', c)}
+                />
               </div>
             </CardContent>
           </Card>
@@ -136,7 +246,12 @@ export default function Settings() {
               <div className="space-y-2">
                 <Label htmlFor="db-path">Database Path</Label>
                 <div className="flex gap-2">
-                  <Input id="db-path" defaultValue="vendorwatch.db" className="font-mono bg-background" />
+                  <Input 
+                    id="db-path" 
+                    value={config.dbPath}
+                    onChange={(e) => updateConfig('dbPath', e.target.value)}
+                    className="font-mono bg-background" 
+                  />
                   <Button variant="outline" size="icon">
                     <Server className="w-4 h-4" />
                   </Button>
@@ -151,8 +266,36 @@ export default function Settings() {
                   <Label htmlFor="backup-enabled" className="font-medium">Auto-Backup</Label>
                   <span className="text-xs text-muted-foreground">Create daily snapshots of the database.</span>
                 </div>
-                <Switch id="backup-enabled" defaultChecked />
+                <Switch 
+                  id="backup-enabled" 
+                  checked={config.enableBackup}
+                  onCheckedChange={(c) => updateConfig('enableBackup', c)}
+                />
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="code" className="space-y-6">
+          <Card className="border-sidebar-border bg-sidebar/30 backdrop-blur-sm">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Generated Python Config</CardTitle>
+                <CardDescription className="mt-2">
+                  Copy this code to your <code>config.py</code> file to use these settings.
+                </CardDescription>
+              </div>
+              <Button variant="outline" size="sm" onClick={copyToClipboard}>
+                {copied ? <Check className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}
+                {copied ? "Copied" : "Copy Code"}
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[400px] w-full rounded-md border border-sidebar-border bg-black/50 p-4">
+                <pre className="font-mono text-sm text-green-400">
+                  {pythonCode}
+                </pre>
+              </ScrollArea>
             </CardContent>
           </Card>
         </TabsContent>
