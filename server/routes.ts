@@ -365,11 +365,40 @@ export async function registerRoutes(
   app.get("/api/my-vendors", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const vendors = await storage.getVendorsForUser(userId);
+      const vendors = await storage.getOrderedVendorsForUser(userId);
       res.json(vendors);
     } catch (error) {
       console.error("Error fetching user vendors:", error);
       res.status(500).json({ error: "Failed to fetch vendors" });
+    }
+  });
+
+  // Vendor ordering
+  app.get("/api/vendor-order", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const order = await storage.getUserVendorOrder(userId);
+      res.json({ vendorKeys: order.map(o => o.vendorKey) });
+    } catch (error) {
+      console.error("Error fetching vendor order:", error);
+      res.status(500).json({ error: "Failed to fetch vendor order" });
+    }
+  });
+
+  app.put("/api/vendor-order", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { vendorKeys } = req.body;
+      
+      if (!Array.isArray(vendorKeys)) {
+        return res.status(400).json({ error: "vendorKeys must be an array" });
+      }
+      
+      await storage.setUserVendorOrder(userId, vendorKeys);
+      res.json({ success: true, vendorKeys });
+    } catch (error) {
+      console.error("Error updating vendor order:", error);
+      res.status(500).json({ error: "Failed to update vendor order" });
     }
   });
 
