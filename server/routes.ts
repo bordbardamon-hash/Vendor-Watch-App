@@ -1,14 +1,26 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertVendorSchema, insertIncidentSchema, insertJobSchema, insertConfigSchema, insertFeedbackSchema, insertNotificationConsentSchema } from "@shared/schema";
+import { insertVendorSchema, insertIncidentSchema, insertJobSchema, insertConfigSchema, insertFeedbackSchema, insertNotificationConsentSchema, insertCustomVendorRequestSchema, SUBSCRIPTION_TIERS } from "@shared/schema";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
 import { sendSMS } from "./twilioClient";
 import { syncVendorStatus } from "./statusSync";
 import { z } from "zod";
 
-const PRICE_ID = "price_1SgJviBHVJ1HPGTMdYAPJFNi";
+// Stripe price IDs for each subscription tier
+const TIER_PRICE_IDS = {
+  standard: process.env.STRIPE_PRICE_STANDARD || "price_1SgJviBHVJ1HPGTMdYAPJFNi", // $89.99
+  gold: process.env.STRIPE_PRICE_GOLD || "price_gold_placeholder", // $99.99
+  platinum: process.env.STRIPE_PRICE_PLATINUM || "price_platinum_placeholder", // $129.99
+} as const;
+
+// Map price IDs to tiers for webhook processing
+const PRICE_ID_TO_TIER: Record<string, 'standard' | 'gold' | 'platinum'> = {
+  [TIER_PRICE_IDS.standard]: 'standard',
+  [TIER_PRICE_IDS.gold]: 'gold',
+  [TIER_PRICE_IDS.platinum]: 'platinum',
+};
 
 const signupSchema = z.object({
   firstName: z.string().min(1),
@@ -16,6 +28,7 @@ const signupSchema = z.object({
   companyName: z.string().min(1),
   phone: z.string().min(1),
   email: z.string().email(),
+  tier: z.enum(['standard', 'gold', 'platinum']).default('standard'),
 });
 
 export async function registerRoutes(
@@ -429,6 +442,8 @@ export async function registerRoutes(
     try {
       const validatedData = signupSchema.parse(req.body);
       const stripe = await getUncachableStripeClient();
+      
+      const priceId = TIER_PRICE_IDS[validatedData.tier];
 
       const customer = await stripe.customers.create({
         email: validatedData.email,
@@ -438,18 +453,22 @@ export async function registerRoutes(
           companyName: validatedData.companyName,
           firstName: validatedData.firstName,
           lastName: validatedData.lastName,
+          subscriptionTier: validatedData.tier,
         },
       });
 
       const session = await stripe.checkout.sessions.create({
         customer: customer.id,
         payment_method_types: ['card'],
-        line_items: [{ price: PRICE_ID, quantity: 1 }],
+        line_items: [{ price: priceId, quantity: 1 }],
         mode: 'subscription',
         success_url: `${req.protocol}://${req.get('host')}/signup/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${req.protocol}://${req.get('host')}/signup`,
         subscription_data: {
           trial_period_days: 7,
+          metadata: {
+            subscriptionTier: validatedData.tier,
+          },
         },
       });
 
@@ -460,6 +479,31 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Invalid signup data", details: error.errors });
       }
       res.status(500).json({ error: "Failed to create checkout session" });
+    }
+  });
+  
+  // Get subscription tier info
+  app.get("/api/subscription/tier", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      const tier = user.subscriptionTier as 'standard' | 'gold' | 'platinum' | null;
+      const tierInfo = tier ? SUBSCRIPTION_TIERS[tier] : null;
+      const vendorCount = await storage.getUserVendorSubscriptions(user.id);
+      
+      res.json({
+        tier,
+        tierInfo,
+        currentVendorCount: vendorCount.length,
+        canAddVendors: tier === 'platinum',
+        canRequestVendors: tier === 'gold' || tier === 'standard',
+      });
+    } catch (error) {
+      console.error("Error fetching subscription tier:", error);
+      res.status(500).json({ error: "Failed to fetch subscription tier" });
     }
   });
 
