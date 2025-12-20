@@ -8,6 +8,7 @@ import Layout from "@/components/layout";
 import Dashboard from "@/pages/dashboard";
 import Jobs from "@/pages/jobs";
 import Logs from "@/pages/logs";
+import Settings from "@/pages/settings";
 
 function Router() {
   return (
@@ -16,6 +17,7 @@ function Router() {
         <Route path="/" component={Dashboard} />
         <Route path="/jobs" component={Jobs} />
         <Route path="/logs" component={Logs} />
+        <Route path="/settings" component={Settings} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
