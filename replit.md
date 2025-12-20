@@ -102,3 +102,10 @@ The application monitors status pages for:
 - **Config Flag**: `vendor_subscriptions_set:{userId}` tracks if user has customized preferences
 - **Reset**: DELETE `/api/vendor-subscriptions` clears custom preferences to restore default (all vendors)
 - **UI**: Settings > Notifications tab includes vendor selection checkboxes with Select All, Clear All, Reset to Monitor All, and Save Custom Selection buttons
+
+### Vendor Display Order
+- **Table**: `user_vendor_order` stores per-user vendor display order (userId, vendorKey, displayOrder)
+- **Routes**: `/api/vendor-order` (GET/PUT) - get and save vendor order
+- **Logic**: `/api/my-vendors` returns vendors sorted by user's saved order (unordered vendors appear at end)
+- **UI**: Settings > Notifications tab has drag-and-drop reordering with @dnd-kit/sortable
+- **Key Files**: `client/src/pages/settings.tsx` (SortableVendorItem component), `server/storage.ts` (getOrderedVendorsForUser)
