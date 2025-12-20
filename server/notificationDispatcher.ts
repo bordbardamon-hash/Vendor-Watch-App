@@ -126,7 +126,7 @@ export async function dispatchIncidentNotification(notification: IncidentNotific
   
   for (const user of usersWithNotifications) {
     if (user.notifySms && user.phone) {
-      const alreadySent = await storage.hasAlertBeenSent(incident.incidentId, user.id, 'sms', eventType);
+      const alreadySent = await storage.hasAlertBeenSent(incident.incidentId, user.id, 'sms', eventType, incident.status);
       if (!alreadySent) {
         try {
           const message = formatSmsMessage(notification);
@@ -152,7 +152,7 @@ export async function dispatchIncidentNotification(notification: IncidentNotific
     }
     
     if (user.notifyEmail && user.email) {
-      const alreadySent = await storage.hasAlertBeenSent(incident.incidentId, user.id, 'email', eventType);
+      const alreadySent = await storage.hasAlertBeenSent(incident.incidentId, user.id, 'email', eventType, incident.status);
       if (!alreadySent) {
         try {
           const subject = formatEmailSubject(notification);

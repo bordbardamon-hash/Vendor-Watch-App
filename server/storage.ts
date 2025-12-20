@@ -62,7 +62,7 @@ export interface IStorage {
   
   // Incident Alerts
   recordAlert(alert: InsertIncidentAlert): Promise<IncidentAlert>;
-  hasAlertBeenSent(incidentId: string, userId: string, channel: string, eventType: string): Promise<boolean>;
+  hasAlertBeenSent(incidentId: string, userId: string, channel: string, eventType: string, statusSnapshot?: string): Promise<boolean>;
   getAlertsByIncident(incidentId: string): Promise<IncidentAlert[]>;
   
   // Users with notifications enabled
@@ -308,18 +308,22 @@ export class DatabaseStorage implements IStorage {
     return newAlert;
   }
   
-  async hasAlertBeenSent(incidentId: string, userId: string, channel: string, eventType: string): Promise<boolean> {
+  async hasAlertBeenSent(incidentId: string, userId: string, channel: string, eventType: string, statusSnapshot?: string): Promise<boolean> {
+    const conditions = [
+      eq(incidentAlerts.incidentId, incidentId),
+      eq(incidentAlerts.userId, userId),
+      eq(incidentAlerts.channel, channel),
+      eq(incidentAlerts.eventType, eventType)
+    ];
+    
+    if (eventType === 'update' && statusSnapshot) {
+      conditions.push(eq(incidentAlerts.statusSnapshot, statusSnapshot));
+    }
+    
     const [existing] = await db
       .select()
       .from(incidentAlerts)
-      .where(
-        and(
-          eq(incidentAlerts.incidentId, incidentId),
-          eq(incidentAlerts.userId, userId),
-          eq(incidentAlerts.channel, channel),
-          eq(incidentAlerts.eventType, eventType)
-        )
-      );
+      .where(and(...conditions));
     return !!existing;
   }
   

@@ -1,4 +1,5 @@
 import { storage } from "./storage";
+import { notifyNewIncident, notifyIncidentUpdate, notifyIncidentResolved } from "./notificationDispatcher";
 
 interface StatusPageResponse {
   status: {
@@ -139,6 +140,9 @@ export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: nu
           if (!activeIncidentIds.has(existing.incidentId) && existing.status !== 'resolved') {
             await storage.updateIncident(existing.id, { status: 'resolved' });
             console.log(`  → Resolved incident: ${existing.title}`);
+            notifyIncidentResolved({ ...existing, status: 'resolved' }, vendor).catch(err => 
+              console.error('[notify] Failed to send resolution notification:', err)
+            );
           }
         }
         
@@ -146,7 +150,7 @@ export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: nu
           const exists = existingIncidents.find(i => i.incidentId === incident.id);
           
           if (!exists) {
-            await storage.createIncident({
+            const newIncident = await storage.createIncident({
               vendorKey: vendor.key,
               incidentId: incident.id,
               title: incident.name,
@@ -159,8 +163,16 @@ export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: nu
               rawHash: null
             });
             console.log(`  → New incident: ${incident.name}`);
+            notifyNewIncident(newIncident, vendor).catch(err => 
+              console.error('[notify] Failed to send new incident notification:', err)
+            );
           } else if (exists.status !== incident.status) {
+            const previousStatus = exists.status;
             await storage.updateIncident(exists.id, { status: incident.status });
+            const updatedIncident = { ...exists, status: incident.status };
+            notifyIncidentUpdate(updatedIncident, vendor, previousStatus).catch(err => 
+              console.error('[notify] Failed to send update notification:', err)
+            );
           }
         }
         
