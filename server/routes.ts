@@ -320,6 +320,58 @@ export async function registerRoutes(
     }
   });
 
+  // ============ VENDOR SUBSCRIPTIONS ============
+
+  app.get("/api/vendor-subscriptions", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const subscriptions = await storage.getUserVendorSubscriptions(userId);
+      res.json({ vendorKeys: subscriptions });
+    } catch (error) {
+      console.error("Error fetching vendor subscriptions:", error);
+      res.status(500).json({ error: "Failed to fetch vendor subscriptions" });
+    }
+  });
+
+  app.put("/api/vendor-subscriptions", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { vendorKeys } = req.body;
+      
+      if (!Array.isArray(vendorKeys)) {
+        return res.status(400).json({ error: "vendorKeys must be an array" });
+      }
+      
+      await storage.setUserVendorSubscriptions(userId, vendorKeys);
+      res.json({ success: true, vendorKeys });
+    } catch (error) {
+      console.error("Error updating vendor subscriptions:", error);
+      res.status(500).json({ error: "Failed to update vendor subscriptions" });
+    }
+  });
+
+  app.get("/api/my-vendors", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const vendors = await storage.getVendorsForUser(userId);
+      res.json(vendors);
+    } catch (error) {
+      console.error("Error fetching user vendors:", error);
+      res.status(500).json({ error: "Failed to fetch vendors" });
+    }
+  });
+
+  app.get("/api/my-incidents", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const incidents = await storage.getIncidentsForUser(userId);
+      res.json(incidents);
+    } catch (error) {
+      console.error("Error fetching user incidents:", error);
+      res.status(500).json({ error: "Failed to fetch incidents" });
+    }
+  });
+
   // ============ STRIPE / SIGNUP ============
 
   app.get("/api/stripe/publishable-key", async (_req, res) => {
