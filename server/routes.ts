@@ -63,6 +63,29 @@ export async function registerRoutes(
     console.error("[auth] Failed to setup authentication:", error);
   }
   
+  // ============ STRIPE CONNECTION TEST ============
+  app.get("/api/stripe/test", async (req, res) => {
+    try {
+      const stripe = await getUncachableStripeClient();
+      const account = await stripe.accounts.retrieve();
+      res.json({
+        success: true,
+        message: "Stripe API connection successful",
+        accountId: account.id,
+        livemode: (account as any).livemode ?? false,
+        chargesEnabled: account.charges_enabled,
+        payoutsEnabled: account.payouts_enabled,
+      });
+    } catch (error: any) {
+      console.error("Stripe connection test failed:", error);
+      res.status(500).json({
+        success: false,
+        message: "Stripe API connection failed",
+        error: error.message,
+      });
+    }
+  });
+  
   // ============ VENDORS ============
   
   // Get all vendors (protected)
