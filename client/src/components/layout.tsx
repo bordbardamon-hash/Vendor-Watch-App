@@ -13,17 +13,18 @@ import {
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { UI_LABELS } from "@/lib/labels";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const navItems = [
-    { href: "/", icon: LayoutDashboard, label: "Overview" },
-    { href: "/vendors", icon: Shield, label: "Vendors & Incidents" },
-    { href: "/jobs", icon: List, label: "Monitors" },
-    { href: "/logs", icon: Terminal, label: "Live Logs" },
-    { href: "/settings", icon: Settings, label: "Configuration" },
+    { href: "/", icon: LayoutDashboard, label: UI_LABELS.nav.overview },
+    { href: "/vendors", icon: Shield, label: UI_LABELS.nav.vendorsIncidents },
+    { href: "/jobs", icon: List, label: UI_LABELS.nav.scrapers },
+    { href: "/logs", icon: Terminal, label: UI_LABELS.nav.logs },
+    { href: "/settings", icon: Settings, label: UI_LABELS.nav.config },
   ];
 
   return (
