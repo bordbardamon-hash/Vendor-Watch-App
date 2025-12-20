@@ -9,10 +9,12 @@ import {
   Clock,
   PlayCircle,
   Terminal,
-  Server
+  Server,
+  Bell
 } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
 import { Badge } from "@/components/ui/badge";
+import { UI_LABELS } from "@/lib/labels";
 
 const data = [
   { time: "00:00", requests: 120, errors: 2 },
@@ -32,9 +34,13 @@ export default function Dashboard() {
           <h1 className="text-3xl font-bold tracking-tight">System Overview</h1>
           <p className="text-muted-foreground mt-1">Main control loop monitoring</p>
         </div>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground bg-secondary/50 px-3 py-1 rounded-full border border-border">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          PID: 8492 (Running)
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 text-sm bg-sidebar/50 px-4 py-2 rounded-full border border-sidebar-border">
+            <Bell size={14} className="text-primary" />
+            <span className="text-muted-foreground">{UI_LABELS.alerts.label}:</span>
+            <strong className="text-foreground">{UI_LABELS.alerts.email}</strong>
+            <span className="text-muted-foreground/60">• {UI_LABELS.alerts.slackComingSoon}</span>
+          </div>
         </div>
       </div>
 
