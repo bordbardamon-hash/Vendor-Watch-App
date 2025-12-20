@@ -78,6 +78,14 @@ export const incidentAlerts = pgTable("incident_alerts", {
   sentAt: timestamp("sent_at").notNull().defaultNow(),
 });
 
+// User Vendor Subscriptions - which vendors each user monitors
+export const userVendorSubscriptions = pgTable("user_vendor_subscriptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: text("user_id").notNull(),
+  vendorKey: text("vendor_key").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Notification Consents - proof of opt-in for SMS/Email (Twilio compliance)
 export const notificationConsents = pgTable("notification_consents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -131,6 +139,11 @@ export const insertIncidentAlertSchema = createInsertSchema(incidentAlerts).omit
   sentAt: true,
 });
 
+export const insertUserVendorSubscriptionSchema = createInsertSchema(userVendorSubscriptions).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type InsertVendor = z.infer<typeof insertVendorSchema>;
 export type Vendor = typeof vendors.$inferSelect;
@@ -152,3 +165,6 @@ export type NotificationConsent = typeof notificationConsents.$inferSelect;
 
 export type InsertIncidentAlert = z.infer<typeof insertIncidentAlertSchema>;
 export type IncidentAlert = typeof incidentAlerts.$inferSelect;
+
+export type InsertUserVendorSubscription = z.infer<typeof insertUserVendorSubscriptionSchema>;
+export type UserVendorSubscription = typeof userVendorSubscriptions.$inferSelect;
