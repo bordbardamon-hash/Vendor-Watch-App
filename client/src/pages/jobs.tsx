@@ -106,6 +106,7 @@ function NewJobDialog() {
   const [lastResult, setLastResult] = useState<any>(null);
   const [simulateChange, setSimulateChange] = useState(false);
   const [changeStatus, setChangeStatus] = useState<string | null>(null);
+  const [alertPreview, setAlertPreview] = useState<{subject: string, body: string} | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -163,11 +164,20 @@ function NewJobDialog() {
              variant: "default", 
              className: "border-primary text-primary-foreground bg-primary"
           });
+          setAlertPreview({
+            subject: `🚨 custom_vendor status update`,
+            body: `${result.title}\n${result.url}`
+          });
         } else {
           setChangeStatus("NO_CHANGE");
+          setAlertPreview(null);
         }
       } else {
         setChangeStatus("NEW_INCIDENT");
+        setAlertPreview({
+          subject: `🚨 custom_vendor status update`,
+          body: `${result.title}\n${result.url}`
+        });
       }
 
       setIsTesting(false);
@@ -307,6 +317,25 @@ function NewJobDialog() {
                           {JSON.stringify(testResult, null, 2)}
                         </pre>
                       </ScrollArea>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {alertPreview && (
+                <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-4 space-y-3">
+                  <div className="flex items-center gap-2 text-amber-500 font-medium text-xs uppercase tracking-wider">
+                    <AlertCircle className="w-4 h-4" />
+                    Alert Triggered
+                  </div>
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-[60px_1fr] gap-2 text-sm">
+                      <span className="text-muted-foreground">Subject:</span>
+                      <span className="font-medium text-foreground">{alertPreview.subject}</span>
+                    </div>
+                    <div className="grid grid-cols-[60px_1fr] gap-2 text-sm">
+                      <span className="text-muted-foreground">Body:</span>
+                      <pre className="font-sans whitespace-pre-wrap text-muted-foreground/80">{alertPreview.body}</pre>
                     </div>
                   </div>
                 </div>
