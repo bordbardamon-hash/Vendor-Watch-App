@@ -78,6 +78,19 @@ export const incidentAlerts = pgTable("incident_alerts", {
   sentAt: timestamp("sent_at").notNull().defaultNow(),
 });
 
+// Custom Vendor Requests - for Standard/Gold users to request new vendors
+export const customVendorRequests = pgTable("custom_vendor_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: text("user_id").notNull(),
+  vendorName: text("vendor_name").notNull(),
+  statusPageUrl: text("status_page_url").notNull(),
+  integrationNotes: text("integration_notes"), // user's notes about integration requirements
+  status: text("status").notNull().default('pending'), // 'pending', 'approved', 'rejected', 'integrated'
+  adminNotes: text("admin_notes"), // admin feedback on request
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // User Vendor Order - custom ordering of vendors per user
 export const userVendorOrder = pgTable("user_vendor_order", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -158,6 +171,12 @@ export const insertUserVendorOrderSchema = createInsertSchema(userVendorOrder).o
   createdAt: true,
 });
 
+export const insertCustomVendorRequestSchema = createInsertSchema(customVendorRequests).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type InsertVendor = z.infer<typeof insertVendorSchema>;
 export type Vendor = typeof vendors.$inferSelect;
@@ -185,3 +204,13 @@ export type UserVendorSubscription = typeof userVendorSubscriptions.$inferSelect
 
 export type InsertUserVendorOrder = z.infer<typeof insertUserVendorOrderSchema>;
 export type UserVendorOrder = typeof userVendorOrder.$inferSelect;
+
+export type InsertCustomVendorRequest = z.infer<typeof insertCustomVendorRequestSchema>;
+export type CustomVendorRequest = typeof customVendorRequests.$inferSelect;
+
+// Subscription tier constants
+export const SUBSCRIPTION_TIERS = {
+  standard: { name: 'Standard', price: 89.99, vendorLimit: 10, customVendorRequests: 0 },
+  gold: { name: 'Gold', price: 99.99, vendorLimit: 25, customVendorRequests: 5 },
+  platinum: { name: 'Platinum', price: 129.99, vendorLimit: null, customVendorRequests: null },
+} as const;

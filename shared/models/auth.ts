@@ -13,6 +13,9 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)]
 );
 
+// Subscription tier type
+export type SubscriptionTier = 'standard' | 'gold' | 'platinum' | null;
+
 // User storage table.
 // (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
 export const users = pgTable("users", {
@@ -25,6 +28,7 @@ export const users = pgTable("users", {
   profileImageUrl: varchar("profile_image_url"),
   stripeCustomerId: varchar("stripe_customer_id"),
   stripeSubscriptionId: varchar("stripe_subscription_id"),
+  subscriptionTier: varchar("subscription_tier"), // 'standard', 'gold', 'platinum'
   notifyEmail: boolean("notify_email").default(true),
   notifySms: boolean("notify_sms").default(false),
   createdAt: timestamp("created_at").defaultNow(),
