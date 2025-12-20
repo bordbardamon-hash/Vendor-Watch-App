@@ -707,6 +707,7 @@ export async function registerRoutes(
         return res.status(404).json({ error: "User not found" });
       }
       res.json({
+        notificationEmail: user.notificationEmail || user.email || "",
         phone: user.phone || "",
         notifyEmail: user.notifyEmail ?? true,
         notifySms: user.notifySms ?? false,
@@ -719,8 +720,9 @@ export async function registerRoutes(
 
   app.put("/api/notifications/preferences", isAuthenticated, async (req: any, res) => {
     try {
-      const { phone, notifyEmail, notifySms } = req.body;
+      const { notificationEmail, phone, notifyEmail, notifySms } = req.body;
       const user = await storage.updateUserNotifications(req.user.claims.sub, {
+        notificationEmail,
         phone,
         notifyEmail,
         notifySms,
@@ -728,7 +730,15 @@ export async function registerRoutes(
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
-      res.json({ success: true, preferences: { phone: user.phone, notifyEmail: user.notifyEmail, notifySms: user.notifySms } });
+      res.json({ 
+        success: true, 
+        preferences: { 
+          notificationEmail: user.notificationEmail || user.email, 
+          phone: user.phone, 
+          notifyEmail: user.notifyEmail, 
+          notifySms: user.notifySms 
+        } 
+      });
     } catch (error) {
       console.error("Error updating notification preferences:", error);
       res.status(500).json({ error: "Failed to update preferences" });

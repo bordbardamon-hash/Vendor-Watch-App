@@ -239,6 +239,7 @@ export default function Settings() {
     dbPath: "vendorwatch.db",
     enableEmail: true,
     enableSms: false,
+    notificationEmail: "",
     smsPhone: "",
     enableBackup: true
   });
@@ -261,6 +262,7 @@ export default function Settings() {
     if (notifPrefs) {
       setConfig(prev => ({
         ...prev,
+        notificationEmail: notifPrefs.notificationEmail || "",
         smsPhone: notifPrefs.phone || "",
         enableEmail: notifPrefs.notifyEmail ?? true,
         enableSms: notifPrefs.notifySms ?? false,
@@ -275,7 +277,7 @@ export default function Settings() {
   }, [notifPrefs, originalEmailEnabled, originalSmsEnabled]);
 
   const saveNotificationPrefs = useMutation({
-    mutationFn: async (prefs: { phone: string; notifyEmail: boolean; notifySms: boolean }) => {
+    mutationFn: async (prefs: { notificationEmail: string; phone: string; notifyEmail: boolean; notifySms: boolean }) => {
       const res = await fetch("/api/notifications/preferences", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -351,13 +353,14 @@ export default function Settings() {
     }
 
     if (isEnablingEmail) {
-      await recordConsent('email', config.alertTo, EMAIL_CONSENT_TEXT);
+      await recordConsent('email', config.notificationEmail, EMAIL_CONSENT_TEXT);
     }
     if (isEnablingSms) {
       await recordConsent('sms', config.smsPhone, SMS_CONSENT_TEXT);
     }
 
     saveNotificationPrefs.mutate({
+      notificationEmail: config.notificationEmail,
       phone: config.smsPhone,
       notifyEmail: config.enableEmail,
       notifySms: config.enableSms,
@@ -486,80 +489,82 @@ CONFIG = AppConfig(
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Mail className="w-5 h-5 text-primary" />
-                <CardTitle>Email Configuration (Resend)</CardTitle>
+                <CardTitle>Email Notifications</CardTitle>
               </div>
               <CardDescription>
-                Configure email notifications using Resend. API key is managed securely via environment.
+                Manage your email address and notification preferences. Update your email or unsubscribe anytime.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center gap-2 text-sm">
-                {emailConfig?.configured ? (
-                  <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
-                    <CheckCircle2 className="w-3 h-3 mr-1" /> API Key Configured
-                  </Badge>
-                ) : (
-                  <Badge variant="destructive" className="bg-red-500/20 text-red-400 border-red-500/30">
-                    API Key Not Set
-                  </Badge>
-                )}
-              </div>
-
               <div className="space-y-2">
-                <Label htmlFor="from-email">Sender Email Address</Label>
+                <Label htmlFor="notification-email">Your Notification Email</Label>
                 <Input 
-                  id="from-email" 
-                  placeholder="notifications@yourdomain.com"
-                  value={fromEmail}
-                  onChange={(e) => setFromEmail(e.target.value)}
+                  id="notification-email" 
+                  type="email"
+                  placeholder="your@email.com"
+                  value={config.notificationEmail}
+                  onChange={(e) => updateConfig('notificationEmail', e.target.value)}
                   className="bg-background max-w-[400px]" 
-                  data-testid="input-from-email"
+                  data-testid="input-notification-email"
                 />
                 <p className="text-[0.8rem] text-muted-foreground">
-                  The "From" address for all email notifications. Must be verified in your Resend account.
+                  This is where we'll send incident alerts. Update it anytime if your email changes.
                 </p>
               </div>
 
+              <div className="flex items-center justify-between space-x-2 pt-4 border-t border-sidebar-border">
+                <div className="flex flex-col space-y-1">
+                  <Label htmlFor="email-enabled" className="font-medium">
+                    {config.enableEmail ? "Email Alerts Enabled" : "Email Alerts Disabled (Unsubscribed)"}
+                  </Label>
+                  <span className="text-xs text-muted-foreground">
+                    {config.enableEmail 
+                      ? "You will receive incident alerts via email. Toggle off to unsubscribe." 
+                      : "You won't receive email alerts. Toggle on to subscribe."}
+                  </span>
+                </div>
+                <Switch 
+                  id="email-enabled" 
+                  checked={config.enableEmail}
+                  onCheckedChange={(c) => updateConfig('enableEmail', c)}
+                  data-testid="switch-enable-email"
+                />
+              </div>
+
+              {isEnablingEmail && (
+                <div className="mt-4 p-4 rounded-lg border border-primary/30 bg-primary/5 animate-fade-in">
+                  <div className="flex items-start gap-3">
+                    <Checkbox 
+                      id="email-consent"
+                      checked={emailConsentChecked}
+                      onCheckedChange={(c) => setEmailConsentChecked(!!c)}
+                      data-testid="checkbox-email-consent"
+                    />
+                    <div className="space-y-1">
+                      <Label htmlFor="email-consent" className="text-sm font-medium cursor-pointer">
+                        Email Notification Consent
+                      </Label>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        {EMAIL_CONSENT_TEXT}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="flex items-center gap-2 pt-2">
-                <Button variant="secondary" size="sm" onClick={async () => {
-                  if (!fromEmail) {
+                <Button variant="outline" size="sm" onClick={async () => {
+                  if (!config.notificationEmail) {
                     toast({
                       title: "Email Required",
-                      description: "Please enter a sender email address first.",
+                      description: "Please enter your email address first.",
                       variant: "destructive"
                     });
                     return;
                   }
-                  try {
-                    const res = await fetch('/api/email/config', {
-                      method: 'PUT',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ fromEmail })
-                    });
-                    if (res.ok) {
-                      refetchEmailConfig();
-                      toast({
-                        title: "Email Settings Saved",
-                        description: `Sender address updated to ${fromEmail}`,
-                        className: "bg-emerald-500 border-emerald-500 text-white"
-                      });
-                    } else {
-                      throw new Error("Failed to save");
-                    }
-                  } catch {
-                    toast({
-                      title: "Save Failed",
-                      description: "Could not save email settings.",
-                      variant: "destructive"
-                    });
-                  }
-                }} data-testid="button-save-email-config">
-                  <Save className="w-4 h-4 mr-2" /> Save Email Settings
-                </Button>
-                <Button variant="outline" size="sm" onClick={async () => {
                   toast({
                     title: "Sending Test Email...",
-                    description: "Sending to your account email...",
+                    description: `Sending to ${config.notificationEmail}...`,
                   });
                   try {
                     const res = await fetch('/api/email/test', { method: 'POST' });
@@ -585,42 +590,9 @@ CONFIG = AppConfig(
                     });
                   }
                 }} data-testid="button-test-email">
-                  Test Email
+                  Send Test Email
                 </Button>
               </div>
-
-              <div className="flex items-center justify-between space-x-2 pt-4 border-t border-sidebar-border">
-                <div className="flex flex-col space-y-1">
-                  <Label htmlFor="email-enabled" className="font-medium">Enable Email Alerts</Label>
-                  <span className="text-xs text-muted-foreground">Receive incident notifications via email.</span>
-                </div>
-                <Switch 
-                  id="email-enabled" 
-                  checked={config.enableEmail}
-                  onCheckedChange={(c) => updateConfig('enableEmail', c)}
-                />
-              </div>
-
-              {isEnablingEmail && (
-                <div className="mt-4 p-4 rounded-lg border border-primary/30 bg-primary/5 animate-fade-in">
-                  <div className="flex items-start gap-3">
-                    <Checkbox 
-                      id="email-consent"
-                      checked={emailConsentChecked}
-                      onCheckedChange={(c) => setEmailConsentChecked(!!c)}
-                      data-testid="checkbox-email-consent"
-                    />
-                    <div className="space-y-1">
-                      <Label htmlFor="email-consent" className="text-sm font-medium cursor-pointer">
-                        Email Notification Consent
-                      </Label>
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        {EMAIL_CONSENT_TEXT}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
             </CardContent>
           </Card>
 
@@ -628,15 +600,15 @@ CONFIG = AppConfig(
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Smartphone className="w-5 h-5 text-primary" />
-                <CardTitle>SMS Alerts</CardTitle>
+                <CardTitle>SMS Notifications</CardTitle>
               </div>
               <CardDescription>
-                Receive text message alerts for critical incidents on your phone.
+                Manage your phone number and SMS preferences. Update your number or unsubscribe anytime.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="sms-phone">Phone Number</Label>
+                <Label htmlFor="sms-phone">Your Phone Number</Label>
                 <Input 
                   id="sms-phone" 
                   placeholder="+1 (555) 123-4567"
@@ -646,14 +618,20 @@ CONFIG = AppConfig(
                   data-testid="input-sms-phone"
                 />
                 <p className="text-[0.8rem] text-muted-foreground">
-                  Enter your phone number with country code for SMS alerts.
+                  This is where we'll send SMS alerts. Include country code (e.g., +1 for US). Update it anytime if your number changes.
                 </p>
               </div>
 
-              <div className="flex items-center justify-between space-x-2 pt-2 border-t border-sidebar-border">
+              <div className="flex items-center justify-between space-x-2 pt-4 border-t border-sidebar-border">
                 <div className="flex flex-col space-y-1">
-                  <Label htmlFor="sms-enabled" className="font-medium">Enable SMS Alerts</Label>
-                  <span className="text-xs text-muted-foreground">Get text messages for critical incidents.</span>
+                  <Label htmlFor="sms-enabled" className="font-medium">
+                    {config.enableSms ? "SMS Alerts Enabled" : "SMS Alerts Disabled (Unsubscribed)"}
+                  </Label>
+                  <span className="text-xs text-muted-foreground">
+                    {config.enableSms 
+                      ? "You will receive incident alerts via SMS. Toggle off to unsubscribe." 
+                      : "You won't receive SMS alerts. Toggle on to subscribe."}
+                  </span>
                 </div>
                 <div className="flex items-center gap-4">
                    <Button variant="secondary" size="sm" onClick={async () => {

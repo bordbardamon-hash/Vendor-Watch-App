@@ -25,6 +25,7 @@ export const users = pgTable("users", {
   lastName: varchar("last_name"),
   companyName: varchar("company_name"),
   phone: varchar("phone"),
+  notificationEmail: varchar("notification_email"), // separate from auth email, for receiving alerts
   profileImageUrl: varchar("profile_image_url"),
   stripeCustomerId: varchar("stripe_customer_id"),
   stripeSubscriptionId: varchar("stripe_subscription_id"),

@@ -55,7 +55,7 @@ export interface IStorage {
   createFeedback(feedbackData: InsertFeedback): Promise<Feedback>;
   
   // User notifications
-  updateUserNotifications(userId: string, prefs: { phone?: string; notifyEmail?: boolean; notifySms?: boolean }): Promise<User | undefined>;
+  updateUserNotifications(userId: string, prefs: { notificationEmail?: string; phone?: string; notifyEmail?: boolean; notifySms?: boolean }): Promise<User | undefined>;
   
   // Notification Consents
   recordConsent(consent: InsertNotificationConsent): Promise<NotificationConsent>;
@@ -276,7 +276,7 @@ export class DatabaseStorage implements IStorage {
   }
   
   // User notifications
-  async updateUserNotifications(userId: string, prefs: { phone?: string; notifyEmail?: boolean; notifySms?: boolean }): Promise<User | undefined> {
+  async updateUserNotifications(userId: string, prefs: { notificationEmail?: string; phone?: string; notifyEmail?: boolean; notifySms?: boolean }): Promise<User | undefined> {
     const [user] = await db
       .update(users)
       .set({ ...prefs, updatedAt: new Date() })
