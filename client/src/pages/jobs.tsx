@@ -14,15 +14,42 @@ import { stableHash } from "@/lib/hash";
 import { Switch } from "@/components/ui/switch";
 
 const initialJobs = [
-  { id: 1, name: "Amazon Price Monitor", target: "amazon.com/products/tech", schedule: "Every 1h", status: "Running", lastRun: "10m ago", success: true },
-  { id: 2, name: "TechCrunch Scraper", target: "techcrunch.com", schedule: "Every 6h", status: "Idle", lastRun: "2h ago", success: true },
-  { id: 3, name: "Weather API Poll", target: "api.weather.com/v1", schedule: "Every 15m", status: "Failed", lastRun: "5m ago", success: false },
-  { id: 4, name: "Twitter Sentiment", target: "twitter.com/search", schedule: "Daily", status: "Idle", lastRun: "1d ago", success: true },
+  { id: 1, name: "Amazon Price Monitor", target: "amazon.com/products/tech", schedule: "Every 1h", status: "Running", lastRun: "10m ago", success: true, nextRun: 3600 },
+  { id: 2, name: "TechCrunch Scraper", target: "techcrunch.com", schedule: "Every 6h", status: "Idle", lastRun: "2h ago", success: true, nextRun: 14400 },
+  { id: 3, name: "Weather API Poll", target: "api.weather.com/v1", schedule: "Every 15m", status: "Failed", lastRun: "5m ago", success: false, nextRun: 900 },
+  { id: 4, name: "Twitter Sentiment", target: "twitter.com/search", schedule: "Daily", status: "Idle", lastRun: "1d ago", success: true, nextRun: 86400 },
 ];
 
 export default function Jobs() {
   const [jobs, setJobs] = useState(initialJobs);
+  const [schedulerActive, setSchedulerActive] = useState(true);
   const { toast } = useToast();
+
+  // Simulate scheduler loop
+  useEffect(() => {
+    if (!schedulerActive) return;
+
+    const interval = setInterval(() => {
+      setJobs(prevJobs => prevJobs.map(job => {
+        if (job.status !== "Running") return job;
+        
+        const newNextRun = job.nextRun > 0 ? job.nextRun - 1 : 10; // Reset to 10s for demo loop
+        
+        // Simulate job execution when timer hits 0
+        if (job.nextRun === 1) {
+          toast({
+            title: "Job Executed",
+            description: `Scheduled run for ${job.name} completed.`,
+            duration: 2000,
+          });
+        }
+        
+        return { ...job, nextRun: newNextRun };
+      }));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [schedulerActive, toast]);
 
   const toggleStatus = (id: number) => {
     setJobs(jobs.map(job => {
@@ -38,14 +65,43 @@ export default function Jobs() {
     }));
   };
 
+  const formatTime = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    if (h > 0) return `${h}h ${m}m ${s}s`;
+    if (m > 0) return `${m}m ${s}s`;
+    return `${s}s`;
+  };
+
   return (
     <div className="p-8 space-y-8 max-w-7xl mx-auto">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Job Scheduler</h1>
-          <p className="text-muted-foreground mt-1">Manage and monitor your Python scraping tasks</p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Job Scheduler</h1>
+            <p className="text-muted-foreground mt-1">Manage and monitor your Python scraping tasks</p>
+          </div>
+          <div className="h-8 w-px bg-border mx-2" />
+          <div className="flex items-center gap-2 bg-sidebar/50 px-3 py-1.5 rounded-full border border-sidebar-border">
+            <div className={`w-2 h-2 rounded-full ${schedulerActive ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
+            <span className="text-xs font-mono text-muted-foreground">
+              SCHEDULER: {schedulerActive ? 'ONLINE' : 'HALTED'}
+            </span>
+          </div>
         </div>
-        <NewJobDialog />
+        <div className="flex gap-2">
+            <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setSchedulerActive(!schedulerActive)}
+                className={!schedulerActive ? "bg-red-500/10 text-red-500 border-red-500/20" : ""}
+            >
+                {schedulerActive ? <Pause className="w-4 h-4 mr-2" /> : <Play className="w-4 h-4 mr-2" />}
+                {schedulerActive ? "Pause System" : "Resume System"}
+            </Button>
+            <NewJobDialog />
+        </div>
       </div>
 
       <div className="grid gap-4">
@@ -76,18 +132,27 @@ export default function Jobs() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
-                <Button 
-                  variant="outline" 
-                  size="icon"
-                  onClick={() => toggleStatus(job.id)}
-                  className="rounded-full hover:bg-primary/20 hover:text-primary border-sidebar-border"
-                >
-                  {job.status === 'Running' ? <Pause size={16} /> : <Play size={16} />}
-                </Button>
-                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full">
-                  <Trash2 size={16} />
-                </Button>
+              <div className="flex items-center gap-6">
+                <div className="text-right">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Next Run In</p>
+                    <p className={`font-mono text-xl font-bold ${job.status === 'Running' ? 'text-primary' : 'text-muted-foreground opacity-50'}`}>
+                        {job.status === 'Running' ? formatTime(job.nextRun) : '--:--:--'}
+                    </p>
+                </div>
+                <div className="h-10 w-px bg-sidebar-border mx-2" />
+                <div className="flex items-center gap-3">
+                    <Button 
+                    variant="outline" 
+                    size="icon"
+                    onClick={() => toggleStatus(job.id)}
+                    className="rounded-full hover:bg-primary/20 hover:text-primary border-sidebar-border"
+                    >
+                    {job.status === 'Running' ? <Pause size={16} /> : <Play size={16} />}
+                    </Button>
+                    <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full">
+                    <Trash2 size={16} />
+                    </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
