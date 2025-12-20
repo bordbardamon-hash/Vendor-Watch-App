@@ -46,30 +46,29 @@ export default function Dashboard() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <MetricCard 
-          title="Monitored Vendors" 
+          title={UI_LABELS.cards.monitoredVendors}
           value="7" 
           change="+2" 
           icon={Globe}
           trend="up"
-          primary
         />
         <MetricCard 
-          title="Active Incidents" 
+          title={UI_LABELS.cards.activeIncidents}
           value="3" 
           change="+1" 
           icon={AlertTriangle}
           trend="up"
-          alert
+          primary
         />
         <MetricCard 
-          title="Database Size" 
+          title={UI_LABELS.cards.dbSize}
           value="12.4 MB" 
           change="+0.2 MB" 
           icon={Database}
           trend="up"
         />
         <MetricCard 
-          title="Uptime" 
+          title={UI_LABELS.cards.uptime}
           value="4d 12h" 
           change="" 
           icon={Clock}
@@ -80,7 +79,7 @@ export default function Dashboard() {
       <div className="grid gap-4 md:grid-cols-7">
         <Card className="col-span-4 border-sidebar-border bg-sidebar/50 backdrop-blur-sm">
           <CardHeader>
-            <CardTitle>Vendor Checks (24h)</CardTitle>
+            <CardTitle>{UI_LABELS.cards.requestVolume24h}</CardTitle>
           </CardHeader>
           <CardContent className="pl-2">
             <div className="h-[300px] w-full">
