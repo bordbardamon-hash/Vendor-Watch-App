@@ -28,6 +28,8 @@ export interface IStorage {
   getIncidents(): Promise<Incident[]>;
   getIncidentsByVendor(vendorKey: string): Promise<Incident[]>;
   createIncident(incident: InsertIncident): Promise<Incident>;
+  updateIncident(id: string, data: { status?: string; updatedAt?: string }): Promise<Incident | undefined>;
+  deleteIncident(id: string): Promise<boolean>;
   
   // Jobs
   getJobs(): Promise<Job[]>;
@@ -134,6 +136,20 @@ export class DatabaseStorage implements IStorage {
       .values(incident)
       .returning();
     return newIncident;
+  }
+  
+  async updateIncident(id: string, data: { status?: string; updatedAt?: string }): Promise<Incident | undefined> {
+    const [updated] = await db
+      .update(incidents)
+      .set(data)
+      .where(eq(incidents.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async deleteIncident(id: string): Promise<boolean> {
+    const result = await db.delete(incidents).where(eq(incidents.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
   }
   
   // Jobs

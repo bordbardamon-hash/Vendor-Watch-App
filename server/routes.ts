@@ -108,8 +108,9 @@ export async function registerRoutes(
       res.json({ 
         success: true, 
         synced: result.synced, 
+        skipped: result.skipped,
         errors: result.errors,
-        message: `Successfully synced ${result.synced} vendor(s)`
+        message: `Synced ${result.synced} vendor(s), skipped ${result.skipped} (no API)`
       });
     } catch (error) {
       console.error("Error syncing vendor statuses:", error);

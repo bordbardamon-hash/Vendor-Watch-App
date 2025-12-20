@@ -23,7 +23,7 @@ async function seed() {
       key: "aws", 
       name: "AWS", 
       statusUrl: "https://health.aws.amazon.com/health/status", 
-      parser: "aws_health",
+      parser: "generic_html",
       status: 'operational'
     },
     { 

@@ -13,10 +13,12 @@ import {
   Server,
   Code,
   Hash,
-  Loader2
+  Loader2,
+  RefreshCw
 } from "lucide-react";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 
 interface Vendor {
   id: string;
@@ -47,6 +49,34 @@ interface Incident {
 export default function Vendors() {
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Sync mutation
+  const syncMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/vendors/sync", { method: "POST" });
+      if (!res.ok) throw new Error("Sync failed");
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["vendors"] });
+      queryClient.invalidateQueries({ queryKey: ["incidents"] });
+      toast({
+        title: "Status Synced",
+        description: data.skipped > 0 
+          ? `Updated ${data.synced} vendor(s). ${data.skipped} vendor(s) have no API.`
+          : `Updated ${data.synced} vendor(s) with latest status`,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Sync Failed",
+        description: "Could not refresh vendor statuses",
+        variant: "destructive",
+      });
+    },
+  });
 
   // Fetch vendors
   const { data: vendors = [], isLoading: vendorsLoading } = useQuery<Vendor[]>({
@@ -112,6 +142,15 @@ export default function Vendors() {
               data-testid="input-search-vendors"
             />
           </div>
+          <Button 
+            variant="outline" 
+            onClick={() => syncMutation.mutate()}
+            disabled={syncMutation.isPending}
+            data-testid="button-sync-vendors"
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
+            {syncMutation.isPending ? 'Syncing...' : 'Refresh Status'}
+          </Button>
           <Button className="bg-primary text-primary-foreground hover:bg-primary/90" data-testid="button-add-vendor">
             + Add Vendor
           </Button>
@@ -145,9 +184,11 @@ export default function Vendors() {
                       </Badge>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground font-mono mt-3">
-                      <div className="flex items-center gap-1.5" title="Parser Module">
+                      <div className="flex items-center gap-1.5" title={vendor.parser === 'statuspage_json' ? "Real-time API sync enabled" : "Manual check only"}>
                         <Code className="w-3 h-3" />
-                        <span className="truncate">{vendor.parser}</span>
+                        <span className={`truncate ${vendor.parser === 'statuspage_json' ? 'text-primary' : ''}`}>
+                          {vendor.parser === 'statuspage_json' ? 'Live API' : 'Static'}
+                        </span>
                       </div>
                       <div className="flex items-center gap-1.5 justify-end" title="Status Page URL">
                         <Activity className="w-3 h-3" />

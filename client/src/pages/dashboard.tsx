@@ -25,8 +25,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { UI_LABELS } from "@/lib/labels";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
+import { useEffect } from "react";
 
 const data = [
   { time: "00:00", requests: 120, errors: 2 },
@@ -41,11 +42,36 @@ const data = [
 export default function Dashboard() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [emailAddress, setEmailAddress] = useState(user?.email || "");
   const [notifyOnIncidents, setNotifyOnIncidents] = useState(true);
   const [notifyOnUpdates, setNotifyOnUpdates] = useState(true);
   const [notifyOnResolutions, setNotifyOnResolutions] = useState(true);
+
+  const syncMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/vendors/sync", { method: "POST" });
+      if (!res.ok) throw new Error("Sync failed");
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/vendors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/incidents"] });
+      if (data.synced > 0) {
+        console.log(`[sync] ${data.message}`);
+      }
+    },
+    onError: (error) => {
+      console.log("[sync] Status sync failed:", error);
+    },
+  });
+
+  useEffect(() => {
+    if (user) {
+      syncMutation.mutate();
+    }
+  }, [user]);
 
   const { data: vendors = [] } = useQuery({
     queryKey: ["/api/vendors"],
