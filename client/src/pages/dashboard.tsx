@@ -44,10 +44,15 @@ export default function Dashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [smsDialogOpen, setSmsDialogOpen] = useState(false);
   const [emailAddress, setEmailAddress] = useState(user?.email || "");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [notifyOnIncidents, setNotifyOnIncidents] = useState(true);
   const [notifyOnUpdates, setNotifyOnUpdates] = useState(true);
   const [notifyOnResolutions, setNotifyOnResolutions] = useState(true);
+  const [smsNotifyOnIncidents, setSmsNotifyOnIncidents] = useState(true);
+  const [smsNotifyOnUpdates, setSmsNotifyOnUpdates] = useState(true);
+  const [smsNotifyOnResolutions, setSmsNotifyOnResolutions] = useState(true);
 
   const syncMutation = useMutation({
     mutationFn: async () => {
@@ -119,6 +124,40 @@ export default function Dashboard() {
     setEmailDialogOpen(false);
   };
 
+  const handleSaveSms = async () => {
+    if (!phoneNumber.trim()) {
+      toast({
+        title: "Phone Number Required",
+        description: "Please enter a valid phone number with country code.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      const res = await fetch("/api/notifications/preferences", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: phoneNumber, notifyEmail: notifPrefs?.notifyEmail ?? true, notifySms: true }),
+      });
+      if (res.ok) {
+        queryClient.invalidateQueries({ queryKey: ["/api/notifications/preferences"] });
+        toast({
+          title: "SMS Preferences Saved",
+          description: `SMS alerts will be sent to ${phoneNumber}`,
+        });
+        setSmsDialogOpen(false);
+      } else {
+        throw new Error("Failed to save");
+      }
+    } catch {
+      toast({
+        title: "Error",
+        description: "Failed to save SMS preferences. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="p-8 space-y-8">
       <div className="flex items-center justify-between">
@@ -139,12 +178,14 @@ export default function Dashboard() {
               {UI_LABELS.alerts.email}
             </button>
             <span className="text-muted-foreground/60">•</span>
-            <Link href="/settings">
-              <span className={`flex items-center gap-1 transition-colors cursor-pointer font-semibold ${notifPrefs?.notifySms ? 'text-foreground hover:text-primary' : 'text-muted-foreground/60 hover:text-muted-foreground'}`} data-testid="button-sms-alerts">
-                <MessageSquare size={14} />
-                SMS
-              </span>
-            </Link>
+            <button 
+              onClick={() => setSmsDialogOpen(true)}
+              className={`flex items-center gap-1 transition-colors cursor-pointer font-semibold ${notifPrefs?.notifySms ? 'text-foreground hover:text-primary' : 'text-muted-foreground/60 hover:text-muted-foreground'}`}
+              data-testid="button-sms-alerts"
+            >
+              <MessageSquare size={14} />
+              SMS
+            </button>
           </div>
         </div>
       </div>
@@ -211,6 +252,75 @@ export default function Dashboard() {
               Cancel
             </Button>
             <Button onClick={handleSaveEmail} data-testid="button-save-email">
+              Save Preferences
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={smsDialogOpen} onOpenChange={setSmsDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-sms-subscription">
+          <DialogHeader>
+            <DialogTitle>SMS Alert Subscription</DialogTitle>
+            <DialogDescription>
+              Configure your SMS notification preferences for vendor incidents.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="phone">Phone Number</Label>
+              <Input
+                id="phone"
+                type="tel"
+                placeholder="+1 555 123 4567"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                data-testid="input-phone"
+              />
+              <p className="text-xs text-muted-foreground">Include country code (e.g., +1 for US)</p>
+            </div>
+            <div className="space-y-3">
+              <Label>Notification Preferences</Label>
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="sms-notify-incidents" 
+                  checked={smsNotifyOnIncidents}
+                  onCheckedChange={(checked) => setSmsNotifyOnIncidents(!!checked)}
+                  data-testid="checkbox-sms-notify-incidents"
+                />
+                <Label htmlFor="sms-notify-incidents" className="text-sm font-normal cursor-pointer">
+                  Notify me when incidents are detected
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="sms-notify-updates" 
+                  checked={smsNotifyOnUpdates}
+                  onCheckedChange={(checked) => setSmsNotifyOnUpdates(!!checked)}
+                  data-testid="checkbox-sms-notify-updates"
+                />
+                <Label htmlFor="sms-notify-updates" className="text-sm font-normal cursor-pointer">
+                  Notify me when incidents are updated
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="sms-notify-resolutions" 
+                  checked={smsNotifyOnResolutions}
+                  onCheckedChange={(checked) => setSmsNotifyOnResolutions(!!checked)}
+                  data-testid="checkbox-sms-notify-resolutions"
+                />
+                <Label htmlFor="sms-notify-resolutions" className="text-sm font-normal cursor-pointer">
+                  Notify me when incidents are resolved
+                </Label>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSmsDialogOpen(false)} data-testid="button-cancel-sms">
+              Cancel
+            </Button>
+            <Button onClick={handleSaveSms} data-testid="button-save-sms">
               Save Preferences
             </Button>
           </DialogFooter>
