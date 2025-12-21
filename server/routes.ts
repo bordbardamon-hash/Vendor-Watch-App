@@ -10,9 +10,9 @@ import { z } from "zod";
 
 // Stripe price IDs for each subscription tier
 const TIER_PRICE_IDS = {
-  standard: process.env.STRIPE_PRICE_STANDARD || "price_1SgJviBHVJ1HPGTMdYAPJFNi", // $89.99
-  gold: process.env.STRIPE_PRICE_GOLD || "price_gold_placeholder", // $99.99
-  platinum: process.env.STRIPE_PRICE_PLATINUM || "price_platinum_placeholder", // $129.99
+  standard: process.env.STRIPE_PRICE_STANDARD || "price_1SgaJ67qLOdMTGqKWTLEYixp", // $89.99
+  gold: process.env.STRIPE_PRICE_GOLD || "price_1SgaL47qLOdMTGqKNjygjmsw", // $99.99
+  platinum: process.env.STRIPE_PRICE_PLATINUM || "price_1SgaLT7qLOdMTGqKMT8J02bw", // $129.99
 } as const;
 
 // Map price IDs to tiers for webhook processing
