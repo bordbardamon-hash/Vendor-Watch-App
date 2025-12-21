@@ -3,6 +3,23 @@ import Stripe from 'stripe';
 let connectionSettings: any;
 
 async function getCredentials() {
+  const isProduction = process.env.REPLIT_DEPLOYMENT === '1';
+  
+  // In production, check for manual environment variables first
+  if (isProduction) {
+    const manualPublishable = process.env.STRIPE_PUBLISHABLE_KEY || process.env['Stripe Publick Key API'];
+    const manualSecret = process.env.STRIPE_SECRET_KEY || process.env['Stripe live secret'];
+    
+    if (manualPublishable && manualSecret) {
+      console.log('[stripe] Using manual Stripe keys from environment variables');
+      return {
+        publishableKey: manualPublishable,
+        secretKey: manualSecret,
+      };
+    }
+  }
+  
+  // Fall back to Replit connector
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
   const xReplitToken = process.env.REPL_IDENTITY
     ? 'repl ' + process.env.REPL_IDENTITY
@@ -15,7 +32,6 @@ async function getCredentials() {
   }
 
   const connectorName = 'stripe';
-  const isProduction = process.env.REPLIT_DEPLOYMENT === '1';
   const targetEnvironment = isProduction ? 'production' : 'development';
 
   const url = new URL(`https://${hostname}/api/v2/connection`);
