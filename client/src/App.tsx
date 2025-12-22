@@ -12,6 +12,7 @@ import Jobs from "@/pages/jobs";
 import Logs from "@/pages/logs";
 import Settings from "@/pages/settings";
 import Vendors from "@/pages/vendors";
+import Blockchain from "@/pages/blockchain";
 import Consents from "@/pages/consents";
 import Signup from "@/pages/signup";
 import SignupSuccess from "@/pages/signup-success";
@@ -23,6 +24,7 @@ function AuthenticatedRouter() {
       <Switch>
         <Route path="/" component={Dashboard} />
         <Route path="/vendors" component={Vendors} />
+        <Route path="/blockchain" component={Blockchain} />
         <Route path="/jobs" component={Jobs} />
         <Route path="/logs" component={Logs} />
         <Route path="/settings" component={Settings} />
