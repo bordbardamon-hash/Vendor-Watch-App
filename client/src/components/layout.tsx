@@ -60,7 +60,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       )}>
         <div className="p-4 flex items-center border-b border-sidebar-border">
           {sidebarOpen ? (
-            <img src={logoImage} alt="Vendor Watch" className="h-8 object-contain" data-testid="img-logo" />
+            <div className="bg-white/95 rounded-lg px-3 py-1.5">
+              <img src={logoImage} alt="Vendor Watch" className="h-8 object-contain" data-testid="img-logo" />
+            </div>
           ) : (
             <div className="h-8 w-8 rounded bg-primary flex items-center justify-center text-primary-foreground shrink-0">
               <Bot size={20} />

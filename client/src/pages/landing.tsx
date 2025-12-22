@@ -112,7 +112,7 @@ export default function Landing() {
     <div className="min-h-screen bg-background flex flex-col">
       <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center">
+          <div className="flex items-center bg-white/95 rounded-lg px-4 py-2">
             <img src={logoImage} alt={APP_NAME} className="h-10 object-contain" data-testid="img-logo-header" />
           </div>
           <div className="flex items-center gap-3">
