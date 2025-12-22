@@ -19,7 +19,6 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { UI_LABELS, APP_NAME } from "@/lib/labels";
 import { useAuth } from "@/hooks/use-auth";
-import logoImage from "@assets/VendorWatch_logo_design_concept_1766438217067.png";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { FeedbackDialog } from "@/components/feedback-dialog";
 
@@ -58,20 +57,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         "border-r border-border bg-sidebar flex flex-col transition-all duration-300",
         sidebarOpen ? "w-64" : "w-16"
       )}>
-        <div className="p-4 flex items-center border-b border-sidebar-border">
-          {sidebarOpen ? (
-            <div className="inline-flex items-center justify-center rounded-lg px-3 py-2 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-primary/20 shadow-[0_0_15px_rgba(59,130,246,0.15)]">
-              <img 
-                src={logoImage} 
-                alt="Vendor Watch" 
-                className="h-9 object-contain mix-blend-multiply saturate-[1.3] contrast-[1.1] drop-shadow-[0_0_8px_rgba(59,130,246,0.4)] invert brightness-[1.8] hue-rotate-[10deg]" 
-                data-testid="img-logo" 
-              />
-            </div>
-          ) : (
-            <div className="h-8 w-8 rounded bg-primary flex items-center justify-center text-primary-foreground shrink-0">
-              <Bot size={20} />
-            </div>
+        <div className="p-4 flex items-center gap-3 border-b border-sidebar-border">
+          <div className="h-8 w-8 rounded bg-primary flex items-center justify-center text-primary-foreground shrink-0">
+            <Bot size={20} />
+          </div>
+          {sidebarOpen && (
+            <span className="font-bold text-lg tracking-tight">Vendor Watch</span>
           )}
         </div>
 

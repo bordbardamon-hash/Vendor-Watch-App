@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Activity, Bell, Zap, CheckCircle2, AlertTriangle, Cloud, Database, Globe, Server, Boxes, Check, X, Shield } from "lucide-react";
 import { Link } from "wouter";
-import logoImage from "@assets/VendorWatch_logo_design_concept_1766438217067.png";
 
 function DashboardPreview() {
   const vendors = [
@@ -112,13 +111,9 @@ export default function Landing() {
     <div className="min-h-screen bg-background flex flex-col">
       <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="inline-flex items-center justify-center rounded-lg px-4 py-2 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-primary/20 shadow-[0_0_15px_rgba(59,130,246,0.15)]">
-            <img 
-              src={logoImage} 
-              alt={APP_NAME} 
-              className="h-10 object-contain mix-blend-multiply saturate-[1.3] contrast-[1.1] drop-shadow-[0_0_8px_rgba(59,130,246,0.4)] invert brightness-[1.8] hue-rotate-[10deg]" 
-              data-testid="img-logo-header" 
-            />
+          <div className="flex items-center gap-2">
+            <Shield className="h-8 w-8 text-primary" />
+            <span className="text-xl font-bold tracking-tight">{APP_NAME}</span>
           </div>
           <div className="flex items-center gap-3">
             <Link href="/signup">
