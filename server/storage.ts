@@ -630,7 +630,7 @@ export class DatabaseStorage implements IStorage {
       return true;
     }
     
-    const hasSetSubscriptions = await this.getConfigValue(`vendor_subscriptions_set:${userId}`);
+    const hasSetSubscriptions = await this.getConfig(`vendor_subscriptions_set:${userId}`);
     if (!hasSetSubscriptions) {
       await db.insert(userVendorSubscriptions).values({
         userId,
@@ -654,31 +654,32 @@ export class DatabaseStorage implements IStorage {
 export const storage = new DatabaseStorage();
 
 // Default vendors to seed when database is empty
+// parser types: statuspage_json (Statuspage.io API), aws_json (AWS Health Dashboard), manual (no API - manual monitoring)
 const DEFAULT_VENDORS: InsertVendor[] = [
-  { key: "aws", name: "AWS", statusUrl: "https://status.aws.amazon.com", parser: "generic_html", status: "operational" },
-  { key: "azure", name: "Azure", statusUrl: "https://status.azure.com", parser: "generic_html", status: "operational" },
-  { key: "microsoft365", name: "Microsoft 365", statusUrl: "https://status.office.com", parser: "generic_html", status: "operational" },
-  { key: "googlews", name: "Google Workspace", statusUrl: "https://www.google.com/appsstatus/dashboard/", parser: "generic_html", status: "operational" },
-  { key: "salesforce", name: "Salesforce", statusUrl: "https://status.salesforce.com", parser: "generic_html", status: "operational" },
+  { key: "aws", name: "AWS", statusUrl: "https://status.aws.amazon.com", parser: "aws_json", status: "operational" },
+  { key: "azure", name: "Azure", statusUrl: "https://status.azure.com", parser: "manual", status: "operational" },
+  { key: "microsoft365", name: "Microsoft 365", statusUrl: "https://status.office.com", parser: "manual", status: "operational" },
+  { key: "googlews", name: "Google Workspace", statusUrl: "https://www.google.com/appsstatus/dashboard/", parser: "manual", status: "operational" },
+  { key: "salesforce", name: "Salesforce", statusUrl: "https://status.salesforce.com", parser: "manual", status: "operational" },
   { key: "cloudflare", name: "Cloudflare", statusUrl: "https://www.cloudflarestatus.com", parser: "statuspage_json", status: "operational" },
   { key: "okta", name: "Okta", statusUrl: "https://status.okta.com", parser: "statuspage_json", status: "operational" },
   { key: "zoom", name: "Zoom", statusUrl: "https://status.zoom.us", parser: "statuspage_json", status: "operational" },
   { key: "atlassian", name: "Atlassian", statusUrl: "https://status.atlassian.com", parser: "statuspage_json", status: "operational" },
   { key: "connectwise", name: "ConnectWise", statusUrl: "https://status.connectwise.com/", parser: "statuspage_json", status: "operational" },
-  { key: "nable", name: "N-able", statusUrl: "https://status.n-able.com/", parser: "generic_html", status: "operational" },
+  { key: "nable", name: "N-able", statusUrl: "https://status.n-able.com/", parser: "statuspage_json", status: "operational" },
   { key: "kaseya", name: "Kaseya", statusUrl: "https://status.kaseya.com/", parser: "statuspage_json", status: "operational" },
-  { key: "syncro", name: "Syncro", statusUrl: "https://www.syncrostatus.com/", parser: "generic_html", status: "operational" },
+  { key: "syncro", name: "Syncro", statusUrl: "https://www.syncrostatus.com/", parser: "statuspage_json", status: "operational" },
   { key: "sentinelone", name: "SentinelOne", statusUrl: "https://status.sentinelone.com/", parser: "statuspage_json", status: "operational" },
   { key: "auth0", name: "Auth0", statusUrl: "https://status.auth0.com/", parser: "statuspage_json", status: "operational" },
-  { key: "pingidentity", name: "Ping Identity", statusUrl: "https://status.pingidentity.com/", parser: "generic_html", status: "operational" },
-  { key: "slack", name: "Slack", statusUrl: "https://slack-status.com/", parser: "generic_html", status: "operational" },
+  { key: "pingidentity", name: "Ping Identity", statusUrl: "https://status.pingidentity.com/", parser: "statuspage_json", status: "operational" },
+  { key: "slack", name: "Slack", statusUrl: "https://status.slack.com/", parser: "statuspage_json", status: "operational" },
   { key: "hubspot", name: "HubSpot", statusUrl: "https://status.hubspot.com/", parser: "statuspage_json", status: "operational" },
   { key: "quickbooks", name: "QuickBooks Online", statusUrl: "https://status.quickbooks.intuit.com/", parser: "statuspage_json", status: "operational" },
   { key: "netsuite", name: "Oracle NetSuite", statusUrl: "https://status.netsuite.com/", parser: "statuspage_json", status: "operational" },
-  { key: "fastly", name: "Fastly", statusUrl: "https://www.fastlystatus.com/", parser: "generic_html", status: "operational" },
+  { key: "fastly", name: "Fastly", statusUrl: "https://status.fastly.com/", parser: "statuspage_json", status: "operational" },
   { key: "akamai", name: "Akamai", statusUrl: "https://www.akamaistatus.com/", parser: "statuspage_json", status: "operational" },
-  { key: "veeam_datacloud", name: "Veeam Data Cloud", statusUrl: "https://vdcstatus.veeam.com/", parser: "generic_html", status: "operational" },
-  { key: "fireblocks", name: "Fireblocks", statusUrl: "https://status.fireblocks.com/", parser: "generic_html", status: "operational" },
+  { key: "veeam_datacloud", name: "Veeam Data Cloud", statusUrl: "https://vdcstatus.veeam.com/", parser: "statuspage_json", status: "operational" },
+  { key: "fireblocks", name: "Fireblocks", statusUrl: "https://status.fireblocks.com/", parser: "statuspage_json", status: "operational" },
 ];
 
 export async function seedVendorsIfEmpty(): Promise<void> {

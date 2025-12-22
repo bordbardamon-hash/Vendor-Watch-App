@@ -49,6 +49,13 @@ const STATUSPAGE_API_URLS: Record<string, string> = {
   fastly: "https://status.fastly.com",
   akamai: "https://www.akamaistatus.com",
   pingidentity: "https://status.pingidentity.com",
+  veeam_datacloud: "https://vdcstatus.veeam.com",
+  fireblocks: "https://status.fireblocks.com",
+  quickbooks: "https://status.quickbooks.intuit.com",
+  netsuite: "https://status.netsuite.com",
+  kaseya: "https://status.kaseya.com",
+  nable: "https://status.n-able.com",
+  syncro: "https://www.syncrostatus.com",
 };
 
 function mapStatusIndicator(indicator: string): string {
@@ -132,6 +139,109 @@ async function fetchStatuspageJson(vendor: { key: string; statusUrl: string }): 
   }
 }
 
+// AWS uses a different JSON format at status.aws.amazon.com/data.json
+async function fetchAwsStatus(vendor: { key: string; statusUrl: string }): Promise<{ 
+  status: string; 
+  incidents: any[]; 
+  success: boolean; 
+  httpStatus?: number; 
+  errorMessage?: string 
+}> {
+  try {
+    const response = await fetchWithRetry("https://status.aws.amazon.com/data.json", {
+      headers: { 
+        'Accept': 'application/json',
+        'User-Agent': 'VendorWatch/1.0'
+      },
+    });
+    
+    if (!response.ok) {
+      console.log(`[aws] Status page returned ${response.status}`);
+      await recordParseResult(vendor.key, { 
+        success: false, 
+        httpStatus: response.status, 
+        errorMessage: `HTTP ${response.status}` 
+      });
+      return { status: 'unknown', incidents: [], success: false, httpStatus: response.status };
+    }
+    
+    // Read as text first to handle potential encoding issues
+    const text = await response.text();
+    
+    // Handle empty response - AWS returns [] when there are no issues
+    if (!text || text.trim() === '' || text.trim() === '[]') {
+      await recordParseResult(vendor.key, { 
+        success: true, 
+        httpStatus: 200, 
+        incidentsParsed: 0 
+      });
+      return { status: 'operational', incidents: [], success: true, httpStatus: 200 };
+    }
+    
+    // Parse the JSON text
+    let data: any;
+    try {
+      data = JSON.parse(text);
+    } catch (parseError) {
+      console.log(`[aws] JSON parse error, text starts with:`, text.substring(0, 50));
+      await recordParseResult(vendor.key, { 
+        success: false, 
+        errorMessage: 'JSON parse error' 
+      });
+      return { status: 'unknown', incidents: [], success: false, errorMessage: 'JSON parse error' };
+    }
+    
+    // AWS data.json returns an array of service entries or events
+    // The format is: { archive: [...events] } or just an array
+    let incidents: any[] = [];
+    let overallStatus = 'operational';
+    
+    if (Array.isArray(data)) {
+      // If any current issues, mark as degraded
+      if (data.length > 0) {
+        overallStatus = 'degraded';
+        incidents = data.slice(0, 10).map((item: any, idx: number) => ({
+          id: item.id || `aws-${Date.now()}-${idx}`,
+          name: item.summary || item.description || 'AWS Service Event',
+          status: 'investigating',
+          impact: 'minor',
+          shortlink: vendor.statusUrl,
+          created_at: item.date || new Date().toISOString(),
+          updated_at: item.date || new Date().toISOString(),
+        }));
+      }
+    } else if (data.current) {
+      // Some AWS endpoints have { current: [...events] }
+      incidents = (data.current || []).map((item: any, idx: number) => ({
+        id: item.id || `aws-${Date.now()}-${idx}`,
+        name: item.summary || item.service_name || 'AWS Service Event',
+        status: 'investigating',
+        impact: item.severity || 'minor',
+        shortlink: vendor.statusUrl,
+        created_at: item.date || new Date().toISOString(),
+        updated_at: item.date || new Date().toISOString(),
+      }));
+      if (incidents.length > 0) overallStatus = 'degraded';
+    }
+    
+    await recordParseResult(vendor.key, { 
+      success: true, 
+      httpStatus: 200, 
+      incidentsParsed: incidents.length 
+    });
+    
+    return { status: overallStatus, incidents, success: true, httpStatus: 200 };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.log(`[aws] Failed to fetch status:`, errorMessage);
+    await recordParseResult(vendor.key, { 
+      success: false, 
+      errorMessage 
+    });
+    return { status: 'unknown', incidents: [], success: false, errorMessage };
+  }
+}
+
 export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: number; errors: string[]; skipped: number }> {
   const vendors = vendorKey 
     ? [await storage.getVendor(vendorKey)].filter(Boolean)
@@ -144,14 +254,24 @@ export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: nu
   for (const vendor of vendors) {
     if (!vendor) continue;
     
-    if (vendor.parser !== 'statuspage_json') {
-      console.log(`⊘ ${vendor.name}: skipped (no API parser configured)`);
+    // Handle different parser types
+    if (vendor.parser === 'manual' || vendor.parser === 'generic_html') {
+      console.log(`⊘ ${vendor.name}: skipped (manual monitoring - no public API)`);
+      skipped++;
+      continue;
+    }
+    
+    if (vendor.parser !== 'statuspage_json' && vendor.parser !== 'aws_json') {
+      console.log(`⊘ ${vendor.name}: skipped (unknown parser: ${vendor.parser})`);
       skipped++;
       continue;
     }
     
     try {
-      const result = await fetchStatuspageJson(vendor);
+      // Use appropriate parser based on vendor configuration
+      const result = vendor.parser === 'aws_json' 
+        ? await fetchAwsStatus(vendor)
+        : await fetchStatuspageJson(vendor);
       
       if (await shouldSendParserHealthAlert(vendor.key)) {
         console.log(`[parser-health] ALERT: Parser unhealthy for ${vendor.name}`);
