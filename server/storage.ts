@@ -1,5 +1,6 @@
 import { 
   users, vendors, incidents, jobs, config, feedback, notificationConsents, incidentAlerts, userVendorSubscriptions, userVendorOrder, customVendorRequests,
+  blockchainChains, blockchainIncidents, userBlockchainSubscriptions,
   type User, type UpsertUser,
   type Vendor, type InsertVendor,
   type Incident, type InsertIncident,
@@ -11,6 +12,8 @@ import {
   type UserVendorSubscription,
   type UserVendorOrder,
   type CustomVendorRequest, type InsertCustomVendorRequest,
+  type BlockchainChain, type InsertBlockchainChain,
+  type BlockchainIncident, type InsertBlockchainIncident,
   SUBSCRIPTION_TIERS
 } from "@shared/schema";
 import { and, isNull, inArray } from "drizzle-orm";
@@ -103,6 +106,20 @@ export interface IStorage {
   getUserVendorImpact(userId: string, vendorKey: string): Promise<string>;
   setUserVendorImpact(userId: string, vendorKey: string, impact: string): Promise<boolean>;
   getUserVendorSubscriptionsWithImpact(userId: string): Promise<Array<{ vendorKey: string; customerImpact: string }>>;
+  
+  // Blockchain Chains
+  getBlockchainChains(): Promise<BlockchainChain[]>;
+  getBlockchainChainsByTier(tier: string): Promise<BlockchainChain[]>;
+  getBlockchainChain(key: string): Promise<BlockchainChain | undefined>;
+  createBlockchainChain(chain: InsertBlockchainChain): Promise<BlockchainChain>;
+  updateBlockchainChain(key: string, data: Partial<InsertBlockchainChain>): Promise<BlockchainChain | undefined>;
+  
+  // Blockchain Incidents
+  getBlockchainIncidents(): Promise<BlockchainIncident[]>;
+  getBlockchainIncidentsByChain(chainKey: string): Promise<BlockchainIncident[]>;
+  getActiveBlockchainIncidents(): Promise<BlockchainIncident[]>;
+  createBlockchainIncident(incident: InsertBlockchainIncident): Promise<BlockchainIncident>;
+  updateBlockchainIncident(id: string, data: Partial<InsertBlockchainIncident>): Promise<BlockchainIncident | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -649,6 +666,58 @@ export class DatabaseStorage implements IStorage {
       .where(eq(userVendorSubscriptions.userId, userId));
     return subs.map(s => ({ vendorKey: s.vendorKey, customerImpact: s.customerImpact || 'medium' }));
   }
+
+  // Blockchain Chains
+  async getBlockchainChains(): Promise<BlockchainChain[]> {
+    return db.select().from(blockchainChains).orderBy(blockchainChains.tier, blockchainChains.name);
+  }
+
+  async getBlockchainChainsByTier(tier: string): Promise<BlockchainChain[]> {
+    return db.select().from(blockchainChains).where(eq(blockchainChains.tier, tier)).orderBy(blockchainChains.name);
+  }
+
+  async getBlockchainChain(key: string): Promise<BlockchainChain | undefined> {
+    const [chain] = await db.select().from(blockchainChains).where(eq(blockchainChains.key, key));
+    return chain || undefined;
+  }
+
+  async createBlockchainChain(chain: InsertBlockchainChain): Promise<BlockchainChain> {
+    const [newChain] = await db.insert(blockchainChains).values(chain).returning();
+    return newChain;
+  }
+
+  async updateBlockchainChain(key: string, data: Partial<InsertBlockchainChain>): Promise<BlockchainChain | undefined> {
+    const [updated] = await db.update(blockchainChains).set(data).where(eq(blockchainChains.key, key)).returning();
+    return updated || undefined;
+  }
+
+  // Blockchain Incidents
+  async getBlockchainIncidents(): Promise<BlockchainIncident[]> {
+    return db.select().from(blockchainIncidents).orderBy(desc(blockchainIncidents.createdAt));
+  }
+
+  async getBlockchainIncidentsByChain(chainKey: string): Promise<BlockchainIncident[]> {
+    return db.select().from(blockchainIncidents).where(eq(blockchainIncidents.chainKey, chainKey)).orderBy(desc(blockchainIncidents.createdAt));
+  }
+
+  async getActiveBlockchainIncidents(): Promise<BlockchainIncident[]> {
+    return db.select().from(blockchainIncidents)
+      .where(and(
+        isNull(blockchainIncidents.resolvedAt),
+        inArray(blockchainIncidents.status, ['investigating', 'identified', 'monitoring'])
+      ))
+      .orderBy(desc(blockchainIncidents.createdAt));
+  }
+
+  async createBlockchainIncident(incident: InsertBlockchainIncident): Promise<BlockchainIncident> {
+    const [newIncident] = await db.insert(blockchainIncidents).values(incident).returning();
+    return newIncident;
+  }
+
+  async updateBlockchainIncident(id: string, data: Partial<InsertBlockchainIncident>): Promise<BlockchainIncident | undefined> {
+    const [updated] = await db.update(blockchainIncidents).set(data).where(eq(blockchainIncidents.id, id)).returning();
+    return updated || undefined;
+  }
 }
 
 export const storage = new DatabaseStorage();
@@ -697,5 +766,51 @@ export async function seedVendorsIfEmpty(): Promise<void> {
     console.log('[seed] Vendor seeding complete');
   } else {
     console.log(`[seed] Found ${existingVendors.length} vendors, skipping seed`);
+  }
+}
+
+// Default blockchain chains to seed
+const DEFAULT_BLOCKCHAIN_CHAINS: InsertBlockchainChain[] = [
+  // Tier 1: Must-Monitor (High Business Impact)
+  { key: "bitcoin", name: "Bitcoin", symbol: "BTC", tier: "tier1", category: "chain", sourceType: "api", statusUrl: "https://www.blockchain.com/explorer", explorerUrl: "https://www.blockchain.com/explorer", avgBlockTime: 600 },
+  { key: "ethereum", name: "Ethereum", symbol: "ETH", tier: "tier1", category: "chain", sourceType: "api", statusUrl: "https://etherscan.io", explorerUrl: "https://etherscan.io", avgBlockTime: 12 },
+  { key: "solana", name: "Solana", symbol: "SOL", tier: "tier1", category: "chain", sourceType: "statuspage", statusUrl: "https://status.solana.com", explorerUrl: "https://explorer.solana.com", avgBlockTime: 1 },
+  { key: "polygon", name: "Polygon PoS", symbol: "MATIC", tier: "tier1", category: "chain", sourceType: "statuspage", statusUrl: "https://polygon.technology/status", explorerUrl: "https://polygonscan.com", avgBlockTime: 2 },
+  { key: "bsc", name: "BNB Smart Chain", symbol: "BNB", tier: "tier1", category: "chain", sourceType: "api", statusUrl: "https://bscscan.com", explorerUrl: "https://bscscan.com", avgBlockTime: 3 },
+  
+  // Tier 2: Infrastructure-Critical
+  { key: "avalanche", name: "Avalanche", symbol: "AVAX", tier: "tier2", category: "chain", sourceType: "statuspage", statusUrl: "https://status.avax.network", explorerUrl: "https://snowtrace.io", avgBlockTime: 2 },
+  { key: "arbitrum", name: "Arbitrum One", symbol: "ARB", tier: "tier2", category: "l2", sourceType: "statuspage", statusUrl: "https://status.arbitrum.io", explorerUrl: "https://arbiscan.io", avgBlockTime: 1 },
+  { key: "optimism", name: "Optimism", symbol: "OP", tier: "tier2", category: "l2", sourceType: "statuspage", statusUrl: "https://status.optimism.io", explorerUrl: "https://optimistic.etherscan.io", avgBlockTime: 2 },
+  { key: "base", name: "Base", symbol: "ETH", tier: "tier2", category: "l2", sourceType: "statuspage", statusUrl: "https://status.base.org", explorerUrl: "https://basescan.org", avgBlockTime: 2 },
+  
+  // Tier 3: Enterprise / Custody-Relevant
+  { key: "tron", name: "TRON", symbol: "TRX", tier: "tier3", category: "chain", sourceType: "api", explorerUrl: "https://tronscan.org", avgBlockTime: 3 },
+  { key: "stellar", name: "Stellar", symbol: "XLM", tier: "tier3", category: "chain", sourceType: "api", statusUrl: "https://status.stellar.org", explorerUrl: "https://stellar.expert", avgBlockTime: 5 },
+  { key: "ripple", name: "XRP Ledger", symbol: "XRP", tier: "tier3", category: "chain", sourceType: "api", explorerUrl: "https://xrpscan.com", avgBlockTime: 4 },
+  { key: "cosmos", name: "Cosmos Hub", symbol: "ATOM", tier: "tier3", category: "chain", sourceType: "api", explorerUrl: "https://www.mintscan.io/cosmos", avgBlockTime: 6 },
+  
+  // Tier 4: Dependencies & Ecosystem
+  { key: "infura", name: "Infura", tier: "tier4", category: "rpc_provider", sourceType: "statuspage", statusUrl: "https://status.infura.io" },
+  { key: "alchemy", name: "Alchemy", tier: "tier4", category: "rpc_provider", sourceType: "statuspage", statusUrl: "https://status.alchemy.com" },
+  { key: "quicknode", name: "QuickNode", tier: "tier4", category: "rpc_provider", sourceType: "statuspage", statusUrl: "https://status.quicknode.com" },
+  { key: "thegraph", name: "The Graph", tier: "tier4", category: "indexer", sourceType: "statuspage", statusUrl: "https://status.thegraph.com" },
+];
+
+export async function seedBlockchainChainsIfEmpty(): Promise<void> {
+  const existingChains = await storage.getBlockchainChains();
+  if (existingChains.length === 0) {
+    console.log('[seed] No blockchain chains found, seeding defaults...');
+    for (const chain of DEFAULT_BLOCKCHAIN_CHAINS) {
+      try {
+        await storage.createBlockchainChain(chain);
+        console.log(`[seed] Created blockchain: ${chain.name}`);
+      } catch (error) {
+        console.log(`[seed] Chain ${chain.key} may already exist, skipping`);
+      }
+    }
+    console.log('[seed] Blockchain seeding complete');
+  } else {
+    console.log(`[seed] Found ${existingChains.length} blockchain chains, skipping seed`);
   }
 }

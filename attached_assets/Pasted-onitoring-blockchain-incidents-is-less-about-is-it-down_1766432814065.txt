@@ -1,0 +1,286 @@
+onitoring blockchain incidents is less about “is it down?” and more about:
+
+liveness
+
+congestion
+
+halted production
+
+degraded RPC / indexing
+
+ecosystem dependency failures
+
+Below is a curated, ops-grade list of blockchains worth monitoring, plus what actually constitutes an “incident” for each. This is not crypto-Twitter fluff — this is reliability monitoring.
+
+Tier 1: Must-Monitor Blockchains (High Business Impact)
+
+These are chains where incidents have real financial or operational consequences.
+
+Bitcoin
+
+What to monitor:
+
+Block production halted or delayed
+
+Mempool congestion spikes
+
+Chain reorgs (rare but critical)
+
+Fee spikes indicating degraded throughput
+
+Why it matters:
+
+Payments
+
+Custody
+
+Exchanges
+
+On/off-ramps
+
+Incidents here are headline news.
+
+Ethereum
+
+What to monitor:
+
+Block finality delays
+
+Client bugs causing missed attestations
+
+Network congestion (gas spikes)
+
+Consensus layer issues
+
+Major L2 disruptions tied to L1
+
+Ethereum “partial degradation” is very common and very relevant.
+
+Solana
+
+What to monitor:
+
+Network halts / restarts
+
+Leader schedule failures
+
+Transaction failure rate spikes
+
+RPC availability
+
+Solana incidents are frequent enough that fast detection is valuable.
+
+Polygon (PoS)
+
+What to monitor:
+
+Heimdall / Bor failures
+
+Checkpoint delays
+
+RPC outages
+
+Validator issues
+
+Used heavily by SaaS and gaming platforms.
+
+Binance Smart Chain (BSC)
+
+What to monitor:
+
+Block production stalls
+
+Validator downtime
+
+RPC degradation
+
+Centralized enough that outages can ripple quickly.
+
+Tier 2: Infrastructure-Critical Chains
+
+These are widely used by developers, enterprises, and fintech, even if not consumer-visible.
+
+Avalanche
+
+What to monitor:
+
+Subnet failures
+
+C-Chain congestion
+
+Validator uptime
+
+Arbitrum
+
+What to monitor:
+
+Sequencer downtime
+
+Batch submission delays
+
+Withdrawal delays
+
+L2 incidents are very real for customers.
+
+Optimism
+
+What to monitor:
+
+Sequencer availability
+
+State commitment delays
+
+Bridging issues
+
+Base
+
+What to monitor:
+
+Sequencer status
+
+RPC availability
+
+Rollup posting delays
+
+Used by serious businesses; trust expectations are high.
+
+Tier 3: Enterprise / Custody-Relevant Chains
+
+These are important if you’re serving:
+
+custodians
+
+exchanges
+
+institutional fintech
+
+Tron
+
+What to monitor:
+
+Block production
+
+USDT transfer congestion
+
+RPC health
+
+Stellar
+
+What to monitor:
+
+Consensus stalls
+
+Validator quorum issues
+
+Horizon API health
+
+Ripple (XRPL)
+
+What to monitor:
+
+Ledger close times
+
+Validator consensus
+
+API access
+
+Cosmos Hub (and major zones)
+
+What to monitor:
+
+Chain halts
+
+IBC disruptions
+
+Validator downtime
+
+Cosmos incidents often cascade across zones.
+
+Tier 4: Dependency & Ecosystem Monitoring (Very Differentiating)
+
+Instead of “monitor every chain,” you can monitor critical dependencies.
+
+What to monitor alongside chains
+
+Public RPC providers (Infura, Alchemy, QuickNode)
+
+Indexers (The Graph)
+
+Bridges (major outages here cause chaos)
+
+Explorer availability
+
+Often:
+
+“The chain is fine — but nobody can access it.”
+
+That’s an incident MSPs and ops teams care about.
+
+What Counts as a “Blockchain Incident” (Important)
+
+This is where you differentiate.
+
+Valid incident categories
+
+⛔ Block production halted
+
+🐢 Finality / confirmation delays
+
+🔌 RPC/API unavailable
+
+🚦 Transaction failure rate spike
+
+🧱 Network congestion beyond threshold
+
+🔁 Chain reorg above safe depth
+
+🧩 Dependency failure (sequencer, indexer, bridge)
+
+NOT incidents
+
+Price volatility
+
+Market crashes
+
+Token drama
+
+Governance votes (unless they halt the chain)
+
+VendorWatch should stay operational, not speculative.
+
+How to Implement This Without Noise
+Phase 1 (Smart, safe)
+
+Monitor official status pages where available
+
+Monitor block height liveness
+
+Monitor RPC reachability
+
+Phase 2
+
+Add thresholds (e.g., “no new block in X seconds”)
+
+Add congestion detection (fee spikes, failure rates)
+
+Phase 3
+
+Correlate chain + infrastructure (e.g., Solana fine, RPC down)
+
+Positioning Advice (Critical)
+
+Do not market this as:
+
+“Crypto monitoring”
+
+Market it as:
+
+Blockchain infrastructure dependency monitoring
+
+That framing:
+
+attracts serious operators
+
+avoids hype tourists
+
+aligns with MSP / enterprise thinking

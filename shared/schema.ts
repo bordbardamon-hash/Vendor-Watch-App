@@ -316,3 +316,103 @@ export const SUBSCRIPTION_TIERS = {
   gold: { name: 'Gold', price: 99.99, vendorLimit: 25, customVendorRequests: 5 },
   platinum: { name: 'Platinum', price: 129.99, vendorLimit: null, customVendorRequests: null },
 } as const;
+
+// ==========================================
+// BLOCKCHAIN INFRASTRUCTURE MONITORING
+// ==========================================
+
+// Blockchain tier classifications
+export const BLOCKCHAIN_TIERS = ['tier1', 'tier2', 'tier3', 'tier4'] as const;
+export type BlockchainTier = typeof BLOCKCHAIN_TIERS[number];
+
+// Blockchain categories
+export const BLOCKCHAIN_CATEGORIES = ['chain', 'l2', 'rpc_provider', 'indexer', 'bridge', 'explorer'] as const;
+export type BlockchainCategory = typeof BLOCKCHAIN_CATEGORIES[number];
+
+// Blockchain incident types
+export const BLOCKCHAIN_INCIDENT_TYPES = [
+  'block_halt',           // Block production halted
+  'finality_delay',       // Finality/confirmation delays
+  'rpc_unavailable',      // RPC/API unavailable
+  'tx_failure_spike',     // Transaction failure rate spike
+  'congestion',           // Network congestion beyond threshold
+  'chain_reorg',          // Chain reorg above safe depth
+  'dependency_failure',   // Dependency failure (sequencer, indexer, bridge)
+  'degraded',             // General degraded performance
+  'maintenance',          // Scheduled maintenance
+] as const;
+export type BlockchainIncidentType = typeof BLOCKCHAIN_INCIDENT_TYPES[number];
+
+// Blockchain chains/entities table
+export const blockchainChains = pgTable("blockchain_chains", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: text("key").notNull().unique(),
+  name: text("name").notNull(),
+  symbol: text("symbol"),                    // e.g., BTC, ETH, SOL
+  tier: text("tier").notNull(),              // tier1, tier2, tier3, tier4
+  category: text("category").notNull(),      // chain, l2, rpc_provider, indexer, bridge, explorer
+  statusUrl: text("status_url"),             // Official status page URL
+  rpcEndpoint: text("rpc_endpoint"),         // RPC endpoint for health checks
+  explorerUrl: text("explorer_url"),         // Block explorer URL
+  sourceType: text("source_type").notNull(), // statuspage, rpc_probe, api, manual
+  status: text("status").notNull().default('operational'), // operational, degraded, outage, unknown
+  lastBlockHeight: text("last_block_height"),
+  lastBlockTime: timestamp("last_block_time"),
+  avgBlockTime: integer("avg_block_time"),   // Average block time in seconds
+  lastChecked: timestamp("last_checked"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Blockchain incidents table
+export const blockchainIncidents = pgTable("blockchain_incidents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  chainKey: text("chain_key").notNull(),
+  incidentId: text("incident_id").notNull(), // External or generated ID
+  incidentType: text("incident_type").notNull(), // block_halt, finality_delay, etc.
+  title: text("title").notNull(),
+  description: text("description"),
+  status: text("status").notNull(),          // investigating, identified, monitoring, resolved
+  severity: text("severity").notNull(),      // critical, major, minor, info
+  affectedServices: text("affected_services"), // comma-separated list
+  url: text("url"),
+  rawHash: text("raw_hash"),
+  startedAt: text("started_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+  resolvedAt: timestamp("resolved_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Blockchain subscriptions - which chains each user monitors
+export const userBlockchainSubscriptions = pgTable("user_blockchain_subscriptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: text("user_id").notNull(),
+  chainKey: text("chain_key").notNull(),
+  customerImpact: text("customer_impact").notNull().default('medium'),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Insert schemas for blockchain tables
+export const insertBlockchainChainSchema = createInsertSchema(blockchainChains).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertBlockchainIncidentSchema = createInsertSchema(blockchainIncidents).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertUserBlockchainSubscriptionSchema = createInsertSchema(userBlockchainSubscriptions).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Types for blockchain tables
+export type InsertBlockchainChain = z.infer<typeof insertBlockchainChainSchema>;
+export type BlockchainChain = typeof blockchainChains.$inferSelect;
+
+export type InsertBlockchainIncident = z.infer<typeof insertBlockchainIncidentSchema>;
+export type BlockchainIncident = typeof blockchainIncidents.$inferSelect;
+
+export type InsertUserBlockchainSubscription = z.infer<typeof insertUserBlockchainSubscriptionSchema>;
+export type UserBlockchainSubscription = typeof userBlockchainSubscriptions.$inferSelect;
