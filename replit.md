@@ -152,3 +152,31 @@ The application monitors status pages for:
   - GET `/api/consents` (view all consents) requires admin
 - **User Access**: Users can still POST consents, view their own consents via `/api/consents/user`, and revoke their own
 - **UI**: `client/src/components/layout.tsx` filters navItems based on `user?.isAdmin`
+
+### MSP-Focused Features
+
+#### Customer-Ready Alert Summaries
+- **Module**: `server/customerSummaryGenerator.ts`
+- **Purpose**: Generates neutral, professional incident summaries safe for direct client communication
+- **Features**: No blame language, copy-paste ready, includes templates for email/SMS
+- **Integration**: Summaries included in email notifications via `notificationDispatcher.ts`
+
+#### Vendor Reliability Tracking
+- **Module**: `server/reliabilityTracker.ts`
+- **Table**: `vendor_reliability_stats` stores metrics per vendor
+- **Metrics**: Incidents count (30/90 day), avg resolution time, escalation %, long-running count
+- **Rating**: good (0-1 incidents), fair (2-4), poor (5+)
+- **Routes**: `/api/vendor-reliability` (GET), `/api/vendor-reliability/:vendorKey` (GET), `/api/vendor-reliability/refresh` (POST, admin)
+
+#### Customer Impact Tagging
+- **Field**: `user_vendor_subscriptions.customerImpact` (high/medium/low)
+- **Routes**: `/api/vendor-impact` (GET), `/api/vendor-impact/:vendorKey` (PUT)
+- **UI**: Settings > Notifications tab shows impact dropdown per vendor with color-coded left borders (red=high, yellow=medium, blue=low)
+- **Logic**: Works with both explicit subscriptions and "monitor all" default mode
+
+#### Weekly Digest Emails
+- **Module**: `server/weeklyDigest.ts`
+- **Table**: `weekly_digests` tracks sent digests (userId, periodStart, periodEnd, sentAt)
+- **Route**: `/api/digest/send` (POST, admin) - triggers digest send
+- **Content**: Incident counts per vendor, or "silence is good" message when no incidents
+- **Recipients**: All users with email notifications enabled
