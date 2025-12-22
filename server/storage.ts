@@ -104,6 +104,12 @@ export interface IStorage {
   updateUserSubscriptionTier(userId: string, tier: 'standard' | 'gold' | 'platinum' | null): Promise<User | undefined>;
   checkVendorLimit(userId: string): Promise<{ allowed: boolean; current: number; limit: number | null; tier: string | null }>;
   
+  // Two-Factor Authentication
+  setUserTwoFactorSecret(userId: string, secret: string, recoveryCodes: string[]): Promise<User | undefined>;
+  enableUserTwoFactor(userId: string): Promise<User | undefined>;
+  disableUserTwoFactor(userId: string): Promise<User | undefined>;
+  updateUserRecoveryCodes(userId: string, recoveryCodes: string[]): Promise<User | undefined>;
+  
   // Customer Impact for Vendor Subscriptions
   getUserVendorImpact(userId: string, vendorKey: string): Promise<string>;
   setUserVendorImpact(userId: string, vendorKey: string, impact: string): Promise<boolean>;
@@ -732,6 +738,55 @@ export class DatabaseStorage implements IStorage {
   async updateBlockchainIncident(id: string, data: Partial<InsertBlockchainIncident>): Promise<BlockchainIncident | undefined> {
     const [updated] = await db.update(blockchainIncidents).set(data).where(eq(blockchainIncidents.id, id)).returning();
     return updated || undefined;
+  }
+
+  // Two-Factor Authentication
+  async setUserTwoFactorSecret(userId: string, secret: string, recoveryCodes: string[]): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set({ 
+        twoFactorSecret: secret, 
+        twoFactorRecoveryCodes: recoveryCodes.join(','),
+        updatedAt: new Date() 
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return user || undefined;
+  }
+
+  async enableUserTwoFactor(userId: string): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set({ twoFactorEnabled: true, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return user || undefined;
+  }
+
+  async disableUserTwoFactor(userId: string): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set({ 
+        twoFactorEnabled: false, 
+        twoFactorSecret: null, 
+        twoFactorRecoveryCodes: null,
+        updatedAt: new Date() 
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return user || undefined;
+  }
+
+  async updateUserRecoveryCodes(userId: string, recoveryCodes: string[]): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set({ 
+        twoFactorRecoveryCodes: recoveryCodes.join(','),
+        updatedAt: new Date() 
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return user || undefined;
   }
 }
 

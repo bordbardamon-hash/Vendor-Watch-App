@@ -850,6 +850,8 @@ CONFIG = AppConfig(
             </CardContent>
           </Card>
 
+          <TwoFactorSecurityCard />
+
           <Card className="border-sidebar-border bg-sidebar/30 backdrop-blur-sm hover-lift">
             <CardHeader>
               <div className="flex items-center gap-2">
@@ -1093,6 +1095,309 @@ CREATE TABLE IF NOT EXISTS alerts_sent (
         </Button>
       </div>
     </div>
+  );
+}
+
+function TwoFactorSecurityCard() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [setupStep, setSetupStep] = useState<'idle' | 'scanning' | 'verifying'>('idle');
+  const [setupData, setSetupData] = useState<{ qrCodeDataUrl: string; secret: string; recoveryCodes: string[] } | null>(null);
+  const [verificationCode, setVerificationCode] = useState('');
+  const [disableCode, setDisableCode] = useState('');
+  const [showRecoveryCodes, setShowRecoveryCodes] = useState(false);
+  const [showDisableDialog, setShowDisableDialog] = useState(false);
+
+  const { data: twoFAStatus, isLoading } = useQuery<{ enabled: boolean; hasSecret: boolean }>({
+    queryKey: ["/api/2fa/status"],
+    queryFn: async () => {
+      const res = await fetch("/api/2fa/status");
+      if (!res.ok) throw new Error("Failed to fetch 2FA status");
+      return res.json();
+    },
+  });
+
+  const setupMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/2fa/setup", { method: "POST" });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to setup 2FA");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setSetupData(data);
+      setSetupStep('scanning');
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Setup Failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    },
+  });
+
+  const verifySetupMutation = useMutation({
+    mutationFn: async (token: string) => {
+      const res = await fetch("/api/2fa/verify-setup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to verify");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/2fa/status"] });
+      setSetupStep('idle');
+      setShowRecoveryCodes(true);
+      toast({
+        title: "2FA Enabled",
+        description: "Two-factor authentication is now active on your account.",
+        className: "bg-emerald-500 border-emerald-500 text-white"
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Verification Failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    },
+  });
+
+  const disableMutation = useMutation({
+    mutationFn: async (token: string) => {
+      const res = await fetch("/api/2fa/disable", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to disable 2FA");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/2fa/status"] });
+      setShowDisableDialog(false);
+      setDisableCode('');
+      setSetupData(null);
+      toast({
+        title: "2FA Disabled",
+        description: "Two-factor authentication has been disabled.",
+        className: "bg-amber-500 border-amber-500 text-white"
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Disable Failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    },
+  });
+
+  const cancelSetup = () => {
+    setSetupStep('idle');
+    setSetupData(null);
+    setVerificationCode('');
+  };
+
+  if (isLoading) {
+    return (
+      <Card className="border-sidebar-border bg-sidebar/30 backdrop-blur-sm">
+        <CardContent className="p-8 text-center text-muted-foreground">
+          Loading security settings...
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <>
+      <Card className="border-sidebar-border bg-sidebar/30 backdrop-blur-sm hover-lift">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-5 h-5 text-primary" />
+            <CardTitle>Two-Factor Authentication</CardTitle>
+          </div>
+          <CardDescription>
+            Add an extra layer of security to your account using an authenticator app like Google Authenticator or Authy.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {twoFAStatus?.enabled ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
+                <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                <span className="text-emerald-500 font-medium">2FA is enabled</span>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Your account is protected with two-factor authentication. You'll need to enter a code from your authenticator app when logging in.
+              </p>
+              <Button 
+                variant="destructive" 
+                size="sm"
+                onClick={() => setShowDisableDialog(true)}
+                data-testid="button-disable-2fa"
+              >
+                Disable 2FA
+              </Button>
+            </div>
+          ) : setupStep === 'idle' ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                <AlertTriangle className="w-5 h-5 text-amber-500" />
+                <span className="text-amber-500 font-medium">2FA is not enabled</span>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Protect your account from unauthorized access. Once enabled, you'll need both your password and your phone to sign in.
+              </p>
+              <Button 
+                onClick={() => setupMutation.mutate()}
+                disabled={setupMutation.isPending}
+                data-testid="button-enable-2fa"
+              >
+                {setupMutation.isPending ? "Setting up..." : "Enable 2FA"}
+              </Button>
+            </div>
+          ) : setupStep === 'scanning' && setupData ? (
+            <div className="space-y-4">
+              <div className="p-4 rounded-lg border border-sidebar-border bg-background/50">
+                <h4 className="font-medium mb-2">Step 1: Scan QR Code</h4>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.)
+                </p>
+                <div className="flex justify-center p-4 bg-white rounded-lg">
+                  <img 
+                    src={setupData.qrCodeDataUrl} 
+                    alt="2FA QR Code" 
+                    className="w-48 h-48"
+                    data-testid="img-2fa-qr"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground mt-3 text-center">
+                  Can't scan? Enter this code manually: <code className="bg-background/80 px-2 py-1 rounded">{setupData.secret}</code>
+                </p>
+              </div>
+
+              <div className="p-4 rounded-lg border border-sidebar-border bg-background/50">
+                <h4 className="font-medium mb-2">Step 2: Enter Verification Code</h4>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Enter the 6-digit code from your authenticator app to verify setup.
+                </p>
+                <div className="flex gap-2">
+                  <Input
+                    type="text"
+                    placeholder="000000"
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    className="max-w-[150px] text-center text-lg tracking-widest"
+                    data-testid="input-2fa-verify-code"
+                  />
+                  <Button
+                    onClick={() => verifySetupMutation.mutate(verificationCode)}
+                    disabled={verificationCode.length !== 6 || verifySetupMutation.isPending}
+                    data-testid="button-verify-2fa"
+                  >
+                    {verifySetupMutation.isPending ? "Verifying..." : "Verify & Enable"}
+                  </Button>
+                  <Button variant="outline" onClick={cancelSetup}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      {showRecoveryCodes && setupData && (
+        <Card className="border-amber-500/50 bg-amber-500/5 backdrop-blur-sm">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-amber-500" />
+              <CardTitle className="text-amber-500">Save Your Recovery Codes</CardTitle>
+            </div>
+            <CardDescription>
+              These codes can be used to access your account if you lose your authenticator device. Each code can only be used once.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-2 p-4 bg-background/50 rounded-lg font-mono text-sm">
+              {setupData.recoveryCodes.map((code, idx) => (
+                <div key={idx} className="p-2 bg-background rounded border border-sidebar-border">
+                  {code}
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  navigator.clipboard.writeText(setupData.recoveryCodes.join('\n'));
+                  toast({
+                    title: "Copied!",
+                    description: "Recovery codes copied to clipboard.",
+                    className: "bg-emerald-500 border-emerald-500 text-white"
+                  });
+                }}
+                data-testid="button-copy-recovery-codes"
+              >
+                <Copy className="w-4 h-4 mr-2" /> Copy Codes
+              </Button>
+              <Button onClick={() => setShowRecoveryCodes(false)} data-testid="button-dismiss-recovery-codes">
+                I've Saved These Codes
+              </Button>
+            </div>
+            <p className="text-xs text-amber-500">
+              Store these codes in a safe place. You won't be able to see them again!
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {showDisableDialog && (
+        <Card className="border-red-500/50 bg-red-500/5 backdrop-blur-sm">
+          <CardHeader>
+            <CardTitle className="text-red-500">Disable Two-Factor Authentication</CardTitle>
+            <CardDescription>
+              Enter a code from your authenticator app or a recovery code to confirm disabling 2FA.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-2">
+              <Input
+                type="text"
+                placeholder="Enter code"
+                value={disableCode}
+                onChange={(e) => setDisableCode(e.target.value)}
+                className="max-w-[200px]"
+                data-testid="input-disable-2fa-code"
+              />
+              <Button
+                variant="destructive"
+                onClick={() => disableMutation.mutate(disableCode)}
+                disabled={!disableCode || disableMutation.isPending}
+                data-testid="button-confirm-disable-2fa"
+              >
+                {disableMutation.isPending ? "Disabling..." : "Confirm Disable"}
+              </Button>
+              <Button variant="outline" onClick={() => { setShowDisableDialog(false); setDisableCode(''); }}>
+                Cancel
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </>
   );
 }
 

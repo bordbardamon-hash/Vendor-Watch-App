@@ -1,6 +1,6 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/use-auth";
@@ -16,9 +16,42 @@ import Blockchain from "@/pages/blockchain";
 import Consents from "@/pages/consents";
 import Signup from "@/pages/signup";
 import SignupSuccess from "@/pages/signup-success";
+import Verify2FA from "@/pages/verify-2fa";
 import { Loader2 } from "lucide-react";
+import { useEffect } from "react";
 
 function AuthenticatedRouter() {
+  const [location, setLocation] = useLocation();
+  
+  const { data: twoFASession, isLoading: checking2FA } = useQuery<{ requires2FA: boolean; verified: boolean }>({
+    queryKey: ["/api/2fa/session-status"],
+    queryFn: async () => {
+      const res = await fetch("/api/2fa/session-status");
+      if (!res.ok) return { requires2FA: false, verified: true };
+      return res.json();
+    },
+  });
+
+  useEffect(() => {
+    if (!checking2FA && twoFASession?.requires2FA && !twoFASession?.verified) {
+      if (location !== "/verify-2fa") {
+        setLocation("/verify-2fa");
+      }
+    }
+  }, [checking2FA, twoFASession, location, setLocation]);
+
+  if (checking2FA) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (twoFASession?.requires2FA && !twoFASession?.verified) {
+    return <Verify2FA />;
+  }
+
   return (
     <Layout>
       <Switch>
@@ -50,6 +83,7 @@ function Router() {
     <Switch>
       <Route path="/signup" component={Signup} />
       <Route path="/signup/success" component={SignupSuccess} />
+      <Route path="/verify-2fa" component={Verify2FA} />
       <Route>
         {user ? <AuthenticatedRouter /> : <Landing />}
       </Route>
