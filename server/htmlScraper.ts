@@ -1,0 +1,294 @@
+import * as cheerio from 'cheerio';
+import { fetchWithRetry } from './retryUtil';
+import { recordParseResult } from './parserHealthTracker';
+import * as crypto from 'crypto';
+
+interface ScrapedStatus {
+  status: 'operational' | 'degraded' | 'outage' | 'unknown';
+  incidents: Array<{
+    id: string;
+    name: string;
+    status: string;
+    impact: string;
+    shortlink: string;
+    created_at: string;
+    updated_at: string;
+  }>;
+  success: boolean;
+  httpStatus?: number;
+  errorMessage?: string;
+}
+
+async function fetchHtml(url: string): Promise<{ html: string; status: number } | null> {
+  try {
+    const response = await fetchWithRetry(url, {
+      headers: {
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Cache-Control': 'no-cache',
+      },
+    });
+    
+    if (!response.ok) {
+      return { html: '', status: response.status };
+    }
+    
+    const html = await response.text();
+    return { html, status: response.status };
+  } catch (error) {
+    console.log(`[html-scraper] Fetch error for ${url}:`, error);
+    return null;
+  }
+}
+
+function generateStableId(vendorKey: string, title: string): string {
+  const normalized = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 50);
+  const hash = crypto.createHash('md5').update(`${vendorKey}:${normalized}`).digest('hex').substring(0, 8);
+  return `${vendorKey}-${hash}`;
+}
+
+function detectStatusFromText(text: string): 'operational' | 'degraded' | 'outage' {
+  const lower = text.toLowerCase();
+  
+  if (lower.includes('all systems operational') || 
+      lower.includes('all services are online') ||
+      lower.includes('no incidents') ||
+      lower.includes('no current issues')) {
+    return 'operational';
+  }
+  
+  if (lower.includes('major outage') || 
+      lower.includes('critical') ||
+      lower.includes('service disruption')) {
+    return 'outage';
+  }
+  
+  if (lower.includes('investigating') || 
+      lower.includes('identified') ||
+      lower.includes('monitoring') ||
+      lower.includes('degraded') ||
+      lower.includes('partial outage') ||
+      lower.includes('minor')) {
+    return 'degraded';
+  }
+  
+  return 'operational';
+}
+
+export async function scrapeAwsStatus(vendor: { key: string; statusUrl: string }): Promise<ScrapedStatus> {
+  const result = await fetchHtml('https://health.aws.amazon.com/health/status');
+  
+  if (!result) {
+    await recordParseResult(vendor.key, { success: false, errorMessage: 'Failed to fetch HTML' });
+    return { status: 'unknown', incidents: [], success: false, errorMessage: 'Failed to fetch HTML' };
+  }
+  
+  if (result.status !== 200) {
+    await recordParseResult(vendor.key, { success: false, httpStatus: result.status });
+    return { status: 'unknown', incidents: [], success: false, httpStatus: result.status };
+  }
+  
+  try {
+    const $ = cheerio.load(result.html);
+    const pageText = $('body').text();
+    
+    const overallStatus = detectStatusFromText(pageText);
+    
+    await recordParseResult(vendor.key, { success: true, httpStatus: 200, incidentsParsed: 0 });
+    return { status: overallStatus, incidents: [], success: true, httpStatus: 200 };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Parse error';
+    await recordParseResult(vendor.key, { success: false, errorMessage });
+    return { status: 'unknown', incidents: [], success: false, errorMessage };
+  }
+}
+
+export async function scrapeStatuspageHtml(vendor: { key: string; statusUrl: string }): Promise<ScrapedStatus> {
+  const result = await fetchHtml(vendor.statusUrl);
+  
+  if (!result) {
+    await recordParseResult(vendor.key, { success: false, errorMessage: 'Failed to fetch HTML' });
+    return { status: 'unknown', incidents: [], success: false, errorMessage: 'Failed to fetch HTML' };
+  }
+  
+  if (result.status !== 200) {
+    await recordParseResult(vendor.key, { success: false, httpStatus: result.status });
+    return { status: 'unknown', incidents: [], success: false, httpStatus: result.status };
+  }
+  
+  try {
+    const $ = cheerio.load(result.html);
+    
+    const statusSection = $('.page-status, .status, .masthead').first().text();
+    const overallStatus = detectStatusFromText(statusSection);
+    
+    await recordParseResult(vendor.key, { success: true, httpStatus: 200, incidentsParsed: 0 });
+    return { status: overallStatus, incidents: [], success: true, httpStatus: 200 };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Parse error';
+    await recordParseResult(vendor.key, { success: false, errorMessage });
+    return { status: 'unknown', incidents: [], success: false, errorMessage };
+  }
+}
+
+export async function scrapeAzureStatus(vendor: { key: string; statusUrl: string }): Promise<ScrapedStatus> {
+  const result = await fetchHtml('https://status.azure.com/en-us/status');
+  
+  if (!result) {
+    await recordParseResult(vendor.key, { success: false, errorMessage: 'Failed to fetch HTML' });
+    return { status: 'unknown', incidents: [], success: false, errorMessage: 'Failed to fetch HTML' };
+  }
+  
+  if (result.status !== 200) {
+    await recordParseResult(vendor.key, { success: false, httpStatus: result.status });
+    return { status: 'unknown', incidents: [], success: false, httpStatus: result.status };
+  }
+  
+  try {
+    const $ = cheerio.load(result.html);
+    const pageText = $('body').text();
+    
+    const overallStatus = detectStatusFromText(pageText);
+    
+    await recordParseResult(vendor.key, { success: true, httpStatus: 200, incidentsParsed: 0 });
+    return { status: overallStatus, incidents: [], success: true, httpStatus: 200 };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Parse error';
+    await recordParseResult(vendor.key, { success: false, errorMessage });
+    return { status: 'unknown', incidents: [], success: false, errorMessage };
+  }
+}
+
+export async function scrapeMicrosoft365Status(vendor: { key: string; statusUrl: string }): Promise<ScrapedStatus> {
+  const result = await fetchHtml('https://status.office.com/');
+  
+  if (!result) {
+    await recordParseResult(vendor.key, { success: false, errorMessage: 'Failed to fetch HTML' });
+    return { status: 'unknown', incidents: [], success: false, errorMessage: 'Failed to fetch HTML' };
+  }
+  
+  if (result.status !== 200) {
+    await recordParseResult(vendor.key, { success: false, httpStatus: result.status });
+    return { status: 'unknown', incidents: [], success: false, httpStatus: result.status };
+  }
+  
+  try {
+    const $ = cheerio.load(result.html);
+    const pageText = $('body').text();
+    
+    const overallStatus = detectStatusFromText(pageText);
+    
+    await recordParseResult(vendor.key, { success: true, httpStatus: 200, incidentsParsed: 0 });
+    return { status: overallStatus, incidents: [], success: true, httpStatus: 200 };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Parse error';
+    await recordParseResult(vendor.key, { success: false, errorMessage });
+    return { status: 'unknown', incidents: [], success: false, errorMessage };
+  }
+}
+
+export async function scrapeGoogleWorkspaceStatus(vendor: { key: string; statusUrl: string }): Promise<ScrapedStatus> {
+  const result = await fetchHtml('https://www.google.com/appsstatus/dashboard/');
+  
+  if (!result) {
+    await recordParseResult(vendor.key, { success: false, errorMessage: 'Failed to fetch HTML' });
+    return { status: 'unknown', incidents: [], success: false, errorMessage: 'Failed to fetch HTML' };
+  }
+  
+  if (result.status !== 200) {
+    await recordParseResult(vendor.key, { success: false, httpStatus: result.status });
+    return { status: 'unknown', incidents: [], success: false, httpStatus: result.status };
+  }
+  
+  try {
+    const $ = cheerio.load(result.html);
+    const pageText = $('body').text();
+    
+    const overallStatus = detectStatusFromText(pageText);
+    
+    await recordParseResult(vendor.key, { success: true, httpStatus: 200, incidentsParsed: 0 });
+    return { status: overallStatus, incidents: [], success: true, httpStatus: 200 };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Parse error';
+    await recordParseResult(vendor.key, { success: false, errorMessage });
+    return { status: 'unknown', incidents: [], success: false, errorMessage };
+  }
+}
+
+export async function scrapeSalesforceStatus(vendor: { key: string; statusUrl: string }): Promise<ScrapedStatus> {
+  try {
+    const response = await fetchWithRetry('https://api.status.salesforce.com/v1/incidents/active', {
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'VendorWatch/1.0'
+      },
+    });
+    
+    if (!response.ok) {
+      const htmlResult = await fetchHtml(vendor.statusUrl);
+      if (htmlResult && htmlResult.status === 200) {
+        const $ = cheerio.load(htmlResult.html);
+        const statusText = $('body').text();
+        const overallStatus = detectStatusFromText(statusText);
+        await recordParseResult(vendor.key, { success: true, httpStatus: 200, incidentsParsed: 0 });
+        return { status: overallStatus, incidents: [], success: true, httpStatus: 200 };
+      }
+      await recordParseResult(vendor.key, { success: false, httpStatus: response.status });
+      return { status: 'unknown', incidents: [], success: false, httpStatus: response.status };
+    }
+    
+    const data = await response.json();
+    const incidents: ScrapedStatus['incidents'] = [];
+    
+    if (Array.isArray(data) && data.length > 0) {
+      for (const item of data.slice(0, 5)) {
+        const incidentId = item.id || generateStableId(vendor.key, item.message?.maintenanceName || 'incident');
+        incidents.push({
+          id: incidentId,
+          name: item.message?.maintenanceName || item.instanceKey || 'Salesforce Incident',
+          status: 'investigating',
+          impact: item.severity || 'minor',
+          shortlink: vendor.statusUrl,
+          created_at: item.createdAt || new Date().toISOString(),
+          updated_at: item.updatedAt || new Date().toISOString(),
+        });
+      }
+    }
+    
+    await recordParseResult(vendor.key, { success: true, httpStatus: 200, incidentsParsed: incidents.length });
+    return { 
+      status: incidents.length > 0 ? 'degraded' : 'operational', 
+      incidents, 
+      success: true, 
+      httpStatus: 200 
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    await recordParseResult(vendor.key, { success: false, errorMessage });
+    return { status: 'unknown', incidents: [], success: false, errorMessage };
+  }
+}
+
+export async function scrapeVendorStatus(vendor: { key: string; statusUrl: string }): Promise<ScrapedStatus> {
+  switch (vendor.key) {
+    case 'aws':
+      return scrapeAwsStatus(vendor);
+    case 'azure':
+      return scrapeAzureStatus(vendor);
+    case 'microsoft365':
+      return scrapeMicrosoft365Status(vendor);
+    case 'googlews':
+      return scrapeGoogleWorkspaceStatus(vendor);
+    case 'salesforce':
+      return scrapeSalesforceStatus(vendor);
+    case 'okta':
+    case 'auth0':
+    case 'fastly':
+    case 'connectwise':
+    case 'nable':
+    case 'syncro':
+    default:
+      return scrapeStatuspageHtml(vendor);
+  }
+}

@@ -58,10 +58,26 @@ Six main entities:
 - Schema push available via `npm run db:push`
 
 ### Third-Party Services Monitored
-The application monitors status pages for:
-- Microsoft 365, Azure (generic HTML parser)
-- AWS, Google Workspace, Salesforce (generic HTML parser)
-- Cloudflare, Okta, Zoom, Atlassian (Statuspage.io JSON parser)
+The application monitors 24 vendor status pages automatically every 5 minutes:
+
+**Statuspage.io JSON API** (13 vendors):
+- Akamai, Atlassian, Cloudflare, Fireblocks, HubSpot, Kaseya, Oracle NetSuite, Ping Identity, QuickBooks Online, SentinelOne, Veeam Data Cloud, Zoom
+
+**Custom JSON APIs**:
+- Slack (status.slack.com/api/v2.0.0/current)
+- Salesforce (api.status.salesforce.com/v1/incidents/active)
+
+**HTML Scraping** (10 vendors without public APIs):
+- AWS, Azure, Microsoft 365, Google Workspace, Okta, Auth0, Fastly, ConnectWise, N-able, Syncro
+
+### Automatic Status Sync
+- **Module**: `server/statusSync.ts` - unified sync for all parser types
+- **HTML Scraper**: `server/htmlScraper.ts` - cheerio-based HTML parsing
+- **Interval**: 5 minutes via setInterval in `server/index.ts`
+- **Parser Types**: 
+  - `statuspage_json` - Standard Statuspage.io API
+  - `slack_json` - Slack's custom API format
+  - `manual` - HTML scraping fallback for blocked APIs
 
 ### Key npm Dependencies
 - `@tanstack/react-query`: Data fetching and caching
