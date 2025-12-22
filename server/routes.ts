@@ -1112,5 +1112,109 @@ export async function registerRoutes(
     }
   });
 
+  // ============ BLOCKCHAIN MONITORING ============
+
+  // Get all blockchain chains
+  app.get("/api/blockchain/chains", isAuthenticated, async (req, res) => {
+    try {
+      const chains = await storage.getBlockchainChains();
+      res.json(chains);
+    } catch (error) {
+      console.error("Error fetching blockchain chains:", error);
+      res.status(500).json({ error: "Failed to fetch blockchain chains" });
+    }
+  });
+
+  // Get chains by tier
+  app.get("/api/blockchain/chains/tier/:tier", isAuthenticated, async (req, res) => {
+    try {
+      const { tier } = req.params;
+      const chains = await storage.getBlockchainChainsByTier(tier);
+      res.json(chains);
+    } catch (error) {
+      console.error("Error fetching chains by tier:", error);
+      res.status(500).json({ error: "Failed to fetch chains by tier" });
+    }
+  });
+
+  // Get single chain
+  app.get("/api/blockchain/chains/:key", isAuthenticated, async (req, res) => {
+    try {
+      const chain = await storage.getBlockchainChain(req.params.key);
+      if (!chain) {
+        return res.status(404).json({ error: "Chain not found" });
+      }
+      res.json(chain);
+    } catch (error) {
+      console.error("Error fetching chain:", error);
+      res.status(500).json({ error: "Failed to fetch chain" });
+    }
+  });
+
+  // Get all blockchain incidents
+  app.get("/api/blockchain/incidents", isAuthenticated, async (req, res) => {
+    try {
+      const incidents = await storage.getBlockchainIncidents();
+      res.json(incidents);
+    } catch (error) {
+      console.error("Error fetching blockchain incidents:", error);
+      res.status(500).json({ error: "Failed to fetch blockchain incidents" });
+    }
+  });
+
+  // Get active blockchain incidents
+  app.get("/api/blockchain/incidents/active", isAuthenticated, async (req, res) => {
+    try {
+      const incidents = await storage.getActiveBlockchainIncidents();
+      res.json(incidents);
+    } catch (error) {
+      console.error("Error fetching active blockchain incidents:", error);
+      res.status(500).json({ error: "Failed to fetch active blockchain incidents" });
+    }
+  });
+
+  // Get incidents for a specific chain
+  app.get("/api/blockchain/incidents/chain/:chainKey", isAuthenticated, async (req, res) => {
+    try {
+      const incidents = await storage.getBlockchainIncidentsByChain(req.params.chainKey);
+      res.json(incidents);
+    } catch (error) {
+      console.error("Error fetching chain incidents:", error);
+      res.status(500).json({ error: "Failed to fetch chain incidents" });
+    }
+  });
+
+  // Blockchain stats overview
+  app.get("/api/blockchain/stats", isAuthenticated, async (req, res) => {
+    try {
+      const chains = await storage.getBlockchainChains();
+      const activeIncidents = await storage.getActiveBlockchainIncidents();
+      
+      const stats = {
+        totalChains: chains.length,
+        operationalChains: chains.filter(c => c.status === 'operational').length,
+        degradedChains: chains.filter(c => c.status === 'degraded').length,
+        outageChains: chains.filter(c => c.status === 'major_outage').length,
+        activeIncidents: activeIncidents.length,
+        chainsByTier: {
+          tier1: chains.filter(c => c.tier === 'tier1').length,
+          tier2: chains.filter(c => c.tier === 'tier2').length,
+          tier3: chains.filter(c => c.tier === 'tier3').length,
+          tier4: chains.filter(c => c.tier === 'tier4').length,
+        },
+        chainsByCategory: {
+          chain: chains.filter(c => c.category === 'chain').length,
+          l2: chains.filter(c => c.category === 'l2').length,
+          rpc_provider: chains.filter(c => c.category === 'rpc_provider').length,
+          indexer: chains.filter(c => c.category === 'indexer').length,
+        }
+      };
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching blockchain stats:", error);
+      res.status(500).json({ error: "Failed to fetch blockchain stats" });
+    }
+  });
+
   return httpServer;
 }

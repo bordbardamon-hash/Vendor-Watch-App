@@ -5,7 +5,7 @@ import { createServer } from "http";
 import { runMigrations } from 'stripe-replit-sync';
 import { getStripeSync } from './stripeClient';
 import { WebhookHandlers } from './webhookHandlers';
-import { seedVendorsIfEmpty } from './storage';
+import { seedVendorsIfEmpty, seedBlockchainChainsIfEmpty } from './storage';
 import { syncVendorStatus } from './statusSync';
 
 const app = express();
@@ -125,8 +125,9 @@ app.use((req, res, next) => {
   // Initialize Stripe integration
   await initStripe();
 
-  // Seed vendors if database is empty (for new deployments)
+  // Seed vendors and blockchain chains if database is empty (for new deployments)
   await seedVendorsIfEmpty();
+  await seedBlockchainChainsIfEmpty();
 
   // Health check endpoint - registered first
   app.get("/api/health", (_req, res) => {
