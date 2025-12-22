@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bell, Database, Mail, Save, Server, Shield, Clock, Code, Copy, Check, CheckCircle2, Smartphone, MessageSquare, GripVertical } from "lucide-react";
+import { Bell, Database, Mail, Save, Server, Shield, Clock, Code, Copy, Check, CheckCircle2, Smartphone, MessageSquare, GripVertical, AlertTriangle, AlertCircle, Info } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -81,6 +82,7 @@ export default function Settings() {
   const [selectedVendors, setSelectedVendors] = useState<string[]>([]);
   const [vendorsInitialized, setVendorsInitialized] = useState(false);
   const [orderedVendors, setOrderedVendors] = useState<Vendor[]>([]);
+  const [vendorImpacts, setVendorImpacts] = useState<Record<string, string>>({});
   
   // Fetch vendor order
   const { data: vendorOrder } = useQuery<{ vendorKeys: string[] }>({
@@ -115,6 +117,59 @@ export default function Settings() {
       toast({
         title: "Save Failed",
         description: "Could not save vendor order.",
+        variant: "destructive"
+      });
+    },
+  });
+
+  // Fetch vendor impacts
+  const { data: vendorImpactData } = useQuery<Array<{ vendorKey: string; customerImpact: string }>>({
+    queryKey: ["/api/vendor-impact"],
+    queryFn: async () => {
+      const res = await fetch("/api/vendor-impact");
+      if (!res.ok) throw new Error("Failed to fetch vendor impacts");
+      return res.json();
+    },
+  });
+
+  // Sync vendor impacts from API
+  useEffect(() => {
+    if (vendorImpactData) {
+      const impacts: Record<string, string> = {};
+      vendorImpactData.forEach(item => {
+        impacts[item.vendorKey] = item.customerImpact;
+      });
+      setVendorImpacts(impacts);
+    }
+  }, [vendorImpactData]);
+
+  // Update vendor impact mutation
+  const updateVendorImpact = useMutation({
+    mutationFn: async ({ vendorKey, customerImpact }: { vendorKey: string; customerImpact: string }) => {
+      const res = await fetch(`/api/vendor-impact/${vendorKey}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customerImpact }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to update vendor impact");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/vendor-impact"] });
+      toast({
+        title: "Impact Updated",
+        description: `Customer impact level updated for this vendor.`,
+        className: "bg-emerald-500 border-emerald-500 text-white"
+      });
+    },
+    onError: (error: Error) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/vendor-impact"] });
+      toast({
+        title: "Update Failed",
+        description: error.message || "Could not update customer impact level.",
         variant: "destructive"
       });
     },
@@ -830,6 +885,8 @@ CONFIG = AppConfig(
                             setSelectedVendors(prev => prev.filter(k => k !== vendor.key));
                           }
                         }}
+                        customerImpact={vendorImpacts[vendor.key] || 'medium'}
+                        onImpactChange={(impact) => updateVendorImpact.mutate({ vendorKey: vendor.key, customerImpact: impact })}
                       />
                     ))}
                   </div>
@@ -1030,9 +1087,11 @@ interface SortableVendorItemProps {
   vendor: Vendor;
   isSelected: boolean;
   onToggle: (checked: boolean) => void;
+  customerImpact: string;
+  onImpactChange: (impact: string) => void;
 }
 
-function SortableVendorItem({ vendor, isSelected, onToggle }: SortableVendorItemProps) {
+function SortableVendorItem({ vendor, isSelected, onToggle, customerImpact, onImpactChange }: SortableVendorItemProps) {
   const {
     attributes,
     listeners,
@@ -1049,11 +1108,23 @@ function SortableVendorItem({ vendor, isSelected, onToggle }: SortableVendorItem
     zIndex: isDragging ? 10 : undefined,
   };
 
+  const impactStyles: Record<string, string> = {
+    high: 'border-l-4 border-l-red-500',
+    medium: 'border-l-4 border-l-yellow-500',
+    low: 'border-l-4 border-l-blue-500',
+  };
+
+  const impactIcons: Record<string, React.ReactNode> = {
+    high: <AlertTriangle className="w-3 h-3 text-red-500" />,
+    medium: <AlertCircle className="w-3 h-3 text-yellow-500" />,
+    low: <Info className="w-3 h-3 text-blue-500" />,
+  };
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-3 p-3 rounded-lg border border-sidebar-border bg-background/50 hover:bg-background/80 transition-colors ${isDragging ? 'shadow-lg' : ''}`}
+      className={`flex items-center gap-3 p-3 rounded-lg border border-sidebar-border bg-background/50 hover:bg-background/80 transition-colors ${isDragging ? 'shadow-lg' : ''} ${impactStyles[customerImpact] || ''}`}
       data-testid={`sortable-vendor-${vendor.key}`}
     >
       <div
@@ -1078,6 +1149,34 @@ function SortableVendorItem({ vendor, isSelected, onToggle }: SortableVendorItem
           {vendor.status === 'operational' ? '✓ Operational' : vendor.status}
         </span>
       </div>
+      <Select value={customerImpact} onValueChange={onImpactChange}>
+        <SelectTrigger className="w-[110px] h-8 text-xs" data-testid={`impact-select-${vendor.key}`}>
+          <div className="flex items-center gap-1">
+            {impactIcons[customerImpact]}
+            <SelectValue placeholder="Impact" />
+          </div>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="high">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-3 h-3 text-red-500" />
+              <span>High</span>
+            </div>
+          </SelectItem>
+          <SelectItem value="medium">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-3 h-3 text-yellow-500" />
+              <span>Medium</span>
+            </div>
+          </SelectItem>
+          <SelectItem value="low">
+            <div className="flex items-center gap-2">
+              <Info className="w-3 h-3 text-blue-500" />
+              <span>Low</span>
+            </div>
+          </SelectItem>
+        </SelectContent>
+      </Select>
     </div>
   );
 }

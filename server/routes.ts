@@ -479,6 +479,107 @@ export async function registerRoutes(
     }
   });
 
+  // ============ CUSTOMER IMPACT TAGGING ============
+  
+  app.get("/api/vendor-impact", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const vendors = await storage.getVendorsForUser(userId);
+      const savedImpacts = await storage.getUserVendorSubscriptionsWithImpact(userId);
+      const impactMap = new Map(savedImpacts.map(i => [i.vendorKey, i.customerImpact]));
+      
+      const impacts = vendors.map(v => ({
+        vendorKey: v.key,
+        customerImpact: impactMap.get(v.key) || 'medium'
+      }));
+      
+      res.json(impacts);
+    } catch (error) {
+      console.error("Error fetching vendor impacts:", error);
+      res.status(500).json({ error: "Failed to fetch vendor impacts" });
+    }
+  });
+  
+  app.put("/api/vendor-impact/:vendorKey", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { vendorKey } = req.params;
+      const { customerImpact } = req.body;
+      
+      if (!['high', 'medium', 'low'].includes(customerImpact)) {
+        return res.status(400).json({ error: "customerImpact must be 'high', 'medium', or 'low'" });
+      }
+      
+      const vendors = await storage.getVendors();
+      const vendorExists = vendors.some(v => v.key === vendorKey);
+      if (!vendorExists) {
+        return res.status(404).json({ error: "Vendor not found" });
+      }
+      
+      const updated = await storage.setUserVendorImpact(userId, vendorKey, customerImpact);
+      if (!updated) {
+        return res.status(400).json({ error: "You must be subscribed to this vendor to set its impact level" });
+      }
+      
+      res.json({ success: true, vendorKey, customerImpact });
+    } catch (error) {
+      console.error("Error updating vendor impact:", error);
+      res.status(500).json({ error: "Failed to update vendor impact" });
+    }
+  });
+
+  // ============ VENDOR RELIABILITY STATS ============
+  
+  app.get("/api/vendor-reliability", isAuthenticated, async (req: any, res) => {
+    try {
+      const { getAllVendorReliability } = await import('./reliabilityTracker');
+      const stats = await getAllVendorReliability();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching vendor reliability:", error);
+      res.status(500).json({ error: "Failed to fetch vendor reliability" });
+    }
+  });
+  
+  app.get("/api/vendor-reliability/:vendorKey", isAuthenticated, async (req: any, res) => {
+    try {
+      const { vendorKey } = req.params;
+      const { getVendorReliability } = await import('./reliabilityTracker');
+      const stats = await getVendorReliability(vendorKey);
+      if (!stats) {
+        return res.status(404).json({ error: "No reliability data for this vendor" });
+      }
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching vendor reliability:", error);
+      res.status(500).json({ error: "Failed to fetch vendor reliability" });
+    }
+  });
+  
+  app.post("/api/vendor-reliability/refresh", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { updateAllVendorReliabilityStats } = await import('./reliabilityTracker');
+      await updateAllVendorReliabilityStats();
+      res.json({ success: true, message: "Reliability stats refreshed" });
+    } catch (error) {
+      console.error("Error refreshing reliability stats:", error);
+      res.status(500).json({ error: "Failed to refresh reliability stats" });
+    }
+  });
+
+  // ============ WEEKLY DIGEST ============
+  
+  app.post("/api/digest/send", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { sendWeeklyDigest } = await import('./weeklyDigest');
+      const result = await sendWeeklyDigest();
+      res.json({ success: true, sent: result.sent, errors: result.errors });
+    } catch (error) {
+      console.error("Error sending weekly digest:", error);
+      res.status(500).json({ error: "Failed to send weekly digest" });
+    }
+  });
+
   // ============ STRIPE / SIGNUP ============
 
   app.get("/api/stripe/publishable-key", async (_req, res) => {

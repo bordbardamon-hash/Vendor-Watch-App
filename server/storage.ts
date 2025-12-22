@@ -98,6 +98,11 @@ export interface IStorage {
   // Subscription Tier Helpers
   updateUserSubscriptionTier(userId: string, tier: 'standard' | 'gold' | 'platinum' | null): Promise<User | undefined>;
   checkVendorLimit(userId: string): Promise<{ allowed: boolean; current: number; limit: number | null; tier: string | null }>;
+  
+  // Customer Impact for Vendor Subscriptions
+  getUserVendorImpact(userId: string, vendorKey: string): Promise<string>;
+  setUserVendorImpact(userId: string, vendorKey: string, impact: string): Promise<boolean>;
+  getUserVendorSubscriptionsWithImpact(userId: string): Promise<Array<{ vendorKey: string; customerImpact: string }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -595,6 +600,54 @@ export class DatabaseStorage implements IStorage {
       limit: tierInfo.vendorLimit,
       tier
     };
+  }
+  
+  async getUserVendorImpact(userId: string, vendorKey: string): Promise<string> {
+    const [sub] = await db.select()
+      .from(userVendorSubscriptions)
+      .where(and(
+        eq(userVendorSubscriptions.userId, userId),
+        eq(userVendorSubscriptions.vendorKey, vendorKey)
+      ));
+    return sub?.customerImpact || 'medium';
+  }
+  
+  async setUserVendorImpact(userId: string, vendorKey: string, impact: string): Promise<boolean> {
+    const existing = await db.select()
+      .from(userVendorSubscriptions)
+      .where(and(
+        eq(userVendorSubscriptions.userId, userId),
+        eq(userVendorSubscriptions.vendorKey, vendorKey)
+      ));
+    
+    if (existing.length > 0) {
+      await db.update(userVendorSubscriptions)
+        .set({ customerImpact: impact })
+        .where(and(
+          eq(userVendorSubscriptions.userId, userId),
+          eq(userVendorSubscriptions.vendorKey, vendorKey)
+        ));
+      return true;
+    }
+    
+    const hasSetSubscriptions = await this.getConfigValue(`vendor_subscriptions_set:${userId}`);
+    if (!hasSetSubscriptions) {
+      await db.insert(userVendorSubscriptions).values({
+        userId,
+        vendorKey,
+        customerImpact: impact,
+      });
+      return true;
+    }
+    
+    return false;
+  }
+  
+  async getUserVendorSubscriptionsWithImpact(userId: string): Promise<Array<{ vendorKey: string; customerImpact: string }>> {
+    const subs = await db.select()
+      .from(userVendorSubscriptions)
+      .where(eq(userVendorSubscriptions.userId, userId));
+    return subs.map(s => ({ vendorKey: s.vendorKey, customerImpact: s.customerImpact || 'medium' }));
   }
 }
 

@@ -140,12 +140,42 @@ export const alertCooldowns = pgTable("alert_cooldowns", {
   lastStatus: text("last_status").notNull(),
 });
 
-// User Vendor Subscriptions - which vendors each user monitors
+// Customer Impact Levels
+export const CUSTOMER_IMPACT_LEVELS = ['high', 'medium', 'low'] as const;
+export type CustomerImpactLevel = typeof CUSTOMER_IMPACT_LEVELS[number];
+
+// User Vendor Subscriptions - which vendors each user monitors (with impact tagging)
 export const userVendorSubscriptions = pgTable("user_vendor_subscriptions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: text("user_id").notNull(),
   vendorKey: text("vendor_key").notNull(),
+  customerImpact: text("customer_impact").notNull().default('medium'), // 'high', 'medium', 'low'
   createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Vendor Reliability Stats - aggregated reliability metrics
+export const vendorReliabilityStats = pgTable("vendor_reliability_stats", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  vendorKey: text("vendor_key").notNull().unique(),
+  incidents30Days: integer("incidents_30_days").notNull().default(0),
+  incidents90Days: integer("incidents_90_days").notNull().default(0),
+  avgResolutionMinutes: integer("avg_resolution_minutes"),
+  escalationPercent: integer("escalation_percent").notNull().default(0),
+  longRunningCount: integer("long_running_count").notNull().default(0),
+  reliabilityRating: text("reliability_rating").notNull().default('good'), // 'good', 'fair', 'poor'
+  lastCalculatedAt: timestamp("last_calculated_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Weekly Digest Tracking - track when digests were sent
+export const weeklyDigests = pgTable("weekly_digests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: text("user_id").notNull(),
+  weekStartDate: text("week_start_date").notNull(), // ISO date string for the week
+  incidentCount: integer("incident_count").notNull().default(0),
+  vendorsAffected: text("vendors_affected"), // comma-separated list
+  longestIncidentMinutes: integer("longest_incident_minutes"),
+  sentAt: timestamp("sent_at").notNull().defaultNow(),
 });
 
 // Notification Consents - proof of opt-in for SMS/Email (Twilio compliance)
@@ -226,6 +256,17 @@ export const insertAlertCooldownSchema = createInsertSchema(alertCooldowns).omit
   id: true,
 });
 
+export const insertVendorReliabilityStatsSchema = createInsertSchema(vendorReliabilityStats).omit({
+  id: true,
+  lastCalculatedAt: true,
+  updatedAt: true,
+});
+
+export const insertWeeklyDigestSchema = createInsertSchema(weeklyDigests).omit({
+  id: true,
+  sentAt: true,
+});
+
 // Types
 export type InsertVendor = z.infer<typeof insertVendorSchema>;
 export type Vendor = typeof vendors.$inferSelect;
@@ -262,6 +303,12 @@ export type ParserHealth = typeof parserHealth.$inferSelect;
 
 export type InsertAlertCooldown = z.infer<typeof insertAlertCooldownSchema>;
 export type AlertCooldown = typeof alertCooldowns.$inferSelect;
+
+export type InsertVendorReliabilityStats = z.infer<typeof insertVendorReliabilityStatsSchema>;
+export type VendorReliabilityStats = typeof vendorReliabilityStats.$inferSelect;
+
+export type InsertWeeklyDigest = z.infer<typeof insertWeeklyDigestSchema>;
+export type WeeklyDigest = typeof weeklyDigests.$inferSelect;
 
 // Subscription tier constants
 export const SUBSCRIPTION_TIERS = {

@@ -3,6 +3,7 @@ import { sendSMS } from './twilioClient';
 import { sendEmail } from './emailClient';
 import { shouldSendAlert, recordAlertSent } from './cooldownManager';
 import { formatSeverityDisplay, formatStatusDisplay } from './statusNormalizer';
+import { generateCustomerSummary, generateCustomerSummarySms } from './customerSummaryGenerator';
 import type { Incident, Vendor, User, LifecycleEvent, CanonicalSeverity, CanonicalStatus } from '@shared/schema';
 
 type EventType = 'new' | 'update' | 'resolved';
@@ -379,6 +380,16 @@ function formatLifecycleEmailHtml(notification: LifecycleNotification): string {
         <p style="margin: 0; color: #92400e;">${affectedServices}</p>
       </div>
       ` : ''}
+      
+      <div style="background: #f0fdf4; border: 2px solid #22c55e; border-radius: 8px; padding: 16px; margin: 20px 0;">
+        <h4 style="margin: 0 0 12px 0; color: #15803d; font-size: 14px; display: flex; align-items: center;">
+          <span style="margin-right: 8px;">📋</span> Customer-Ready Summary
+          <span style="margin-left: auto; font-size: 11px; font-weight: normal; color: #16a34a;">(Safe to copy & paste)</span>
+        </h4>
+        <div style="background: white; border-radius: 6px; padding: 14px; font-size: 14px; line-height: 1.6; color: #374151; border: 1px solid #dcfce7;">
+          ${generateCustomerSummary({ incident, vendor, lifecycleEvent, affectedServices })}
+        </div>
+      </div>
       
       <a href="${incident.url}" class="button">View Incident Details</a>
     </div>
