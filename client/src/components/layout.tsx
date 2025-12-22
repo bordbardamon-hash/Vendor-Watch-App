@@ -60,8 +60,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       )}>
         <div className="p-4 flex items-center border-b border-sidebar-border">
           {sidebarOpen ? (
-            <div className="bg-white/95 rounded-lg px-3 py-1.5">
-              <img src={logoImage} alt="Vendor Watch" className="h-8 object-contain" data-testid="img-logo" />
+            <div className="inline-flex items-center justify-center rounded-lg px-3 py-2 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-primary/20 shadow-[0_0_15px_rgba(59,130,246,0.15)]">
+              <img 
+                src={logoImage} 
+                alt="Vendor Watch" 
+                className="h-9 object-contain mix-blend-multiply saturate-[1.3] contrast-[1.1] drop-shadow-[0_0_8px_rgba(59,130,246,0.4)] invert brightness-[1.8] hue-rotate-[10deg]" 
+                data-testid="img-logo" 
+              />
             </div>
           ) : (
             <div className="h-8 w-8 rounded bg-primary flex items-center justify-center text-primary-foreground shrink-0">
