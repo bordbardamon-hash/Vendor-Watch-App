@@ -79,6 +79,33 @@ The application monitors 24 vendor status pages automatically every 5 minutes:
   - `slack_json` - Slack's custom API format
   - `manual` - HTML scraping fallback for blocked APIs
 
+### Blockchain Infrastructure Monitoring
+- **Page**: `/blockchain` - dedicated monitoring page for blockchain networks
+- **Tables**: `blockchain_chains`, `blockchain_incidents`, `user_blockchain_subscriptions`
+- **Sync Module**: `server/blockchainSync.ts` - polls Statuspage.io APIs for blockchain status
+- **Interval**: Same 5-minute cycle as vendor sync
+
+**Blockchain Tiers**:
+- **Tier 1** (Core Networks): Bitcoin, Ethereum, Solana, Polygon, BNB Smart Chain
+- **Tier 2** (Infrastructure-Critical): Avalanche, Arbitrum, Optimism, Base
+- **Tier 3** (Enterprise/Custody): TRON, Stellar, XRP Ledger, Cosmos Hub
+- **Tier 4** (Dependencies): Infura, Alchemy, QuickNode, The Graph
+
+**Categories**: chain, l2, rpc_provider, indexer
+
+**Source Types**:
+- `statuspage` - Chains with Statuspage.io APIs (Solana, Avalanche, Base, Infura, Alchemy, QuickNode, The Graph, Stellar)
+- `api` - Direct blockchain RPC/explorer APIs (Bitcoin, Ethereum, etc.) - not yet implemented
+- `manual` - Chains without automated monitoring (Polygon, Arbitrum, Optimism)
+
+**API Routes**:
+- `/api/blockchain/chains` - List all chains
+- `/api/blockchain/chains/tier/:tier` - Filter by tier
+- `/api/blockchain/incidents` - All blockchain incidents
+- `/api/blockchain/incidents/active` - Active incidents only
+- `/api/blockchain/stats` - Aggregated statistics
+- `/api/blockchain/sync` (POST) - Trigger manual sync
+
 ### Key npm Dependencies
 - `@tanstack/react-query`: Data fetching and caching
 - `drizzle-orm` / `drizzle-zod`: Database ORM and validation
