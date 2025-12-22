@@ -7,6 +7,7 @@ import { getStripeSync } from './stripeClient';
 import { WebhookHandlers } from './webhookHandlers';
 import { seedVendorsIfEmpty, seedBlockchainChainsIfEmpty } from './storage';
 import { syncVendorStatus } from './statusSync';
+import { syncAllBlockchainChains } from './blockchainSync';
 
 const app = express();
 const httpServer = createServer(app);
@@ -183,9 +184,16 @@ app.use((req, res, next) => {
         console.log('[sync] Starting initial status sync...');
         try {
           const result = await syncVendorStatus();
-          console.log(`[sync] Initial sync complete: ${result.synced} synced, ${result.skipped} skipped`);
+          console.log(`[sync] Initial vendor sync complete: ${result.synced} synced, ${result.skipped} skipped`);
         } catch (err) {
-          console.error('[sync] Initial sync failed:', err);
+          console.error('[sync] Initial vendor sync failed:', err);
+        }
+        
+        try {
+          await syncAllBlockchainChains();
+          console.log('[sync] Initial blockchain sync complete');
+        } catch (err) {
+          console.error('[sync] Initial blockchain sync failed:', err);
         }
       }, 5000);
       
@@ -194,13 +202,20 @@ app.use((req, res, next) => {
         console.log('[sync] Starting scheduled status sync...');
         try {
           const result = await syncVendorStatus();
-          console.log(`[sync] Scheduled sync complete: ${result.synced} synced, ${result.skipped} skipped`);
+          console.log(`[sync] Scheduled vendor sync complete: ${result.synced} synced, ${result.skipped} skipped`);
         } catch (err) {
-          console.error('[sync] Scheduled sync failed:', err);
+          console.error('[sync] Scheduled vendor sync failed:', err);
+        }
+        
+        try {
+          await syncAllBlockchainChains();
+          console.log('[sync] Scheduled blockchain sync complete');
+        } catch (err) {
+          console.error('[sync] Scheduled blockchain sync failed:', err);
         }
       }, SYNC_INTERVAL_MS);
       
-      console.log(`[sync] Automatic vendor sync configured: every ${SYNC_INTERVAL_MS / 60000} minutes`);
+      console.log(`[sync] Automatic sync configured: every ${SYNC_INTERVAL_MS / 60000} minutes (vendors + blockchain)`);
     },
   );
 })();

@@ -6,6 +6,7 @@ import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integra
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
 import { sendSMS } from "./twilioClient";
 import { syncVendorStatus } from "./statusSync";
+import { syncAllBlockchainChains } from "./blockchainSync";
 import { z } from "zod";
 
 // Stripe price IDs for each subscription tier
@@ -1213,6 +1214,18 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching blockchain stats:", error);
       res.status(500).json({ error: "Failed to fetch blockchain stats" });
+    }
+  });
+
+  // Manual blockchain sync trigger
+  app.post("/api/blockchain/sync", isAuthenticated, async (req, res) => {
+    try {
+      console.log("[blockchain] Manual sync triggered");
+      await syncAllBlockchainChains();
+      res.json({ success: true, message: "Blockchain sync completed" });
+    } catch (error) {
+      console.error("Error syncing blockchain chains:", error);
+      res.status(500).json({ error: "Failed to sync blockchain chains" });
     }
   });
 
