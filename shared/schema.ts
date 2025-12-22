@@ -6,6 +6,18 @@ import { z } from "zod";
 // Export auth models (users and sessions tables for Replit Auth)
 export * from "./models/auth";
 
+// Canonical status values for incidents
+export const CANONICAL_STATUSES = ['investigating', 'identified', 'monitoring', 'resolved'] as const;
+export type CanonicalStatus = typeof CANONICAL_STATUSES[number];
+
+// Canonical severity values for incidents
+export const CANONICAL_SEVERITIES = ['critical', 'major', 'minor', 'info'] as const;
+export type CanonicalSeverity = typeof CANONICAL_SEVERITIES[number];
+
+// Incident lifecycle event types
+export const LIFECYCLE_EVENTS = ['new', 'escalation', 'update', 'resolved', 'long_running'] as const;
+export type LifecycleEvent = typeof LIFECYCLE_EVENTS[number];
+
 // Vendors - third-party services being monitored
 export const vendors = pgTable("vendors", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -100,6 +112,34 @@ export const userVendorOrder = pgTable("user_vendor_order", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Parser Health - track parser reliability and failures
+export const parserHealth = pgTable("parser_health", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  vendorKey: text("vendor_key").notNull().unique(),
+  lastSuccessAt: timestamp("last_success_at"),
+  lastFailureAt: timestamp("last_failure_at"),
+  consecutiveFailures: integer("consecutive_failures").notNull().default(0),
+  totalSuccesses: integer("total_successes").notNull().default(0),
+  totalFailures: integer("total_failures").notNull().default(0),
+  lastHttpStatus: integer("last_http_status"),
+  lastErrorMessage: text("last_error_message"),
+  incidentsParsed: integer("incidents_parsed").notNull().default(0),
+  isHealthy: boolean("is_healthy").notNull().default(true),
+  alertSentAt: timestamp("alert_sent_at"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Alert Cooldowns - prevent notification spam
+export const alertCooldowns = pgTable("alert_cooldowns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  incidentId: text("incident_id").notNull(),
+  userId: text("user_id").notNull(),
+  lastAlertAt: timestamp("last_alert_at").notNull().defaultNow(),
+  alertCount: integer("alert_count").notNull().default(1),
+  lastSeverity: text("last_severity").notNull(),
+  lastStatus: text("last_status").notNull(),
+});
+
 // User Vendor Subscriptions - which vendors each user monitors
 export const userVendorSubscriptions = pgTable("user_vendor_subscriptions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -177,6 +217,15 @@ export const insertCustomVendorRequestSchema = createInsertSchema(customVendorRe
   updatedAt: true,
 });
 
+export const insertParserHealthSchema = createInsertSchema(parserHealth).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export const insertAlertCooldownSchema = createInsertSchema(alertCooldowns).omit({
+  id: true,
+});
+
 // Types
 export type InsertVendor = z.infer<typeof insertVendorSchema>;
 export type Vendor = typeof vendors.$inferSelect;
@@ -207,6 +256,12 @@ export type UserVendorOrder = typeof userVendorOrder.$inferSelect;
 
 export type InsertCustomVendorRequest = z.infer<typeof insertCustomVendorRequestSchema>;
 export type CustomVendorRequest = typeof customVendorRequests.$inferSelect;
+
+export type InsertParserHealth = z.infer<typeof insertParserHealthSchema>;
+export type ParserHealth = typeof parserHealth.$inferSelect;
+
+export type InsertAlertCooldown = z.infer<typeof insertAlertCooldownSchema>;
+export type AlertCooldown = typeof alertCooldowns.$inferSelect;
 
 // Subscription tier constants
 export const SUBSCRIPTION_TIERS = {

@@ -1,5 +1,9 @@
 import { storage } from "./storage";
-import { notifyNewIncident, notifyIncidentUpdate, notifyIncidentResolved } from "./notificationDispatcher";
+import { dispatchLifecycleNotification, sendParserHealthAlert } from "./notificationDispatcher";
+import { fetchWithRetry } from "./retryUtil";
+import { mapStatuspageImpact, mapStatuspageStatus, determineLifecycleEvent, shouldAlertForEvent } from "./statusNormalizer";
+import { recordParseResult, shouldSendParserHealthAlert, markAlertSent, getParserHealthStatus } from "./parserHealthTracker";
+import type { CanonicalSeverity, CanonicalStatus, LifecycleEvent } from "@shared/schema";
 
 interface StatusPageResponse {
   status: {
@@ -17,6 +21,18 @@ interface IncidentsResponse {
     shortlink: string;
     created_at: string;
     updated_at: string;
+    incident_updates?: Array<{
+      id: string;
+      status: string;
+      body: string;
+      created_at: string;
+      updated_at: string;
+    }>;
+    components?: Array<{
+      id: string;
+      name: string;
+      status: string;
+    }>;
   }>;
 }
 
@@ -50,37 +66,32 @@ function mapStatusIndicator(indicator: string): string {
   }
 }
 
-function mapImpactToSeverity(impact: string): string {
-  switch (impact?.toLowerCase()) {
-    case 'critical':
-      return 'critical';
-    case 'major':
-      return 'major';
-    case 'minor':
-      return 'minor';
-    case 'none':
-      return 'minor';
-    default:
-      return 'minor';
-  }
-}
-
-async function fetchStatuspageJson(vendor: { key: string; statusUrl: string }): Promise<{ status: string; incidents: any[]; success: boolean }> {
+async function fetchStatuspageJson(vendor: { key: string; statusUrl: string }): Promise<{ 
+  status: string; 
+  incidents: any[]; 
+  success: boolean; 
+  httpStatus?: number; 
+  errorMessage?: string 
+}> {
   const apiBase = STATUSPAGE_API_URLS[vendor.key] || vendor.statusUrl.replace(/\/$/, '');
   
   try {
     const statusUrl = `${apiBase}/api/v2/status.json`;
-    const response = await fetch(statusUrl, {
+    const response = await fetchWithRetry(statusUrl, {
       headers: { 
         'Accept': 'application/json',
         'User-Agent': 'VendorWatch/1.0'
       },
-      signal: AbortSignal.timeout(10000)
     });
     
     if (!response.ok) {
       console.log(`[${vendor.key}] Status page returned ${response.status}`);
-      return { status: 'unknown', incidents: [], success: false };
+      await recordParseResult(vendor.key, { 
+        success: false, 
+        httpStatus: response.status, 
+        errorMessage: `HTTP ${response.status}` 
+      });
+      return { status: 'unknown', incidents: [], success: false, httpStatus: response.status };
     }
     
     const data: StatusPageResponse = await response.json();
@@ -89,12 +100,11 @@ async function fetchStatuspageJson(vendor: { key: string; statusUrl: string }): 
     let incidents: any[] = [];
     try {
       const incidentsUrl = `${apiBase}/api/v2/incidents/unresolved.json`;
-      const incidentsRes = await fetch(incidentsUrl, {
+      const incidentsRes = await fetchWithRetry(incidentsUrl, {
         headers: { 
           'Accept': 'application/json',
           'User-Agent': 'VendorWatch/1.0'
         },
-        signal: AbortSignal.timeout(10000)
       });
       if (incidentsRes.ok) {
         const incidentsData: IncidentsResponse = await incidentsRes.json();
@@ -104,10 +114,21 @@ async function fetchStatuspageJson(vendor: { key: string; statusUrl: string }): 
       console.log(`[${vendor.key}] Could not fetch incidents`);
     }
     
-    return { status, incidents, success: true };
+    await recordParseResult(vendor.key, { 
+      success: true, 
+      httpStatus: 200, 
+      incidentsParsed: incidents.length 
+    });
+    
+    return { status, incidents, success: true, httpStatus: 200 };
   } catch (error) {
-    console.log(`[${vendor.key}] Failed to fetch status:`, error instanceof Error ? error.message : 'Unknown error');
-    return { status: 'unknown', incidents: [], success: false };
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.log(`[${vendor.key}] Failed to fetch status:`, errorMessage);
+    await recordParseResult(vendor.key, { 
+      success: false, 
+      errorMessage 
+    });
+    return { status: 'unknown', incidents: [], success: false, errorMessage };
   }
 }
 
@@ -132,47 +153,114 @@ export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: nu
     try {
       const result = await fetchStatuspageJson(vendor);
       
+      if (await shouldSendParserHealthAlert(vendor.key)) {
+        console.log(`[parser-health] ALERT: Parser unhealthy for ${vendor.name}`);
+        const healthStatus = await getParserHealthStatus(vendor.key);
+        if (healthStatus) {
+          await sendParserHealthAlert(vendor.key, healthStatus.consecutiveFailures, healthStatus.lastError);
+        }
+        await markAlertSent(vendor.key);
+      }
+      
       if (result.success) {
         const existingIncidents = await storage.getIncidentsByVendor(vendor.key);
         const activeIncidentIds = new Set(result.incidents.map((i: any) => i.id));
         
         for (const existing of existingIncidents) {
           if (!activeIncidentIds.has(existing.incidentId) && existing.status !== 'resolved') {
+            const previousStatus = existing.status;
+            const previousSeverity = existing.severity;
             await storage.updateIncident(existing.id, { status: 'resolved' });
             console.log(`  → Resolved incident: ${existing.title}`);
-            notifyIncidentResolved({ ...existing, status: 'resolved' }, vendor).catch(err => 
-              console.error('[notify] Failed to send resolution notification:', err)
+            
+            const lifecycleEvent = determineLifecycleEvent(
+              previousStatus,
+              previousSeverity,
+              'resolved' as CanonicalStatus,
+              existing.severity as CanonicalSeverity,
+              false
             );
+            
+            if (shouldAlertForEvent(lifecycleEvent)) {
+              dispatchLifecycleNotification({
+                incident: { ...existing, status: 'resolved' },
+                vendor,
+                lifecycleEvent,
+                previousStatus,
+                previousSeverity,
+              }).catch(err => console.error('[notify] Failed to send resolution notification:', err));
+            }
           }
         }
         
         for (const incident of result.incidents) {
           const exists = existingIncidents.find(i => i.incidentId === incident.id);
+          const normalizedStatus = mapStatuspageStatus(incident.status);
+          const normalizedSeverity = mapStatuspageImpact(incident.impact);
+          const affectedComponents = incident.components?.map((c: { id: string; name: string; status: string }) => c.name).join(', ') || '';
           
           if (!exists) {
             const newIncident = await storage.createIncident({
               vendorKey: vendor.key,
               incidentId: incident.id,
               title: incident.name,
-              status: incident.status,
-              severity: mapImpactToSeverity(incident.impact),
-              impact: incident.impact || '',
+              status: normalizedStatus,
+              severity: normalizedSeverity,
+              impact: affectedComponents || incident.impact || '',
               url: incident.shortlink || vendor.statusUrl,
               startedAt: incident.created_at,
               updatedAt: incident.updated_at,
               rawHash: null
             });
-            console.log(`  → New incident: ${incident.name}`);
-            notifyNewIncident(newIncident, vendor).catch(err => 
-              console.error('[notify] Failed to send new incident notification:', err)
-            );
-          } else if (exists.status !== incident.status) {
-            const previousStatus = exists.status;
-            await storage.updateIncident(exists.id, { status: incident.status });
-            const updatedIncident = { ...exists, status: incident.status };
-            notifyIncidentUpdate(updatedIncident, vendor, previousStatus).catch(err => 
-              console.error('[notify] Failed to send update notification:', err)
-            );
+            console.log(`  → New incident: ${incident.name} [${normalizedSeverity}/${normalizedStatus}]`);
+            
+            const lifecycleEvent = determineLifecycleEvent(null, null, normalizedStatus, normalizedSeverity, true);
+            
+            if (shouldAlertForEvent(lifecycleEvent)) {
+              dispatchLifecycleNotification({
+                incident: newIncident,
+                vendor,
+                lifecycleEvent,
+                affectedServices: affectedComponents,
+              }).catch(err => console.error('[notify] Failed to send new incident notification:', err));
+            }
+          } else {
+            const statusChanged = exists.status !== normalizedStatus;
+            const severityChanged = exists.severity !== normalizedSeverity;
+            const updatedAtChanged = exists.updatedAt !== incident.updated_at;
+            
+            if (statusChanged || severityChanged || updatedAtChanged) {
+              const previousStatus = exists.status;
+              const previousSeverity = exists.severity;
+              
+              await storage.updateIncident(exists.id, { 
+                status: normalizedStatus,
+                severity: normalizedSeverity,
+                updatedAt: incident.updated_at,
+                impact: affectedComponents || incident.impact || exists.impact,
+              });
+              
+              const lifecycleEvent = determineLifecycleEvent(
+                previousStatus,
+                previousSeverity,
+                normalizedStatus,
+                normalizedSeverity,
+                false
+              );
+              
+              console.log(`  → ${lifecycleEvent.toUpperCase()}: ${incident.name} [${previousSeverity}→${normalizedSeverity}, ${previousStatus}→${normalizedStatus}]`);
+              
+              if (shouldAlertForEvent(lifecycleEvent)) {
+                dispatchLifecycleNotification({
+                  incident: { ...exists, status: normalizedStatus, severity: normalizedSeverity },
+                  vendor,
+                  lifecycleEvent,
+                  previousStatus,
+                  previousSeverity,
+                  affectedServices: affectedComponents,
+                }).catch(err => console.error('[notify] Failed to send update notification:', err));
+              }
+            }
           }
         }
         

@@ -35,7 +35,7 @@ export interface IStorage {
   getIncidents(): Promise<Incident[]>;
   getIncidentsByVendor(vendorKey: string): Promise<Incident[]>;
   createIncident(incident: InsertIncident): Promise<Incident>;
-  updateIncident(id: string, data: { status?: string; updatedAt?: string }): Promise<Incident | undefined>;
+  updateIncident(id: string, data: { status?: string; severity?: string; impact?: string; updatedAt?: string }): Promise<Incident | undefined>;
   deleteIncident(id: string): Promise<boolean>;
   
   // Jobs
@@ -187,7 +187,7 @@ export class DatabaseStorage implements IStorage {
     return newIncident;
   }
   
-  async updateIncident(id: string, data: { status?: string; updatedAt?: string }): Promise<Incident | undefined> {
+  async updateIncident(id: string, data: { status?: string; severity?: string; impact?: string; updatedAt?: string }): Promise<Incident | undefined> {
     const [updated] = await db
       .update(incidents)
       .set(data)
