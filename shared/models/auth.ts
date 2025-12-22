@@ -31,6 +31,7 @@ export const users = pgTable("users", {
   stripeSubscriptionId: varchar("stripe_subscription_id"),
   subscriptionTier: varchar("subscription_tier"), // 'standard', 'gold', 'platinum'
   isAdmin: boolean("is_admin").default(false),
+  isOwner: boolean("is_owner").default(false), // Owner receives parser/system alerts
   notifyEmail: boolean("notify_email").default(true),
   notifySms: boolean("notify_sms").default(false),
   // Two-Factor Authentication fields

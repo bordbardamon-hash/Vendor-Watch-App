@@ -567,25 +567,28 @@ export async function sendParserHealthAlert(vendorKey: string, consecutiveFailur
 </body>
 </html>`;
   
-  const usersWithNotifications = await storage.getUsersWithNotificationsEnabled();
+  const owner = await storage.getOwnerUser();
   
-  for (const user of usersWithNotifications) {
-    if (user.notifyEmail && user.email) {
-      try {
-        await sendEmail(user.email, subject, html);
-        console.log(`[notify] Parser health alert sent to ${user.email}`);
-      } catch (error: unknown) {
-        console.error(`[notify] Failed to send parser health alert to ${user.email}:`, error instanceof Error ? error.message : 'Unknown');
-      }
+  if (!owner) {
+    console.log('[notify] No owner configured - parser health alert not sent');
+    return;
+  }
+  
+  if (owner.notifyEmail && owner.email) {
+    try {
+      await sendEmail(owner.email, subject, html);
+      console.log(`[notify] Parser health alert sent to owner: ${owner.email}`);
+    } catch (error: unknown) {
+      console.error(`[notify] Failed to send parser health alert to owner:`, error instanceof Error ? error.message : 'Unknown');
     }
-    
-    if (user.notifySms && user.phone) {
-      try {
-        await sendSMS(user.phone, message);
-        console.log(`[notify] Parser health SMS sent to ${user.phone}`);
-      } catch (error: unknown) {
-        console.error(`[notify] Failed to send parser health SMS to ${user.phone}:`, error instanceof Error ? error.message : 'Unknown');
-      }
+  }
+  
+  if (owner.notifySms && owner.phone) {
+    try {
+      await sendSMS(owner.phone, message);
+      console.log(`[notify] Parser health SMS sent to owner: ${owner.phone}`);
+    } catch (error: unknown) {
+      console.error(`[notify] Failed to send parser health SMS to owner:`, error instanceof Error ? error.message : 'Unknown');
     }
   }
 }

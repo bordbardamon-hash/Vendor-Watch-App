@@ -77,6 +77,7 @@ export interface IStorage {
   // Users with notifications enabled
   getUsersWithNotificationsEnabled(): Promise<User[]>;
   getActiveConsentsForChannel(channel: string): Promise<NotificationConsent[]>;
+  getOwnerUser(): Promise<User | undefined>;
   
   // Vendor Subscriptions
   getUserVendorSubscriptions(userId: string): Promise<string[]>;
@@ -128,6 +129,12 @@ export interface IStorage {
   getActiveBlockchainIncidents(): Promise<BlockchainIncident[]>;
   createBlockchainIncident(incident: InsertBlockchainIncident): Promise<BlockchainIncident>;
   updateBlockchainIncident(id: string, data: Partial<InsertBlockchainIncident>): Promise<BlockchainIncident | undefined>;
+  
+  // Blockchain Subscriptions
+  getUserBlockchainSubscriptions(userId: string): Promise<string[]>;
+  hasUserSetBlockchainSubscriptions(userId: string): Promise<boolean>;
+  hasBlockchainAlertBeenSent(incidentId: string, userId: string, channel: string, eventType: string): Promise<boolean>;
+  recordBlockchainAlert(alert: { incidentId: string; userId: string; channel: string; eventType: string; destination: string }): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -424,6 +431,15 @@ export class DatabaseStorage implements IStorage {
           isNull(notificationConsents.revokedAt)
         )
       );
+  }
+  
+  async getOwnerUser(): Promise<User | undefined> {
+    const result = await db
+      .select()
+      .from(users)
+      .where(eq(users.isOwner, true))
+      .limit(1);
+    return result[0];
   }
   
   // Vendor Subscriptions
@@ -787,6 +803,47 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return user || undefined;
+  }
+
+  // Blockchain Subscriptions
+  async getUserBlockchainSubscriptions(userId: string): Promise<string[]> {
+    const subs = await db
+      .select()
+      .from(userBlockchainSubscriptions)
+      .where(eq(userBlockchainSubscriptions.userId, userId));
+    return subs.map(s => s.chainKey);
+  }
+
+  async hasUserSetBlockchainSubscriptions(userId: string): Promise<boolean> {
+    const configKey = `blockchain_subscriptions_set:${userId}`;
+    const configRow = await db.select().from(config).where(eq(config.key, configKey)).limit(1);
+    return configRow.length > 0 && configRow[0].value === 'true';
+  }
+
+  async hasBlockchainAlertBeenSent(incidentId: string, userId: string, channel: string, eventType: string): Promise<boolean> {
+    const alerts = await db
+      .select()
+      .from(incidentAlerts)
+      .where(
+        and(
+          eq(incidentAlerts.incidentId, `blockchain:${incidentId}`),
+          eq(incidentAlerts.userId, userId),
+          eq(incidentAlerts.channel, channel),
+          eq(incidentAlerts.eventType, eventType)
+        )
+      );
+    return alerts.length > 0;
+  }
+
+  async recordBlockchainAlert(alert: { incidentId: string; userId: string; channel: string; eventType: string; destination: string }): Promise<void> {
+    await db.insert(incidentAlerts).values({
+      incidentId: `blockchain:${alert.incidentId}`,
+      userId: alert.userId,
+      channel: alert.channel,
+      eventType: alert.eventType,
+      statusSnapshot: 'blockchain',
+      destination: alert.destination,
+    });
   }
 }
 
