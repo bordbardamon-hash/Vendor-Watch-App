@@ -1,0 +1,154 @@
+1) Stop treating “HTML changed” as an outage signal
+
+Your generic fallback is fine for early validation, but it’s inherently noisy.
+
+Upgrade path
+	•	For vendors on Statuspage (Atlassian, Okta, Zoom, Cloudflare, etc.), use their incident endpoints and track incident IDs + updates, not hashes of HTML.
+	•	For non-Statuspage vendors, build vendor-specific parsers that extract:
+	•	incident title
+	•	status (investigating/identified/monitoring/resolved)
+	•	affected services
+	•	updated timestamp
+
+Rule: Only alert when incident objects change, not when page markup changes.
+
+⸻
+
+2) Normalize severity and status across vendors
+
+Every vendor uses different words. You need a canonical model.
+
+Canonical statuses
+	•	investigating
+	•	identified
+	•	monitoring
+	•	resolved
+
+Canonical severities
+	•	critical
+	•	major
+	•	minor
+	•	info
+
+Map vendor values into this model. Example:
+	•	Statuspage impact: critical|major|minor|none → your severity
+	•	Statuspage status: investigating|identified|monitoring|resolved → your status
+
+This prevents dumb alerts like “severity changed from UNKNOWN to UNKNOWN”.
+
+⸻
+
+3) Use update timestamps as the primary dedupe key
+
+Hashes are fragile. The real “truth” is:
+	•	incident ID
+	•	updated_at timestamp
+	•	status/severity change
+
+Dedupe logic (best practice)
+
+Store last seen:
+	•	incident.updated_at
+	•	incident.status
+	•	incident.severity
+
+Only send an alert if at least one changed.
+
+Also add cooldown windows:
+	•	Don’t send more than 1 “changed” alert per incident per X minutes unless severity escalates.
+
+⸻
+
+4) Add “incident lifecycle” alerts, not “everything changed”
+
+MSPs need meaningful triggers.
+
+Send alerts only for:
+	•	New incident
+	•	Severity escalation
+	•	Resolved
+	•	Long-running (still open after X hours)
+	•	Optional: Scope expansion (more services affected)
+
+Do NOT spam on every micro-update.
+
+⸻
+
+5) Add source confidence and “parser health”
+
+You will eventually scrape pages that:
+	•	block bots
+	•	change layout
+	•	return partial content
+	•	rate limit you
+
+So you need internal validity checks.
+
+Per vendor, track:
+	•	last successful fetch time
+	•	HTTP status codes
+	•	parse success/failure
+	•	number of incidents parsed
+
+Alert on monitoring failures (separate channel)
+
+If a vendor stops parsing correctly, send you an internal alert:
+	•	“Parser failing for Microsoft 365: 7 consecutive failures”
+That prevents silent blindness.
+
+⸻
+
+6) Implement retry + backoff + jitter
+
+Vendors and CDNs throttle.
+
+Minimum:
+	•	Retry 2–3 times on 429/5xx
+	•	Exponential backoff (e.g., 2s, 5s, 12s)
+	•	Add jitter so you don’t hit everyone on the same minute mark
+
+This reduces “false outage” where your scraper failed but vendor is fine.
+
+⸻
+
+7) Prefer official machine-readable feeds where possible
+
+Some vendors provide:
+	•	RSS feeds
+	•	JSON endpoints
+	•	incident APIs
+
+Use those before scraping HTML. HTML scraping should be the last resort.
+
+⸻
+
+8) Validate “outage” before alerting (where feasible)
+
+For high-value vendors, a second signal helps.
+
+Example:
+	•	Incident posted and status page overall status changed
+	•	Or a separate component shows “degraded”
+
+Even one extra check cuts noise.
+
+⸻
+
+9) Make alerts actionable for MSPs
+
+Your alert should answer:
+	•	What’s impacted?
+	•	Who’s affected?
+	•	What should I tell customers?
+	•	Where’s the source link?
+
+Include:
+	•	vendor name
+	•	incident title
+	•	severity
+	•	current phase (investigating/identified/etc.)
+	•	impacted services/components (if available)
+	•	link
+	•	“first seen” + “last updated”
+
+This is how you become trusted.
