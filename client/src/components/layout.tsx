@@ -19,6 +19,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { UI_LABELS, APP_NAME } from "@/lib/labels";
 import { useAuth } from "@/hooks/use-auth";
+import logoImage from "@assets/VendorWatch_logo_design_concept_1766438217067.png";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { FeedbackDialog } from "@/components/feedback-dialog";
 
@@ -57,12 +58,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         "border-r border-border bg-sidebar flex flex-col transition-all duration-300",
         sidebarOpen ? "w-64" : "w-16"
       )}>
-        <div className="p-4 flex items-center gap-3 border-b border-sidebar-border">
-          <div className="h-8 w-8 rounded bg-primary flex items-center justify-center text-primary-foreground shrink-0">
-            <Bot size={20} />
-          </div>
-          {sidebarOpen && (
-            <span className="font-bold text-lg tracking-tight">Vendor Watch</span>
+        <div className="p-4 flex items-center border-b border-sidebar-border">
+          {sidebarOpen ? (
+            <img src={logoImage} alt="Vendor Watch" className="h-8 object-contain" data-testid="img-logo" />
+          ) : (
+            <div className="h-8 w-8 rounded bg-primary flex items-center justify-center text-primary-foreground shrink-0">
+              <Bot size={20} />
+            </div>
           )}
         </div>
 
