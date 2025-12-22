@@ -38,15 +38,10 @@ interface IncidentsResponse {
 
 const STATUSPAGE_API_URLS: Record<string, string> = {
   cloudflare: "https://www.cloudflarestatus.com",
-  okta: "https://status.okta.com",
   zoom: "https://status.zoom.us",
   atlassian: "https://status.atlassian.com",
-  connectwise: "https://status.connectwise.com",
   sentinelone: "https://status.sentinelone.com",
-  auth0: "https://status.auth0.com",
-  slack: "https://status.slack.com",
   hubspot: "https://status.hubspot.com",
-  fastly: "https://status.fastly.com",
   akamai: "https://www.akamaistatus.com",
   pingidentity: "https://status.pingidentity.com",
   veeam_datacloud: "https://vdcstatus.veeam.com",
@@ -54,8 +49,6 @@ const STATUSPAGE_API_URLS: Record<string, string> = {
   quickbooks: "https://status.quickbooks.intuit.com",
   netsuite: "https://status.netsuite.com",
   kaseya: "https://status.kaseya.com",
-  nable: "https://status.n-able.com",
-  syncro: "https://www.syncrostatus.com",
 };
 
 function mapStatusIndicator(indicator: string): string {
@@ -242,6 +235,63 @@ async function fetchAwsStatus(vendor: { key: string; statusUrl: string }): Promi
   }
 }
 
+// Slack uses a custom API format at status.slack.com/api/v2.0.0/current
+async function fetchSlackStatus(vendor: { key: string; statusUrl: string }): Promise<{ 
+  status: string; 
+  incidents: any[]; 
+  success: boolean; 
+  httpStatus?: number; 
+  errorMessage?: string 
+}> {
+  try {
+    const response = await fetchWithRetry("https://status.slack.com/api/v2.0.0/current", {
+      headers: { 
+        'Accept': 'application/json',
+        'User-Agent': 'VendorWatch/1.0'
+      },
+    });
+    
+    if (!response.ok) {
+      console.log(`[slack] Status page returned ${response.status}`);
+      await recordParseResult(vendor.key, { 
+        success: false, 
+        httpStatus: response.status, 
+        errorMessage: `HTTP ${response.status}` 
+      });
+      return { status: 'unknown', incidents: [], success: false, httpStatus: response.status };
+    }
+    
+    const data = await response.json();
+    // Slack format: { status: "ok"|"active", active_incidents: [...] }
+    const overallStatus = data.status === 'ok' ? 'operational' : 'degraded';
+    const incidents = (data.active_incidents || []).map((inc: any) => ({
+      id: inc.id || `slack-${Date.now()}`,
+      name: inc.title || 'Slack Service Issue',
+      status: 'investigating',
+      impact: 'minor',
+      shortlink: 'https://status.slack.com',
+      created_at: inc.date_created || new Date().toISOString(),
+      updated_at: inc.date_updated || new Date().toISOString(),
+    }));
+    
+    await recordParseResult(vendor.key, { 
+      success: true, 
+      httpStatus: 200, 
+      incidentsParsed: incidents.length 
+    });
+    
+    return { status: overallStatus, incidents, success: true, httpStatus: 200 };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.log(`[slack] Failed to fetch status:`, errorMessage);
+    await recordParseResult(vendor.key, { 
+      success: false, 
+      errorMessage 
+    });
+    return { status: 'unknown', incidents: [], success: false, errorMessage };
+  }
+}
+
 export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: number; errors: string[]; skipped: number }> {
   const vendors = vendorKey 
     ? [await storage.getVendor(vendorKey)].filter(Boolean)
@@ -261,7 +311,8 @@ export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: nu
       continue;
     }
     
-    if (vendor.parser !== 'statuspage_json' && vendor.parser !== 'aws_json') {
+    const validParsers = ['statuspage_json', 'aws_json', 'slack_json'];
+    if (!validParsers.includes(vendor.parser)) {
       console.log(`⊘ ${vendor.name}: skipped (unknown parser: ${vendor.parser})`);
       skipped++;
       continue;
@@ -269,9 +320,14 @@ export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: nu
     
     try {
       // Use appropriate parser based on vendor configuration
-      const result = vendor.parser === 'aws_json' 
-        ? await fetchAwsStatus(vendor)
-        : await fetchStatuspageJson(vendor);
+      let result;
+      if (vendor.parser === 'aws_json') {
+        result = await fetchAwsStatus(vendor);
+      } else if (vendor.parser === 'slack_json') {
+        result = await fetchSlackStatus(vendor);
+      } else {
+        result = await fetchStatuspageJson(vendor);
+      }
       
       if (await shouldSendParserHealthAlert(vendor.key)) {
         console.log(`[parser-health] ALERT: Parser unhealthy for ${vendor.name}`);

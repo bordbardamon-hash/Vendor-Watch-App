@@ -6,6 +6,7 @@ import { runMigrations } from 'stripe-replit-sync';
 import { getStripeSync } from './stripeClient';
 import { WebhookHandlers } from './webhookHandlers';
 import { seedVendorsIfEmpty } from './storage';
+import { syncVendorStatus } from './statusSync';
 
 const app = express();
 const httpServer = createServer(app);
@@ -172,6 +173,33 @@ app.use((req, res, next) => {
     },
     () => {
       log(`serving on port ${port}`);
+      
+      // Start automatic vendor status sync
+      const SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+      
+      // Run initial sync after short delay to let server stabilize
+      setTimeout(async () => {
+        console.log('[sync] Starting initial status sync...');
+        try {
+          const result = await syncVendorStatus();
+          console.log(`[sync] Initial sync complete: ${result.synced} synced, ${result.skipped} skipped`);
+        } catch (err) {
+          console.error('[sync] Initial sync failed:', err);
+        }
+      }, 5000);
+      
+      // Set up recurring sync every 5 minutes
+      setInterval(async () => {
+        console.log('[sync] Starting scheduled status sync...');
+        try {
+          const result = await syncVendorStatus();
+          console.log(`[sync] Scheduled sync complete: ${result.synced} synced, ${result.skipped} skipped`);
+        } catch (err) {
+          console.error('[sync] Scheduled sync failed:', err);
+        }
+      }, SYNC_INTERVAL_MS);
+      
+      console.log(`[sync] Automatic vendor sync configured: every ${SYNC_INTERVAL_MS / 60000} minutes`);
     },
   );
 })();
