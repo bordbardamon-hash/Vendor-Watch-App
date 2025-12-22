@@ -24,8 +24,10 @@ export interface IStorage {
   // Users
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
+  getAllUsers(): Promise<User[]>;
   upsertUser(user: UpsertUser): Promise<User>;
   updateUserStripeInfo(userId: string, stripeInfo: { stripeCustomerId?: string; stripeSubscriptionId?: string | null }): Promise<User | undefined>;
+  updateUserAdmin(userId: string, isAdmin: boolean): Promise<User | undefined>;
   
   // Vendors
   getVendors(): Promise<Vendor[]>;
@@ -153,6 +155,19 @@ export class DatabaseStorage implements IStorage {
     const [user] = await db
       .update(users)
       .set({ ...stripeInfo, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return user || undefined;
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users).orderBy(desc(users.createdAt));
+  }
+
+  async updateUserAdmin(userId: string, isAdmin: boolean): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set({ isAdmin, updatedAt: new Date() })
       .where(eq(users.id, userId))
       .returning();
     return user || undefined;

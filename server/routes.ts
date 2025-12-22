@@ -581,6 +581,60 @@ export async function registerRoutes(
     }
   });
 
+  // ============ USER MANAGEMENT (Admin Only) ============
+
+  app.get("/api/admin/users", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ error: "Failed to fetch users" });
+    }
+  });
+
+  app.put("/api/admin/users/:userId/admin", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const { isAdmin: makeAdmin } = req.body;
+      
+      if (typeof makeAdmin !== 'boolean') {
+        return res.status(400).json({ error: "isAdmin must be a boolean" });
+      }
+      
+      const user = await storage.updateUserAdmin(userId, makeAdmin);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      res.json(user);
+    } catch (error) {
+      console.error("Error updating user admin status:", error);
+      res.status(500).json({ error: "Failed to update user" });
+    }
+  });
+
+  app.put("/api/admin/users/:userId/tier", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const { tier } = req.body;
+      
+      if (tier !== null && !['standard', 'gold', 'platinum'].includes(tier)) {
+        return res.status(400).json({ error: "Invalid tier. Must be standard, gold, platinum, or null" });
+      }
+      
+      const user = await storage.updateUserSubscriptionTier(userId, tier);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      res.json(user);
+    } catch (error) {
+      console.error("Error updating user tier:", error);
+      res.status(500).json({ error: "Failed to update user tier" });
+    }
+  });
+
   // ============ STRIPE / SIGNUP ============
 
   app.get("/api/stripe/publishable-key", async (_req, res) => {

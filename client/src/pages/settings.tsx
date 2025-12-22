@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bell, Database, Mail, Save, Server, Shield, Clock, Code, Copy, Check, CheckCircle2, Smartphone, MessageSquare, GripVertical, AlertTriangle, AlertCircle, Info } from "lucide-react";
+import { Bell, Database, Mail, Save, Server, Shield, Clock, Code, Copy, Check, CheckCircle2, Smartphone, MessageSquare, GripVertical, AlertTriangle, AlertCircle, Info, Users, Crown, ShieldCheck } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
@@ -36,6 +37,7 @@ const SMS_CONSENT_TEXT = "I agree to receive vendor incident alerts via SMS text
 
 export default function Settings() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("general");
   const queryClient = useQueryClient();
   
@@ -483,13 +485,18 @@ CONFIG = AppConfig(
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 lg:w-[500px] bg-sidebar border border-sidebar-border">
+        <TabsList className={`grid w-full ${user?.isAdmin ? 'grid-cols-5 lg:w-[600px]' : 'grid-cols-4 lg:w-[500px]'} bg-sidebar border border-sidebar-border`}>
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="database">System</TabsTrigger>
           <TabsTrigger value="code" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
             <Code className="w-4 h-4 mr-2" /> Code
           </TabsTrigger>
+          {user?.isAdmin && (
+            <TabsTrigger value="users" className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-500">
+              <Users className="w-4 h-4 mr-2" /> Users
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="general" className="space-y-6 animate-fade-in">
@@ -1071,6 +1078,12 @@ CREATE TABLE IF NOT EXISTS alerts_sent (
             </CardContent>
           </Card>
         </TabsContent>
+
+        {user?.isAdmin && (
+          <TabsContent value="users" className="space-y-6">
+            <UsersManagementTab />
+          </TabsContent>
+        )}
       </Tabs>
 
       <div className="flex justify-end gap-4">
@@ -1080,6 +1093,176 @@ CREATE TABLE IF NOT EXISTS alerts_sent (
         </Button>
       </div>
     </div>
+  );
+}
+
+function UsersManagementTab() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
+  const { data: allUsers = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/admin/users"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/users");
+      if (!res.ok) throw new Error("Failed to fetch users");
+      return res.json();
+    },
+  });
+
+  const updateAdminMutation = useMutation({
+    mutationFn: async ({ userId, isAdmin }: { userId: string; isAdmin: boolean }) => {
+      const res = await fetch(`/api/admin/users/${userId}/admin`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isAdmin }),
+      });
+      if (!res.ok) throw new Error("Failed to update admin status");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      toast({
+        title: "User Updated",
+        description: "Admin status has been updated.",
+        className: "bg-emerald-500 border-emerald-500 text-white"
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Update Failed",
+        description: "Could not update admin status.",
+        variant: "destructive"
+      });
+    },
+  });
+
+  const updateTierMutation = useMutation({
+    mutationFn: async ({ userId, tier }: { userId: string; tier: string | null }) => {
+      const res = await fetch(`/api/admin/users/${userId}/tier`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tier }),
+      });
+      if (!res.ok) throw new Error("Failed to update tier");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      toast({
+        title: "User Updated",
+        description: "Subscription tier has been updated.",
+        className: "bg-emerald-500 border-emerald-500 text-white"
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Update Failed",
+        description: "Could not update subscription tier.",
+        variant: "destructive"
+      });
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <Card className="border-sidebar-border bg-sidebar/30 backdrop-blur-sm">
+        <CardContent className="p-8 text-center text-muted-foreground">
+          Loading users...
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="border-sidebar-border bg-sidebar/30 backdrop-blur-sm">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Users className="w-5 h-5 text-amber-500" />
+          User Management
+        </CardTitle>
+        <CardDescription>
+          Manage user admin privileges and subscription tiers
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ScrollArea className="h-[500px]">
+          <div className="space-y-3">
+            {allUsers.map((u: any) => (
+              <div
+                key={u.id}
+                className="flex items-center justify-between p-4 rounded-lg border border-sidebar-border bg-background/50 hover:bg-background/80 transition-colors"
+                data-testid={`user-row-${u.id}`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex flex-col">
+                    <span className="font-medium flex items-center gap-2">
+                      {u.email || u.firstName || "Unknown User"}
+                      {u.isAdmin && (
+                        <Badge variant="outline" className="text-amber-500 border-amber-500/50 text-xs">
+                          <ShieldCheck className="w-3 h-3 mr-1" /> Admin
+                        </Badge>
+                      )}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      ID: {u.id}
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs text-muted-foreground">Tier:</Label>
+                    <Select
+                      value={u.subscriptionTier || "none"}
+                      onValueChange={(tier) => updateTierMutation.mutate({ 
+                        userId: u.id, 
+                        tier: tier === "none" ? null : tier 
+                      })}
+                    >
+                      <SelectTrigger className="w-[120px] h-8" data-testid={`tier-select-${u.id}`}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No Tier</SelectItem>
+                        <SelectItem value="standard">Standard</SelectItem>
+                        <SelectItem value="gold">
+                          <div className="flex items-center gap-1">
+                            <Crown className="w-3 h-3 text-yellow-500" /> Gold
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="platinum">
+                          <div className="flex items-center gap-1">
+                            <Crown className="w-3 h-3 text-purple-500" /> Platinum
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs text-muted-foreground">Admin:</Label>
+                    <Switch
+                      checked={u.isAdmin || false}
+                      onCheckedChange={(checked) => updateAdminMutation.mutate({ 
+                        userId: u.id, 
+                        isAdmin: checked 
+                      })}
+                      data-testid={`admin-switch-${u.id}`}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+            
+            {allUsers.length === 0 && (
+              <div className="text-center p-8 text-muted-foreground">
+                No users found
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+      </CardContent>
+    </Card>
   );
 }
 
