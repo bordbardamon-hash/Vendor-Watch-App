@@ -4,7 +4,7 @@ import { sendEmail } from './emailClient';
 import { shouldSendAlert, recordAlertSent } from './cooldownManager';
 import { formatSeverityDisplay, formatStatusDisplay } from './statusNormalizer';
 import { generateCustomerSummary, generateCustomerSummarySms } from './customerSummaryGenerator';
-import type { Incident, Vendor, User, LifecycleEvent, CanonicalSeverity, CanonicalStatus } from '@shared/schema';
+import type { Incident, Vendor, User, LifecycleEvent, CanonicalSeverity, CanonicalStatus, BlockchainIncident, BlockchainChain } from '@shared/schema';
 
 type EventType = 'new' | 'update' | 'resolved';
 
@@ -591,4 +591,220 @@ export async function sendParserHealthAlert(vendorKey: string, consecutiveFailur
       console.error(`[notify] Failed to send parser health SMS to owner:`, error instanceof Error ? error.message : 'Unknown');
     }
   }
+}
+
+// Blockchain Incident Notifications
+interface BlockchainNotification {
+  incident: BlockchainIncident;
+  chain: BlockchainChain;
+  eventType: EventType;
+  previousStatus?: string;
+}
+
+function formatBlockchainSms(notification: BlockchainNotification): string {
+  const { incident, chain, eventType } = notification;
+  
+  const statusEmoji = eventType === 'resolved' ? '✅' : eventType === 'new' ? '🚨' : '⚠️';
+  const eventLabel = eventType === 'resolved' ? 'RESOLVED' : eventType === 'new' ? 'NEW INCIDENT' : 'UPDATE';
+  
+  return `${statusEmoji} Blockchain ${eventLabel}: ${chain.name} - ${incident.title}. Type: ${incident.incidentType}. Status: ${incident.status}. ${incident.url || ''}`;
+}
+
+function formatBlockchainEmailSubject(notification: BlockchainNotification): string {
+  const { incident, chain, eventType } = notification;
+  
+  const prefix = eventType === 'resolved' 
+    ? '[RESOLVED]' 
+    : eventType === 'new' 
+    ? '[NEW INCIDENT]' 
+    : '[UPDATE]';
+  
+  return `${prefix} Blockchain: ${chain.name} - ${incident.title}`;
+}
+
+function formatBlockchainEmailHtml(notification: BlockchainNotification): string {
+  const { incident, chain, eventType } = notification;
+  
+  const statusColor = eventType === 'resolved' 
+    ? '#22c55e' 
+    : incident.severity === 'critical' 
+    ? '#ef4444' 
+    : incident.severity === 'major' 
+    ? '#f97316' 
+    : '#eab308';
+  
+  const eventLabel = eventType === 'resolved' 
+    ? 'Incident Resolved' 
+    : eventType === 'new' 
+    ? 'New Blockchain Incident' 
+    : 'Incident Update';
+  
+  const tierLabel = chain.tier === '1' ? 'Tier 1 (Core)' : chain.tier === '2' ? 'Tier 2 (Infrastructure)' : chain.tier === '3' ? 'Tier 3 (Enterprise)' : 'Tier 4 (Dependencies)';
+  
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; margin: 0; padding: 20px; }
+    .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .header { background: ${statusColor}; color: white; padding: 20px; text-align: center; }
+    .header h1 { margin: 0; font-size: 18px; }
+    .content { padding: 24px; }
+    .chain-name { font-size: 24px; font-weight: bold; color: #333; margin-bottom: 8px; }
+    .incident-title { font-size: 16px; color: #666; margin-bottom: 16px; }
+    .details { background: #f9f9f9; border-radius: 6px; padding: 16px; margin: 16px 0; }
+    .detail-row { display: flex; margin-bottom: 8px; }
+    .detail-label { font-weight: 600; width: 120px; color: #666; }
+    .detail-value { color: #333; }
+    .status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; background: ${statusColor}; color: white; font-size: 12px; font-weight: 600; text-transform: uppercase; }
+    .tier-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; background: #6366f1; color: white; font-size: 12px; font-weight: 600; }
+    .button { display: inline-block; background: #0066cc; color: white; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: 600; margin-top: 16px; }
+    .footer { padding: 16px 24px; background: #f9f9f9; text-align: center; font-size: 12px; color: #999; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>${eventLabel}</h1>
+    </div>
+    <div class="content">
+      <div class="chain-name">${chain.name}</div>
+      <div class="incident-title">${incident.title}</div>
+      
+      <div class="details">
+        <div class="detail-row">
+          <span class="detail-label">Status:</span>
+          <span class="detail-value"><span class="status-badge">${incident.status}</span></span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Severity:</span>
+          <span class="detail-value">${incident.severity}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Type:</span>
+          <span class="detail-value">${incident.incidentType}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Tier:</span>
+          <span class="detail-value"><span class="tier-badge">${tierLabel}</span></span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Category:</span>
+          <span class="detail-value">${chain.category}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Started:</span>
+          <span class="detail-value">${new Date(incident.startedAt).toLocaleString()}</span>
+        </div>
+      </div>
+      
+      ${incident.url ? `<a href="${incident.url}" class="button">View Incident Details</a>` : ''}
+    </div>
+    <div class="footer">
+      <p>You received this alert because you subscribed to Vendor Watch blockchain notifications.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+export async function dispatchBlockchainNotification(notification: BlockchainNotification): Promise<{ sms: number; email: number; errors: string[] }> {
+  const { incident, chain, eventType } = notification;
+  const errors: string[] = [];
+  let smsSent = 0;
+  let emailSent = 0;
+  
+  console.log(`[notify] Dispatching blockchain ${eventType.toUpperCase()} notification: ${chain.name} - ${incident.title}`);
+  
+  const usersWithNotifications = await storage.getUsersWithNotificationsEnabled();
+  
+  for (const user of usersWithNotifications) {
+    const hasSetSubscriptions = await storage.hasUserSetBlockchainSubscriptions(user.id);
+    const userSubscriptions = await storage.getUserBlockchainSubscriptions(user.id);
+    
+    let isSubscribed: boolean;
+    if (!hasSetSubscriptions) {
+      isSubscribed = true;
+    } else if (userSubscriptions.length === 0) {
+      isSubscribed = false;
+    } else {
+      isSubscribed = userSubscriptions.includes(chain.key);
+    }
+    
+    if (!isSubscribed) continue;
+    
+    if (user.notifySms && user.phone) {
+      const alreadySent = await storage.hasBlockchainAlertBeenSent(incident.incidentId, user.id, 'sms', eventType, incident.status);
+      if (!alreadySent) {
+        try {
+          const message = formatBlockchainSms(notification);
+          const success = await sendSMS(user.phone, message);
+          if (success) {
+            await storage.recordBlockchainAlert({
+              incidentId: incident.incidentId,
+              userId: user.id,
+              channel: 'sms',
+              eventType,
+              statusSnapshot: incident.status,
+              destination: user.phone,
+            });
+            smsSent++;
+            console.log(`[notify] Blockchain SMS sent to ${user.phone} for ${eventType}`);
+          } else {
+            errors.push(`Failed to send blockchain SMS to ${user.phone}`);
+          }
+        } catch (error) {
+          errors.push(`Blockchain SMS error for ${user.phone}: ${error instanceof Error ? error.message : 'Unknown'}`);
+        }
+      }
+    }
+    
+    if (user.notifyEmail && user.email) {
+      const alreadySent = await storage.hasBlockchainAlertBeenSent(incident.incidentId, user.id, 'email', eventType, incident.status);
+      if (!alreadySent) {
+        try {
+          const subject = formatBlockchainEmailSubject(notification);
+          const html = formatBlockchainEmailHtml(notification);
+          const success = await sendEmail(user.email, subject, html);
+          if (success) {
+            await storage.recordBlockchainAlert({
+              incidentId: incident.incidentId,
+              userId: user.id,
+              channel: 'email',
+              eventType,
+              statusSnapshot: incident.status,
+              destination: user.email,
+            });
+            emailSent++;
+            console.log(`[notify] Blockchain email sent to ${user.email} for ${eventType}`);
+          } else {
+            console.log(`[notify] Blockchain email skipped (not configured) for ${user.email}`);
+          }
+        } catch (error) {
+          errors.push(`Blockchain email error for ${user.email}: ${error instanceof Error ? error.message : 'Unknown'}`);
+        }
+      }
+    }
+  }
+  
+  console.log(`[notify] Sent ${smsSent} SMS, ${emailSent} emails for blockchain ${eventType}`);
+  if (errors.length > 0) {
+    console.warn('[notify] Blockchain notification errors:', errors);
+  }
+  
+  return { sms: smsSent, email: emailSent, errors };
+}
+
+export async function notifyNewBlockchainIncident(incident: BlockchainIncident, chain: BlockchainChain): Promise<void> {
+  await dispatchBlockchainNotification({ incident, chain, eventType: 'new' });
+}
+
+export async function notifyBlockchainIncidentUpdate(incident: BlockchainIncident, chain: BlockchainChain, previousStatus: string): Promise<void> {
+  await dispatchBlockchainNotification({ incident, chain, eventType: 'update', previousStatus });
+}
+
+export async function notifyBlockchainIncidentResolved(incident: BlockchainIncident, chain: BlockchainChain): Promise<void> {
+  await dispatchBlockchainNotification({ incident, chain, eventType: 'resolved' });
 }

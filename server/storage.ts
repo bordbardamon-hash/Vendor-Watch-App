@@ -133,8 +133,8 @@ export interface IStorage {
   // Blockchain Subscriptions
   getUserBlockchainSubscriptions(userId: string): Promise<string[]>;
   hasUserSetBlockchainSubscriptions(userId: string): Promise<boolean>;
-  hasBlockchainAlertBeenSent(incidentId: string, userId: string, channel: string, eventType: string): Promise<boolean>;
-  recordBlockchainAlert(alert: { incidentId: string; userId: string; channel: string; eventType: string; destination: string }): Promise<void>;
+  hasBlockchainAlertBeenSent(incidentId: string, userId: string, channel: string, eventType: string, statusSnapshot: string): Promise<boolean>;
+  recordBlockchainAlert(alert: { incidentId: string; userId: string; channel: string; eventType: string; statusSnapshot: string; destination: string }): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -820,7 +820,7 @@ export class DatabaseStorage implements IStorage {
     return configRow.length > 0 && configRow[0].value === 'true';
   }
 
-  async hasBlockchainAlertBeenSent(incidentId: string, userId: string, channel: string, eventType: string): Promise<boolean> {
+  async hasBlockchainAlertBeenSent(incidentId: string, userId: string, channel: string, eventType: string, statusSnapshot: string): Promise<boolean> {
     const alerts = await db
       .select()
       .from(incidentAlerts)
@@ -829,19 +829,20 @@ export class DatabaseStorage implements IStorage {
           eq(incidentAlerts.incidentId, `blockchain:${incidentId}`),
           eq(incidentAlerts.userId, userId),
           eq(incidentAlerts.channel, channel),
-          eq(incidentAlerts.eventType, eventType)
+          eq(incidentAlerts.eventType, eventType),
+          eq(incidentAlerts.statusSnapshot, statusSnapshot)
         )
       );
     return alerts.length > 0;
   }
 
-  async recordBlockchainAlert(alert: { incidentId: string; userId: string; channel: string; eventType: string; destination: string }): Promise<void> {
+  async recordBlockchainAlert(alert: { incidentId: string; userId: string; channel: string; eventType: string; statusSnapshot: string; destination: string }): Promise<void> {
     await db.insert(incidentAlerts).values({
       incidentId: `blockchain:${alert.incidentId}`,
       userId: alert.userId,
       channel: alert.channel,
       eventType: alert.eventType,
-      statusSnapshot: 'blockchain',
+      statusSnapshot: alert.statusSnapshot,
       destination: alert.destination,
     });
   }

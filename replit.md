@@ -1,225 +1,80 @@
 # Vendor Watch - Vendor Status Monitoring Dashboard
 
 ## Overview
-
-Vendor Watch is a full-stack web application for monitoring third-party vendor status pages and detecting service incidents. It provides a dashboard for managing web scraping jobs, viewing vendor health status, tracking incidents, and monitoring system logs. The application is designed as a control center for Python-based scraping tasks that detect outages across major cloud providers and SaaS platforms.
+Vendor Watch is a full-stack web application designed to monitor third-party vendor status pages and detect service incidents. It provides a centralized dashboard for managing web scraping jobs, viewing vendor health, tracking incidents, and monitoring system logs. The application functions as a control center for Python-based scraping tasks that identify outages across major cloud providers, SaaS platforms, and blockchain infrastructure. Its primary purpose is to offer proactive incident detection and management for businesses relying on external services, with advanced features tailored for Managed Service Providers (MSPs).
 
 ## User Preferences
-
 Preferred communication style: Simple, everyday language.
 
 ## System Architecture
 
-### Frontend Architecture
+### Frontend
 - **Framework**: React 18 with TypeScript
-- **Routing**: Wouter (lightweight client-side routing)
-- **State Management**: TanStack React Query for server state and caching
-- **UI Components**: shadcn/ui component library built on Radix UI primitives
-- **Styling**: Tailwind CSS v4 with custom CSS variables for theming
-- **Build Tool**: Vite with custom plugins for Replit integration
+- **Routing**: Wouter
+- **State Management**: TanStack React Query
+- **UI Components**: shadcn/ui (Radix UI primitives)
+- **Styling**: Tailwind CSS v4 with custom theming
+- **Build Tool**: Vite
+- **Design**: Cyber-industrial dark theme with custom fonts.
 
-The frontend follows a page-based architecture with shared layout components. Pages include Dashboard, Vendors, Jobs, Logs, and Settings. The UI uses a cyber-industrial dark theme with custom fonts (Inter and JetBrains Mono).
-
-### Backend Architecture
+### Backend
 - **Framework**: Express.js with TypeScript
-- **API Design**: RESTful JSON API under `/api/*` prefix
-- **Database ORM**: Drizzle ORM with PostgreSQL dialect
-- **Schema Validation**: Zod with drizzle-zod integration for type-safe API validation
-
-The server handles CRUD operations for vendors, incidents, jobs, and configuration. Routes are registered in `server/routes.ts` and storage operations are abstracted in `server/storage.ts`.
+- **API Design**: RESTful JSON API (`/api/*`)
+- **Database ORM**: Drizzle ORM with PostgreSQL
+- **Schema Validation**: Zod with drizzle-zod
 
 ### Authentication
-- **Provider**: Replit Auth via OpenID Connect
-- **Session Storage**: PostgreSQL-backed sessions via connect-pg-simple
-- **Auth Routes**: `/api/login`, `/api/logout`, `/api/callback`, `/api/auth/user`
-- **Protected Routes**: All API endpoints require authentication via `isAuthenticated` middleware
-- **Client Integration**: `useAuth` hook provides user state, loading status, and logout
-- **Landing Page**: Unauthenticated users see a marketing landing page with login button
+- **Provider**: Replit Auth (OpenID Connect)
+- **Session Storage**: PostgreSQL-backed sessions
+- **Access Control**: `isAuthenticated` middleware for all API endpoints.
+- **Two-Factor Authentication (2FA)**: TOTP-based 2FA with recovery codes.
 
 ### Data Model
-Six main entities:
-1. **Users**: Authenticated users from Replit Auth (stored in `users` table)
-2. **Sessions**: User sessions for authentication persistence (stored in `sessions` table)
-3. **Vendors**: Third-party services being monitored (Microsoft 365, AWS, Azure, etc.)
-4. **Incidents**: Detected outages and issues with severity/impact tracking
-5. **Jobs**: Scraping task definitions with schedules and status
-6. **Config**: Key-value configuration storage
+Key entities include Users, Sessions, Vendors, Incidents, Jobs, and Configuration. Dedicated tables for Blockchain Chains, Incidents, and User Subscriptions, as well as Notification Consents, Incident Alerts, Vendor Reliability Stats, Custom Vendor Requests, and User Vendor Orders.
 
-### Development vs Production
-- Development uses Vite dev server with HMR proxied through Express
-- Production builds client to `dist/public` and bundles server with esbuild
-- Static files served directly in production mode
+### Development & Production
+- **Development**: Vite dev server with HMR proxied through Express.
+- **Production**: Client built to `dist/public`, server bundled with esbuild.
+
+### Feature Specifications
+- **Vendor Monitoring**: Automated monitoring of 24+ vendor status pages every 5 minutes, supporting Statuspage.io JSON API, custom JSON APIs, and HTML scraping.
+- **Blockchain Monitoring**: Dedicated `/blockchain` page for monitoring various blockchain networks across different tiers and categories, integrating with Statuspage.io APIs.
+- **Notification System**: Dispatches alerts for incident creation, updates, and resolution via email (Resend) and SMS (Twilio), with consent tracking and deduplication.
+- **Subscription Management**: Supports Standard, Gold, and Platinum tiers with varying vendor limits and features (e.g., custom vendor requests for Gold, direct vendor adding for Platinum), integrated with Stripe for billing.
+- **User Preferences**: Allows users to manage notification preferences (email, SMS toggles), subscribe to specific vendors, and reorder vendor display.
+- **Admin Features**: `isAdmin` flag controls access to administrative pages and API routes (e.g., Jobs, Logs, Consents management).
+- **MSP-Focused Features**:
+    - **Customer-Ready Alert Summaries**: Generates neutral incident summaries for client communication.
+    - **Vendor Reliability Tracking**: Monitors and rates vendor performance based on incident history.
+    - **Customer Impact Tagging**: Allows users to tag vendors with high/medium/low customer impact.
+    - **Weekly Digest Emails**: Sends periodic summaries of incidents to users.
+- **Owner-Only Parser Alerts**: Health alerts for scraping failures are sent exclusively to the designated owner user.
 
 ## External Dependencies
 
 ### Database
-- **PostgreSQL**: Primary database accessed via `DATABASE_URL` environment variable
-- **Drizzle Kit**: Database migrations stored in `/migrations` directory
-- Schema push available via `npm run db:push`
+- **PostgreSQL**: Primary data store.
+- **Drizzle Kit**: For database migrations.
 
 ### Third-Party Services Monitored
-The application monitors 24 vendor status pages automatically every 5 minutes:
+- **Statuspage.io**: For 13 vendors (e.g., Akamai, Atlassian, Cloudflare).
+- **Custom JSON APIs**: Slack, Salesforce.
+- **HTML Scraping**: For 10 vendors (e.g., AWS, Azure, Microsoft 365).
+- **Blockchain APIs**: Statuspage.io APIs for Solana, Avalanche, Base, Infura, Alchemy, QuickNode, The Graph, Stellar.
 
-**Statuspage.io JSON API** (13 vendors):
-- Akamai, Atlassian, Cloudflare, Fireblocks, HubSpot, Kaseya, Oracle NetSuite, Ping Identity, QuickBooks Online, SentinelOne, Veeam Data Cloud, Zoom
+### Notification Providers
+- **Resend**: For email notifications (`RESEND_API_KEY`).
+- **Twilio**: For SMS notifications (via Replit integration).
 
-**Custom JSON APIs**:
-- Slack (status.slack.com/api/v2.0.0/current)
-- Salesforce (api.status.salesforce.com/v1/incidents/active)
+### Payment Gateway
+- **Stripe**: For subscription management and customer portal integration, configured via `STRIPE_PRICE_*` environment variables.
 
-**HTML Scraping** (10 vendors without public APIs):
-- AWS, Azure, Microsoft 365, Google Workspace, Okta, Auth0, Fastly, ConnectWise, N-able, Syncro
-
-### Automatic Status Sync
-- **Module**: `server/statusSync.ts` - unified sync for all parser types
-- **HTML Scraper**: `server/htmlScraper.ts` - cheerio-based HTML parsing
-- **Interval**: 5 minutes via setInterval in `server/index.ts`
-- **Parser Types**: 
-  - `statuspage_json` - Standard Statuspage.io API
-  - `slack_json` - Slack's custom API format
-  - `manual` - HTML scraping fallback for blocked APIs
-
-### Blockchain Infrastructure Monitoring
-- **Page**: `/blockchain` - dedicated monitoring page for blockchain networks
-- **Tables**: `blockchain_chains`, `blockchain_incidents`, `user_blockchain_subscriptions`
-- **Sync Module**: `server/blockchainSync.ts` - polls Statuspage.io APIs for blockchain status
-- **Interval**: Same 5-minute cycle as vendor sync
-
-**Blockchain Tiers**:
-- **Tier 1** (Core Networks): Bitcoin, Ethereum, Solana, Polygon, BNB Smart Chain
-- **Tier 2** (Infrastructure-Critical): Avalanche, Arbitrum, Optimism, Base
-- **Tier 3** (Enterprise/Custody): TRON, Stellar, XRP Ledger, Cosmos Hub
-- **Tier 4** (Dependencies): Infura, Alchemy, QuickNode, The Graph
-
-**Categories**: chain, l2, rpc_provider, indexer
-
-**Source Types**:
-- `statuspage` - Chains with Statuspage.io APIs (Solana, Avalanche, Base, Infura, Alchemy, QuickNode, The Graph, Stellar)
-- `api` - Direct blockchain RPC/explorer APIs (Bitcoin, Ethereum, etc.) - not yet implemented
-- `manual` - Chains without automated monitoring (Polygon, Arbitrum, Optimism)
-
-**API Routes**:
-- `/api/blockchain/chains` - List all chains
-- `/api/blockchain/chains/tier/:tier` - Filter by tier
-- `/api/blockchain/incidents` - All blockchain incidents
-- `/api/blockchain/incidents/active` - Active incidents only
-- `/api/blockchain/stats` - Aggregated statistics
-- `/api/blockchain/sync` (POST) - Trigger manual sync
-
-### Key npm Dependencies
-- `@tanstack/react-query`: Data fetching and caching
-- `drizzle-orm` / `drizzle-zod`: Database ORM and validation
-- `express`: HTTP server framework
-- `recharts`: Dashboard charting
-- Full shadcn/ui component set via Radix UI primitives
-
-### Replit Integration
-- Custom Vite plugins for dev banner and cartographer
-- Meta images plugin for OpenGraph tags
-- Runtime error overlay for development
-
-### Email Notifications (Resend)
-- **Provider**: Resend API (not using Replit integration - user preference)
-- **API Key**: Stored in `RESEND_API_KEY` environment secret
-- **From Email**: Configurable via Settings page, stored in database config (`email_from` key)
-- **Routes**: `/api/email/config` (GET/PUT), `/api/email/test` (POST)
-- **Client**: `server/emailClient.ts` - uses Resend API directly
-
-### SMS Notifications (Twilio)
-- **Provider**: Twilio via Replit integration
-- **Routes**: `/api/sms/test` for testing
-
-### Notification System
-- **Dispatcher**: `server/notificationDispatcher.ts` - sends alerts on incident create/update/resolve
-- **Alert Tracking**: `incident_alerts` table prevents duplicate notifications
-- **Consent**: TCPA-compliant consent tracking in `notification_consents` table
-- **Compliance Endpoint**: `/compliance/consents?token=COMPLIANCE_ACCESS_TOKEN`
-
-### Vendor Subscriptions
-- **Table**: `user_vendor_subscriptions` tracks which vendors each user monitors
-- **Logic**: 
-  - No preferences set = monitor all vendors (including future vendors)
-  - Custom selection saved = monitor only selected vendors
-  - Empty selection = monitor no vendors (no notifications)
-- **Routes**: `/api/vendor-subscriptions` (GET/PUT/DELETE), `/api/my-vendors`, `/api/my-incidents`
-- **Config Flag**: `vendor_subscriptions_set:{userId}` tracks if user has customized preferences
-- **Reset**: DELETE `/api/vendor-subscriptions` clears custom preferences to restore default (all vendors)
-- **UI**: Settings > Notifications tab includes vendor selection checkboxes with Select All, Clear All, Reset to Monitor All, and Save Custom Selection buttons
-
-### Vendor Display Order
-- **Table**: `user_vendor_order` stores per-user vendor display order (userId, vendorKey, displayOrder)
-- **Routes**: `/api/vendor-order` (GET/PUT) - get and save vendor order
-- **Logic**: `/api/my-vendors` returns vendors sorted by user's saved order (unordered vendors appear at end)
-- **UI**: Settings > Notifications tab has drag-and-drop reordering with @dnd-kit/sortable
-- **Key Files**: `client/src/pages/settings.tsx` (SortableVendorItem component), `server/storage.ts` (getOrderedVendorsForUser)
-
-### Subscription Tiers
-- **Tiers**: Standard ($89.99, 10 vendors), Gold ($99.99, 25 vendors + 5 custom requests), Platinum ($129.99, unlimited)
-- **Table**: `users.subscriptionTier` stores current tier (standard/gold/platinum)
-- **Custom Requests Table**: `custom_vendor_requests` for Gold users to request new vendor integrations
-- **Routes**:
-  - `/api/vendor-limit` - Get current user's tier info and limits
-  - `/api/vendor-requests` (GET/POST/DELETE) - Custom vendor request management
-  - `/api/vendors/direct` (POST) - Direct vendor add for Platinum users
-- **Tier Enforcement**:
-  - Standard: Can monitor up to 10 vendors, no custom vendor requests
-  - Gold: Can monitor up to 25 vendors, submit up to 5 custom vendor requests
-  - Platinum: Unlimited vendors, can add vendors directly to system
-- **Security**: POST `/api/vendors` and `/api/vendors/direct` both require Platinum tier
-- **UI**: Vendors page shows tier-appropriate dialog (request form for Gold, direct add for Platinum, upgrade prompt for Standard)
-- **Stripe Integration**: Price IDs configured via `STRIPE_PRICE_STANDARD`, `STRIPE_PRICE_GOLD`, `STRIPE_PRICE_PLATINUM` env vars
-- **Key Files**: `shared/schema.ts` (SUBSCRIPTION_TIERS constant), `server/routes.ts` (tier validation)
-
-### User Notification Preferences
-- **Fields**: `users.notificationEmail` (separate from auth email), `users.phone`, `users.notifyEmail`, `users.notifySms`
-- **Routes**: `/api/notifications/preferences` (GET/PUT) - manage notification email, phone, and toggles
-- **Logic**: 
-  - `notificationEmail` is separate from auth email - user can change it without affecting login
-  - Falls back to auth email if `notificationEmail` is null
-  - Toggles allow users to unsubscribe from email/SMS without deleting contact info
-- **UI**: Settings > Notifications tab shows editable email and phone fields with clear subscribe/unsubscribe toggles
-- **Consent**: TCPA consent is recorded when user enables notifications
-
-### Subscription Management (Stripe Customer Portal)
-- **Route**: `/api/subscription/portal` (POST) - creates Stripe Billing Portal session
-- **Requirements**: User must have `stripeCustomerId` set (i.e., have an active subscription)
-- **Features**: Update payment method, view invoices, change plan, cancel subscription
-- **UI**: Settings > Notifications tab has "Manage My Subscription" button that opens Stripe portal
-
-### Admin-Only Features
-- **Field**: `users.isAdmin` boolean field (default false)
-- **Middleware**: `isAdmin` middleware in `server/routes.ts` checks user's admin status
-- **Admin-Only Pages**: Jobs, Logs, Consents tabs are hidden from sidebar for non-admins
-- **Admin-Only Routes**: 
-  - All `/api/jobs/*` endpoints require admin
-  - GET `/api/consents` (view all consents) requires admin
-- **User Access**: Users can still POST consents, view their own consents via `/api/consents/user`, and revoke their own
-- **UI**: `client/src/components/layout.tsx` filters navItems based on `user?.isAdmin`
-
-### MSP-Focused Features
-
-#### Customer-Ready Alert Summaries
-- **Module**: `server/customerSummaryGenerator.ts`
-- **Purpose**: Generates neutral, professional incident summaries safe for direct client communication
-- **Features**: No blame language, copy-paste ready, includes templates for email/SMS
-- **Integration**: Summaries included in email notifications via `notificationDispatcher.ts`
-
-#### Vendor Reliability Tracking
-- **Module**: `server/reliabilityTracker.ts`
-- **Table**: `vendor_reliability_stats` stores metrics per vendor
-- **Metrics**: Incidents count (30/90 day), avg resolution time, escalation %, long-running count
-- **Rating**: good (0-1 incidents), fair (2-4), poor (5+)
-- **Routes**: `/api/vendor-reliability` (GET), `/api/vendor-reliability/:vendorKey` (GET), `/api/vendor-reliability/refresh` (POST, admin)
-
-#### Customer Impact Tagging
-- **Field**: `user_vendor_subscriptions.customerImpact` (high/medium/low)
-- **Routes**: `/api/vendor-impact` (GET), `/api/vendor-impact/:vendorKey` (PUT)
-- **UI**: Settings > Notifications tab shows impact dropdown per vendor with color-coded left borders (red=high, yellow=medium, blue=low)
-- **Logic**: Works with both explicit subscriptions and "monitor all" default mode
-
-#### Weekly Digest Emails
-- **Module**: `server/weeklyDigest.ts`
-- **Table**: `weekly_digests` tracks sent digests (userId, periodStart, periodEnd, sentAt)
-- **Route**: `/api/digest/send` (POST, admin) - triggers digest send
-- **Content**: Incident counts per vendor, or "silence is good" message when no incidents
-- **Recipients**: All users with email notifications enabled
+### Key npm Libraries
+- `@tanstack/react-query`
+- `drizzle-orm`, `drizzle-zod`
+- `express`
+- `recharts`
+- `shadcn/ui`, `radix-ui`
+- `wouter`
+- `otpauth` (for 2FA)
+- `@dnd-kit/sortable` (for UI reordering)

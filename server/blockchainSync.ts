@@ -1,5 +1,7 @@
 import { storage } from "./storage";
 import { fetchWithRetry } from "./retryUtil";
+import { notifyNewBlockchainIncident, notifyBlockchainIncidentUpdate, notifyBlockchainIncidentResolved } from "./notificationDispatcher";
+import type { BlockchainChain } from "@shared/schema";
 
 interface StatusPageResponse {
   status: {
@@ -127,45 +129,60 @@ async function fetchStatuspageStatus(chain: { key: string; statusUrl?: string | 
   }
 }
 
-async function syncBlockchainChain(chain: { key: string; name: string; sourceType: string; statusUrl?: string | null }): Promise<void> {
-  console.log(`[blockchain:${chain.key}] Syncing status...`);
+async function syncBlockchainChain(chainData: { key: string; name: string; sourceType: string; statusUrl?: string | null }): Promise<void> {
+  console.log(`[blockchain:${chainData.key}] Syncing status...`);
   
   let result: { status: string; incidents: BlockchainIncidentData[]; success: boolean; errorMessage?: string };
   
-  if (chain.sourceType === 'statuspage') {
-    result = await fetchStatuspageStatus(chain);
+  if (chainData.sourceType === 'statuspage') {
+    result = await fetchStatuspageStatus(chainData);
   } else {
-    console.log(`[blockchain:${chain.key}] Skipping - sourceType '${chain.sourceType}' not yet supported`);
+    console.log(`[blockchain:${chainData.key}] Skipping - sourceType '${chainData.sourceType}' not yet supported`);
     return;
   }
   
   if (!result.success) {
-    console.log(`[blockchain:${chain.key}] Sync failed: ${result.errorMessage}`);
+    console.log(`[blockchain:${chainData.key}] Sync failed: ${result.errorMessage}`);
     return;
   }
   
-  await storage.updateBlockchainChain(chain.key, {
+  await storage.updateBlockchainChain(chainData.key, {
     status: result.status,
     lastChecked: new Date(),
   });
   
-  console.log(`[blockchain:${chain.key}] Status updated to: ${result.status}`);
+  console.log(`[blockchain:${chainData.key}] Status updated to: ${result.status}`);
+  
+  const fullChain = await storage.getBlockchainChain(chainData.key);
+  if (!fullChain) {
+    console.log(`[blockchain:${chainData.key}] Chain not found in database`);
+    return;
+  }
   
   for (const incident of result.incidents) {
-    const existingIncidents = await storage.getBlockchainIncidentsByChain(chain.key);
+    const existingIncidents = await storage.getBlockchainIncidentsByChain(chainData.key);
     const existing = existingIncidents.find(i => i.incidentId === incident.id);
     
     if (existing) {
       if (existing.status !== incident.status) {
-        await storage.updateBlockchainIncident(existing.id, {
+        const previousStatus = existing.status;
+        const updated = await storage.updateBlockchainIncident(existing.id, {
           status: incident.status,
           updatedAt: incident.updated_at,
         });
-        console.log(`[blockchain:${chain.key}] Updated incident: ${incident.name}`);
+        console.log(`[blockchain:${chainData.key}] Updated incident: ${incident.name}`);
+        
+        if (updated) {
+          if (incident.status === 'resolved') {
+            await notifyBlockchainIncidentResolved(updated, fullChain);
+          } else {
+            await notifyBlockchainIncidentUpdate(updated, fullChain, previousStatus);
+          }
+        }
       }
     } else {
-      await storage.createBlockchainIncident({
-        chainKey: chain.key,
+      const newIncident = await storage.createBlockchainIncident({
+        chainKey: chainData.key,
         incidentId: incident.id,
         incidentType: mapIncidentType(incident.impact),
         title: incident.name,
@@ -175,7 +192,9 @@ async function syncBlockchainChain(chain: { key: string; name: string; sourceTyp
         startedAt: incident.created_at,
         updatedAt: incident.updated_at,
       });
-      console.log(`[blockchain:${chain.key}] Created incident: ${incident.name}`);
+      console.log(`[blockchain:${chainData.key}] Created incident: ${incident.name}`);
+      
+      await notifyNewBlockchainIncident(newIncident, fullChain);
     }
   }
 }
