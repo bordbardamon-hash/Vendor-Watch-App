@@ -1,7 +1,7 @@
 import { APP_NAME } from "@/lib/labels";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Shield, Activity, Bell, Zap, CheckCircle2, AlertTriangle, XCircle, Cloud, Database, Globe, Server } from "lucide-react";
+import { Shield, Activity, Bell, Zap, CheckCircle2, AlertTriangle, XCircle, Cloud, Database, Globe, Server, Boxes, Check, X } from "lucide-react";
 import { Link } from "wouter";
 
 function DashboardPreview() {
@@ -192,6 +192,108 @@ export default function Landing() {
                   Track all your vendors in one place with a clean, cyber-industrial interface
                 </CardDescription>
               </CardHeader>
+            </Card>
+          </div>
+        </section>
+
+        <section className="container mx-auto px-4 py-16 border-t">
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium mb-4">
+              <Boxes className="h-4 w-4" />
+              New Feature
+            </div>
+            <h2 className="text-3xl font-bold mb-4">Blockchain Infrastructure Monitoring</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Monitor blockchain network health, RPC provider availability, and Layer 2 status in real-time. 
+              Track chain liveness, finality, and infrastructure dependencies.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-4 gap-4 max-w-4xl mx-auto mb-12">
+            <div className="bg-card/50 rounded-lg p-4 border text-center">
+              <div className="text-2xl font-bold text-primary">17</div>
+              <div className="text-sm text-muted-foreground">Networks Supported</div>
+            </div>
+            <div className="bg-card/50 rounded-lg p-4 border text-center">
+              <div className="text-2xl font-bold text-green-500">L1 & L2</div>
+              <div className="text-sm text-muted-foreground">Chain Coverage</div>
+            </div>
+            <div className="bg-card/50 rounded-lg p-4 border text-center">
+              <div className="text-2xl font-bold text-blue-500">4</div>
+              <div className="text-sm text-muted-foreground">RPC Providers</div>
+            </div>
+            <div className="bg-card/50 rounded-lg p-4 border text-center">
+              <div className="text-2xl font-bold text-yellow-500">5 min</div>
+              <div className="text-sm text-muted-foreground">Sync Interval</div>
+            </div>
+          </div>
+        </section>
+
+        <section className="container mx-auto px-4 py-16 border-t">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold mb-4">Choose Your Plan</h2>
+            <p className="text-muted-foreground">Flexible pricing for MSPs of all sizes</p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+            <Card className="bg-card/50 border-2" data-testid="card-pricing-standard">
+              <CardHeader>
+                <CardTitle className="text-xl">Standard</CardTitle>
+                <div className="text-3xl font-bold">$89.99<span className="text-sm font-normal text-muted-foreground">/mo</span></div>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-3 text-sm">
+                  <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Up to 10 vendors</li>
+                  <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Email & SMS alerts</li>
+                  <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Weekly digest emails</li>
+                  <li className="flex items-center gap-2 text-muted-foreground"><X className="h-4 w-4 text-red-500" /> No blockchain monitoring</li>
+                  <li className="flex items-center gap-2 text-muted-foreground"><X className="h-4 w-4 text-red-500" /> No custom vendor requests</li>
+                </ul>
+                <Link href="/signup?tier=standard">
+                  <Button className="w-full mt-6" variant="outline" data-testid="button-signup-standard">Get Started</Button>
+                </Link>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-card/50 border-2 border-primary relative" data-testid="card-pricing-gold">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-primary text-primary-foreground text-xs font-medium rounded-full">
+                Most Popular
+              </div>
+              <CardHeader>
+                <CardTitle className="text-xl">Gold</CardTitle>
+                <div className="text-3xl font-bold">$99.99<span className="text-sm font-normal text-muted-foreground">/mo</span></div>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-3 text-sm">
+                  <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Up to 25 vendors</li>
+                  <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Email & SMS alerts</li>
+                  <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Weekly digest emails</li>
+                  <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> 3 blockchain networks</li>
+                  <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> 5 custom vendor requests</li>
+                </ul>
+                <Link href="/signup?tier=gold">
+                  <Button className="w-full mt-6" data-testid="button-signup-gold">Get Started</Button>
+                </Link>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-card/50 border-2" data-testid="card-pricing-platinum">
+              <CardHeader>
+                <CardTitle className="text-xl">Platinum</CardTitle>
+                <div className="text-3xl font-bold">$129.99<span className="text-sm font-normal text-muted-foreground">/mo</span></div>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-3 text-sm">
+                  <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Unlimited vendors</li>
+                  <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Email & SMS alerts</li>
+                  <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Weekly digest emails</li>
+                  <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Unlimited blockchain networks</li>
+                  <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Direct vendor addition</li>
+                </ul>
+                <Link href="/signup?tier=platinum">
+                  <Button className="w-full mt-6" variant="outline" data-testid="button-signup-platinum">Get Started</Button>
+                </Link>
+              </CardContent>
             </Card>
           </div>
         </section>

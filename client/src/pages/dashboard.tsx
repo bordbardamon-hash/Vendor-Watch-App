@@ -13,7 +13,8 @@ import {
   Server,
   Bell,
   Mail,
-  MessageSquare
+  MessageSquare,
+  Boxes
 } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
 import { Badge } from "@/components/ui/badge";
@@ -107,8 +108,19 @@ export default function Dashboard() {
     },
   });
 
+  const { data: blockchainStats } = useQuery({
+    queryKey: ["/api/blockchain/stats"],
+    queryFn: async () => {
+      const res = await fetch("/api/blockchain/stats");
+      if (!res.ok) return null;
+      return res.json();
+    },
+  });
+
   const vendorCount = vendors.length;
   const incidentCount = incidents.filter((i: any) => i.status !== 'resolved').length;
+  const blockchainCount = blockchainStats?.totalChains || 0;
+  const blockchainIncidentCount = blockchainStats?.activeIncidents || 0;
 
   const handleSaveEmail = () => {
     if (!emailAddress.trim()) {
@@ -360,15 +372,16 @@ export default function Dashboard() {
             trend="up"
           />
         </div>
-        <div className="animate-fade-in-up opacity-0 stagger-4">
+        <Link href="/blockchain" data-testid="link-blockchain-metric" className="animate-fade-in-up opacity-0 stagger-4">
           <MetricCard 
-            title={UI_LABELS.cards.uptime}
-            value="4d 12h" 
-            change="" 
-            icon={Clock}
-            trend="neutral" 
+            title="Blockchains"
+            value={blockchainCount.toString()} 
+            change={blockchainIncidentCount > 0 ? `${blockchainIncidentCount} incidents` : ""} 
+            icon={Boxes}
+            trend={blockchainIncidentCount > 0 ? "down" : "neutral"}
+            clickable
           />
-        </div>
+        </Link>
       </div>
 
       <div className="grid gap-4 md:grid-cols-7">
