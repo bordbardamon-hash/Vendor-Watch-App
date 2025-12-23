@@ -67,9 +67,35 @@ function mapStatusIndicator(indicator: string): string {
   }
 }
 
+interface MaintenanceData {
+  id: string;
+  name: string;
+  status: string;
+  impact: string;
+  shortlink?: string;
+  scheduled_for: string;
+  scheduled_until?: string;
+  started_at?: string;
+  completed_at?: string;
+  components?: Array<{ id: string; name: string; status: string }>;
+}
+
+interface BlockchainMaintenanceData {
+  id: string;
+  name: string;
+  status: string;
+  impact: string;
+  shortlink?: string;
+  scheduled_for: string;
+  scheduled_until?: string;
+  started_at?: string;
+  completed_at?: string;
+}
+
 async function fetchStatuspageJson(vendor: { key: string; statusUrl: string }): Promise<{ 
   status: string; 
   incidents: any[]; 
+  maintenances: MaintenanceData[];
   success: boolean; 
   httpStatus?: number; 
   errorMessage?: string 
@@ -92,13 +118,16 @@ async function fetchStatuspageJson(vendor: { key: string; statusUrl: string }): 
         httpStatus: response.status, 
         errorMessage: `HTTP ${response.status}` 
       });
-      return { status: 'unknown', incidents: [], success: false, httpStatus: response.status };
+      return { status: 'unknown', incidents: [], maintenances: [], success: false, httpStatus: response.status };
     }
     
     const data: StatusPageResponse = await response.json();
     const status = mapStatusIndicator(data.status?.indicator);
     
     let incidents: any[] = [];
+    let maintenances: MaintenanceData[] = [];
+    
+    // Fetch incidents
     try {
       const incidentsUrl = `${apiBase}/api/v2/incidents/unresolved.json`;
       const incidentsRes = await fetchWithRetry(incidentsUrl, {
@@ -115,13 +144,30 @@ async function fetchStatuspageJson(vendor: { key: string; statusUrl: string }): 
       console.log(`[${vendor.key}] Could not fetch incidents`);
     }
     
+    // Fetch scheduled maintenances (active and upcoming)
+    try {
+      const maintenancesUrl = `${apiBase}/api/v2/scheduled_maintenances.json`;
+      const maintenancesRes = await fetchWithRetry(maintenancesUrl, {
+        headers: { 
+          'Accept': 'application/json',
+          'User-Agent': 'VendorWatch/1.0'
+        },
+      });
+      if (maintenancesRes.ok) {
+        const maintenancesData = await maintenancesRes.json();
+        maintenances = maintenancesData.scheduled_maintenances || [];
+      }
+    } catch (e) {
+      console.log(`[${vendor.key}] Could not fetch maintenances`);
+    }
+    
     await recordParseResult(vendor.key, { 
       success: true, 
       httpStatus: 200, 
       incidentsParsed: incidents.length 
     });
     
-    return { status, incidents, success: true, httpStatus: 200 };
+    return { status, incidents, maintenances, success: true, httpStatus: 200 };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.log(`[${vendor.key}] Failed to fetch status:`, errorMessage);
@@ -129,7 +175,7 @@ async function fetchStatuspageJson(vendor: { key: string; statusUrl: string }): 
       success: false, 
       errorMessage 
     });
-    return { status: 'unknown', incidents: [], success: false, errorMessage };
+    return { status: 'unknown', incidents: [], maintenances: [], success: false, errorMessage };
   }
 }
 
@@ -137,6 +183,7 @@ async function fetchStatuspageJson(vendor: { key: string; statusUrl: string }): 
 async function fetchAwsStatus(vendor: { key: string; statusUrl: string }): Promise<{ 
   status: string; 
   incidents: any[]; 
+  maintenances: MaintenanceData[];
   success: boolean; 
   httpStatus?: number; 
   errorMessage?: string 
@@ -156,7 +203,7 @@ async function fetchAwsStatus(vendor: { key: string; statusUrl: string }): Promi
         httpStatus: response.status, 
         errorMessage: `HTTP ${response.status}` 
       });
-      return { status: 'unknown', incidents: [], success: false, httpStatus: response.status };
+      return { status: 'unknown', incidents: [], maintenances: [], success: false, httpStatus: response.status };
     }
     
     // Read as text first to handle potential encoding issues
@@ -169,7 +216,7 @@ async function fetchAwsStatus(vendor: { key: string; statusUrl: string }): Promi
         httpStatus: 200, 
         incidentsParsed: 0 
       });
-      return { status: 'operational', incidents: [], success: true, httpStatus: 200 };
+      return { status: 'operational', incidents: [], maintenances: [], success: true, httpStatus: 200 };
     }
     
     // Parse the JSON text
@@ -182,7 +229,7 @@ async function fetchAwsStatus(vendor: { key: string; statusUrl: string }): Promi
         success: false, 
         errorMessage: 'JSON parse error' 
       });
-      return { status: 'unknown', incidents: [], success: false, errorMessage: 'JSON parse error' };
+      return { status: 'unknown', incidents: [], maintenances: [], success: false, errorMessage: 'JSON parse error' };
     }
     
     // AWS data.json returns an array of service entries or events
@@ -224,7 +271,7 @@ async function fetchAwsStatus(vendor: { key: string; statusUrl: string }): Promi
       incidentsParsed: incidents.length 
     });
     
-    return { status: overallStatus, incidents, success: true, httpStatus: 200 };
+    return { status: overallStatus, incidents, maintenances: [], success: true, httpStatus: 200 };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.log(`[aws] Failed to fetch status:`, errorMessage);
@@ -232,7 +279,7 @@ async function fetchAwsStatus(vendor: { key: string; statusUrl: string }): Promi
       success: false, 
       errorMessage 
     });
-    return { status: 'unknown', incidents: [], success: false, errorMessage };
+    return { status: 'unknown', incidents: [], maintenances: [], success: false, errorMessage };
   }
 }
 
@@ -240,6 +287,7 @@ async function fetchAwsStatus(vendor: { key: string; statusUrl: string }): Promi
 async function fetchSlackStatus(vendor: { key: string; statusUrl: string }): Promise<{ 
   status: string; 
   incidents: any[]; 
+  maintenances: MaintenanceData[];
   success: boolean; 
   httpStatus?: number; 
   errorMessage?: string 
@@ -259,7 +307,7 @@ async function fetchSlackStatus(vendor: { key: string; statusUrl: string }): Pro
         httpStatus: response.status, 
         errorMessage: `HTTP ${response.status}` 
       });
-      return { status: 'unknown', incidents: [], success: false, httpStatus: response.status };
+      return { status: 'unknown', incidents: [], maintenances: [], success: false, httpStatus: response.status };
     }
     
     const data = await response.json();
@@ -281,7 +329,7 @@ async function fetchSlackStatus(vendor: { key: string; statusUrl: string }): Pro
       incidentsParsed: incidents.length 
     });
     
-    return { status: overallStatus, incidents, success: true, httpStatus: 200 };
+    return { status: overallStatus, incidents, maintenances: [], success: true, httpStatus: 200 };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.log(`[slack] Failed to fetch status:`, errorMessage);
@@ -289,7 +337,7 @@ async function fetchSlackStatus(vendor: { key: string; statusUrl: string }): Pro
       success: false, 
       errorMessage 
     });
-    return { status: 'unknown', incidents: [], success: false, errorMessage };
+    return { status: 'unknown', incidents: [], maintenances: [], success: false, errorMessage };
   }
 }
 
@@ -434,6 +482,36 @@ export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: nu
                 }).catch(err => console.error('[notify] Failed to send update notification:', err));
               }
             }
+          }
+        }
+        
+        // Process scheduled maintenances
+        if (result.maintenances && result.maintenances.length > 0) {
+          for (const maint of result.maintenances) {
+            // Map Statuspage maintenance status to our status
+            let maintenanceStatus = 'scheduled';
+            if (maint.status === 'in_progress') maintenanceStatus = 'in_progress';
+            else if (maint.status === 'verifying') maintenanceStatus = 'verifying';
+            else if (maint.status === 'completed') maintenanceStatus = 'completed';
+            
+            const affectedComponents = (maint as MaintenanceData).components?.map((c: { name: string }) => c.name).join(', ') || '';
+            
+            await storage.upsertVendorMaintenance({
+              vendorKey: vendor.key,
+              maintenanceId: maint.id,
+              title: maint.name,
+              description: undefined,
+              status: maintenanceStatus,
+              impact: maint.impact || 'maintenance',
+              url: maint.shortlink || vendor.statusUrl,
+              scheduledStartAt: maint.scheduled_for,
+              scheduledEndAt: maint.scheduled_until || undefined,
+              actualStartAt: maint.started_at || undefined,
+              actualEndAt: maint.completed_at || undefined,
+              affectedComponents: affectedComponents || undefined,
+              rawHash: undefined,
+            });
+            console.log(`  → Maintenance: ${maint.name} [${maintenanceStatus}]`);
           }
         }
         

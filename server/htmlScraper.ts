@@ -3,6 +3,18 @@ import { fetchWithRetry } from './retryUtil';
 import { recordParseResult } from './parserHealthTracker';
 import * as crypto from 'crypto';
 
+interface MaintenanceData {
+  id: string;
+  name: string;
+  status: string;
+  impact: string;
+  shortlink?: string;
+  scheduled_for: string;
+  scheduled_until?: string;
+  started_at?: string;
+  completed_at?: string;
+}
+
 interface ScrapedStatus {
   status: 'operational' | 'degraded' | 'outage' | 'unknown';
   incidents: Array<{
@@ -14,6 +26,7 @@ interface ScrapedStatus {
     created_at: string;
     updated_at: string;
   }>;
+  maintenances: MaintenanceData[];
   success: boolean;
   httpStatus?: number;
   errorMessage?: string;
@@ -81,12 +94,12 @@ export async function scrapeAwsStatus(vendor: { key: string; statusUrl: string }
   
   if (!result) {
     await recordParseResult(vendor.key, { success: false, errorMessage: 'Failed to fetch HTML' });
-    return { status: 'unknown', incidents: [], success: false, errorMessage: 'Failed to fetch HTML' };
+    return { status: 'unknown', incidents: [], maintenances: [], success: false, errorMessage: 'Failed to fetch HTML' };
   }
   
   if (result.status !== 200) {
     await recordParseResult(vendor.key, { success: false, httpStatus: result.status });
-    return { status: 'unknown', incidents: [], success: false, httpStatus: result.status };
+    return { status: 'unknown', incidents: [], maintenances: [], success: false, httpStatus: result.status };
   }
   
   try {
@@ -96,11 +109,11 @@ export async function scrapeAwsStatus(vendor: { key: string; statusUrl: string }
     const overallStatus = detectStatusFromText(pageText);
     
     await recordParseResult(vendor.key, { success: true, httpStatus: 200, incidentsParsed: 0 });
-    return { status: overallStatus, incidents: [], success: true, httpStatus: 200 };
+    return { status: overallStatus, incidents: [], maintenances: [], success: true, httpStatus: 200 };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Parse error';
     await recordParseResult(vendor.key, { success: false, errorMessage });
-    return { status: 'unknown', incidents: [], success: false, errorMessage };
+    return { status: 'unknown', incidents: [], maintenances: [], success: false, errorMessage };
   }
 }
 
@@ -109,12 +122,12 @@ export async function scrapeStatuspageHtml(vendor: { key: string; statusUrl: str
   
   if (!result) {
     await recordParseResult(vendor.key, { success: false, errorMessage: 'Failed to fetch HTML' });
-    return { status: 'unknown', incidents: [], success: false, errorMessage: 'Failed to fetch HTML' };
+    return { status: 'unknown', incidents: [], maintenances: [], success: false, errorMessage: 'Failed to fetch HTML' };
   }
   
   if (result.status !== 200) {
     await recordParseResult(vendor.key, { success: false, httpStatus: result.status });
-    return { status: 'unknown', incidents: [], success: false, httpStatus: result.status };
+    return { status: 'unknown', incidents: [], maintenances: [], success: false, httpStatus: result.status };
   }
   
   try {
@@ -124,11 +137,11 @@ export async function scrapeStatuspageHtml(vendor: { key: string; statusUrl: str
     const overallStatus = detectStatusFromText(statusSection);
     
     await recordParseResult(vendor.key, { success: true, httpStatus: 200, incidentsParsed: 0 });
-    return { status: overallStatus, incidents: [], success: true, httpStatus: 200 };
+    return { status: overallStatus, incidents: [], maintenances: [], success: true, httpStatus: 200 };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Parse error';
     await recordParseResult(vendor.key, { success: false, errorMessage });
-    return { status: 'unknown', incidents: [], success: false, errorMessage };
+    return { status: 'unknown', incidents: [], maintenances: [], success: false, errorMessage };
   }
 }
 
@@ -137,12 +150,12 @@ export async function scrapeAzureStatus(vendor: { key: string; statusUrl: string
   
   if (!result) {
     await recordParseResult(vendor.key, { success: false, errorMessage: 'Failed to fetch HTML' });
-    return { status: 'unknown', incidents: [], success: false, errorMessage: 'Failed to fetch HTML' };
+    return { status: 'unknown', incidents: [], maintenances: [], success: false, errorMessage: 'Failed to fetch HTML' };
   }
   
   if (result.status !== 200) {
     await recordParseResult(vendor.key, { success: false, httpStatus: result.status });
-    return { status: 'unknown', incidents: [], success: false, httpStatus: result.status };
+    return { status: 'unknown', incidents: [], maintenances: [], success: false, httpStatus: result.status };
   }
   
   try {
@@ -152,11 +165,11 @@ export async function scrapeAzureStatus(vendor: { key: string; statusUrl: string
     const overallStatus = detectStatusFromText(pageText);
     
     await recordParseResult(vendor.key, { success: true, httpStatus: 200, incidentsParsed: 0 });
-    return { status: overallStatus, incidents: [], success: true, httpStatus: 200 };
+    return { status: overallStatus, incidents: [], maintenances: [], success: true, httpStatus: 200 };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Parse error';
     await recordParseResult(vendor.key, { success: false, errorMessage });
-    return { status: 'unknown', incidents: [], success: false, errorMessage };
+    return { status: 'unknown', incidents: [], maintenances: [], success: false, errorMessage };
   }
 }
 
@@ -165,12 +178,12 @@ export async function scrapeMicrosoft365Status(vendor: { key: string; statusUrl:
   
   if (!result) {
     await recordParseResult(vendor.key, { success: false, errorMessage: 'Failed to fetch HTML' });
-    return { status: 'unknown', incidents: [], success: false, errorMessage: 'Failed to fetch HTML' };
+    return { status: 'unknown', incidents: [], maintenances: [], success: false, errorMessage: 'Failed to fetch HTML' };
   }
   
   if (result.status !== 200) {
     await recordParseResult(vendor.key, { success: false, httpStatus: result.status });
-    return { status: 'unknown', incidents: [], success: false, httpStatus: result.status };
+    return { status: 'unknown', incidents: [], maintenances: [], success: false, httpStatus: result.status };
   }
   
   try {
@@ -180,11 +193,11 @@ export async function scrapeMicrosoft365Status(vendor: { key: string; statusUrl:
     const overallStatus = detectStatusFromText(pageText);
     
     await recordParseResult(vendor.key, { success: true, httpStatus: 200, incidentsParsed: 0 });
-    return { status: overallStatus, incidents: [], success: true, httpStatus: 200 };
+    return { status: overallStatus, incidents: [], maintenances: [], success: true, httpStatus: 200 };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Parse error';
     await recordParseResult(vendor.key, { success: false, errorMessage });
-    return { status: 'unknown', incidents: [], success: false, errorMessage };
+    return { status: 'unknown', incidents: [], maintenances: [], success: false, errorMessage };
   }
 }
 
@@ -193,12 +206,12 @@ export async function scrapeGoogleWorkspaceStatus(vendor: { key: string; statusU
   
   if (!result) {
     await recordParseResult(vendor.key, { success: false, errorMessage: 'Failed to fetch HTML' });
-    return { status: 'unknown', incidents: [], success: false, errorMessage: 'Failed to fetch HTML' };
+    return { status: 'unknown', incidents: [], maintenances: [], success: false, errorMessage: 'Failed to fetch HTML' };
   }
   
   if (result.status !== 200) {
     await recordParseResult(vendor.key, { success: false, httpStatus: result.status });
-    return { status: 'unknown', incidents: [], success: false, httpStatus: result.status };
+    return { status: 'unknown', incidents: [], maintenances: [], success: false, httpStatus: result.status };
   }
   
   try {
@@ -208,11 +221,11 @@ export async function scrapeGoogleWorkspaceStatus(vendor: { key: string; statusU
     const overallStatus = detectStatusFromText(pageText);
     
     await recordParseResult(vendor.key, { success: true, httpStatus: 200, incidentsParsed: 0 });
-    return { status: overallStatus, incidents: [], success: true, httpStatus: 200 };
+    return { status: overallStatus, incidents: [], maintenances: [], success: true, httpStatus: 200 };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Parse error';
     await recordParseResult(vendor.key, { success: false, errorMessage });
-    return { status: 'unknown', incidents: [], success: false, errorMessage };
+    return { status: 'unknown', incidents: [], maintenances: [], success: false, errorMessage };
   }
 }
 
@@ -232,10 +245,10 @@ export async function scrapeSalesforceStatus(vendor: { key: string; statusUrl: s
         const statusText = $('body').text();
         const overallStatus = detectStatusFromText(statusText);
         await recordParseResult(vendor.key, { success: true, httpStatus: 200, incidentsParsed: 0 });
-        return { status: overallStatus, incidents: [], success: true, httpStatus: 200 };
+        return { status: overallStatus, incidents: [], maintenances: [], success: true, httpStatus: 200 };
       }
       await recordParseResult(vendor.key, { success: false, httpStatus: response.status });
-      return { status: 'unknown', incidents: [], success: false, httpStatus: response.status };
+      return { status: 'unknown', incidents: [], maintenances: [], success: false, httpStatus: response.status };
     }
     
     const data = await response.json();
@@ -260,13 +273,14 @@ export async function scrapeSalesforceStatus(vendor: { key: string; statusUrl: s
     return { 
       status: incidents.length > 0 ? 'degraded' : 'operational', 
       incidents, 
+      maintenances: [],
       success: true, 
       httpStatus: 200 
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     await recordParseResult(vendor.key, { success: false, errorMessage });
-    return { status: 'unknown', incidents: [], success: false, errorMessage };
+    return { status: 'unknown', incidents: [], maintenances: [], success: false, errorMessage };
   }
 }
 

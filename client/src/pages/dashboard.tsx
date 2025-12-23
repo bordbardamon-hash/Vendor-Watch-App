@@ -14,7 +14,8 @@ import {
   Bell,
   Mail,
   MessageSquare,
-  Boxes
+  Boxes,
+  Wrench
 } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
 import { Badge } from "@/components/ui/badge";
@@ -112,6 +113,15 @@ export default function Dashboard() {
     queryKey: ["/api/blockchain/stats"],
     queryFn: async () => {
       const res = await fetch("/api/blockchain/stats");
+      if (!res.ok) return null;
+      return res.json();
+    },
+  });
+
+  const { data: maintenanceStats } = useQuery({
+    queryKey: ["/api/maintenance/stats"],
+    queryFn: async () => {
+      const res = await fetch("/api/maintenance/stats");
       if (!res.ok) return null;
       return res.json();
     },
@@ -379,6 +389,16 @@ export default function Dashboard() {
             change={blockchainIncidentCount > 0 ? `${blockchainIncidentCount} incidents` : ""} 
             icon={Boxes}
             trend={blockchainIncidentCount > 0 ? "down" : "neutral"}
+            clickable
+          />
+        </Link>
+        <Link href="/maintenance" data-testid="link-maintenance-metric" className="animate-fade-in-up opacity-0 stagger-5">
+          <MetricCard 
+            title="Maintenance"
+            value={(maintenanceStats?.total ?? 0).toString()} 
+            change={((maintenanceStats?.vendorActive ?? 0) + (maintenanceStats?.blockchainActive ?? 0)) > 0 ? `${(maintenanceStats?.vendorActive ?? 0) + (maintenanceStats?.blockchainActive ?? 0)} active` : ""} 
+            icon={Wrench}
+            trend="neutral"
             clickable
           />
         </Link>

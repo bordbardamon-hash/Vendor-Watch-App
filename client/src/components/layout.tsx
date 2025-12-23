@@ -13,7 +13,8 @@ import {
   User,
   FileCheck,
   Boxes,
-  MessageSquare
+  MessageSquare,
+  Wrench
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -42,6 +43,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { href: "/", icon: LayoutDashboard, label: UI_LABELS.nav.overview, adminOnly: false },
     { href: "/vendors", icon: Shield, label: UI_LABELS.nav.vendorsIncidents, adminOnly: false },
     { href: "/blockchain", icon: Boxes, label: "Blockchain", adminOnly: false },
+    { href: "/maintenance", icon: Wrench, label: "Maintenance", adminOnly: false },
     { href: "/jobs", icon: List, label: UI_LABELS.nav.scrapers, adminOnly: true },
     { href: "/logs", icon: Terminal, label: UI_LABELS.nav.logs, adminOnly: true },
     { href: "/consents", icon: FileCheck, label: "Consents", adminOnly: true },

@@ -20,6 +20,18 @@ interface BlockchainIncidentData {
   updated_at: string;
 }
 
+interface BlockchainMaintenanceData {
+  id: string;
+  name: string;
+  status: string;
+  impact: string;
+  shortlink?: string;
+  scheduled_for: string;
+  scheduled_until?: string;
+  started_at?: string;
+  completed_at?: string;
+}
+
 const BLOCKCHAIN_STATUSPAGE_URLS: Record<string, string> = {
   solana: "https://status.solana.com",
   avalanche: "https://status.avax.network",
@@ -78,13 +90,14 @@ function mapSeverity(impact: string): string {
 async function fetchStatuspageStatus(chain: { key: string; statusUrl?: string | null }): Promise<{
   status: string;
   incidents: BlockchainIncidentData[];
+  maintenances: BlockchainMaintenanceData[];
   success: boolean;
   errorMessage?: string;
 }> {
   const apiBase = BLOCKCHAIN_STATUSPAGE_URLS[chain.key] || chain.statusUrl?.replace(/\/$/, '');
   
   if (!apiBase) {
-    return { status: 'unknown', incidents: [], success: false, errorMessage: 'No status URL configured' };
+    return { status: 'unknown', incidents: [], maintenances: [], success: false, errorMessage: 'No status URL configured' };
   }
   
   try {
@@ -98,7 +111,7 @@ async function fetchStatuspageStatus(chain: { key: string; statusUrl?: string | 
     
     if (!response.ok) {
       console.log(`[blockchain:${chain.key}] Status page returned ${response.status}`);
-      return { status: 'unknown', incidents: [], success: false, errorMessage: `HTTP ${response.status}` };
+      return { status: 'unknown', incidents: [], maintenances: [], success: false, errorMessage: `HTTP ${response.status}` };
     }
     
     const data: StatusPageResponse = await response.json();
@@ -121,18 +134,35 @@ async function fetchStatuspageStatus(chain: { key: string; statusUrl?: string | 
       console.log(`[blockchain:${chain.key}] Could not fetch incidents`);
     }
     
-    return { status, incidents, success: true };
+    let maintenances: BlockchainMaintenanceData[] = [];
+    try {
+      const maintenancesUrl = `${apiBase}/api/v2/scheduled_maintenances.json`;
+      const maintenancesRes = await fetchWithRetry(maintenancesUrl, {
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'VendorWatch/1.0'
+        },
+      });
+      if (maintenancesRes.ok) {
+        const maintenancesData = await maintenancesRes.json();
+        maintenances = maintenancesData.scheduled_maintenances || [];
+      }
+    } catch (e) {
+      console.log(`[blockchain:${chain.key}] Could not fetch scheduled maintenances`);
+    }
+    
+    return { status, incidents, maintenances, success: true };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.log(`[blockchain:${chain.key}] Failed to fetch status:`, errorMessage);
-    return { status: 'unknown', incidents: [], success: false, errorMessage };
+    return { status: 'unknown', incidents: [], maintenances: [], success: false, errorMessage };
   }
 }
 
 async function syncBlockchainChain(chainData: { key: string; name: string; sourceType: string; statusUrl?: string | null }): Promise<void> {
   console.log(`[blockchain:${chainData.key}] Syncing status...`);
   
-  let result: { status: string; incidents: BlockchainIncidentData[]; success: boolean; errorMessage?: string };
+  let result: { status: string; incidents: BlockchainIncidentData[]; maintenances: BlockchainMaintenanceData[]; success: boolean; errorMessage?: string };
   
   if (chainData.sourceType === 'statuspage') {
     result = await fetchStatuspageStatus(chainData);
@@ -215,6 +245,33 @@ async function syncBlockchainChain(chainData: { key: string; name: string; sourc
       if (updated) {
         await notifyBlockchainIncidentResolved(updated, fullChain);
       }
+    }
+  }
+  
+  // Process scheduled maintenances
+  if (result.maintenances && result.maintenances.length > 0) {
+    for (const maint of result.maintenances) {
+      let maintenanceStatus = 'scheduled';
+      if (maint.status === 'in_progress') maintenanceStatus = 'in_progress';
+      else if (maint.status === 'verifying') maintenanceStatus = 'verifying';
+      else if (maint.status === 'completed') maintenanceStatus = 'completed';
+      
+      await storage.upsertBlockchainMaintenance({
+        chainKey: chainData.key,
+        maintenanceId: maint.id,
+        title: maint.name,
+        description: undefined,
+        status: maintenanceStatus,
+        impact: maint.impact || 'maintenance',
+        url: maint.shortlink || chainData.statusUrl || undefined,
+        scheduledStartAt: maint.scheduled_for,
+        scheduledEndAt: maint.scheduled_until || undefined,
+        actualStartAt: maint.started_at || undefined,
+        actualEndAt: maint.completed_at || undefined,
+        affectedServices: undefined,
+        rawHash: undefined,
+      });
+      console.log(`[blockchain:${chainData.key}] Maintenance: ${maint.name} [${maintenanceStatus}]`);
     }
   }
 }
