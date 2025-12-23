@@ -284,6 +284,192 @@ export async function scrapeSalesforceStatus(vendor: { key: string; statusUrl: s
   }
 }
 
+export async function scrapeSlackStatus(vendor: { key: string; statusUrl: string }): Promise<ScrapedStatus> {
+  try {
+    const response = await fetchWithRetry('https://slack-status.com/api/v2.0.0/current', {
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'VendorWatch/1.0'
+      },
+    });
+    
+    if (!response.ok) {
+      await recordParseResult(vendor.key, { success: false, httpStatus: response.status });
+      return { status: 'unknown', incidents: [], maintenances: [], success: false, httpStatus: response.status };
+    }
+    
+    const data = await response.json();
+    const incidents: ScrapedStatus['incidents'] = [];
+    
+    if (data.active_incidents && data.active_incidents.length > 0) {
+      for (const item of data.active_incidents) {
+        incidents.push({
+          id: item.id || generateStableId(vendor.key, item.title || 'incident'),
+          name: item.title || 'Slack Incident',
+          status: item.status === 'active' ? 'investigating' : item.status,
+          impact: 'minor',
+          shortlink: item.url || vendor.statusUrl,
+          created_at: item.date_created || new Date().toISOString(),
+          updated_at: item.date_updated || new Date().toISOString(),
+        });
+      }
+    }
+    
+    const status = data.status === 'ok' ? 'operational' : (incidents.length > 0 ? 'degraded' : 'operational');
+    
+    await recordParseResult(vendor.key, { success: true, httpStatus: 200, incidentsParsed: incidents.length });
+    return { status, incidents, maintenances: [], success: true, httpStatus: 200 };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    await recordParseResult(vendor.key, { success: false, errorMessage });
+    return { status: 'unknown', incidents: [], maintenances: [], success: false, errorMessage };
+  }
+}
+
+export async function scrapeStatusIoPage(vendor: { key: string; statusUrl: string }): Promise<ScrapedStatus> {
+  const result = await fetchHtml(vendor.statusUrl);
+  
+  if (!result) {
+    await recordParseResult(vendor.key, { success: false, errorMessage: 'Failed to fetch HTML' });
+    return { status: 'unknown', incidents: [], maintenances: [], success: false, errorMessage: 'Failed to fetch HTML' };
+  }
+  
+  if (result.status !== 200) {
+    await recordParseResult(vendor.key, { success: false, httpStatus: result.status });
+    return { status: 'unknown', incidents: [], maintenances: [], success: false, httpStatus: result.status };
+  }
+  
+  try {
+    const $ = cheerio.load(result.html);
+    
+    let overallStatus: 'operational' | 'degraded' | 'outage' = 'operational';
+    
+    const statusText = $('.component_container, .status-summary, .status_td, #statusio_overview').text().toLowerCase();
+    
+    if (statusText.includes('outage') || statusText.includes('major')) {
+      overallStatus = 'outage';
+    } else if (statusText.includes('degraded') || statusText.includes('partial') || 
+               statusText.includes('investigating') || statusText.includes('incident')) {
+      overallStatus = 'degraded';
+    } else if (statusText.includes('operational') || statusText.includes('healthy') || 
+               statusText.includes('up') || statusText.includes('available')) {
+      overallStatus = 'operational';
+    }
+    
+    const incidents: ScrapedStatus['incidents'] = [];
+    $('.incident, .timeline-item, .incident_block').each((_, el) => {
+      const title = $(el).find('.incident_title, .incident-title, h4, h3').first().text().trim();
+      if (title) {
+        incidents.push({
+          id: generateStableId(vendor.key, title),
+          name: title,
+          status: 'investigating',
+          impact: 'minor',
+          shortlink: vendor.statusUrl,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+      }
+    });
+    
+    await recordParseResult(vendor.key, { success: true, httpStatus: 200, incidentsParsed: incidents.length });
+    return { status: overallStatus, incidents, maintenances: [], success: true, httpStatus: 200 };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Parse error';
+    await recordParseResult(vendor.key, { success: false, errorMessage });
+    return { status: 'unknown', incidents: [], maintenances: [], success: false, errorMessage };
+  }
+}
+
+export async function scrapeOktaStatus(vendor: { key: string; statusUrl: string }): Promise<ScrapedStatus> {
+  const result = await fetchHtml('https://status.okta.com');
+  
+  if (!result) {
+    await recordParseResult(vendor.key, { success: false, errorMessage: 'Failed to fetch HTML' });
+    return { status: 'unknown', incidents: [], maintenances: [], success: false, errorMessage: 'Failed to fetch HTML' };
+  }
+  
+  if (result.status !== 200) {
+    await recordParseResult(vendor.key, { success: false, httpStatus: result.status });
+    return { status: 'unknown', incidents: [], maintenances: [], success: false, httpStatus: result.status };
+  }
+  
+  try {
+    const $ = cheerio.load(result.html);
+    const pageText = $('body').text().toLowerCase();
+    
+    let overallStatus: 'operational' | 'degraded' | 'outage' = 'operational';
+    
+    if (pageText.includes('major outage') || pageText.includes('service disruption')) {
+      overallStatus = 'outage';
+    } else if (pageText.includes('degraded') || pageText.includes('investigating') || 
+               pageText.includes('incident') || pageText.includes('partial')) {
+      overallStatus = 'degraded';
+    }
+    
+    await recordParseResult(vendor.key, { success: true, httpStatus: 200, incidentsParsed: 0 });
+    return { status: overallStatus, incidents: [], maintenances: [], success: true, httpStatus: 200 };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Parse error';
+    await recordParseResult(vendor.key, { success: false, errorMessage });
+    return { status: 'unknown', incidents: [], maintenances: [], success: false, errorMessage };
+  }
+}
+
+export async function scrapeAuth0Status(vendor: { key: string; statusUrl: string }): Promise<ScrapedStatus> {
+  const result = await fetchHtml('https://status.auth0.com');
+  
+  if (!result) {
+    await recordParseResult(vendor.key, { success: false, errorMessage: 'Failed to fetch HTML' });
+    return { status: 'unknown', incidents: [], maintenances: [], success: false, errorMessage: 'Failed to fetch HTML' };
+  }
+  
+  if (result.status !== 200) {
+    await recordParseResult(vendor.key, { success: false, httpStatus: result.status });
+    return { status: 'unknown', incidents: [], maintenances: [], success: false, httpStatus: result.status };
+  }
+  
+  try {
+    const $ = cheerio.load(result.html);
+    const pageText = $('body').text().toLowerCase();
+    const overallStatus = detectStatusFromText(pageText);
+    
+    await recordParseResult(vendor.key, { success: true, httpStatus: 200, incidentsParsed: 0 });
+    return { status: overallStatus, incidents: [], maintenances: [], success: true, httpStatus: 200 };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Parse error';
+    await recordParseResult(vendor.key, { success: false, errorMessage });
+    return { status: 'unknown', incidents: [], maintenances: [], success: false, errorMessage };
+  }
+}
+
+export async function scrapeFastlyStatus(vendor: { key: string; statusUrl: string }): Promise<ScrapedStatus> {
+  const result = await fetchHtml('https://status.fastly.com');
+  
+  if (!result) {
+    await recordParseResult(vendor.key, { success: false, errorMessage: 'Failed to fetch HTML' });
+    return { status: 'unknown', incidents: [], maintenances: [], success: false, errorMessage: 'Failed to fetch HTML' };
+  }
+  
+  if (result.status !== 200) {
+    await recordParseResult(vendor.key, { success: false, httpStatus: result.status });
+    return { status: 'unknown', incidents: [], maintenances: [], success: false, httpStatus: result.status };
+  }
+  
+  try {
+    const $ = cheerio.load(result.html);
+    const pageText = $('body').text().toLowerCase();
+    const overallStatus = detectStatusFromText(pageText);
+    
+    await recordParseResult(vendor.key, { success: true, httpStatus: 200, incidentsParsed: 0 });
+    return { status: overallStatus, incidents: [], maintenances: [], success: true, httpStatus: 200 };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Parse error';
+    await recordParseResult(vendor.key, { success: false, errorMessage });
+    return { status: 'unknown', incidents: [], maintenances: [], success: false, errorMessage };
+  }
+}
+
 export async function scrapeVendorStatus(vendor: { key: string; statusUrl: string }): Promise<ScrapedStatus> {
   switch (vendor.key) {
     case 'aws':
@@ -296,12 +482,18 @@ export async function scrapeVendorStatus(vendor: { key: string; statusUrl: strin
       return scrapeGoogleWorkspaceStatus(vendor);
     case 'salesforce':
       return scrapeSalesforceStatus(vendor);
+    case 'slack':
+      return scrapeSlackStatus(vendor);
     case 'okta':
+      return scrapeOktaStatus(vendor);
     case 'auth0':
+      return scrapeAuth0Status(vendor);
     case 'fastly':
+      return scrapeFastlyStatus(vendor);
     case 'connectwise':
     case 'nable':
     case 'syncro':
+      return scrapeStatusIoPage(vendor);
     default:
       return scrapeStatuspageHtml(vendor);
   }
