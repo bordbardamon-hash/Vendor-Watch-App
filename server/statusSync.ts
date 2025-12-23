@@ -50,6 +50,13 @@ const STATUSPAGE_API_URLS: Record<string, string> = {
   quickbooks: "https://status.quickbooks.intuit.com",
   netsuite: "https://status.netsuite.com",
   kaseya: "https://status.kaseya.com",
+  okta: "https://status.okta.com",
+  connectwise: "https://status.connectwise.com",
+  nable: "https://status.n-able.com",
+  syncro: "https://www.syncrostatus.com",
+  auth0: "https://status.auth0.com",
+  slack: "https://status.slack.com",
+  fastly: "https://status.fastly.com",
 };
 
 function mapStatusIndicator(indicator: string): string {
