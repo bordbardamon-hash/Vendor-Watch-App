@@ -7,6 +7,15 @@ import { scrapeVendorStatus } from "./htmlScraper";
 import { scrapeJsVendorStatus } from "./puppeteerScraper";
 import type { CanonicalSeverity, CanonicalStatus, LifecycleEvent } from "@shared/schema";
 
+function isValidIncident(incident: { name: string; id: string }): boolean {
+  const title = incident.name || '';
+  if (title.startsWith('_system') || title.startsWith('_metadata')) return false;
+  if (title.includes('_system_metadata')) return false;
+  if (/^eyJ[a-zA-Z0-9+/=]+/.test(title)) return false;
+  if (title.length < 5 || title.length > 500) return false;
+  return true;
+}
+
 interface StatusPageResponse {
   status: {
     indicator: string;
@@ -426,6 +435,11 @@ export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: nu
         }
         
         for (const incident of result.incidents) {
+          if (!isValidIncident(incident)) {
+            console.log(`  ⊘ Skipping invalid incident: ${incident.name?.substring(0, 50)}...`);
+            continue;
+          }
+          
           const exists = existingIncidents.find(i => i.incidentId === incident.id);
           const normalizedStatus = mapStatuspageStatus(incident.status);
           const normalizedSeverity = mapStatuspageImpact(incident.impact);
