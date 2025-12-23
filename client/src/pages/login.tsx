@@ -124,6 +124,30 @@ export default function Login() {
                 )}
               </Button>
             </form>
+
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-border" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
+              </div>
+            </div>
+
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => window.location.href = "/api/login"}
+              data-testid="button-replit-login"
+            >
+              <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M2 6a4 4 0 014-4h5v8H4a2 2 0 01-2-2V6zM13 2h5a4 4 0 014 4v2a2 2 0 01-2 2h-7V2zM2 18a4 4 0 004 4h5v-8H4a2 2 0 00-2 2v2zM13 22h5a4 4 0 004-4v-2a2 2 0 00-2-2h-7v8zM7 10h10v4H7v-4z"/>
+              </svg>
+              Sign in with Replit
+            </Button>
+            <p className="text-xs text-center text-muted-foreground mt-2">
+              Includes Google, GitHub, Apple & more
+            </p>
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
             <div className="text-center text-sm text-muted-foreground">
