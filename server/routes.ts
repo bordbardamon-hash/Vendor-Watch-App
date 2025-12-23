@@ -1525,6 +1525,85 @@ export async function registerRoutes(
     }
   });
 
+  // Get user's maintenance acknowledgements
+  app.get("/api/maintenance/acknowledgements", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const acks = await storage.getUserMaintenanceAcknowledgements(userId);
+      res.json(acks);
+    } catch (error) {
+      console.error("Error fetching maintenance acknowledgements:", error);
+      res.status(500).json({ error: "Failed to fetch maintenance acknowledgements" });
+    }
+  });
+
+  // Acknowledge a vendor maintenance
+  app.post("/api/maintenance/vendors/:id/acknowledge", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const maintenanceId = req.params.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const ack = await storage.acknowledgeMaintenance(userId, maintenanceId, 'vendor');
+      res.json(ack);
+    } catch (error) {
+      console.error("Error acknowledging vendor maintenance:", error);
+      res.status(500).json({ error: "Failed to acknowledge vendor maintenance" });
+    }
+  });
+
+  // Unacknowledge a vendor maintenance
+  app.delete("/api/maintenance/vendors/:id/acknowledge", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const maintenanceId = req.params.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      await storage.unacknowledgeMaintenance(userId, maintenanceId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error unacknowledging vendor maintenance:", error);
+      res.status(500).json({ error: "Failed to unacknowledge vendor maintenance" });
+    }
+  });
+
+  // Acknowledge a blockchain maintenance
+  app.post("/api/maintenance/blockchain/:id/acknowledge", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const maintenanceId = req.params.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const ack = await storage.acknowledgeMaintenance(userId, maintenanceId, 'blockchain');
+      res.json(ack);
+    } catch (error) {
+      console.error("Error acknowledging blockchain maintenance:", error);
+      res.status(500).json({ error: "Failed to acknowledge blockchain maintenance" });
+    }
+  });
+
+  // Unacknowledge a blockchain maintenance
+  app.delete("/api/maintenance/blockchain/:id/acknowledge", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const maintenanceId = req.params.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      await storage.unacknowledgeMaintenance(userId, maintenanceId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error unacknowledging blockchain maintenance:", error);
+      res.status(500).json({ error: "Failed to unacknowledge blockchain maintenance" });
+    }
+  });
+
   // ============ TWO-FACTOR AUTHENTICATION ============
   
   // Get 2FA status for current user
