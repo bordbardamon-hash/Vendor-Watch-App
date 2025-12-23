@@ -1993,5 +1993,30 @@ export async function registerRoutes(
     }
   });
 
+  // Get blockchain performance stats (all blockchains)
+  app.get("/api/analytics/blockchain", isAuthenticated, async (req: any, res) => {
+    try {
+      const days = parseInt(req.query.days as string) || 30;
+      const stats = await storage.getAllBlockchainPerformanceStats(days);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error getting blockchain stats:", error);
+      res.status(500).json({ error: "Failed to get blockchain stats" });
+    }
+  });
+
+  // Get single blockchain performance stats
+  app.get("/api/analytics/blockchain/:chainKey", isAuthenticated, async (req: any, res) => {
+    try {
+      const { chainKey } = req.params;
+      const days = parseInt(req.query.days as string) || 30;
+      const stats = await storage.getBlockchainPerformanceStats(chainKey, days);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error getting blockchain stats:", error);
+      res.status(500).json({ error: "Failed to get blockchain stats" });
+    }
+  });
+
   return httpServer;
 }

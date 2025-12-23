@@ -9,11 +9,11 @@ import {
   LogIn,
   CheckCircle2,
   AlertTriangle,
-  Gauge
+  Gauge,
+  Shield,
+  Boxes
 } from "lucide-react";
 import { 
-  Area, 
-  AreaChart, 
   ResponsiveContainer, 
   Tooltip, 
   XAxis, 
@@ -21,13 +21,12 @@ import {
   CartesianGrid,
   BarChart,
   Bar,
-  Cell,
-  PieChart,
-  Pie
+  Cell
 } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
@@ -42,6 +41,13 @@ interface UserStats {
 interface VendorPerformance {
   vendorKey: string;
   vendorName: string;
+  uptimePercent: number;
+  incidentCount: number;
+}
+
+interface BlockchainPerformance {
+  chainKey: string;
+  chainName: string;
   uptimePercent: number;
   incidentCount: number;
 }
@@ -86,6 +92,7 @@ const getUptimeColor = (uptime: number): string => {
 export default function Analytics() {
   const { user } = useAuth();
   const [days, setDays] = useState("30");
+  const [scope, setScope] = useState<"vendors" | "blockchain">("vendors");
 
   const { data: userStats, isLoading: statsLoading } = useQuery<UserStats>({
     queryKey: ["/api/analytics/my-stats", days],
@@ -112,6 +119,17 @@ export default function Analytics() {
       if (!res.ok) return [];
       return res.json();
     },
+    enabled: scope === "vendors",
+  });
+
+  const { data: blockchainStats = [], isLoading: blockchainLoading } = useQuery<BlockchainPerformance[]>({
+    queryKey: ["/api/analytics/blockchain", days],
+    queryFn: async () => {
+      const res = await fetch(`/api/analytics/blockchain?days=${days}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: scope === "blockchain",
   });
 
   const activityData = [
@@ -120,11 +138,23 @@ export default function Analytics() {
     { name: "Acknowledgements", value: userStats?.acknowledgements || 0, color: "#f59e0b" },
   ];
 
-  const topVendors = vendorStats.slice(0, 10);
-  const incidentFreeVendors = vendorStats.filter(v => v.incidentCount === 0).length;
-  const avgUptime = vendorStats.length > 0 
-    ? (vendorStats.reduce((sum, v) => sum + v.uptimePercent, 0) / vendorStats.length).toFixed(2)
+  const currentStats = scope === "vendors" ? vendorStats : blockchainStats;
+  const isPerformanceLoading = scope === "vendors" ? vendorLoading : blockchainLoading;
+  const topItems = currentStats.slice(0, 10);
+  const incidentFreeCount = currentStats.filter(v => v.incidentCount === 0).length;
+  const avgUptime = currentStats.length > 0 
+    ? (currentStats.reduce((sum, v) => sum + v.uptimePercent, 0) / currentStats.length).toFixed(2)
     : "100.00";
+
+  const chartData = topItems.map(item => ({
+    name: scope === "vendors" 
+      ? (item as VendorPerformance).vendorName 
+      : (item as BlockchainPerformance).chainName,
+    incidentCount: item.incidentCount,
+    key: scope === "vendors" 
+      ? (item as VendorPerformance).vendorKey 
+      : (item as BlockchainPerformance).chainKey,
+  }));
 
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6" data-testid="analytics-page">
@@ -134,7 +164,7 @@ export default function Analytics() {
             Analytics
           </h1>
           <p className="text-muted-foreground mt-1">
-            Track your usage patterns and monitor vendor performance
+            Track your usage patterns and monitor performance
           </p>
         </div>
         <Select value={days} onValueChange={setDays}>
@@ -314,7 +344,21 @@ export default function Analytics() {
         </Card>
       </div>
 
-      <h2 className="text-xl font-semibold mt-4">Vendor Performance</h2>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-4">
+        <h2 className="text-xl font-semibold">Performance Analytics</h2>
+        <Tabs value={scope} onValueChange={(v) => setScope(v as "vendors" | "blockchain")} className="w-auto">
+          <TabsList data-testid="scope-toggle">
+            <TabsTrigger value="vendors" className="flex items-center gap-2" data-testid="tab-vendors">
+              <Shield className="h-4 w-4" />
+              Vendors
+            </TabsTrigger>
+            <TabsTrigger value="blockchain" className="flex items-center gap-2" data-testid="tab-blockchain">
+              <Boxes className="h-4 w-4" />
+              Blockchain
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Card className="bg-card/50 border-border/50">
@@ -326,10 +370,10 @@ export default function Analytics() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground" data-testid="text-avg-uptime">
-              {vendorLoading ? "..." : `${avgUptime}%`}
+              {isPerformanceLoading ? "..." : `${avgUptime}%`}
             </div>
             <p className="text-xs text-muted-foreground">
-              Across all vendors
+              Across all {scope === "vendors" ? "vendors" : "chains"}
             </p>
           </CardContent>
         </Card>
@@ -337,13 +381,13 @@ export default function Analytics() {
         <Card className="bg-card/50 border-border/50">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Vendors with Incidents
+              With Incidents
             </CardTitle>
             <AlertTriangle className="h-4 w-4 text-amber-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground" data-testid="text-vendors-with-incidents">
-              {vendorLoading ? "..." : vendorStats.filter(v => v.incidentCount > 0).length}
+            <div className="text-2xl font-bold text-foreground" data-testid="text-with-incidents">
+              {isPerformanceLoading ? "..." : currentStats.filter(v => v.incidentCount > 0).length}
             </div>
             <p className="text-xs text-muted-foreground">
               Last {days} days
@@ -354,13 +398,13 @@ export default function Analytics() {
         <Card className="bg-card/50 border-border/50">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Incident-Free Vendors
+              Incident-Free
             </CardTitle>
             <CheckCircle2 className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground" data-testid="text-incident-free">
-              {vendorLoading ? "..." : incidentFreeVendors}
+              {isPerformanceLoading ? "..." : incidentFreeCount}
             </div>
             <p className="text-xs text-muted-foreground">
               Last {days} days
@@ -373,26 +417,26 @@ export default function Analytics() {
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-primary" />
-            Top 10 Vendors by Incident Count
+            Top 10 {scope === "vendors" ? "Vendors" : "Chains"} by Incident Count
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {vendorLoading ? (
+          {isPerformanceLoading ? (
             <div className="h-[300px] flex items-center justify-center text-muted-foreground">
               Loading...
             </div>
-          ) : topVendors.length === 0 ? (
+          ) : chartData.length === 0 ? (
             <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-              No vendor data available
+              No {scope === "vendors" ? "vendor" : "blockchain"} data available
             </div>
           ) : (
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={topVendors} layout="vertical">
+                <BarChart data={chartData} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
                   <XAxis type="number" stroke="#888888" />
                   <YAxis 
-                    dataKey="vendorName" 
+                    dataKey="name" 
                     type="category" 
                     stroke="#888888" 
                     width={120}
@@ -404,10 +448,7 @@ export default function Analytics() {
                       border: '1px solid rgba(255,255,255,0.1)',
                       borderRadius: '8px'
                     }}
-                    formatter={(value: number, name: string) => {
-                      if (name === 'incidentCount') return [value, 'Incidents'];
-                      return [value, name];
-                    }}
+                    formatter={(value: number) => [value, 'Incidents']}
                   />
                   <Bar 
                     dataKey="incidentCount" 
@@ -426,40 +467,48 @@ export default function Analytics() {
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <Gauge className="h-5 w-5 text-primary" />
-            Vendor Uptime Overview
+            {scope === "vendors" ? "Vendor" : "Blockchain"} Uptime Overview
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {vendorLoading ? (
+          {isPerformanceLoading ? (
             <div className="h-[200px] flex items-center justify-center text-muted-foreground">
               Loading...
             </div>
-          ) : vendorStats.length === 0 ? (
+          ) : currentStats.length === 0 ? (
             <div className="h-[200px] flex items-center justify-center text-muted-foreground">
-              No vendor data available
+              No {scope === "vendors" ? "vendor" : "blockchain"} data available
             </div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {vendorStats.map((vendor) => (
-                <div 
-                  key={vendor.vendorKey}
-                  className="flex items-center justify-between p-3 rounded-lg bg-background/50 border border-border/30"
-                  data-testid={`vendor-uptime-${vendor.vendorKey}`}
-                >
-                  <span className="text-sm font-medium text-foreground truncate">
-                    {vendor.vendorName}
-                  </span>
-                  <Badge 
-                    variant="outline" 
-                    style={{ 
-                      borderColor: getUptimeColor(vendor.uptimePercent),
-                      color: getUptimeColor(vendor.uptimePercent)
-                    }}
+              {currentStats.map((item) => {
+                const name = scope === "vendors" 
+                  ? (item as VendorPerformance).vendorName 
+                  : (item as BlockchainPerformance).chainName;
+                const key = scope === "vendors" 
+                  ? (item as VendorPerformance).vendorKey 
+                  : (item as BlockchainPerformance).chainKey;
+                return (
+                  <div 
+                    key={key}
+                    className="flex items-center justify-between p-3 rounded-lg bg-background/50 border border-border/30"
+                    data-testid={`uptime-${key}`}
                   >
-                    {vendor.uptimePercent.toFixed(1)}%
-                  </Badge>
-                </div>
-              ))}
+                    <span className="text-sm font-medium text-foreground truncate">
+                      {name}
+                    </span>
+                    <Badge 
+                      variant="outline" 
+                      style={{ 
+                        borderColor: getUptimeColor(item.uptimePercent),
+                        color: getUptimeColor(item.uptimePercent)
+                      }}
+                    >
+                      {item.uptimePercent.toFixed(1)}%
+                    </Badge>
+                  </div>
+                );
+              })}
             </div>
           )}
         </CardContent>

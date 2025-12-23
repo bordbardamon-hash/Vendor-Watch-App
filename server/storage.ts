@@ -189,6 +189,10 @@ export interface IStorage {
   getVendorPerformanceStats(vendorKey: string, days?: number): Promise<{ uptimePercent: number; incidentCount: number; avgResolutionMinutes: number | null }>;
   getAllVendorPerformanceStats(days?: number): Promise<Array<{ vendorKey: string; vendorName: string; uptimePercent: number; incidentCount: number }>>;
   recordVendorDailyMetrics(vendorKey: string, date: string, metrics: { uptimeMinutes: number; downtimeMinutes: number; incidentCount: number; avgResolutionMinutes?: number }): Promise<void>;
+  
+  // Analytics - Blockchain Performance
+  getBlockchainPerformanceStats(chainKey: string, days?: number): Promise<{ uptimePercent: number; incidentCount: number; avgResolutionMinutes: number | null }>;
+  getAllBlockchainPerformanceStats(days?: number): Promise<Array<{ chainKey: string; chainName: string; uptimePercent: number; incidentCount: number }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1301,37 +1305,50 @@ export class DatabaseStorage implements IStorage {
     return events;
   }
 
-  // Analytics - Vendor Performance
+  // Analytics - Vendor Performance (calculated from actual incidents)
   async getVendorPerformanceStats(vendorKey: string, days: number = 30): Promise<{ uptimePercent: number; incidentCount: number; avgResolutionMinutes: number | null }> {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - days);
-    const cutoffStr = cutoff.toISOString().split('T')[0];
     
-    const metrics = await db.select()
-      .from(vendorDailyMetrics)
+    const vendorIncidents = await db.select()
+      .from(incidents)
       .where(and(
-        eq(vendorDailyMetrics.vendorKey, vendorKey),
-        gte(vendorDailyMetrics.date, cutoffStr)
+        eq(incidents.vendorKey, vendorKey),
+        gte(incidents.startedAt, cutoff)
       ));
     
-    if (metrics.length === 0) {
+    const incidentCount = vendorIncidents.length;
+    
+    if (incidentCount === 0) {
       return { uptimePercent: 100, incidentCount: 0, avgResolutionMinutes: null };
     }
     
-    const totalUptime = metrics.reduce((sum, m) => sum + m.uptimeMinutes, 0);
-    const totalDowntime = metrics.reduce((sum, m) => sum + m.downtimeMinutes, 0);
-    const totalIncidents = metrics.reduce((sum, m) => sum + m.incidentCount, 0);
-    const resolutionTimes = metrics.filter(m => m.avgResolutionMinutes !== null).map(m => m.avgResolutionMinutes!);
+    let totalDowntimeMinutes = 0;
+    const resolutionTimes: number[] = [];
+    const now = new Date();
     
-    const totalMinutes = totalUptime + totalDowntime;
-    const uptimePercent = totalMinutes > 0 ? (totalUptime / totalMinutes) * 100 : 100;
+    for (const incident of vendorIncidents) {
+      const start = new Date(incident.startedAt);
+      const end = incident.status === 'resolved' && incident.updatedAt 
+        ? new Date(incident.updatedAt) 
+        : now;
+      const durationMinutes = Math.max(0, (end.getTime() - start.getTime()) / (1000 * 60));
+      totalDowntimeMinutes += durationMinutes;
+      
+      if (incident.status === 'resolved' && incident.updatedAt) {
+        resolutionTimes.push(durationMinutes);
+      }
+    }
+    
+    const totalPeriodMinutes = days * 24 * 60;
+    const uptimePercent = Math.max(0, 100 - (totalDowntimeMinutes / totalPeriodMinutes) * 100);
     const avgResolution = resolutionTimes.length > 0 
       ? Math.round(resolutionTimes.reduce((sum, r) => sum + r, 0) / resolutionTimes.length)
       : null;
     
     return {
       uptimePercent: Math.round(uptimePercent * 100) / 100,
-      incidentCount: totalIncidents,
+      incidentCount,
       avgResolutionMinutes: avgResolution,
     };
   }
@@ -1345,6 +1362,71 @@ export class DatabaseStorage implements IStorage {
       results.push({
         vendorKey: vendor.key,
         vendorName: vendor.name,
+        uptimePercent: stats.uptimePercent,
+        incidentCount: stats.incidentCount,
+      });
+    }
+    
+    return results.sort((a, b) => b.incidentCount - a.incidentCount);
+  }
+
+  // Analytics - Blockchain Performance (calculated from actual incidents)
+  async getBlockchainPerformanceStats(chainKey: string, days: number = 30): Promise<{ uptimePercent: number; incidentCount: number; avgResolutionMinutes: number | null }> {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    
+    const chainIncidents = await db.select()
+      .from(blockchainIncidents)
+      .where(and(
+        eq(blockchainIncidents.chainKey, chainKey),
+        gte(blockchainIncidents.startedAt, cutoff)
+      ));
+    
+    const incidentCount = chainIncidents.length;
+    
+    if (incidentCount === 0) {
+      return { uptimePercent: 100, incidentCount: 0, avgResolutionMinutes: null };
+    }
+    
+    let totalDowntimeMinutes = 0;
+    const resolutionTimes: number[] = [];
+    const now = new Date();
+    
+    for (const incident of chainIncidents) {
+      const start = new Date(incident.startedAt);
+      const end = incident.status === 'resolved' && incident.updatedAt 
+        ? new Date(incident.updatedAt) 
+        : now;
+      const durationMinutes = Math.max(0, (end.getTime() - start.getTime()) / (1000 * 60));
+      totalDowntimeMinutes += durationMinutes;
+      
+      if (incident.status === 'resolved' && incident.updatedAt) {
+        resolutionTimes.push(durationMinutes);
+      }
+    }
+    
+    const totalPeriodMinutes = days * 24 * 60;
+    const uptimePercent = Math.max(0, 100 - (totalDowntimeMinutes / totalPeriodMinutes) * 100);
+    const avgResolution = resolutionTimes.length > 0 
+      ? Math.round(resolutionTimes.reduce((sum, r) => sum + r, 0) / resolutionTimes.length)
+      : null;
+    
+    return {
+      uptimePercent: Math.round(uptimePercent * 100) / 100,
+      incidentCount,
+      avgResolutionMinutes: avgResolution,
+    };
+  }
+
+  async getAllBlockchainPerformanceStats(days: number = 30): Promise<Array<{ chainKey: string; chainName: string; uptimePercent: number; incidentCount: number }>> {
+    const allChains = await this.getBlockchainChains();
+    const results: Array<{ chainKey: string; chainName: string; uptimePercent: number; incidentCount: number }> = [];
+    
+    for (const chain of allChains) {
+      const stats = await this.getBlockchainPerformanceStats(chain.key, days);
+      results.push({
+        chainKey: chain.key,
+        chainName: chain.name,
         uptimePercent: stats.uptimePercent,
         incidentCount: stats.incidentCount,
       });
