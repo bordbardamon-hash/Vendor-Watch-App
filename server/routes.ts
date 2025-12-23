@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertVendorSchema, insertIncidentSchema, insertJobSchema, insertConfigSchema, insertFeedbackSchema, insertNotificationConsentSchema, insertCustomVendorRequestSchema, SUBSCRIPTION_TIERS } from "@shared/schema";
-import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
+import { setupEmailAuth, isAuthenticated } from "./emailAuth";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
 import { sendSMS } from "./twilioClient";
 import { syncVendorStatus } from "./statusSync";
@@ -36,12 +36,11 @@ const signupSchema = z.object({
 // Admin-only middleware - requires isAuthenticated to run first
 const isAdmin = async (req: any, res: any, next: any) => {
   try {
-    const userId = req.user?.claims?.sub;
-    if (!userId) {
+    const user = req.user;
+    if (!user) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-    const user = await storage.getUser(userId);
-    if (!user?.isAdmin) {
+    if (!user.isAdmin) {
       return res.status(403).json({ error: "Admin access required" });
     }
     next();
@@ -58,9 +57,7 @@ export async function registerRoutes(
   
   // Setup authentication BEFORE other routes
   try {
-    await setupAuth(app);
-    registerAuthRoutes(app);
-    console.log("[auth] Authentication routes registered successfully");
+    await setupEmailAuth(app);
   } catch (error) {
     console.error("[auth] Failed to setup authentication:", error);
   }
@@ -118,7 +115,7 @@ export async function registerRoutes(
   // Create vendor (protected)
   app.post("/api/vendors", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const user = await storage.getUser(userId);
       
       if (!user) {
@@ -365,7 +362,7 @@ export async function registerRoutes(
   // Test email (protected)
   app.post("/api/email/test", isAuthenticated, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user.id);
       if (!user?.email) {
         return res.status(400).json({ error: "No email address on your account" });
       }
@@ -392,7 +389,7 @@ export async function registerRoutes(
 
   app.get("/api/vendor-subscriptions", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const subscriptions = await storage.getUserVendorSubscriptions(userId);
       const hasSetSubscriptions = await storage.hasUserSetSubscriptions(userId);
       res.json({ vendorKeys: subscriptions, hasSetSubscriptions });
@@ -404,7 +401,7 @@ export async function registerRoutes(
 
   app.put("/api/vendor-subscriptions", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const { vendorKeys } = req.body;
       
       if (!Array.isArray(vendorKeys)) {
@@ -421,7 +418,7 @@ export async function registerRoutes(
 
   app.delete("/api/vendor-subscriptions", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       await storage.resetUserSubscriptions(userId);
       res.json({ success: true, message: "Reset to monitor all vendors" });
     } catch (error) {
@@ -432,7 +429,7 @@ export async function registerRoutes(
 
   app.get("/api/my-vendors", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const vendors = await storage.getOrderedVendorsForUser(userId);
       res.json(vendors);
     } catch (error) {
@@ -444,7 +441,7 @@ export async function registerRoutes(
   // Vendor ordering
   app.get("/api/vendor-order", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const order = await storage.getUserVendorOrder(userId);
       res.json({ vendorKeys: order.map(o => o.vendorKey) });
     } catch (error) {
@@ -455,7 +452,7 @@ export async function registerRoutes(
 
   app.put("/api/vendor-order", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const { vendorKeys } = req.body;
       
       if (!Array.isArray(vendorKeys)) {
@@ -472,7 +469,7 @@ export async function registerRoutes(
 
   app.get("/api/my-incidents", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const incidents = await storage.getIncidentsForUser(userId);
       res.json(incidents);
     } catch (error) {
@@ -485,7 +482,7 @@ export async function registerRoutes(
   
   app.get("/api/vendor-impact", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const vendors = await storage.getVendorsForUser(userId);
       const savedImpacts = await storage.getUserVendorSubscriptionsWithImpact(userId);
       const impactMap = new Map(savedImpacts.map(i => [i.vendorKey, i.customerImpact]));
@@ -504,7 +501,7 @@ export async function registerRoutes(
   
   app.put("/api/vendor-impact/:vendorKey", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const { vendorKey } = req.params;
       const { customerImpact } = req.body;
       
@@ -695,7 +692,7 @@ export async function registerRoutes(
   // Get subscription tier info
   app.get("/api/subscription/tier", isAuthenticated, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user.id);
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
@@ -719,7 +716,7 @@ export async function registerRoutes(
 
   app.get("/api/subscription/status", isAuthenticated, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user.id);
       if (!user?.stripeSubscriptionId) {
         return res.json({ status: 'none', subscription: null });
       }
@@ -741,7 +738,7 @@ export async function registerRoutes(
   // Create customer portal session for subscription management
   app.post("/api/subscription/portal", isAuthenticated, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user.id);
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
@@ -770,7 +767,7 @@ export async function registerRoutes(
   // Get user's custom vendor requests
   app.get("/api/vendor-requests", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const requests = await storage.getCustomVendorRequests({ userId });
       res.json(requests);
     } catch (error) {
@@ -782,7 +779,7 @@ export async function registerRoutes(
   // Create a custom vendor request (Standard/Gold users)
   app.post("/api/vendor-requests", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const user = await storage.getUser(userId);
       
       if (!user) {
@@ -832,7 +829,7 @@ export async function registerRoutes(
   // Delete a custom vendor request (only pending requests)
   app.delete("/api/vendor-requests/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const request = await storage.getCustomVendorRequest(req.params.id);
       
       if (!request) {
@@ -858,7 +855,7 @@ export async function registerRoutes(
   // Check vendor limit for current user
   app.get("/api/vendor-limit", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const limitInfo = await storage.checkVendorLimit(userId);
       const user = await storage.getUser(userId);
       const requestCount = await storage.getUserRequestCount(userId);
@@ -882,7 +879,7 @@ export async function registerRoutes(
   // Direct vendor add for Platinum users
   app.post("/api/vendors/direct", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const user = await storage.getUser(userId);
       
       if (!user) {
@@ -909,7 +906,7 @@ export async function registerRoutes(
 
   app.get("/api/notifications/preferences", isAuthenticated, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user.id);
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
@@ -928,7 +925,7 @@ export async function registerRoutes(
   app.put("/api/notifications/preferences", isAuthenticated, async (req: any, res) => {
     try {
       const { notificationEmail, phone, notifyEmail, notifySms } = req.body;
-      const user = await storage.updateUserNotifications(req.user.claims.sub, {
+      const user = await storage.updateUserNotifications(req.user.id, {
         notificationEmail,
         phone,
         notifyEmail,
@@ -976,7 +973,7 @@ export async function registerRoutes(
 
   app.post("/api/consents", isAuthenticated, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user.id);
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
@@ -1029,7 +1026,7 @@ export async function registerRoutes(
 
   app.get("/api/consents/user", isAuthenticated, async (req: any, res) => {
     try {
-      const consents = await storage.getConsentsByUser(req.user.claims.sub);
+      const consents = await storage.getConsentsByUser(req.user.id);
       res.json(consents);
     } catch (error) {
       console.error("Error fetching user consents:", error);
@@ -1155,7 +1152,7 @@ export async function registerRoutes(
     try {
       const validatedData = insertFeedbackSchema.parse({
         ...req.body,
-        userId: req.user.claims.sub,
+        userId: req.user.id,
       });
       const newFeedback = await storage.createFeedback(validatedData);
       res.status(201).json(newFeedback);
@@ -1289,7 +1286,7 @@ export async function registerRoutes(
   // Get 2FA status for current user
   app.get("/api/2fa/status", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = req.user?.id;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -1312,7 +1309,7 @@ export async function registerRoutes(
   // Start 2FA setup - generates secret and QR code
   app.post("/api/2fa/setup", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = req.user?.id;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -1346,7 +1343,7 @@ export async function registerRoutes(
   // Verify and enable 2FA
   app.post("/api/2fa/verify-setup", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = req.user?.id;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -1386,7 +1383,7 @@ export async function registerRoutes(
   // Disable 2FA
   app.post("/api/2fa/disable", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = req.user?.id;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -1432,7 +1429,7 @@ export async function registerRoutes(
   // Verify 2FA code during login (called after Replit Auth)
   app.post("/api/2fa/verify", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = req.user?.id;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -1496,7 +1493,7 @@ export async function registerRoutes(
   // Regenerate recovery codes
   app.post("/api/2fa/regenerate-codes", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = req.user?.id;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -1535,7 +1532,7 @@ export async function registerRoutes(
   // Check if current session has completed 2FA verification
   app.get("/api/2fa/session-status", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = req.user?.id;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }

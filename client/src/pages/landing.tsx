@@ -121,9 +121,9 @@ export default function Landing() {
                 Sign Up
               </Button>
             </Link>
-            <Button asChild data-testid="button-login">
-              <a href="/api/login">Sign In</a>
-            </Button>
+            <Link href="/login">
+              <Button data-testid="button-login">Sign In</Button>
+            </Link>
           </div>
         </div>
       </header>
@@ -144,11 +144,11 @@ export default function Landing() {
                 Start Free Trial
               </Button>
             </Link>
-            <Button size="lg" variant="outline" asChild data-testid="button-signin-hero">
-              <a href="/api/login" className="text-lg px-8 py-6">
+            <Link href="/login">
+              <Button size="lg" variant="outline" className="text-lg px-8 py-6" data-testid="button-signin-hero">
                 Sign In
-              </a>
-            </Button>
+              </Button>
+            </Link>
           </div>
         </section>
 
