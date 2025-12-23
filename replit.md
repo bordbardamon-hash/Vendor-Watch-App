@@ -58,10 +58,11 @@ Key entities include Users, Sessions, Vendors, Incidents, Jobs, and Configuratio
 - **Drizzle Kit**: For database migrations.
 
 ### Third-Party Services Monitored
-- **Statuspage.io**: For 13 vendors (e.g., Akamai, Atlassian, Cloudflare).
-- **Custom JSON APIs**: Slack, Salesforce.
-- **HTML Scraping**: For 10 vendors (e.g., AWS, Azure, Microsoft 365).
-- **Blockchain APIs**: Statuspage.io APIs for Solana, Avalanche, Base, Infura, Alchemy, QuickNode, The Graph, Stellar.
+- **Statuspage.io JSON API**: For 13 vendors (e.g., Akamai, Atlassian, Cloudflare, Zoom, HubSpot, Kaseya).
+- **Puppeteer Headless Browser**: For 6 JavaScript-rendered vendors (Okta, Auth0, Fastly, ConnectWise, N-able, Syncro).
+- **Custom JSON APIs**: Slack (slack-status.com API), Salesforce, AWS (status.aws.amazon.com).
+- **HTML Scraping**: For 4 vendors (Azure, Microsoft 365, Google Workspace).
+- **Blockchain APIs**: Statuspage.io APIs for Solana, Avalanche, Base, Infura, Alchemy, QuickNode, The Graph (7 chains total).
 
 ### Notification Providers
 - **Resend**: For email notifications (`RESEND_API_KEY`).

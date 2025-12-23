@@ -19,10 +19,15 @@ interface ScrapedStatus {
 }
 
 function generateStableId(vendorKey: string, title: string): string {
-  const hash = title.split('').reduce((acc, char) => {
+  const cleanTitle = title.replace(/\s+/g, ' ').trim();
+  const hash = cleanTitle.split('').reduce((acc, char) => {
     return ((acc << 5) - acc) + char.charCodeAt(0);
   }, 0);
   return `${vendorKey}-${Math.abs(hash).toString(36)}`;
+}
+
+function cleanIncidentTitle(title: string): string {
+  return title.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 function detectStatusFromBanner(bannerText: string): 'operational' | 'degraded' | 'outage' {
@@ -68,12 +73,15 @@ async function getBrowser(): Promise<Browser> {
   
   browserInstance = await puppeteer.launch({
     headless: true,
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
       '--disable-accelerated-2d-canvas',
       '--disable-gpu',
+      '--single-process',
+      '--no-zygote',
       '--window-size=1280,720'
     ]
   });
@@ -166,15 +174,18 @@ export async function scrapeOktaWithPuppeteer(vendor: { key: string; statusUrl: 
     
     const status = statusData.activeIncidents.length > 0 ? 'degraded' : detectStatusFromBanner(statusData.bannerText);
     
-    const incidents: ScrapedStatus['incidents'] = statusData.activeIncidents.map(inc => ({
-      id: generateStableId(vendor.key, inc.title),
-      name: inc.title.substring(0, 200),
-      status: inc.status.toLowerCase(),
-      impact: 'minor',
-      shortlink: 'https://status.okta.com',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }));
+    const incidents: ScrapedStatus['incidents'] = statusData.activeIncidents.slice(0, 5).map(inc => {
+      const title = cleanIncidentTitle(inc.title);
+      return {
+        id: generateStableId(vendor.key, title),
+        name: title.substring(0, 200),
+        status: inc.status.toLowerCase(),
+        impact: 'minor',
+        shortlink: 'https://status.okta.com',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+    });
     
     return { status, incidents };
   });
@@ -204,15 +215,18 @@ export async function scrapeAuth0WithPuppeteer(vendor: { key: string; statusUrl:
     
     const status = statusData.activeIncidents.length > 0 ? 'degraded' : detectStatusFromBanner(statusData.bannerText);
     
-    const incidents: ScrapedStatus['incidents'] = statusData.activeIncidents.slice(0, 5).map(inc => ({
-      id: generateStableId(vendor.key, inc.title),
-      name: inc.title.substring(0, 200),
-      status: inc.status.toLowerCase(),
-      impact: 'minor',
-      shortlink: 'https://status.auth0.com',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }));
+    const incidents: ScrapedStatus['incidents'] = statusData.activeIncidents.slice(0, 5).map(inc => {
+      const title = cleanIncidentTitle(inc.title);
+      return {
+        id: generateStableId(vendor.key, title),
+        name: title.substring(0, 200),
+        status: inc.status.toLowerCase(),
+        impact: 'minor',
+        shortlink: 'https://status.auth0.com',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+    });
     
     return { status, incidents };
   });
@@ -238,15 +252,18 @@ export async function scrapeFastlyWithPuppeteer(vendor: { key: string; statusUrl
     
     const status = statusData.activeIncidents.length > 0 ? 'degraded' : detectStatusFromBanner(statusData.bannerText);
     
-    const incidents: ScrapedStatus['incidents'] = statusData.activeIncidents.slice(0, 5).map(inc => ({
-      id: generateStableId(vendor.key, inc.title),
-      name: inc.title.substring(0, 200),
-      status: 'investigating',
-      impact: 'minor',
-      shortlink: 'https://www.fastlystatus.com',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }));
+    const incidents: ScrapedStatus['incidents'] = statusData.activeIncidents.slice(0, 5).map(inc => {
+      const title = cleanIncidentTitle(inc.title);
+      return {
+        id: generateStableId(vendor.key, title),
+        name: title.substring(0, 200),
+        status: 'investigating',
+        impact: 'minor',
+        shortlink: 'https://www.fastlystatus.com',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+    });
     
     return { status, incidents };
   });
@@ -272,15 +289,18 @@ export async function scrapeConnectWiseWithPuppeteer(vendor: { key: string; stat
     
     const status = statusData.activeIncidents.length > 0 ? 'degraded' : detectStatusFromBanner(statusData.bannerText);
     
-    const incidents: ScrapedStatus['incidents'] = statusData.activeIncidents.slice(0, 5).map(inc => ({
-      id: generateStableId(vendor.key, inc.title),
-      name: inc.title.substring(0, 200),
-      status: 'investigating',
-      impact: 'minor',
-      shortlink: 'https://status.connectwise.com',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }));
+    const incidents: ScrapedStatus['incidents'] = statusData.activeIncidents.slice(0, 5).map(inc => {
+      const title = cleanIncidentTitle(inc.title);
+      return {
+        id: generateStableId(vendor.key, title),
+        name: title.substring(0, 200),
+        status: 'investigating',
+        impact: 'minor',
+        shortlink: 'https://status.connectwise.com',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+    });
     
     return { status, incidents };
   });

@@ -24,13 +24,22 @@ interface LifecycleNotification {
   affectedServices?: string;
 }
 
+function sanitizeText(text: string): string {
+  return text.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
 function formatSmsMessage(notification: IncidentNotification): string {
   const { incident, vendor, eventType } = notification;
   
   const statusEmoji = eventType === 'resolved' ? '✅' : eventType === 'new' ? '🚨' : '⚠️';
   const eventLabel = eventType === 'resolved' ? 'RESOLVED' : eventType === 'new' ? 'NEW INCIDENT' : 'UPDATE';
+  const title = sanitizeText(incident.title);
   
-  return `${statusEmoji} Vendor Watch ${eventLabel}: ${vendor.name} - ${incident.title}. Status: ${incident.status}. More info: ${incident.url}`;
+  return `${statusEmoji} Vendor Watch ${eventLabel}: ${vendor.name} - ${title}. Status: ${incident.status}. More info: ${incident.url}`;
+}
+
+function sanitizeSubject(text: string): string {
+  return text.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 100);
 }
 
 function formatEmailSubject(notification: IncidentNotification): string {
@@ -42,7 +51,7 @@ function formatEmailSubject(notification: IncidentNotification): string {
     ? '[NEW INCIDENT]' 
     : '[UPDATE]';
   
-  return `${prefix} ${vendor.name}: ${incident.title}`;
+  return sanitizeSubject(`${prefix} ${vendor.name}: ${incident.title}`);
 }
 
 function formatEmailHtml(notification: IncidentNotification): string {
@@ -614,8 +623,9 @@ function formatBlockchainSms(notification: BlockchainNotification): string {
   
   const statusEmoji = eventType === 'resolved' ? '✅' : eventType === 'new' ? '🚨' : '⚠️';
   const eventLabel = eventType === 'resolved' ? 'RESOLVED' : eventType === 'new' ? 'NEW INCIDENT' : 'UPDATE';
+  const title = sanitizeText(incident.title);
   
-  return `${statusEmoji} Blockchain ${eventLabel}: ${chain.name} - ${incident.title}. Type: ${incident.incidentType}. Status: ${incident.status}. ${incident.url || ''}`;
+  return `${statusEmoji} Blockchain ${eventLabel}: ${chain.name} - ${title}. Type: ${incident.incidentType}. Status: ${incident.status}. ${incident.url || ''}`;
 }
 
 function formatBlockchainEmailSubject(notification: BlockchainNotification): string {
@@ -627,7 +637,7 @@ function formatBlockchainEmailSubject(notification: BlockchainNotification): str
     ? '[NEW INCIDENT]' 
     : '[UPDATE]';
   
-  return `${prefix} Blockchain: ${chain.name} - ${incident.title}`;
+  return sanitizeSubject(`${prefix} Blockchain: ${chain.name} - ${incident.title}`);
 }
 
 function formatBlockchainEmailHtml(notification: BlockchainNotification): string {
