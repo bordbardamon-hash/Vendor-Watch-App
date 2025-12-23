@@ -1,6 +1,6 @@
 import { 
   users, vendors, incidents, jobs, config, feedback, notificationConsents, incidentAlerts, userVendorSubscriptions, userVendorOrder, customVendorRequests,
-  blockchainChains, blockchainIncidents, userBlockchainSubscriptions, incidentAcknowledgements,
+  blockchainChains, blockchainIncidents, userBlockchainSubscriptions, incidentAcknowledgements, maintenanceAcknowledgements,
   vendorMaintenances, blockchainMaintenances,
   type User, type UpsertUser,
   type Vendor, type InsertVendor,
@@ -16,6 +16,7 @@ import {
   type BlockchainChain, type InsertBlockchainChain,
   type BlockchainIncident, type InsertBlockchainIncident,
   type IncidentAcknowledgement,
+  type MaintenanceAcknowledgement,
   type VendorMaintenance, type InsertVendorMaintenance,
   type BlockchainMaintenance, type InsertBlockchainMaintenance,
   SUBSCRIPTION_TIERS
@@ -152,6 +153,13 @@ export interface IStorage {
   isIncidentAcknowledged(userId: string, incidentId: string): Promise<boolean>;
   getUserAcknowledgements(userId: string): Promise<IncidentAcknowledgement[]>;
   clearAcknowledgementsForIncident(incidentId: string): Promise<void>;
+  
+  // Maintenance Acknowledgements
+  acknowledgeMaintenance(userId: string, maintenanceId: string, maintenanceType: 'vendor' | 'blockchain'): Promise<MaintenanceAcknowledgement>;
+  unacknowledgeMaintenance(userId: string, maintenanceId: string): Promise<boolean>;
+  isMaintenanceAcknowledged(userId: string, maintenanceId: string): Promise<boolean>;
+  getUserMaintenanceAcknowledgements(userId: string): Promise<MaintenanceAcknowledgement[]>;
+  clearAcknowledgementsForMaintenance(maintenanceId: string): Promise<void>;
   
   // Vendor Maintenances
   getVendorMaintenances(): Promise<VendorMaintenance[]>;
@@ -1054,6 +1062,63 @@ export class DatabaseStorage implements IStorage {
 
   async clearAcknowledgementsForIncident(incidentId: string): Promise<void> {
     await db.delete(incidentAcknowledgements).where(eq(incidentAcknowledgements.incidentId, incidentId));
+  }
+
+  // Maintenance Acknowledgements
+  async acknowledgeMaintenance(userId: string, maintenanceId: string, maintenanceType: 'vendor' | 'blockchain'): Promise<MaintenanceAcknowledgement> {
+    const existing = await db
+      .select()
+      .from(maintenanceAcknowledgements)
+      .where(
+        and(
+          eq(maintenanceAcknowledgements.userId, userId),
+          eq(maintenanceAcknowledgements.maintenanceId, maintenanceId)
+        )
+      )
+      .limit(1);
+    
+    if (existing.length > 0) {
+      return existing[0];
+    }
+
+    const [ack] = await db.insert(maintenanceAcknowledgements).values({
+      userId,
+      maintenanceId,
+      maintenanceType,
+    }).returning();
+    return ack;
+  }
+
+  async unacknowledgeMaintenance(userId: string, maintenanceId: string): Promise<boolean> {
+    await db.delete(maintenanceAcknowledgements).where(
+      and(
+        eq(maintenanceAcknowledgements.userId, userId),
+        eq(maintenanceAcknowledgements.maintenanceId, maintenanceId)
+      )
+    );
+    return true;
+  }
+
+  async isMaintenanceAcknowledged(userId: string, maintenanceId: string): Promise<boolean> {
+    const ack = await db
+      .select()
+      .from(maintenanceAcknowledgements)
+      .where(
+        and(
+          eq(maintenanceAcknowledgements.userId, userId),
+          eq(maintenanceAcknowledgements.maintenanceId, maintenanceId)
+        )
+      )
+      .limit(1);
+    return ack.length > 0;
+  }
+
+  async getUserMaintenanceAcknowledgements(userId: string): Promise<MaintenanceAcknowledgement[]> {
+    return db.select().from(maintenanceAcknowledgements).where(eq(maintenanceAcknowledgements.userId, userId));
+  }
+
+  async clearAcknowledgementsForMaintenance(maintenanceId: string): Promise<void> {
+    await db.delete(maintenanceAcknowledgements).where(eq(maintenanceAcknowledgements.maintenanceId, maintenanceId));
   }
 
   // Vendor Maintenances
