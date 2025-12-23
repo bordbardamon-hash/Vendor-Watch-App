@@ -1,6 +1,7 @@
 import { 
   users, vendors, incidents, jobs, config, feedback, notificationConsents, incidentAlerts, userVendorSubscriptions, userVendorOrder, customVendorRequests,
   blockchainChains, blockchainIncidents, userBlockchainSubscriptions, incidentAcknowledgements,
+  vendorMaintenances, blockchainMaintenances,
   type User, type UpsertUser,
   type Vendor, type InsertVendor,
   type Incident, type InsertIncident,
@@ -15,6 +16,8 @@ import {
   type BlockchainChain, type InsertBlockchainChain,
   type BlockchainIncident, type InsertBlockchainIncident,
   type IncidentAcknowledgement,
+  type VendorMaintenance, type InsertVendorMaintenance,
+  type BlockchainMaintenance, type InsertBlockchainMaintenance,
   SUBSCRIPTION_TIERS
 } from "@shared/schema";
 import { and, isNull, inArray } from "drizzle-orm";
@@ -149,6 +152,25 @@ export interface IStorage {
   isIncidentAcknowledged(userId: string, incidentId: string): Promise<boolean>;
   getUserAcknowledgements(userId: string): Promise<IncidentAcknowledgement[]>;
   clearAcknowledgementsForIncident(incidentId: string): Promise<void>;
+  
+  // Vendor Maintenances
+  getVendorMaintenances(): Promise<VendorMaintenance[]>;
+  getActiveVendorMaintenances(): Promise<VendorMaintenance[]>;
+  getUpcomingVendorMaintenances(): Promise<VendorMaintenance[]>;
+  getVendorMaintenancesByVendor(vendorKey: string): Promise<VendorMaintenance[]>;
+  upsertVendorMaintenance(maintenance: InsertVendorMaintenance): Promise<VendorMaintenance>;
+  updateVendorMaintenance(id: string, data: Partial<InsertVendorMaintenance>): Promise<VendorMaintenance | undefined>;
+  
+  // Blockchain Maintenances
+  getBlockchainMaintenances(): Promise<BlockchainMaintenance[]>;
+  getActiveBlockchainMaintenances(): Promise<BlockchainMaintenance[]>;
+  getUpcomingBlockchainMaintenances(): Promise<BlockchainMaintenance[]>;
+  getBlockchainMaintenancesByChain(chainKey: string): Promise<BlockchainMaintenance[]>;
+  upsertBlockchainMaintenance(maintenance: InsertBlockchainMaintenance): Promise<BlockchainMaintenance>;
+  updateBlockchainMaintenance(id: string, data: Partial<InsertBlockchainMaintenance>): Promise<BlockchainMaintenance | undefined>;
+  
+  // Maintenance stats
+  getMaintenanceStats(): Promise<{ vendorActive: number; vendorUpcoming: number; blockchainActive: number; blockchainUpcoming: number; total: number }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1032,6 +1054,124 @@ export class DatabaseStorage implements IStorage {
 
   async clearAcknowledgementsForIncident(incidentId: string): Promise<void> {
     await db.delete(incidentAcknowledgements).where(eq(incidentAcknowledgements.incidentId, incidentId));
+  }
+
+  // Vendor Maintenances
+  async getVendorMaintenances(): Promise<VendorMaintenance[]> {
+    return db.select().from(vendorMaintenances).orderBy(desc(vendorMaintenances.scheduledStartAt));
+  }
+
+  async getActiveVendorMaintenances(): Promise<VendorMaintenance[]> {
+    return db.select().from(vendorMaintenances)
+      .where(eq(vendorMaintenances.status, 'in_progress'))
+      .orderBy(desc(vendorMaintenances.scheduledStartAt));
+  }
+
+  async getUpcomingVendorMaintenances(): Promise<VendorMaintenance[]> {
+    return db.select().from(vendorMaintenances)
+      .where(eq(vendorMaintenances.status, 'scheduled'))
+      .orderBy(vendorMaintenances.scheduledStartAt);
+  }
+
+  async getVendorMaintenancesByVendor(vendorKey: string): Promise<VendorMaintenance[]> {
+    return db.select().from(vendorMaintenances)
+      .where(eq(vendorMaintenances.vendorKey, vendorKey))
+      .orderBy(desc(vendorMaintenances.scheduledStartAt));
+  }
+
+  async upsertVendorMaintenance(maintenance: InsertVendorMaintenance): Promise<VendorMaintenance> {
+    const existing = await db.select().from(vendorMaintenances)
+      .where(and(
+        eq(vendorMaintenances.vendorKey, maintenance.vendorKey),
+        eq(vendorMaintenances.maintenanceId, maintenance.maintenanceId)
+      ))
+      .limit(1);
+    
+    if (existing.length > 0) {
+      const [updated] = await db.update(vendorMaintenances)
+        .set({ ...maintenance, updatedAt: new Date() })
+        .where(eq(vendorMaintenances.id, existing[0].id))
+        .returning();
+      return updated;
+    }
+    
+    const [created] = await db.insert(vendorMaintenances).values(maintenance).returning();
+    return created;
+  }
+
+  async updateVendorMaintenance(id: string, data: Partial<InsertVendorMaintenance>): Promise<VendorMaintenance | undefined> {
+    const [updated] = await db.update(vendorMaintenances)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(vendorMaintenances.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Blockchain Maintenances
+  async getBlockchainMaintenances(): Promise<BlockchainMaintenance[]> {
+    return db.select().from(blockchainMaintenances).orderBy(desc(blockchainMaintenances.scheduledStartAt));
+  }
+
+  async getActiveBlockchainMaintenances(): Promise<BlockchainMaintenance[]> {
+    return db.select().from(blockchainMaintenances)
+      .where(eq(blockchainMaintenances.status, 'in_progress'))
+      .orderBy(desc(blockchainMaintenances.scheduledStartAt));
+  }
+
+  async getUpcomingBlockchainMaintenances(): Promise<BlockchainMaintenance[]> {
+    return db.select().from(blockchainMaintenances)
+      .where(eq(blockchainMaintenances.status, 'scheduled'))
+      .orderBy(blockchainMaintenances.scheduledStartAt);
+  }
+
+  async getBlockchainMaintenancesByChain(chainKey: string): Promise<BlockchainMaintenance[]> {
+    return db.select().from(blockchainMaintenances)
+      .where(eq(blockchainMaintenances.chainKey, chainKey))
+      .orderBy(desc(blockchainMaintenances.scheduledStartAt));
+  }
+
+  async upsertBlockchainMaintenance(maintenance: InsertBlockchainMaintenance): Promise<BlockchainMaintenance> {
+    const existing = await db.select().from(blockchainMaintenances)
+      .where(and(
+        eq(blockchainMaintenances.chainKey, maintenance.chainKey),
+        eq(blockchainMaintenances.maintenanceId, maintenance.maintenanceId)
+      ))
+      .limit(1);
+    
+    if (existing.length > 0) {
+      const [updated] = await db.update(blockchainMaintenances)
+        .set({ ...maintenance, updatedAt: new Date() })
+        .where(eq(blockchainMaintenances.id, existing[0].id))
+        .returning();
+      return updated;
+    }
+    
+    const [created] = await db.insert(blockchainMaintenances).values(maintenance).returning();
+    return created;
+  }
+
+  async updateBlockchainMaintenance(id: string, data: Partial<InsertBlockchainMaintenance>): Promise<BlockchainMaintenance | undefined> {
+    const [updated] = await db.update(blockchainMaintenances)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(blockchainMaintenances.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Maintenance stats
+  async getMaintenanceStats(): Promise<{ vendorActive: number; vendorUpcoming: number; blockchainActive: number; blockchainUpcoming: number; total: number }> {
+    const vendorActive = await db.select().from(vendorMaintenances).where(eq(vendorMaintenances.status, 'in_progress'));
+    const vendorUpcoming = await db.select().from(vendorMaintenances).where(eq(vendorMaintenances.status, 'scheduled'));
+    const blockchainActive = await db.select().from(blockchainMaintenances).where(eq(blockchainMaintenances.status, 'in_progress'));
+    const blockchainUpcoming = await db.select().from(blockchainMaintenances).where(eq(blockchainMaintenances.status, 'scheduled'));
+    
+    return {
+      vendorActive: vendorActive.length,
+      vendorUpcoming: vendorUpcoming.length,
+      blockchainActive: blockchainActive.length,
+      blockchainUpcoming: blockchainUpcoming.length,
+      total: vendorActive.length + vendorUpcoming.length + blockchainActive.length + blockchainUpcoming.length,
+    };
   }
 }
 

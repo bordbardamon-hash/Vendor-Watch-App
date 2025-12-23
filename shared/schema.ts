@@ -203,6 +203,50 @@ export const incidentAcknowledgements = pgTable("incident_acknowledgements", {
   acknowledgedAt: timestamp("acknowledged_at").notNull().defaultNow(),
 });
 
+// Maintenance statuses
+export const MAINTENANCE_STATUSES = ['scheduled', 'in_progress', 'verifying', 'completed'] as const;
+export type MaintenanceStatus = typeof MAINTENANCE_STATUSES[number];
+
+// Vendor Maintenances - scheduled maintenance windows from vendor status pages
+export const vendorMaintenances = pgTable("vendor_maintenances", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  vendorKey: text("vendor_key").notNull(),
+  maintenanceId: text("maintenance_id").notNull(), // External ID from status page
+  title: text("title").notNull(),
+  description: text("description"),
+  status: text("status").notNull().default('scheduled'), // scheduled, in_progress, verifying, completed
+  impact: text("impact").notNull().default('maintenance'), // none, minor, major, critical
+  url: text("url"),
+  scheduledStartAt: text("scheduled_start_at").notNull(),
+  scheduledEndAt: text("scheduled_end_at"),
+  actualStartAt: text("actual_start_at"),
+  actualEndAt: text("actual_end_at"),
+  affectedComponents: text("affected_components"), // comma-separated list
+  rawHash: text("raw_hash"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Blockchain Maintenances - scheduled maintenance for blockchain infrastructure
+export const blockchainMaintenances = pgTable("blockchain_maintenances", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  chainKey: text("chain_key").notNull(),
+  maintenanceId: text("maintenance_id").notNull(), // External ID from status page
+  title: text("title").notNull(),
+  description: text("description"),
+  status: text("status").notNull().default('scheduled'), // scheduled, in_progress, verifying, completed
+  impact: text("impact").notNull().default('maintenance'),
+  url: text("url"),
+  scheduledStartAt: text("scheduled_start_at").notNull(),
+  scheduledEndAt: text("scheduled_end_at"),
+  actualStartAt: text("actual_start_at"),
+  actualEndAt: text("actual_end_at"),
+  affectedServices: text("affected_services"), // comma-separated list
+  rawHash: text("raw_hash"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // Insert schemas
 export const insertVendorSchema = createInsertSchema(vendors).omit({
   id: true,
@@ -281,6 +325,18 @@ export const insertIncidentAcknowledgementSchema = createInsertSchema(incidentAc
   acknowledgedAt: true,
 });
 
+export const insertVendorMaintenanceSchema = createInsertSchema(vendorMaintenances).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertBlockchainMaintenanceSchema = createInsertSchema(blockchainMaintenances).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type InsertVendor = z.infer<typeof insertVendorSchema>;
 export type Vendor = typeof vendors.$inferSelect;
@@ -326,6 +382,12 @@ export type WeeklyDigest = typeof weeklyDigests.$inferSelect;
 
 export type InsertIncidentAcknowledgement = z.infer<typeof insertIncidentAcknowledgementSchema>;
 export type IncidentAcknowledgement = typeof incidentAcknowledgements.$inferSelect;
+
+export type InsertVendorMaintenance = z.infer<typeof insertVendorMaintenanceSchema>;
+export type VendorMaintenance = typeof vendorMaintenances.$inferSelect;
+
+export type InsertBlockchainMaintenance = z.infer<typeof insertBlockchainMaintenanceSchema>;
+export type BlockchainMaintenance = typeof blockchainMaintenances.$inferSelect;
 
 // Subscription tier constants
 export const SUBSCRIPTION_TIERS = {
