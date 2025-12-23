@@ -9,6 +9,15 @@ import { seedVendorsIfEmpty, seedBlockchainChainsIfEmpty } from './storage';
 import { syncVendorStatus } from './statusSync';
 import { syncAllBlockchainChains } from './blockchainSync';
 
+// Global error handlers
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[process] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('[process] Uncaught Exception:', error);
+});
+
 const app = express();
 const httpServer = createServer(app);
 
@@ -143,12 +152,12 @@ app.use((req, res, next) => {
     res.status(404).json({ error: "API endpoint not found", path: req.path });
   });
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
+    console.error(`[error] ${req.method} ${req.path} - Status ${status}:`, err.stack || err);
     res.status(status).json({ message });
-    throw err;
   });
 
   // importantly only setup vite in development and after
