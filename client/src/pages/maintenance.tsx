@@ -13,7 +13,9 @@ import {
   AlertTriangle,
   Loader2,
   Server,
-  Boxes
+  Boxes,
+  BellOff,
+  Bell
 } from "lucide-react";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -64,6 +66,14 @@ interface MaintenanceStats {
   total: number;
 }
 
+interface MaintenanceAcknowledgement {
+  id: number;
+  userId: string;
+  maintenanceId: string;
+  maintenanceType: 'vendor' | 'blockchain';
+  acknowledgedAt: string;
+}
+
 export default function Maintenance() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -76,6 +86,7 @@ export default function Maintenance() {
       if (!res.ok) throw new Error("Failed to fetch maintenance stats");
       return res.json();
     },
+    refetchInterval: 60000,
   });
 
   const { data: vendorActive = [] } = useQuery<VendorMaintenance[]>({
@@ -85,6 +96,7 @@ export default function Maintenance() {
       if (!res.ok) throw new Error("Failed to fetch active vendor maintenances");
       return res.json();
     },
+    refetchInterval: 60000,
   });
 
   const { data: vendorUpcoming = [] } = useQuery<VendorMaintenance[]>({
@@ -94,6 +106,7 @@ export default function Maintenance() {
       if (!res.ok) throw new Error("Failed to fetch upcoming vendor maintenances");
       return res.json();
     },
+    refetchInterval: 60000,
   });
 
   const { data: blockchainActive = [] } = useQuery<BlockchainMaintenance[]>({
@@ -103,6 +116,7 @@ export default function Maintenance() {
       if (!res.ok) throw new Error("Failed to fetch active blockchain maintenances");
       return res.json();
     },
+    refetchInterval: 60000,
   });
 
   const { data: blockchainUpcoming = [] } = useQuery<BlockchainMaintenance[]>({
@@ -111,6 +125,79 @@ export default function Maintenance() {
       const res = await fetch("/api/maintenance/blockchain/upcoming");
       if (!res.ok) throw new Error("Failed to fetch upcoming blockchain maintenances");
       return res.json();
+    },
+    refetchInterval: 60000,
+  });
+
+  const { data: acknowledgements = [] } = useQuery<MaintenanceAcknowledgement[]>({
+    queryKey: ["maintenance-acknowledgements"],
+    queryFn: async () => {
+      const res = await fetch("/api/maintenance/acknowledgements");
+      if (!res.ok) throw new Error("Failed to fetch acknowledgements");
+      return res.json();
+    },
+    refetchInterval: 60000,
+  });
+
+  const acknowledgedMaintenanceIds = new Set(acknowledgements.map(a => a.maintenanceId));
+
+  const acknowledgeVendorMutation = useMutation({
+    mutationFn: async (maintenanceId: string) => {
+      const res = await fetch(`/api/maintenance/vendors/${maintenanceId}/acknowledge`, { method: "POST" });
+      if (!res.ok) throw new Error("Failed to acknowledge maintenance");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["maintenance-acknowledgements"] });
+      toast({ title: "Acknowledged", description: "You will no longer receive notifications for this maintenance." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to acknowledge maintenance.", variant: "destructive" });
+    },
+  });
+
+  const unacknowledgeVendorMutation = useMutation({
+    mutationFn: async (maintenanceId: string) => {
+      const res = await fetch(`/api/maintenance/vendors/${maintenanceId}/acknowledge`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to unacknowledge maintenance");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["maintenance-acknowledgements"] });
+      toast({ title: "Unacknowledged", description: "You will receive notifications for this maintenance again." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to unacknowledge maintenance.", variant: "destructive" });
+    },
+  });
+
+  const acknowledgeBlockchainMutation = useMutation({
+    mutationFn: async (maintenanceId: string) => {
+      const res = await fetch(`/api/maintenance/blockchain/${maintenanceId}/acknowledge`, { method: "POST" });
+      if (!res.ok) throw new Error("Failed to acknowledge blockchain maintenance");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["maintenance-acknowledgements"] });
+      toast({ title: "Acknowledged", description: "You will no longer receive notifications for this maintenance." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to acknowledge maintenance.", variant: "destructive" });
+    },
+  });
+
+  const unacknowledgeBlockchainMutation = useMutation({
+    mutationFn: async (maintenanceId: string) => {
+      const res = await fetch(`/api/maintenance/blockchain/${maintenanceId}/acknowledge`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to unacknowledge blockchain maintenance");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["maintenance-acknowledgements"] });
+      toast({ title: "Unacknowledged", description: "You will receive notifications for this maintenance again." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to unacknowledge maintenance.", variant: "destructive" });
     },
   });
 
@@ -195,85 +282,133 @@ export default function Maintenance() {
     }
   };
 
-  const renderVendorMaintenanceCard = (maint: VendorMaintenance) => (
-    <Card key={maint.id} className="bg-sidebar border-sidebar-border" data-testid={`card-vendor-maintenance-${maint.id}`}>
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <Server className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm font-medium">{maint.vendorKey}</span>
-              {getStatusBadge(maint.status)}
+  const renderVendorMaintenanceCard = (maint: VendorMaintenance) => {
+    const isAcked = acknowledgedMaintenanceIds.has(maint.id);
+    return (
+      <Card key={maint.id} className={`bg-sidebar border-sidebar-border ${isAcked ? 'opacity-60' : ''}`} data-testid={`card-vendor-maintenance-${maint.id}`}>
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <Server className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm font-medium">{maint.vendorKey}</span>
+                {getStatusBadge(maint.status)}
+                {isAcked && (
+                  <Badge variant="outline" className="bg-muted/50 text-muted-foreground border-muted text-xs">
+                    <BellOff className="w-3 h-3 mr-1" />
+                    Acknowledged
+                  </Badge>
+                )}
+              </div>
+              <h3 className="font-semibold">{maint.title}</h3>
+              {maint.description && (
+                <p className="text-sm text-muted-foreground mt-1">{maint.description}</p>
+              )}
+              <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Calendar className="w-3 h-3" />
+                  {formatScheduleTime(maint.scheduledStartAt, maint.scheduledEndAt)}
+                </span>
+                {maint.affectedComponents && (
+                  <span className="text-xs">Affects: {maint.affectedComponents}</span>
+                )}
+              </div>
             </div>
-            <h3 className="font-semibold">{maint.title}</h3>
-            {maint.description && (
-              <p className="text-sm text-muted-foreground mt-1">{maint.description}</p>
-            )}
-            <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <Calendar className="w-3 h-3" />
-                {formatScheduleTime(maint.scheduledStartAt, maint.scheduledEndAt)}
-              </span>
-              {maint.affectedComponents && (
-                <span className="text-xs">Affects: {maint.affectedComponents}</span>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => isAcked 
+                  ? unacknowledgeVendorMutation.mutate(maint.id)
+                  : acknowledgeVendorMutation.mutate(maint.id)
+                }
+                disabled={acknowledgeVendorMutation.isPending || unacknowledgeVendorMutation.isPending}
+                title={isAcked ? "Resume notifications" : "Stop notifications"}
+                data-testid={`button-ack-vendor-${maint.id}`}
+              >
+                {isAcked ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
+              </Button>
+              {maint.url && (
+                <a 
+                  href={maint.url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-primary hover:text-primary/80 p-2"
+                  data-testid={`link-vendor-maintenance-${maint.id}`}
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </a>
               )}
             </div>
           </div>
-          {maint.url && (
-            <a 
-              href={maint.url} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-primary hover:text-primary/80 p-2"
-              data-testid={`link-vendor-maintenance-${maint.id}`}
-            >
-              <ExternalLink className="w-4 h-4" />
-            </a>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
+        </CardContent>
+      </Card>
+    );
+  };
 
-  const renderBlockchainMaintenanceCard = (maint: BlockchainMaintenance) => (
-    <Card key={maint.id} className="bg-sidebar border-sidebar-border" data-testid={`card-blockchain-maintenance-${maint.id}`}>
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <Boxes className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm font-medium">{maint.chainKey}</span>
-              {getStatusBadge(maint.status)}
+  const renderBlockchainMaintenanceCard = (maint: BlockchainMaintenance) => {
+    const isAcked = acknowledgedMaintenanceIds.has(maint.id);
+    return (
+      <Card key={maint.id} className={`bg-sidebar border-sidebar-border ${isAcked ? 'opacity-60' : ''}`} data-testid={`card-blockchain-maintenance-${maint.id}`}>
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <Boxes className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm font-medium">{maint.chainKey}</span>
+                {getStatusBadge(maint.status)}
+                {isAcked && (
+                  <Badge variant="outline" className="bg-muted/50 text-muted-foreground border-muted text-xs">
+                    <BellOff className="w-3 h-3 mr-1" />
+                    Acknowledged
+                  </Badge>
+                )}
+              </div>
+              <h3 className="font-semibold">{maint.title}</h3>
+              {maint.description && (
+                <p className="text-sm text-muted-foreground mt-1">{maint.description}</p>
+              )}
+              <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Calendar className="w-3 h-3" />
+                  {formatScheduleTime(maint.scheduledStartAt, maint.scheduledEndAt)}
+                </span>
+                {maint.affectedServices && (
+                  <span className="text-xs">Affects: {maint.affectedServices}</span>
+                )}
+              </div>
             </div>
-            <h3 className="font-semibold">{maint.title}</h3>
-            {maint.description && (
-              <p className="text-sm text-muted-foreground mt-1">{maint.description}</p>
-            )}
-            <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <Calendar className="w-3 h-3" />
-                {formatScheduleTime(maint.scheduledStartAt, maint.scheduledEndAt)}
-              </span>
-              {maint.affectedServices && (
-                <span className="text-xs">Affects: {maint.affectedServices}</span>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => isAcked 
+                  ? unacknowledgeBlockchainMutation.mutate(maint.id)
+                  : acknowledgeBlockchainMutation.mutate(maint.id)
+                }
+                disabled={acknowledgeBlockchainMutation.isPending || unacknowledgeBlockchainMutation.isPending}
+                title={isAcked ? "Resume notifications" : "Stop notifications"}
+                data-testid={`button-ack-blockchain-${maint.id}`}
+              >
+                {isAcked ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
+              </Button>
+              {maint.url && (
+                <a 
+                  href={maint.url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-primary hover:text-primary/80 p-2"
+                  data-testid={`link-blockchain-maintenance-${maint.id}`}
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </a>
               )}
             </div>
           </div>
-          {maint.url && (
-            <a 
-              href={maint.url} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-primary hover:text-primary/80 p-2"
-              data-testid={`link-blockchain-maintenance-${maint.id}`}
-            >
-              <ExternalLink className="w-4 h-4" />
-            </a>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
+        </CardContent>
+      </Card>
+    );
+  };
 
   const allActive = [...vendorActive, ...blockchainActive];
   const allUpcoming = [...vendorUpcoming, ...blockchainUpcoming];
