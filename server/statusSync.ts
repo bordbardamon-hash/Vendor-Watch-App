@@ -4,6 +4,7 @@ import { fetchWithRetry } from "./retryUtil";
 import { mapStatuspageImpact, mapStatuspageStatus, determineLifecycleEvent, shouldAlertForEvent } from "./statusNormalizer";
 import { recordParseResult, shouldSendParserHealthAlert, markAlertSent, getParserHealthStatus } from "./parserHealthTracker";
 import { scrapeVendorStatus } from "./htmlScraper";
+import { scrapeJsVendorStatus } from "./puppeteerScraper";
 import type { CanonicalSeverity, CanonicalStatus, LifecycleEvent } from "@shared/schema";
 
 interface StatusPageResponse {
@@ -360,7 +361,7 @@ export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: nu
   for (const vendor of vendors) {
     if (!vendor) continue;
     
-    const validParsers = ['statuspage_json', 'aws_json', 'slack_json', 'manual', 'generic_html', 'html_scrape'];
+    const validParsers = ['statuspage_json', 'aws_json', 'slack_json', 'manual', 'generic_html', 'html_scrape', 'puppeteer_js'];
     if (!validParsers.includes(vendor.parser)) {
       console.log(`⊘ ${vendor.name}: skipped (unknown parser: ${vendor.parser})`);
       skipped++;
@@ -374,6 +375,9 @@ export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: nu
         result = await fetchAwsStatus(vendor);
       } else if (vendor.parser === 'slack_json') {
         result = await fetchSlackStatus(vendor);
+      } else if (vendor.parser === 'puppeteer_js') {
+        // Use Puppeteer for JavaScript-rendered pages
+        result = await scrapeJsVendorStatus(vendor);
       } else if (vendor.parser === 'manual' || vendor.parser === 'generic_html' || vendor.parser === 'html_scrape') {
         // Use HTML scraping for vendors without public APIs
         result = await scrapeVendorStatus(vendor);
