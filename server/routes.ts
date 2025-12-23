@@ -1883,5 +1883,111 @@ export async function registerRoutes(
     }
   });
 
+  // ============ ANALYTICS ROUTES ============
+  
+  // Log user activity (page views, etc.)
+  app.post("/api/analytics/activity", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const { eventType, metadata } = req.body;
+      if (!eventType) {
+        return res.status(400).json({ error: "Event type is required" });
+      }
+      
+      await storage.logUserActivity(userId, eventType, metadata);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error logging activity:", error);
+      res.status(500).json({ error: "Failed to log activity" });
+    }
+  });
+
+  // Get current user's activity stats
+  app.get("/api/analytics/my-stats", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const days = parseInt(req.query.days as string) || 30;
+      const stats = await storage.getUserActivityStats(userId, days);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error getting user stats:", error);
+      res.status(500).json({ error: "Failed to get user stats" });
+    }
+  });
+
+  // Get current user's recent activity
+  app.get("/api/analytics/my-activity", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const limit = parseInt(req.query.limit as string) || 20;
+      const activity = await storage.getUserRecentActivity(userId, limit);
+      res.json(activity);
+    } catch (error) {
+      console.error("Error getting user activity:", error);
+      res.status(500).json({ error: "Failed to get user activity" });
+    }
+  });
+
+  // Get vendor performance stats (all vendors)
+  app.get("/api/analytics/vendors", isAuthenticated, async (req: any, res) => {
+    try {
+      const days = parseInt(req.query.days as string) || 30;
+      const stats = await storage.getAllVendorPerformanceStats(days);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error getting vendor stats:", error);
+      res.status(500).json({ error: "Failed to get vendor stats" });
+    }
+  });
+
+  // Get single vendor performance stats
+  app.get("/api/analytics/vendors/:vendorKey", isAuthenticated, async (req: any, res) => {
+    try {
+      const { vendorKey } = req.params;
+      const days = parseInt(req.query.days as string) || 30;
+      const stats = await storage.getVendorPerformanceStats(vendorKey, days);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error getting vendor stats:", error);
+      res.status(500).json({ error: "Failed to get vendor stats" });
+    }
+  });
+
+  // Admin: Record vendor daily metrics (for scheduled jobs)
+  app.post("/api/analytics/vendors/:vendorKey/metrics", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { vendorKey } = req.params;
+      const { date, uptimeMinutes, downtimeMinutes, incidentCount, avgResolutionMinutes } = req.body;
+      
+      if (!date || uptimeMinutes === undefined || downtimeMinutes === undefined || incidentCount === undefined) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+      
+      await storage.recordVendorDailyMetrics(vendorKey, date, {
+        uptimeMinutes,
+        downtimeMinutes,
+        incidentCount,
+        avgResolutionMinutes,
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error recording vendor metrics:", error);
+      res.status(500).json({ error: "Failed to record vendor metrics" });
+    }
+  });
+
   return httpServer;
 }
