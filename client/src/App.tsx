@@ -59,6 +59,7 @@ function AuthenticatedRouter() {
     <Layout>
       <Switch>
         <Route path="/" component={Dashboard} />
+        <Route path="/dashboard" component={Dashboard} />
         <Route path="/vendors" component={Vendors} />
         <Route path="/blockchain" component={Blockchain} />
         <Route path="/jobs" component={Jobs} />
