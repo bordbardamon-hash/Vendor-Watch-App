@@ -9,6 +9,7 @@ import memoize from 'memoizee';
 import { db } from './db';
 import { users } from '@shared/models/auth';
 import { eq } from 'drizzle-orm';
+import { storage } from './storage';
 
 const SALT_ROUNDS = 10;
 
@@ -187,6 +188,10 @@ export async function setupEmailAuth(app: Express) {
         (req.session as any).twoFactorVerified = true; // OAuth users skip 2FA initially
         
         console.log(`[auth] User logged in via Replit OAuth: ${user.email}`);
+        
+        // Log login activity (don't await to avoid blocking redirect)
+        storage.logUserActivity(user.userId, 'login', { method: 'replit_oauth' }).catch(console.error);
+        
         return res.redirect('/');
       })(req, res, next);
     });
@@ -304,6 +309,10 @@ export async function setupEmailAuth(app: Express) {
       }
 
       console.log(`[auth] User logged in: ${email}`);
+      
+      // Log login activity
+      await storage.logUserActivity(user.id, 'login', { method: 'email' });
+      
       res.json({ 
         id: user.id, 
         email: user.email,

@@ -49,6 +49,7 @@ Key entities include Users, Sessions, Vendors, Incidents, Jobs, and Configuratio
     - **Customer Impact Tagging**: Allows users to tag vendors with high/medium/low customer impact.
     - **Weekly Digest Emails**: Sends periodic summaries of incidents to users.
 - **Owner-Only Parser Alerts**: Health alerts for scraping failures are sent exclusively to the designated owner user.
+- **Analytics Dashboard**: In-app analytics page (`/analytics`) showing user activity patterns (logins, page views, acknowledgements) and vendor performance trends (uptime %, incident frequency). Activity logging tracks logins, incident/maintenance acknowledgements. Uses `userActivityEvents` and `vendorDailyMetrics` tables for storage.
 
 ## External Dependencies
 

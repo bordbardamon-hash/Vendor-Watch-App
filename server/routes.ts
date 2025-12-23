@@ -1388,6 +1388,7 @@ export async function registerRoutes(
       
       const incidentId = req.params.id;
       const ack = await storage.acknowledgeIncident(userId, incidentId, 'vendor');
+      await storage.logUserActivity(userId, 'incident_ack', { incidentId, type: 'vendor' });
       res.json({ success: true, acknowledgement: ack });
     } catch (error) {
       console.error("Error acknowledging incident:", error);
@@ -1422,6 +1423,7 @@ export async function registerRoutes(
       
       const incidentId = req.params.id;
       const ack = await storage.acknowledgeIncident(userId, incidentId, 'blockchain');
+      await storage.logUserActivity(userId, 'incident_ack', { incidentId, type: 'blockchain' });
       res.json({ success: true, acknowledgement: ack });
     } catch (error) {
       console.error("Error acknowledging blockchain incident:", error);
@@ -1549,6 +1551,7 @@ export async function registerRoutes(
         return res.status(401).json({ error: "Unauthorized" });
       }
       const ack = await storage.acknowledgeMaintenance(userId, maintenanceId, 'vendor');
+      await storage.logUserActivity(userId, 'maintenance_ack', { maintenanceId, type: 'vendor' });
       res.json(ack);
     } catch (error) {
       console.error("Error acknowledging vendor maintenance:", error);
@@ -1581,6 +1584,7 @@ export async function registerRoutes(
         return res.status(401).json({ error: "Unauthorized" });
       }
       const ack = await storage.acknowledgeMaintenance(userId, maintenanceId, 'blockchain');
+      await storage.logUserActivity(userId, 'maintenance_ack', { maintenanceId, type: 'blockchain' });
       res.json(ack);
     } catch (error) {
       console.error("Error acknowledging blockchain maintenance:", error);

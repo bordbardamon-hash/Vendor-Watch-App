@@ -16,6 +16,7 @@ import Blockchain from "@/pages/blockchain";
 import Consents from "@/pages/consents";
 import FeedbackAdmin from "@/pages/feedback";
 import Maintenance from "@/pages/maintenance";
+import Analytics from "@/pages/analytics";
 import Signup from "@/pages/signup";
 import SignupSuccess from "@/pages/signup-success";
 import Verify2FA from "@/pages/verify-2fa";
@@ -65,6 +66,7 @@ function AuthenticatedRouter() {
         <Route path="/vendors" component={Vendors} />
         <Route path="/blockchain" component={Blockchain} />
         <Route path="/maintenance" component={Maintenance} />
+        <Route path="/analytics" component={Analytics} />
         <Route path="/jobs" component={Jobs} />
         <Route path="/logs" component={Logs} />
         <Route path="/settings" component={Settings} />
