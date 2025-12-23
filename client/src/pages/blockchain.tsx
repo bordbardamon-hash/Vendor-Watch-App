@@ -16,10 +16,14 @@ import {
   Boxes,
   Layers,
   Cpu,
-  Network
+  Network,
+  Plus,
+  Shield,
+  Lock
 } from "lucide-react";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 
 interface BlockchainChain {
   key: string;
@@ -105,6 +109,70 @@ const CATEGORY_LABELS: Record<string, string> = {
 export default function Blockchain() {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("all");
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Fetch blockchain subscriptions
+  const { data: subscriptionData } = useQuery<{
+    subscribedChains: string[];
+    hasSetSubscriptions: boolean;
+    allowed: boolean;
+    current: number;
+    limit: number | null;
+    tier: string | null;
+  }>({
+    queryKey: ["subscriptions-blockchain"],
+    queryFn: async () => {
+      const res = await fetch("/api/subscriptions/blockchain");
+      if (!res.ok) throw new Error("Failed to fetch subscriptions");
+      return res.json();
+    },
+  });
+
+  // Toggle blockchain subscription mutation
+  const toggleChainMutation = useMutation({
+    mutationFn: async (chainKey: string) => {
+      const res = await fetch(`/api/blockchain/${chainKey}/toggle`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to toggle chain");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["subscriptions-blockchain"] });
+      toast({
+        title: data.subscribed ? "Chain Added" : "Chain Removed",
+        description: data.subscribed 
+          ? `Added to monitoring (${data.current}/${data.limit === null ? '∞' : data.limit})`
+          : "Removed from monitoring",
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Helper to check if chain is being monitored
+  const isMonitored = (chainKey: string) => {
+    if (!subscriptionData?.hasSetSubscriptions) return false;
+    return subscriptionData.subscribedChains.includes(chainKey);
+  };
+
+  // Helper to check if user can add more chains
+  const canAddMore = () => {
+    if (!subscriptionData) return false;
+    if (subscriptionData.limit === null) return true; // Platinum
+    return subscriptionData.current < subscriptionData.limit;
+  };
+
+  // Check if user has blockchain access (Gold or Platinum)
+  const hasBlockchainAccess = () => {
+    return subscriptionData?.tier === 'gold' || subscriptionData?.tier === 'platinum';
+  };
 
   const { data: chains = [], isLoading: chainsLoading, refetch } = useQuery<BlockchainChain[]>({
     queryKey: ["blockchain-chains"],
@@ -173,7 +241,7 @@ export default function Blockchain() {
   };
 
   const renderChainCard = (chain: BlockchainChain) => (
-    <Card key={chain.key} className="bg-sidebar border-sidebar-border hover:border-primary/30 transition-colors" data-testid={`card-chain-${chain.key}`}>
+    <Card key={chain.key} className={`bg-sidebar border-sidebar-border hover:border-primary/30 transition-colors ${isMonitored(chain.key) ? 'ring-1 ring-primary/30' : ''}`} data-testid={`card-chain-${chain.key}`}>
       <CardContent className="p-4">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
@@ -184,6 +252,11 @@ export default function Blockchain() {
                 {chain.symbol && (
                   <span className="text-xs text-muted-foreground font-mono">{chain.symbol}</span>
                 )}
+                {isMonitored(chain.key) && (
+                  <Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-primary/10 text-primary border-primary/30">
+                    Monitored
+                  </Badge>
+                )}
               </div>
               <div className="flex items-center gap-2 mt-1">
                 <Badge variant="secondary" className="text-xs">{CATEGORY_LABELS[chain.category] || chain.category}</Badge>
@@ -193,7 +266,33 @@ export default function Blockchain() {
               </div>
             </div>
           </div>
-          {getStatusBadge(chain.status)}
+          <div className="flex items-center gap-2">
+            {getStatusBadge(chain.status)}
+            {hasBlockchainAccess() && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className={`h-7 w-7 p-0 ${isMonitored(chain.key) ? 'text-primary hover:text-red-500 hover:bg-red-500/10' : 'text-muted-foreground hover:text-primary hover:bg-primary/10'}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!isMonitored(chain.key) && !canAddMore()) {
+                    toast({ 
+                      title: "Chain Limit Reached", 
+                      description: `Your ${subscriptionData?.tier} plan allows up to ${subscriptionData?.limit} chains. Upgrade to monitor more.`,
+                      variant: "destructive"
+                    });
+                    return;
+                  }
+                  toggleChainMutation.mutate(chain.key);
+                }}
+                disabled={toggleChainMutation.isPending}
+                title={isMonitored(chain.key) ? "Remove from monitoring" : "Add to monitoring"}
+                data-testid={`button-toggle-chain-${chain.key}`}
+              >
+                {isMonitored(chain.key) ? <CheckCircle2 className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+              </Button>
+            )}
+          </div>
         </div>
         
         <div className="mt-3 flex items-center gap-2">
@@ -280,6 +379,41 @@ export default function Blockchain() {
             </Button>
           </div>
         </div>
+
+        {/* Subscription Status */}
+        {subscriptionData && (
+          <div className={`border rounded-lg p-4 ${hasBlockchainAccess() ? 'bg-sidebar/30 border-sidebar-border' : 'bg-amber-950/20 border-amber-500/30'}`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {hasBlockchainAccess() ? (
+                  <Shield className="w-5 h-5 text-primary" />
+                ) : (
+                  <Lock className="w-5 h-5 text-amber-500" />
+                )}
+                <div>
+                  <h3 className="font-medium">
+                    {hasBlockchainAccess() 
+                      ? "Blockchain Monitoring" 
+                      : "Blockchain Monitoring Requires Upgrade"}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {hasBlockchainAccess() 
+                      ? `Select up to ${subscriptionData.limit === null ? 'unlimited' : subscriptionData.limit} blockchain networks to monitor`
+                      : "Upgrade to Gold ($99.99/mo) for 5 chains or Platinum ($129.99/mo) for unlimited"}
+                  </p>
+                </div>
+              </div>
+              {hasBlockchainAccess() && (
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-muted-foreground">
+                    {subscriptionData.current} / {subscriptionData.limit === null ? '∞' : subscriptionData.limit} chains
+                  </span>
+                  <Badge variant="outline" className="text-xs capitalize">{subscriptionData.tier}</Badge>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {stats && (
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">

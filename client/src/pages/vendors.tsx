@@ -155,79 +155,49 @@ export default function Vendors() {
     },
   });
 
-  // Fetch user's monitored vendors (subscriptions)
-  const { data: userSubscriptions } = useQuery<{ vendorKeys: string[]; hasSetSubscriptions: boolean }>({
-    queryKey: ["vendor-subscriptions"],
+  // Fetch user's subscribed vendors
+  const { data: subscriptionData } = useQuery<{
+    subscribedVendors: string[];
+    hasSetSubscriptions: boolean;
+    allowed: boolean;
+    current: number;
+    limit: number | null;
+    tier: string | null;
+  }>({
+    queryKey: ["subscriptions-vendors"],
     queryFn: async () => {
-      const res = await fetch("/api/vendor-subscriptions");
+      const res = await fetch("/api/subscriptions/vendors");
       if (!res.ok) throw new Error("Failed to fetch subscriptions");
       return res.json();
     },
   });
 
-  // Get the current baseline vendor keys (all vendors if hasSetSubscriptions is false)
-  const getCurrentVendorKeys = (): string[] => {
-    if (!userSubscriptions?.hasSetSubscriptions) {
-      // Default state: user monitors all vendors, use full vendor list as baseline
-      return vendors.map(v => v.key);
-    }
-    return userSubscriptions.vendorKeys;
-  };
-
-  // Add vendor to monitoring list mutation
-  const addToMonitorMutation = useMutation({
+  // Toggle vendor subscription mutation
+  const toggleVendorMutation = useMutation({
     mutationFn: async (vendorKey: string) => {
-      const currentKeys = getCurrentVendorKeys();
-      if (currentKeys.includes(vendorKey)) {
-        return { vendorKeys: currentKeys }; // Already added
-      }
-      const newKeys = [...currentKeys, vendorKey];
-      const res = await fetch("/api/vendor-subscriptions", {
-        method: "PUT",
+      const res = await fetch(`/api/vendors/${vendorKey}/toggle`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ vendorKeys: newKeys }),
       });
       if (!res.ok) {
         const error = await res.json();
-        throw new Error(error.error || "Failed to add vendor");
+        throw new Error(error.error || "Failed to toggle vendor");
       }
       return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["vendor-subscriptions"] });
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["subscriptions-vendors"] });
       queryClient.invalidateQueries({ queryKey: ["vendor-limit"] });
       queryClient.invalidateQueries({ queryKey: ["my-vendors"] });
-      toast({ title: "Vendor Added", description: "Vendor added to your monitoring list." });
-    },
-    onError: (error: Error) => {
-      toast({ title: "Failed to Add", description: error.message, variant: "destructive" });
-    },
-  });
-
-  // Remove vendor from monitoring list mutation
-  const removeFromMonitorMutation = useMutation({
-    mutationFn: async (vendorKey: string) => {
-      const currentKeys = getCurrentVendorKeys();
-      const newKeys = currentKeys.filter(k => k !== vendorKey);
-      const res = await fetch("/api/vendor-subscriptions", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ vendorKeys: newKeys }),
+      toast({
+        title: data.subscribed ? "Vendor Added" : "Vendor Removed",
+        description: data.subscribed 
+          ? `Added to monitoring (${data.current}/${data.limit === null ? '∞' : data.limit})`
+          : "Removed from monitoring",
       });
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || "Failed to remove vendor");
-      }
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["vendor-subscriptions"] });
-      queryClient.invalidateQueries({ queryKey: ["vendor-limit"] });
-      queryClient.invalidateQueries({ queryKey: ["my-vendors"] });
-      toast({ title: "Vendor Removed", description: "Vendor removed from your monitoring list." });
     },
     onError: (error: Error) => {
-      toast({ title: "Failed to Remove", description: error.message, variant: "destructive" });
+      toast({ title: "Failed", description: error.message, variant: "destructive" });
     },
   });
 
@@ -259,15 +229,15 @@ export default function Vendors() {
 
   // Helper to check if vendor is being monitored
   const isMonitored = (vendorKey: string) => {
-    if (!userSubscriptions?.hasSetSubscriptions) return true; // Default: all monitored
-    return userSubscriptions.vendorKeys.includes(vendorKey);
+    if (!subscriptionData?.hasSetSubscriptions) return false; // Default: none monitored until user selects
+    return subscriptionData.subscribedVendors.includes(vendorKey);
   };
 
   // Helper to check if user can add more vendors
   const canAddMore = () => {
-    if (!vendorLimit) return false;
-    if (vendorLimit.limit === null) return true; // Platinum
-    return vendorLimit.current < vendorLimit.limit;
+    if (!subscriptionData) return false;
+    if (subscriptionData.limit === null) return true; // Platinum
+    return subscriptionData.current < subscriptionData.limit;
   };
 
   // Fetch vendors
@@ -542,7 +512,7 @@ export default function Vendors() {
         {/* Vendor List */}
         <div className="col-span-12 lg:col-span-5 flex flex-col gap-4 overflow-hidden">
           {/* Subscription Limit Indicator */}
-          {vendorLimit && (
+          {subscriptionData && (
             <div className="bg-sidebar/30 border border-sidebar-border rounded-lg p-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Shield className="w-4 h-4 text-primary" />
@@ -550,9 +520,9 @@ export default function Vendors() {
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <span className="text-muted-foreground">
-                  {vendorLimit.current} / {vendorLimit.limit === null ? '∞' : vendorLimit.limit} vendors
+                  {subscriptionData.current} / {subscriptionData.limit === null ? '∞' : subscriptionData.limit} vendors
                 </span>
-                <Badge variant="outline" className="text-xs capitalize">{vendorLimit.tier || 'Free'}</Badge>
+                <Badge variant="outline" className="text-xs capitalize">{subscriptionData.tier || 'Free'}</Badge>
               </div>
             </div>
           )}
@@ -597,45 +567,28 @@ export default function Vendors() {
                         >
                           {vendor.status}
                         </Badge>
-                        {isMonitored(vendor.key) ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 w-7 p-0 text-primary hover:text-red-500 hover:bg-red-500/10"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              removeFromMonitorMutation.mutate(vendor.key);
-                            }}
-                            disabled={removeFromMonitorMutation.isPending}
-                            title="Remove from monitoring"
-                            data-testid={`button-remove-vendor-${vendor.key}`}
-                          >
-                            <CheckCircle2 className="w-4 h-4" />
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 w-7 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (!canAddMore()) {
-                                toast({ 
-                                  title: "Vendor Limit Reached", 
-                                  description: `Your ${vendorLimit?.tier} plan allows up to ${vendorLimit?.limit} vendors. Upgrade to monitor more.`,
-                                  variant: "destructive"
-                                });
-                                return;
-                              }
-                              addToMonitorMutation.mutate(vendor.key);
-                            }}
-                            disabled={addToMonitorMutation.isPending}
-                            title="Add to monitoring"
-                            data-testid={`button-add-vendor-${vendor.key}`}
-                          >
-                            <Plus className="w-4 h-4" />
-                          </Button>
-                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={`h-7 w-7 p-0 ${isMonitored(vendor.key) ? 'text-primary hover:text-red-500 hover:bg-red-500/10' : 'text-muted-foreground hover:text-primary hover:bg-primary/10'}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!isMonitored(vendor.key) && !canAddMore()) {
+                              toast({ 
+                                title: "Vendor Limit Reached", 
+                                description: `Your ${subscriptionData?.tier} plan allows up to ${subscriptionData?.limit} vendors. Upgrade to monitor more.`,
+                                variant: "destructive"
+                              });
+                              return;
+                            }
+                            toggleVendorMutation.mutate(vendor.key);
+                          }}
+                          disabled={toggleVendorMutation.isPending}
+                          title={isMonitored(vendor.key) ? "Remove from monitoring" : "Add to monitoring"}
+                          data-testid={`button-toggle-vendor-${vendor.key}`}
+                        >
+                          {isMonitored(vendor.key) ? <CheckCircle2 className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                        </Button>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground font-mono mt-3">
