@@ -159,8 +159,13 @@ async function syncBlockchainChain(chainData: { key: string; name: string; sourc
     return;
   }
   
+  // Get existing active incidents for this chain
+  const existingIncidents = await storage.getBlockchainIncidentsByChain(chainData.key);
+  const activeExistingIncidents = existingIncidents.filter(i => i.status !== 'resolved');
+  const unresolvedIncidentIds = new Set(result.incidents.map(i => i.id));
+  
+  // Process current unresolved incidents
   for (const incident of result.incidents) {
-    const existingIncidents = await storage.getBlockchainIncidentsByChain(chainData.key);
     const existing = existingIncidents.find(i => i.incidentId === incident.id);
     
     if (existing) {
@@ -195,6 +200,21 @@ async function syncBlockchainChain(chainData: { key: string; name: string; sourc
       console.log(`[blockchain:${chainData.key}] Created incident: ${incident.name}`);
       
       await notifyNewBlockchainIncident(newIncident, fullChain);
+    }
+  }
+  
+  // Resolve incidents that are no longer in the unresolved list
+  for (const existing of activeExistingIncidents) {
+    if (!unresolvedIncidentIds.has(existing.incidentId)) {
+      const updated = await storage.updateBlockchainIncident(existing.id, {
+        status: 'resolved',
+        resolvedAt: new Date(),
+      });
+      console.log(`[blockchain:${chainData.key}] Auto-resolved incident: ${existing.title}`);
+      
+      if (updated) {
+        await notifyBlockchainIncidentResolved(updated, fullChain);
+      }
     }
   }
 }
