@@ -359,14 +359,14 @@ export default function Vendors() {
   }
 
   return (
-    <div className="p-8 space-y-8 h-full flex flex-col">
-      <div className="flex items-center justify-between">
+    <div className="p-4 md:p-8 space-y-4 md:space-y-8 h-full flex flex-col">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Vendor Status</h1>
-          <p className="text-muted-foreground mt-1">Monitor third-party service incidents and health</p>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Vendor Status</h1>
+          <p className="text-muted-foreground mt-1 text-sm md:text-base">Monitor third-party service incidents and health</p>
         </div>
-        <div className="flex gap-2">
-          <div className="relative w-64">
+        <div className="flex flex-wrap gap-2">
+          <div className="relative w-full sm:w-64">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input 
               placeholder="Search vendors..." 
@@ -381,9 +381,11 @@ export default function Vendors() {
             onClick={() => syncMutation.mutate()}
             disabled={syncMutation.isPending}
             data-testid="button-sync-vendors"
+            className="flex-1 sm:flex-none"
           >
             <RefreshCw className={`w-4 h-4 mr-2 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
-            {syncMutation.isPending ? 'Syncing...' : 'Refresh Status'}
+            <span className="hidden sm:inline">{syncMutation.isPending ? 'Syncing...' : 'Refresh Status'}</span>
+            <span className="sm:hidden">Refresh</span>
           </Button>
           <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
             <DialogTrigger asChild>
@@ -569,9 +571,9 @@ export default function Vendors() {
         </div>
       )}
 
-      <div className="grid grid-cols-12 gap-6 flex-1 min-h-0">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 flex-1 min-h-0">
         {/* Vendor List */}
-        <div className="col-span-12 lg:col-span-5 flex flex-col gap-4 overflow-hidden">
+        <div className="lg:col-span-5 flex flex-col gap-4 overflow-hidden">
           {/* Subscription Limit Indicator */}
           {subscriptionData && (
             <div className="bg-sidebar/30 border border-sidebar-border rounded-lg p-3 flex items-center justify-between">
@@ -674,7 +676,7 @@ export default function Vendors() {
         </div>
 
         {/* Detail View */}
-        <div className="col-span-12 lg:col-span-7 h-full">
+        <div className="lg:col-span-7 h-full">
           {showAllIncidents ? (
             <Card className="h-full border-sidebar-border bg-sidebar/10 flex flex-col animate-fade-in-scale">
               <CardHeader className="border-b border-sidebar-border bg-sidebar/20">

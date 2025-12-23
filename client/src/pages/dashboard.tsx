@@ -183,23 +183,23 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="p-8 space-y-8">
-      <div className="flex items-center justify-between">
+    <div className="p-4 md:p-8 space-y-6 md:space-y-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">System Overview</h1>
-          <p className="text-muted-foreground mt-1">Main control loop monitoring</p>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">System Overview</h1>
+          <p className="text-muted-foreground mt-1 text-sm md:text-base">Main control loop monitoring</p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 text-sm bg-sidebar/50 px-4 py-2 rounded-full border border-sidebar-border">
+          <div className="flex items-center gap-2 text-sm bg-sidebar/50 px-3 md:px-4 py-2 rounded-full border border-sidebar-border">
             <Bell size={14} className="text-primary" />
-            <span className="text-muted-foreground">{UI_LABELS.alerts.label}:</span>
+            <span className="text-muted-foreground hidden sm:inline">{UI_LABELS.alerts.label}:</span>
             <button 
               onClick={() => setEmailDialogOpen(true)}
               className={`flex items-center gap-1 transition-colors cursor-pointer font-semibold ${notifPrefs?.notifyEmail ? 'text-foreground hover:text-primary' : 'text-muted-foreground/60 hover:text-muted-foreground'}`}
               data-testid="button-email-alerts"
             >
               <Mail size={14} />
-              {UI_LABELS.alerts.email}
+              <span className="hidden sm:inline">{UI_LABELS.alerts.email}</span>
             </button>
             <span className="text-muted-foreground/60">•</span>
             <button 
@@ -208,7 +208,7 @@ export default function Dashboard() {
               data-testid="button-sms-alerts"
             >
               <MessageSquare size={14} />
-              SMS
+              <span className="hidden sm:inline">SMS</span>
             </button>
           </div>
         </div>
@@ -404,8 +404,8 @@ export default function Dashboard() {
         </Link>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-7">
-        <Card className="col-span-4 border-sidebar-border bg-sidebar/50 backdrop-blur-sm animate-fade-in-up opacity-0 stagger-5">
+      <div className="grid gap-4 grid-cols-1 lg:grid-cols-7">
+        <Card className="lg:col-span-4 border-sidebar-border bg-sidebar/50 backdrop-blur-sm animate-fade-in-up opacity-0 stagger-5">
           <CardHeader>
             <CardTitle>{UI_LABELS.cards.requestVolume24h}</CardTitle>
           </CardHeader>
@@ -456,7 +456,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <div className="col-span-3 space-y-4 animate-fade-in-up opacity-0 stagger-6">
+        <div className="lg:col-span-3 space-y-4 animate-fade-in-up opacity-0 stagger-6">
           {/* Main Loop Status */}
           <Card className="border-sidebar-border bg-sidebar/50 backdrop-blur-sm hover-lift">
             <CardHeader className="pb-3">

@@ -419,14 +419,14 @@ export default function Blockchain() {
 
   return (
     <ScrollArea className="h-full">
-      <div className="p-8 space-y-8">
-        <div className="flex items-center justify-between">
+      <div className="p-4 md:p-8 space-y-4 md:space-y-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Blockchain Infrastructure</h1>
-            <p className="text-muted-foreground mt-1">Monitor chain liveness, finality, and RPC availability</p>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Blockchain Infrastructure</h1>
+            <p className="text-muted-foreground mt-1 text-sm md:text-base">Monitor chain liveness, finality, and RPC availability</p>
           </div>
-          <div className="flex gap-2">
-            <div className="relative w-64">
+          <div className="flex flex-wrap gap-2">
+            <div className="relative w-full sm:w-64">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search chains..."
@@ -436,7 +436,7 @@ export default function Blockchain() {
                 data-testid="input-search-chains"
               />
             </div>
-            <Button variant="outline" onClick={() => refetch()} data-testid="button-refresh-chains">
+            <Button variant="outline" onClick={() => refetch()} data-testid="button-refresh-chains" className="flex-1 sm:flex-none">
               <RefreshCw className="w-4 h-4 mr-2" />
               Refresh
             </Button>
@@ -445,8 +445,8 @@ export default function Blockchain() {
 
         {/* Subscription Status */}
         {subscriptionData && (
-          <div className={`border rounded-lg p-4 ${hasBlockchainAccess() ? 'bg-sidebar/30 border-sidebar-border' : 'bg-amber-950/20 border-amber-500/30'}`}>
-            <div className="flex items-center justify-between">
+          <div className={`border rounded-lg p-3 md:p-4 ${hasBlockchainAccess() ? 'bg-sidebar/30 border-sidebar-border' : 'bg-amber-950/20 border-amber-500/30'}`}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 {hasBlockchainAccess() ? (
                   <Shield className="w-5 h-5 text-primary" />

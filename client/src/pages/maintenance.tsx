@@ -415,14 +415,14 @@ export default function Maintenance() {
 
   return (
     <ScrollArea className="h-full">
-      <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="p-4 md:p-6 space-y-4 md:space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Wrench className="w-6 h-6 text-primary" />
+            <h1 className="text-xl md:text-2xl font-bold flex items-center gap-2">
+              <Wrench className="w-5 md:w-6 h-5 md:h-6 text-primary" />
               Scheduled Maintenance
             </h1>
-            <p className="text-muted-foreground mt-1">
+            <p className="text-muted-foreground mt-1 text-sm md:text-base">
               Track planned maintenance windows across vendors and blockchain infrastructure
             </p>
           </div>
@@ -431,6 +431,8 @@ export default function Maintenance() {
             onClick={() => refreshMutation.mutate()}
             disabled={refreshMutation.isPending}
             data-testid="button-refresh-maintenance"
+            size="sm"
+            className="w-full sm:w-auto"
           >
             {refreshMutation.isPending ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -477,12 +479,12 @@ export default function Maintenance() {
         )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="bg-sidebar border-sidebar-border">
-            <TabsTrigger value="all" data-testid="tab-all">All</TabsTrigger>
-            <TabsTrigger value="active" data-testid="tab-active">In Progress</TabsTrigger>
-            <TabsTrigger value="upcoming" data-testid="tab-upcoming">Upcoming</TabsTrigger>
-            <TabsTrigger value="vendors" data-testid="tab-vendors">Vendors</TabsTrigger>
-            <TabsTrigger value="blockchain" data-testid="tab-blockchain">Blockchain</TabsTrigger>
+          <TabsList className="bg-sidebar border-sidebar-border flex-wrap h-auto gap-1 p-1">
+            <TabsTrigger value="all" data-testid="tab-all" className="text-xs sm:text-sm">All</TabsTrigger>
+            <TabsTrigger value="active" data-testid="tab-active" className="text-xs sm:text-sm">Active</TabsTrigger>
+            <TabsTrigger value="upcoming" data-testid="tab-upcoming" className="text-xs sm:text-sm">Upcoming</TabsTrigger>
+            <TabsTrigger value="vendors" data-testid="tab-vendors" className="text-xs sm:text-sm">Vendors</TabsTrigger>
+            <TabsTrigger value="blockchain" data-testid="tab-blockchain" className="text-xs sm:text-sm">Chain</TabsTrigger>
           </TabsList>
 
           <TabsContent value="all" className="space-y-6 mt-6">
