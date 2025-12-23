@@ -17,10 +17,10 @@ export const sessions = pgTable(
 export type SubscriptionTier = 'standard' | 'gold' | 'platinum' | null;
 
 // User storage table.
-// (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: varchar("email").unique(),
+  password: varchar("password"), // bcrypt hashed password for email/password auth
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   companyName: varchar("company_name"),
