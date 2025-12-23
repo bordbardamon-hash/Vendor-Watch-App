@@ -722,8 +722,8 @@ export default function Vendors() {
                             </span>
                             <span>{incident.startedAt}</span>
                           </div>
-                          <div className="mt-3 flex items-center justify-between">
-                            <div className="flex items-center gap-2">
+                          <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <Badge variant="outline" className="text-xs">Status: {incident.status}</Badge>
                               {isAcknowledged(incident.id) && (
                                 <Badge variant="secondary" className="text-xs bg-emerald-500/10 text-emerald-500">
@@ -732,11 +732,11 @@ export default function Vendors() {
                                 </Badge>
                               )}
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 w-full sm:w-auto">
                               <Button
                                 variant={isAcknowledged(incident.id) ? "secondary" : "outline"}
                                 size="sm"
-                                className="text-xs h-7"
+                                className="text-xs h-7 flex-1 sm:flex-none"
                                 onClick={() => isAcknowledged(incident.id) 
                                   ? unacknowledgeMutation.mutate(incident.id)
                                   : acknowledgeMutation.mutate(incident.id)
@@ -756,8 +756,8 @@ export default function Vendors() {
                                   </>
                                 )}
                               </Button>
-                              <a href={incident.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
-                                View Update <ExternalLink className="w-3 h-3" />
+                              <a href={incident.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1 shrink-0">
+                                View <ExternalLink className="w-3 h-3" />
                               </a>
                             </div>
                           </div>
@@ -825,8 +825,8 @@ export default function Vendors() {
                             </span>
                             <span>{incident.startedAt}</span>
                           </div>
-                          <div className="mt-3 flex items-center justify-between">
-                            <div className="flex items-center gap-2">
+                          <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <Badge variant="outline" className="text-xs">Status: {incident.status}</Badge>
                               {isAcknowledged(incident.id) && (
                                 <Badge variant="secondary" className="text-xs bg-emerald-500/10 text-emerald-500">
@@ -835,11 +835,11 @@ export default function Vendors() {
                                 </Badge>
                               )}
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 w-full sm:w-auto">
                               <Button
                                 variant={isAcknowledged(incident.id) ? "secondary" : "outline"}
                                 size="sm"
-                                className="text-xs h-7"
+                                className="text-xs h-7 flex-1 sm:flex-none"
                                 onClick={() => isAcknowledged(incident.id) 
                                   ? unacknowledgeMutation.mutate(incident.id)
                                   : acknowledgeMutation.mutate(incident.id)
@@ -859,8 +859,8 @@ export default function Vendors() {
                                   </>
                                 )}
                               </Button>
-                              <a href={incident.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
-                                View Update <ExternalLink className="w-3 h-3" />
+                              <a href={incident.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1 shrink-0">
+                                View <ExternalLink className="w-3 h-3" />
                               </a>
                             </div>
                           </div>
