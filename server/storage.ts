@@ -1307,17 +1307,24 @@ export class DatabaseStorage implements IStorage {
 
   // Analytics - Vendor Performance (calculated from actual incidents)
   async getVendorPerformanceStats(vendorKey: string, days: number = 30): Promise<{ uptimePercent: number; incidentCount: number; avgResolutionMinutes: number | null }> {
+    const now = new Date();
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - days);
+    const cutoffStr = cutoff.toISOString();
     
-    const vendorIncidents = await db.select()
+    const allVendorIncidents = await db.select()
       .from(incidents)
-      .where(and(
-        eq(incidents.vendorKey, vendorKey),
-        gte(incidents.startedAt, cutoff)
-      ));
+      .where(eq(incidents.vendorKey, vendorKey));
     
-    const incidentCount = vendorIncidents.length;
+    const relevantIncidents = allVendorIncidents.filter(incident => {
+      const start = new Date(incident.startedAt);
+      const end = incident.status === 'resolved' && incident.updatedAt 
+        ? new Date(incident.updatedAt) 
+        : now;
+      return start < now && end > cutoff;
+    });
+    
+    const incidentCount = relevantIncidents.length;
     
     if (incidentCount === 0) {
       return { uptimePercent: 100, incidentCount: 0, avgResolutionMinutes: null };
@@ -1325,18 +1332,20 @@ export class DatabaseStorage implements IStorage {
     
     let totalDowntimeMinutes = 0;
     const resolutionTimes: number[] = [];
-    const now = new Date();
     
-    for (const incident of vendorIncidents) {
-      const start = new Date(incident.startedAt);
-      const end = incident.status === 'resolved' && incident.updatedAt 
+    for (const incident of relevantIncidents) {
+      const incidentStart = new Date(incident.startedAt);
+      const incidentEnd = incident.status === 'resolved' && incident.updatedAt 
         ? new Date(incident.updatedAt) 
         : now;
-      const durationMinutes = Math.max(0, (end.getTime() - start.getTime()) / (1000 * 60));
+      const windowStart = incidentStart < cutoff ? cutoff : incidentStart;
+      const windowEnd = incidentEnd > now ? now : incidentEnd;
+      const durationMinutes = Math.max(0, (windowEnd.getTime() - windowStart.getTime()) / (1000 * 60));
       totalDowntimeMinutes += durationMinutes;
       
       if (incident.status === 'resolved' && incident.updatedAt) {
-        resolutionTimes.push(durationMinutes);
+        const fullDuration = (incidentEnd.getTime() - incidentStart.getTime()) / (1000 * 60);
+        resolutionTimes.push(fullDuration);
       }
     }
     
@@ -1372,17 +1381,23 @@ export class DatabaseStorage implements IStorage {
 
   // Analytics - Blockchain Performance (calculated from actual incidents)
   async getBlockchainPerformanceStats(chainKey: string, days: number = 30): Promise<{ uptimePercent: number; incidentCount: number; avgResolutionMinutes: number | null }> {
+    const now = new Date();
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - days);
     
-    const chainIncidents = await db.select()
+    const allChainIncidents = await db.select()
       .from(blockchainIncidents)
-      .where(and(
-        eq(blockchainIncidents.chainKey, chainKey),
-        gte(blockchainIncidents.startedAt, cutoff)
-      ));
+      .where(eq(blockchainIncidents.chainKey, chainKey));
     
-    const incidentCount = chainIncidents.length;
+    const relevantIncidents = allChainIncidents.filter(incident => {
+      const start = new Date(incident.startedAt);
+      const end = incident.status === 'resolved' && incident.updatedAt 
+        ? new Date(incident.updatedAt) 
+        : now;
+      return start < now && end > cutoff;
+    });
+    
+    const incidentCount = relevantIncidents.length;
     
     if (incidentCount === 0) {
       return { uptimePercent: 100, incidentCount: 0, avgResolutionMinutes: null };
@@ -1390,18 +1405,20 @@ export class DatabaseStorage implements IStorage {
     
     let totalDowntimeMinutes = 0;
     const resolutionTimes: number[] = [];
-    const now = new Date();
     
-    for (const incident of chainIncidents) {
-      const start = new Date(incident.startedAt);
-      const end = incident.status === 'resolved' && incident.updatedAt 
+    for (const incident of relevantIncidents) {
+      const incidentStart = new Date(incident.startedAt);
+      const incidentEnd = incident.status === 'resolved' && incident.updatedAt 
         ? new Date(incident.updatedAt) 
         : now;
-      const durationMinutes = Math.max(0, (end.getTime() - start.getTime()) / (1000 * 60));
+      const windowStart = incidentStart < cutoff ? cutoff : incidentStart;
+      const windowEnd = incidentEnd > now ? now : incidentEnd;
+      const durationMinutes = Math.max(0, (windowEnd.getTime() - windowStart.getTime()) / (1000 * 60));
       totalDowntimeMinutes += durationMinutes;
       
       if (incident.status === 'resolved' && incident.updatedAt) {
-        resolutionTimes.push(durationMinutes);
+        const fullDuration = (incidentEnd.getTime() - incidentStart.getTime()) / (1000 * 60);
+        resolutionTimes.push(fullDuration);
       }
     }
     
