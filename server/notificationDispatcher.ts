@@ -152,6 +152,14 @@ export async function dispatchIncidentNotification(notification: IncidentNotific
     if (!isSubscribed) {
       continue;
     }
+    
+    // Check if user has acknowledged this incident - skip notifications if so
+    const isAcknowledged = await storage.isIncidentAcknowledged(user.id, incident.id);
+    if (isAcknowledged) {
+      console.log(`[notify] Skipping notification for ${user.email} - incident ${incident.id} is acknowledged`);
+      continue;
+    }
+    
     if (user.notifySms && user.phone) {
       const alreadySent = await storage.hasAlertBeenSent(incident.incidentId, user.id, 'sms', eventType, incident.status);
       if (!alreadySent) {
@@ -734,6 +742,13 @@ export async function dispatchBlockchainNotification(notification: BlockchainNot
     }
     
     if (!isSubscribed) continue;
+    
+    // Check if user has acknowledged this blockchain incident - skip notifications if so
+    const isAcknowledged = await storage.isIncidentAcknowledged(user.id, incident.id);
+    if (isAcknowledged) {
+      console.log(`[notify] Skipping blockchain notification for ${user.email} - incident ${incident.id} is acknowledged`);
+      continue;
+    }
     
     if (user.notifySms && user.phone) {
       const alreadySent = await storage.hasBlockchainAlertBeenSent(incident.incidentId, user.id, 'sms', eventType, incident.status);

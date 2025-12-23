@@ -19,7 +19,9 @@ import {
   Network,
   Plus,
   Shield,
-  Lock
+  Lock,
+  BellOff,
+  Bell
 } from "lucide-react";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -71,6 +73,15 @@ interface BlockchainIncident {
   url?: string;
   createdAt: string;
   resolvedAt?: string;
+  startedAt: string;
+}
+
+interface Acknowledgement {
+  id: string;
+  userId: string;
+  incidentId: string;
+  incidentType: string;
+  acknowledgedAt: string;
 }
 
 const TIER_INFO = {
@@ -201,6 +212,57 @@ export default function Blockchain() {
       return res.json();
     },
   });
+
+  // Fetch user's acknowledged incidents
+  const { data: acknowledgements = [] } = useQuery<Acknowledgement[]>({
+    queryKey: ["acknowledgements"],
+    queryFn: async () => {
+      const res = await fetch("/api/incidents/acknowledgements");
+      if (!res.ok) throw new Error("Failed to fetch acknowledgements");
+      return res.json();
+    },
+  });
+
+  // Acknowledge blockchain incident mutation
+  const acknowledgeMutation = useMutation({
+    mutationFn: async (incidentId: string) => {
+      const res = await fetch(`/api/blockchain/incidents/${incidentId}/acknowledge`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error("Failed to acknowledge incident");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["acknowledgements"] });
+      toast({
+        title: "Incident Acknowledged",
+        description: "You won't receive further notifications for this incident.",
+      });
+    },
+  });
+
+  // Unacknowledge blockchain incident mutation
+  const unacknowledgeMutation = useMutation({
+    mutationFn: async (incidentId: string) => {
+      const res = await fetch(`/api/blockchain/incidents/${incidentId}/acknowledge`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to unacknowledge incident");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["acknowledgements"] });
+      toast({
+        title: "Acknowledgement Removed",
+        description: "You will receive notifications for this incident again.",
+      });
+    },
+  });
+
+  // Helper to check if an incident is acknowledged
+  const isAcknowledged = (incidentId: string) => {
+    return acknowledgements.some(a => a.incidentId === incidentId);
+  };
 
   const filteredChains = chains.filter(c =>
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -471,30 +533,67 @@ export default function Blockchain() {
                   const chain = chains.find(c => c.key === incident.chainKey);
                   const statusUrl = incident.url || chain?.statusUrl;
                   return (
-                    <div key={incident.id} className="flex items-start justify-between p-3 bg-sidebar rounded-lg border border-sidebar-border">
-                      <div className="flex-1">
-                        <div className="font-medium flex items-center gap-2">
-                          {incident.title}
-                          {statusUrl && (
-                            <a 
-                              href={statusUrl} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-primary hover:text-primary/80"
-                              onClick={(e) => e.stopPropagation()}
-                              data-testid={`link-incident-${incident.id}`}
-                            >
-                              <ExternalLink className="w-3.5 h-3.5" />
-                            </a>
+                    <div key={incident.id} className="p-3 bg-sidebar rounded-lg border border-sidebar-border">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="font-medium flex items-center gap-2">
+                            {incident.title}
+                            {statusUrl && (
+                              <a 
+                                href={statusUrl} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-primary hover:text-primary/80"
+                                onClick={(e) => e.stopPropagation()}
+                                data-testid={`link-incident-${incident.id}`}
+                              >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                              </a>
+                            )}
+                          </div>
+                          <div className="text-sm text-muted-foreground mt-1">
+                            {chain?.name || incident.chainKey} - {incident.incidentType.replace(/_/g, ' ')}
+                          </div>
+                        </div>
+                        <Badge variant="outline" className="bg-red-500/10 text-red-400 border-red-500/20">
+                          {incident.status}
+                        </Badge>
+                      </div>
+                      <div className="mt-2 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {isAcknowledged(incident.id) && (
+                            <Badge variant="secondary" className="text-xs bg-emerald-500/10 text-emerald-500">
+                              <BellOff className="w-3 h-3 mr-1" />
+                              Acknowledged
+                            </Badge>
                           )}
                         </div>
-                        <div className="text-sm text-muted-foreground mt-1">
-                          {chain?.name || incident.chainKey} - {incident.incidentType.replace(/_/g, ' ')}
-                        </div>
+                        <Button
+                          variant={isAcknowledged(incident.id) ? "secondary" : "outline"}
+                          size="sm"
+                          className="text-xs h-7"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            isAcknowledged(incident.id) 
+                              ? unacknowledgeMutation.mutate(incident.id)
+                              : acknowledgeMutation.mutate(incident.id);
+                          }}
+                          disabled={acknowledgeMutation.isPending || unacknowledgeMutation.isPending}
+                          data-testid={`button-acknowledge-blockchain-${incident.id}`}
+                        >
+                          {isAcknowledged(incident.id) ? (
+                            <>
+                              <Bell className="w-3 h-3 mr-1" />
+                              Resume Alerts
+                            </>
+                          ) : (
+                            <>
+                              <BellOff className="w-3 h-3 mr-1" />
+                              Acknowledge
+                            </>
+                          )}
+                        </Button>
                       </div>
-                      <Badge variant="outline" className="bg-red-500/10 text-red-400 border-red-500/20">
-                        {incident.status}
-                      </Badge>
                     </div>
                   );
                 })}

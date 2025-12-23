@@ -21,7 +21,9 @@ import {
   RefreshCw,
   Plus,
   Crown,
-  Star
+  Star,
+  BellOff,
+  Bell
 } from "lucide-react";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -71,6 +73,14 @@ interface Incident {
   updatedAt: string;
   rawHash?: string;
   createdAt: string;
+}
+
+interface Acknowledgement {
+  id: string;
+  userId: string;
+  incidentId: string;
+  incidentType: string;
+  acknowledgedAt: string;
 }
 
 export default function Vendors() {
@@ -259,6 +269,57 @@ export default function Vendors() {
       return res.json();
     },
   });
+
+  // Fetch user's acknowledged incidents
+  const { data: acknowledgements = [] } = useQuery<Acknowledgement[]>({
+    queryKey: ["acknowledgements"],
+    queryFn: async () => {
+      const res = await fetch("/api/incidents/acknowledgements");
+      if (!res.ok) throw new Error("Failed to fetch acknowledgements");
+      return res.json();
+    },
+  });
+
+  // Acknowledge incident mutation
+  const acknowledgeMutation = useMutation({
+    mutationFn: async (incidentId: string) => {
+      const res = await fetch(`/api/incidents/${incidentId}/acknowledge`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error("Failed to acknowledge incident");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["acknowledgements"] });
+      toast({
+        title: "Incident Acknowledged",
+        description: "You won't receive further notifications for this incident.",
+      });
+    },
+  });
+
+  // Unacknowledge incident mutation
+  const unacknowledgeMutation = useMutation({
+    mutationFn: async (incidentId: string) => {
+      const res = await fetch(`/api/incidents/${incidentId}/acknowledge`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to unacknowledge incident");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["acknowledgements"] });
+      toast({
+        title: "Acknowledgement Removed",
+        description: "You will receive notifications for this incident again.",
+      });
+    },
+  });
+
+  // Helper to check if an incident is acknowledged
+  const isAcknowledged = (incidentId: string) => {
+    return acknowledgements.some(a => a.incidentId === incidentId);
+  };
 
   const filteredVendors = vendors.filter(v => 
     v.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -660,10 +721,43 @@ export default function Vendors() {
                             <span>{incident.startedAt}</span>
                           </div>
                           <div className="mt-3 flex items-center justify-between">
-                            <Badge variant="outline" className="text-xs">Status: {incident.status}</Badge>
-                            <a href={incident.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
-                              View Update <ExternalLink className="w-3 h-3" />
-                            </a>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-xs">Status: {incident.status}</Badge>
+                              {isAcknowledged(incident.id) && (
+                                <Badge variant="secondary" className="text-xs bg-emerald-500/10 text-emerald-500">
+                                  <BellOff className="w-3 h-3 mr-1" />
+                                  Acknowledged
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant={isAcknowledged(incident.id) ? "secondary" : "outline"}
+                                size="sm"
+                                className="text-xs h-7"
+                                onClick={() => isAcknowledged(incident.id) 
+                                  ? unacknowledgeMutation.mutate(incident.id)
+                                  : acknowledgeMutation.mutate(incident.id)
+                                }
+                                disabled={acknowledgeMutation.isPending || unacknowledgeMutation.isPending}
+                                data-testid={`button-acknowledge-${incident.id}`}
+                              >
+                                {isAcknowledged(incident.id) ? (
+                                  <>
+                                    <Bell className="w-3 h-3 mr-1" />
+                                    Resume Alerts
+                                  </>
+                                ) : (
+                                  <>
+                                    <BellOff className="w-3 h-3 mr-1" />
+                                    Acknowledge
+                                  </>
+                                )}
+                              </Button>
+                              <a href={incident.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
+                                View Update <ExternalLink className="w-3 h-3" />
+                              </a>
+                            </div>
                           </div>
                         </div>
                       ))
@@ -730,10 +824,43 @@ export default function Vendors() {
                             <span>{incident.startedAt}</span>
                           </div>
                           <div className="mt-3 flex items-center justify-between">
-                            <Badge variant="outline" className="text-xs">Status: {incident.status}</Badge>
-                            <a href={incident.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
-                              View Update <ExternalLink className="w-3 h-3" />
-                            </a>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-xs">Status: {incident.status}</Badge>
+                              {isAcknowledged(incident.id) && (
+                                <Badge variant="secondary" className="text-xs bg-emerald-500/10 text-emerald-500">
+                                  <BellOff className="w-3 h-3 mr-1" />
+                                  Acknowledged
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant={isAcknowledged(incident.id) ? "secondary" : "outline"}
+                                size="sm"
+                                className="text-xs h-7"
+                                onClick={() => isAcknowledged(incident.id) 
+                                  ? unacknowledgeMutation.mutate(incident.id)
+                                  : acknowledgeMutation.mutate(incident.id)
+                                }
+                                disabled={acknowledgeMutation.isPending || unacknowledgeMutation.isPending}
+                                data-testid={`button-acknowledge-vendor-${incident.id}`}
+                              >
+                                {isAcknowledged(incident.id) ? (
+                                  <>
+                                    <Bell className="w-3 h-3 mr-1" />
+                                    Resume Alerts
+                                  </>
+                                ) : (
+                                  <>
+                                    <BellOff className="w-3 h-3 mr-1" />
+                                    Acknowledge
+                                  </>
+                                )}
+                              </Button>
+                              <a href={incident.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
+                                View Update <ExternalLink className="w-3 h-3" />
+                              </a>
+                            </div>
                           </div>
                         </div>
                       ))}
