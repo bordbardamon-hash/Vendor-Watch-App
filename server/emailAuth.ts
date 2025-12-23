@@ -8,6 +8,49 @@ import { eq } from 'drizzle-orm';
 
 const SALT_ROUNDS = 10;
 
+// Simple in-memory rate limiting for login attempts
+const loginAttempts = new Map<string, { count: number; lastAttempt: number }>();
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes
+
+function checkRateLimit(ip: string): { allowed: boolean; remainingTime?: number } {
+  const now = Date.now();
+  const attempt = loginAttempts.get(ip);
+  
+  if (!attempt) {
+    return { allowed: true };
+  }
+  
+  // Reset if lockout period has passed
+  if (now - attempt.lastAttempt > LOCKOUT_DURATION) {
+    loginAttempts.delete(ip);
+    return { allowed: true };
+  }
+  
+  if (attempt.count >= MAX_LOGIN_ATTEMPTS) {
+    const remainingTime = Math.ceil((LOCKOUT_DURATION - (now - attempt.lastAttempt)) / 1000 / 60);
+    return { allowed: false, remainingTime };
+  }
+  
+  return { allowed: true };
+}
+
+function recordLoginAttempt(ip: string, success: boolean) {
+  if (success) {
+    loginAttempts.delete(ip);
+    return;
+  }
+  
+  const now = Date.now();
+  const attempt = loginAttempts.get(ip);
+  
+  if (!attempt) {
+    loginAttempts.set(ip, { count: 1, lastAttempt: now });
+  } else {
+    loginAttempts.set(ip, { count: attempt.count + 1, lastAttempt: now });
+  }
+}
+
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
   const pgStore = connectPg(session);
@@ -83,6 +126,16 @@ export async function setupEmailAuth(app: Express) {
   // Login endpoint
   app.post('/api/auth/login', async (req, res) => {
     try {
+      const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
+      
+      // Check rate limit
+      const rateCheck = checkRateLimit(clientIp);
+      if (!rateCheck.allowed) {
+        return res.status(429).json({ 
+          message: `Too many login attempts. Try again in ${rateCheck.remainingTime} minutes.` 
+        });
+      }
+
       const { email, password } = req.body;
 
       if (!email || !password) {
@@ -92,6 +145,7 @@ export async function setupEmailAuth(app: Express) {
       // Find user
       const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
       if (!user) {
+        recordLoginAttempt(clientIp, false);
         return res.status(401).json({ message: 'Invalid email or password' });
       }
 
@@ -102,8 +156,12 @@ export async function setupEmailAuth(app: Express) {
       // Verify password
       const isValid = await bcrypt.compare(password, user.password);
       if (!isValid) {
+        recordLoginAttempt(clientIp, false);
         return res.status(401).json({ message: 'Invalid email or password' });
       }
+      
+      // Successful login - clear rate limit
+      recordLoginAttempt(clientIp, true);
 
       // Set session
       (req.session as any).userId = user.id;

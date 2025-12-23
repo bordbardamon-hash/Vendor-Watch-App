@@ -113,7 +113,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   size="icon"
                   className="h-7 w-7 text-muted-foreground hover:text-foreground"
                   onClick={async () => {
-                    await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+                    try {
+                      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+                    } catch (e) {
+                      console.error("Logout error:", e);
+                    }
                     window.location.href = "/";
                   }}
                   data-testid="button-logout"
