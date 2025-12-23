@@ -2,11 +2,26 @@ import bcrypt from 'bcryptjs';
 import type { Express, RequestHandler } from 'express';
 import session from 'express-session';
 import connectPg from 'connect-pg-simple';
+import passport from 'passport';
+import * as client from 'openid-client';
+import { Strategy, type VerifyFunction } from 'openid-client/passport';
+import memoize from 'memoizee';
 import { db } from './db';
 import { users } from '@shared/models/auth';
 import { eq } from 'drizzle-orm';
 
 const SALT_ROUNDS = 10;
+
+// Memoized OIDC config for Replit Auth
+const getOidcConfig = memoize(
+  async () => {
+    return await client.discovery(
+      new URL(process.env.ISSUER_URL ?? "https://replit.com/oidc"),
+      process.env.REPL_ID!
+    );
+  },
+  { maxAge: 3600 * 1000 }
+);
 
 // Simple in-memory rate limiting for login attempts
 const loginAttempts = new Map<string, { count: number; lastAttempt: number }>();
@@ -76,6 +91,121 @@ export function getSession() {
 export async function setupEmailAuth(app: Express) {
   app.set("trust proxy", 1);
   app.use(getSession());
+  app.use(passport.initialize());
+  app.use(passport.session());
+
+  // Setup Replit OAuth (Google, GitHub, Apple, etc.)
+  try {
+    const config = await getOidcConfig();
+    const registeredStrategies = new Set<string>();
+
+    const ensureStrategy = (domain: string) => {
+      const strategyName = `replitauth:${domain}`;
+      if (!registeredStrategies.has(strategyName)) {
+        const verify: VerifyFunction = async (tokens, verified) => {
+          try {
+            const claims = tokens.claims();
+            
+            if (!claims || !claims.email) {
+              return verified(new Error('No email in claims'));
+            }
+            
+            const email = claims.email as string;
+            const firstName = (claims as any).first_name || null;
+            const lastName = (claims as any).last_name || null;
+            const profileImageUrl = (claims as any).profile_image_url || null;
+            
+            // Find or create user in our database
+            let [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+            
+            if (!user) {
+              // Create new user from Replit OAuth
+              [user] = await db.insert(users).values({
+                email,
+                firstName,
+                lastName,
+                profileImageUrl,
+              }).returning();
+              console.log(`[auth] Created new user from Replit OAuth: ${email}`);
+            } else {
+              // Update profile info if needed
+              await db.update(users).set({
+                firstName: firstName || user.firstName,
+                lastName: lastName || user.lastName,
+                profileImageUrl: profileImageUrl || user.profileImageUrl,
+              }).where(eq(users.id, user.id));
+            }
+            
+            verified(null, { userId: user.id, email: user.email });
+          } catch (error) {
+            console.error('[auth] Replit OAuth verify error:', error);
+            verified(error as Error);
+          }
+        };
+
+        const strategy = new Strategy(
+          {
+            name: strategyName,
+            config,
+            scope: "openid email profile offline_access",
+            callbackURL: `https://${domain}/api/callback`,
+          },
+          verify
+        );
+        passport.use(strategy);
+        registeredStrategies.add(strategyName);
+      }
+    };
+
+    passport.serializeUser((user: any, cb) => cb(null, user));
+    passport.deserializeUser((user: any, cb) => cb(null, user));
+
+    // Replit OAuth login route
+    app.get("/api/login", (req, res, next) => {
+      ensureStrategy(req.hostname);
+      passport.authenticate(`replitauth:${req.hostname}`, {
+        prompt: "login consent",
+        scope: ["openid", "email", "profile", "offline_access"],
+      })(req, res, next);
+    });
+
+    // Replit OAuth callback route
+    app.get("/api/callback", (req, res, next) => {
+      ensureStrategy(req.hostname);
+      passport.authenticate(`replitauth:${req.hostname}`, (err: any, user: any, info: any) => {
+        if (err) {
+          console.error('[auth] OAuth callback error:', err);
+          return res.redirect('/login?error=auth_failed');
+        }
+        if (!user) {
+          console.error('[auth] OAuth callback - no user returned:', info);
+          return res.redirect('/login?error=no_user');
+        }
+        
+        // Set our session with the user ID
+        (req.session as any).userId = user.userId;
+        (req.session as any).twoFactorVerified = true; // OAuth users skip 2FA initially
+        
+        console.log(`[auth] User logged in via Replit OAuth: ${user.email}`);
+        return res.redirect('/');
+      })(req, res, next);
+    });
+
+    // Replit OAuth logout route
+    app.get("/api/logout", (req, res) => {
+      req.session.destroy((err) => {
+        if (err) {
+          console.error('[auth] Logout error:', err);
+        }
+        res.clearCookie('connect.sid');
+        res.redirect('/');
+      });
+    });
+
+    console.log('[auth] Replit OAuth routes registered successfully');
+  } catch (error) {
+    console.error('[auth] Failed to setup Replit OAuth:', error);
+  }
 
   // Register endpoint
   app.post('/api/auth/register', async (req, res) => {
