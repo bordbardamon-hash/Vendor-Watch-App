@@ -1446,6 +1446,85 @@ export async function registerRoutes(
     }
   });
 
+  // ============ MAINTENANCE TRACKING ============
+
+  // Get all vendor maintenances
+  app.get("/api/maintenance/vendors", isAuthenticated, async (req, res) => {
+    try {
+      const maintenances = await storage.getVendorMaintenances();
+      res.json(maintenances);
+    } catch (error) {
+      console.error("Error fetching vendor maintenances:", error);
+      res.status(500).json({ error: "Failed to fetch vendor maintenances" });
+    }
+  });
+
+  // Get active vendor maintenances (in progress)
+  app.get("/api/maintenance/vendors/active", isAuthenticated, async (req, res) => {
+    try {
+      const maintenances = await storage.getActiveVendorMaintenances();
+      res.json(maintenances);
+    } catch (error) {
+      console.error("Error fetching active vendor maintenances:", error);
+      res.status(500).json({ error: "Failed to fetch active vendor maintenances" });
+    }
+  });
+
+  // Get upcoming vendor maintenances (scheduled)
+  app.get("/api/maintenance/vendors/upcoming", isAuthenticated, async (req, res) => {
+    try {
+      const maintenances = await storage.getUpcomingVendorMaintenances();
+      res.json(maintenances);
+    } catch (error) {
+      console.error("Error fetching upcoming vendor maintenances:", error);
+      res.status(500).json({ error: "Failed to fetch upcoming vendor maintenances" });
+    }
+  });
+
+  // Get all blockchain maintenances
+  app.get("/api/maintenance/blockchain", isAuthenticated, async (req, res) => {
+    try {
+      const maintenances = await storage.getBlockchainMaintenances();
+      res.json(maintenances);
+    } catch (error) {
+      console.error("Error fetching blockchain maintenances:", error);
+      res.status(500).json({ error: "Failed to fetch blockchain maintenances" });
+    }
+  });
+
+  // Get active blockchain maintenances (in progress)
+  app.get("/api/maintenance/blockchain/active", isAuthenticated, async (req, res) => {
+    try {
+      const maintenances = await storage.getActiveBlockchainMaintenances();
+      res.json(maintenances);
+    } catch (error) {
+      console.error("Error fetching active blockchain maintenances:", error);
+      res.status(500).json({ error: "Failed to fetch active blockchain maintenances" });
+    }
+  });
+
+  // Get upcoming blockchain maintenances (scheduled)
+  app.get("/api/maintenance/blockchain/upcoming", isAuthenticated, async (req, res) => {
+    try {
+      const maintenances = await storage.getUpcomingBlockchainMaintenances();
+      res.json(maintenances);
+    } catch (error) {
+      console.error("Error fetching upcoming blockchain maintenances:", error);
+      res.status(500).json({ error: "Failed to fetch upcoming blockchain maintenances" });
+    }
+  });
+
+  // Get maintenance statistics
+  app.get("/api/maintenance/stats", isAuthenticated, async (req, res) => {
+    try {
+      const stats = await storage.getMaintenanceStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching maintenance stats:", error);
+      res.status(500).json({ error: "Failed to fetch maintenance stats" });
+    }
+  });
+
   // ============ TWO-FACTOR AUTHENTICATION ============
   
   // Get 2FA status for current user
