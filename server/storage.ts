@@ -278,13 +278,15 @@ export class DatabaseStorage implements IStorage {
   
   // Incidents
   async getIncidents(): Promise<Incident[]> {
-    return await db.select().from(incidents).orderBy(desc(incidents.createdAt)).limit(100);
+    const allIncidents = await db.select().from(incidents).orderBy(desc(incidents.createdAt)).limit(100);
+    return allIncidents.filter(i => !i.title.startsWith('_system') && !i.title.includes('_system_metadata'));
   }
   
   async getIncidentsByVendor(vendorKey: string): Promise<Incident[]> {
-    return await db.select().from(incidents)
+    const vendorIncidents = await db.select().from(incidents)
       .where(eq(incidents.vendorKey, vendorKey))
       .orderBy(desc(incidents.createdAt));
+    return vendorIncidents.filter(i => !i.title.startsWith('_system') && !i.title.includes('_system_metadata'));
   }
   
   async createIncident(incident: InsertIncident): Promise<Incident> {
