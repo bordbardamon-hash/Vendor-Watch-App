@@ -68,6 +68,7 @@ interface BlockchainIncident {
   description?: string;
   status: string;
   severity: string;
+  url?: string;
   createdAt: string;
   resolvedAt?: string;
 }
@@ -466,19 +467,37 @@ export default function Blockchain() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {activeIncidents.slice(0, 5).map((incident) => (
-                  <div key={incident.id} className="flex items-start justify-between p-3 bg-sidebar rounded-lg border border-sidebar-border">
-                    <div>
-                      <div className="font-medium">{incident.title}</div>
-                      <div className="text-sm text-muted-foreground mt-1">
-                        {chains.find(c => c.key === incident.chainKey)?.name || incident.chainKey} - {incident.incidentType.replace(/_/g, ' ')}
+                {activeIncidents.slice(0, 5).map((incident) => {
+                  const chain = chains.find(c => c.key === incident.chainKey);
+                  const statusUrl = incident.url || chain?.statusUrl;
+                  return (
+                    <div key={incident.id} className="flex items-start justify-between p-3 bg-sidebar rounded-lg border border-sidebar-border">
+                      <div className="flex-1">
+                        <div className="font-medium flex items-center gap-2">
+                          {incident.title}
+                          {statusUrl && (
+                            <a 
+                              href={statusUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-primary hover:text-primary/80"
+                              onClick={(e) => e.stopPropagation()}
+                              data-testid={`link-incident-${incident.id}`}
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" />
+                            </a>
+                          )}
+                        </div>
+                        <div className="text-sm text-muted-foreground mt-1">
+                          {chain?.name || incident.chainKey} - {incident.incidentType.replace(/_/g, ' ')}
+                        </div>
                       </div>
+                      <Badge variant="outline" className="bg-red-500/10 text-red-400 border-red-500/20">
+                        {incident.status}
+                      </Badge>
                     </div>
-                    <Badge variant="outline" className="bg-red-500/10 text-red-400 border-red-500/20">
-                      {incident.status}
-                    </Badge>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
