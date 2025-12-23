@@ -876,6 +876,85 @@ export async function registerRoutes(
     }
   });
   
+  // Toggle vendor subscription (for selecting which vendors to monitor)
+  app.post("/api/vendors/:key/toggle", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const vendorKey = req.params.key;
+      
+      const result = await storage.toggleVendorSubscription(userId, vendorKey);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error toggling vendor subscription:", error);
+      res.status(400).json({ error: error.message || "Failed to toggle subscription" });
+    }
+  });
+
+  // Get user's subscribed vendors
+  app.get("/api/subscriptions/vendors", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const subscribedKeys = await storage.getUserVendorSubscriptions(userId);
+      const hasSetSubscriptions = await storage.hasUserSetSubscriptions(userId);
+      const limitInfo = await storage.checkVendorLimit(userId);
+      
+      res.json({
+        subscribedVendors: subscribedKeys,
+        hasSetSubscriptions,
+        ...limitInfo
+      });
+    } catch (error) {
+      console.error("Error getting vendor subscriptions:", error);
+      res.status(500).json({ error: "Failed to get subscriptions" });
+    }
+  });
+
+  // Check blockchain limit for current user
+  app.get("/api/blockchain-limit", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const limitInfo = await storage.checkBlockchainLimit(userId);
+      
+      res.json(limitInfo);
+    } catch (error) {
+      console.error("Error checking blockchain limit:", error);
+      res.status(500).json({ error: "Failed to check blockchain limit" });
+    }
+  });
+
+  // Toggle blockchain subscription
+  app.post("/api/blockchain/:key/toggle", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const chainKey = req.params.key;
+      
+      const result = await storage.toggleBlockchainSubscription(userId, chainKey);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error toggling blockchain subscription:", error);
+      res.status(400).json({ error: error.message || "Failed to toggle subscription" });
+    }
+  });
+
+  // Get user's subscribed blockchains
+  app.get("/api/subscriptions/blockchain", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const subscribedKeys = await storage.getUserBlockchainSubscriptions(userId);
+      const hasSetSubscriptions = await storage.hasUserSetBlockchainSubscriptions(userId);
+      const limitInfo = await storage.checkBlockchainLimit(userId);
+      
+      res.json({
+        subscribedChains: subscribedKeys,
+        hasSetSubscriptions,
+        ...limitInfo
+      });
+    } catch (error) {
+      console.error("Error getting blockchain subscriptions:", error);
+      res.status(500).json({ error: "Failed to get subscriptions" });
+    }
+  });
+
   // Direct vendor add for Platinum users
   app.post("/api/vendors/direct", isAuthenticated, async (req: any, res) => {
     try {

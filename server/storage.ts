@@ -132,9 +132,15 @@ export interface IStorage {
   
   // Blockchain Subscriptions
   getUserBlockchainSubscriptions(userId: string): Promise<string[]>;
+  setUserBlockchainSubscriptions(userId: string, chainKeys: string[]): Promise<void>;
   hasUserSetBlockchainSubscriptions(userId: string): Promise<boolean>;
+  checkBlockchainLimit(userId: string): Promise<{ allowed: boolean; current: number; limit: number | null; tier: string | null }>;
   hasBlockchainAlertBeenSent(incidentId: string, userId: string, channel: string, eventType: string, statusSnapshot: string): Promise<boolean>;
   recordBlockchainAlert(alert: { incidentId: string; userId: string; channel: string; eventType: string; statusSnapshot: string; destination: string }): Promise<void>;
+  
+  // Toggle individual vendor/blockchain subscription
+  toggleVendorSubscription(userId: string, vendorKey: string): Promise<{ subscribed: boolean; current: number; limit: number | null }>;
+  toggleBlockchainSubscription(userId: string, chainKey: string): Promise<{ subscribed: boolean; current: number; limit: number | null }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -845,6 +851,126 @@ export class DatabaseStorage implements IStorage {
       statusSnapshot: alert.statusSnapshot,
       destination: alert.destination,
     });
+  }
+
+  async setUserBlockchainSubscriptions(userId: string, chainKeys: string[]): Promise<void> {
+    await db.delete(userBlockchainSubscriptions).where(eq(userBlockchainSubscriptions.userId, userId));
+    
+    if (chainKeys.length > 0) {
+      await db.insert(userBlockchainSubscriptions).values(
+        chainKeys.map(chainKey => ({ userId, chainKey }))
+      );
+    }
+    
+    await this.setConfig(`blockchain_subscriptions_set:${userId}`, 'true');
+  }
+
+  async checkBlockchainLimit(userId: string): Promise<{ allowed: boolean; current: number; limit: number | null; tier: string | null }> {
+    const user = await this.getUser(userId);
+    if (!user) {
+      return { allowed: false, current: 0, limit: 0, tier: null };
+    }
+    
+    const tier = user.subscriptionTier as 'standard' | 'gold' | 'platinum' | null;
+    if (!tier) {
+      return { allowed: false, current: 0, limit: 0, tier: null };
+    }
+    
+    const tierInfo = SUBSCRIPTION_TIERS[tier];
+    const subscriptions = await this.getUserBlockchainSubscriptions(userId);
+    const currentCount = subscriptions.length;
+    
+    // Platinum has no limit
+    if (tierInfo.blockchainLimit === null) {
+      return { allowed: true, current: currentCount, limit: null, tier };
+    }
+    
+    return {
+      allowed: currentCount < tierInfo.blockchainLimit,
+      current: currentCount,
+      limit: tierInfo.blockchainLimit,
+      tier
+    };
+  }
+
+  async toggleVendorSubscription(userId: string, vendorKey: string): Promise<{ subscribed: boolean; current: number; limit: number | null }> {
+    const user = await this.getUser(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+    
+    const tier = user.subscriptionTier as 'standard' | 'gold' | 'platinum' | null;
+    if (!tier) {
+      throw new Error('No active subscription');
+    }
+    
+    const tierInfo = SUBSCRIPTION_TIERS[tier];
+    const currentSubs = await this.getUserVendorSubscriptions(userId);
+    const isCurrentlySubscribed = currentSubs.includes(vendorKey);
+    
+    if (isCurrentlySubscribed) {
+      // Unsubscribe
+      await db.delete(userVendorSubscriptions).where(
+        and(
+          eq(userVendorSubscriptions.userId, userId),
+          eq(userVendorSubscriptions.vendorKey, vendorKey)
+        )
+      );
+      await this.setConfig(`vendor_subscriptions_set:${userId}`, 'true');
+      return { subscribed: false, current: currentSubs.length - 1, limit: tierInfo.vendorLimit };
+    } else {
+      // Check limit before subscribing
+      if (tierInfo.vendorLimit !== null && currentSubs.length >= tierInfo.vendorLimit) {
+        throw new Error(`Vendor limit reached (${tierInfo.vendorLimit})`);
+      }
+      
+      await db.insert(userVendorSubscriptions).values({ userId, vendorKey });
+      await this.setConfig(`vendor_subscriptions_set:${userId}`, 'true');
+      return { subscribed: true, current: currentSubs.length + 1, limit: tierInfo.vendorLimit };
+    }
+  }
+
+  async toggleBlockchainSubscription(userId: string, chainKey: string): Promise<{ subscribed: boolean; current: number; limit: number | null }> {
+    const user = await this.getUser(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+    
+    const tier = user.subscriptionTier as 'standard' | 'gold' | 'platinum' | null;
+    if (!tier) {
+      throw new Error('No active subscription');
+    }
+    
+    const tierInfo = SUBSCRIPTION_TIERS[tier];
+    
+    // Standard tier has no blockchain access
+    if (tier === 'standard') {
+      throw new Error('Blockchain monitoring requires Gold or Platinum subscription');
+    }
+    
+    const currentSubs = await this.getUserBlockchainSubscriptions(userId);
+    const isCurrentlySubscribed = currentSubs.includes(chainKey);
+    
+    if (isCurrentlySubscribed) {
+      // Unsubscribe
+      await db.delete(userBlockchainSubscriptions).where(
+        and(
+          eq(userBlockchainSubscriptions.userId, userId),
+          eq(userBlockchainSubscriptions.chainKey, chainKey)
+        )
+      );
+      await this.setConfig(`blockchain_subscriptions_set:${userId}`, 'true');
+      return { subscribed: false, current: currentSubs.length - 1, limit: tierInfo.blockchainLimit };
+    } else {
+      // Check limit before subscribing
+      if (tierInfo.blockchainLimit !== null && currentSubs.length >= tierInfo.blockchainLimit) {
+        throw new Error(`Blockchain limit reached (${tierInfo.blockchainLimit})`);
+      }
+      
+      await db.insert(userBlockchainSubscriptions).values({ userId, chainKey });
+      await this.setConfig(`blockchain_subscriptions_set:${userId}`, 'true');
+      return { subscribed: true, current: currentSubs.length + 1, limit: tierInfo.blockchainLimit };
+    }
   }
 }
 
