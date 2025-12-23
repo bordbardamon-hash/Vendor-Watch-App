@@ -694,72 +694,62 @@ export default function Vendors() {
               </CardHeader>
               <CardContent className="flex-1 p-0 overflow-hidden">
                 <ScrollArea className="h-full">
-                  <div className="p-6 space-y-4">
+                  <div className="p-3 sm:p-6 space-y-4">
                     {getAllIncidentsSorted().length > 0 ? (
                       getAllIncidentsSorted().map((incident) => (
-                        <div key={incident.id} className="border border-sidebar-border rounded-lg bg-background/50 p-4 transition-all hover:border-primary/30" data-testid={`card-incident-all-${incident.incidentId}`}>
-                          <div className="flex items-start justify-between mb-2">
-                            <div>
-                              <span className="text-xs text-primary font-medium bg-primary/10 px-2 py-0.5 rounded mr-2">
+                        <div key={incident.id} className="border border-sidebar-border rounded-lg bg-background/50 p-3 sm:p-4 transition-all hover:border-primary/30 overflow-hidden" data-testid={`card-incident-all-${incident.incidentId}`}>
+                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2">
+                            <div className="min-w-0 flex-1">
+                              <span className="text-xs text-primary font-medium bg-primary/10 px-2 py-0.5 rounded inline-block mb-1">
                                 {getVendorName(incident.vendorKey)}
                               </span>
-                              <h4 className="font-semibold text-lg mt-1">{incident.title}</h4>
+                              <h4 className="font-semibold text-base sm:text-lg break-words">{incident.title}</h4>
                             </div>
-                            <Badge className={getSeverityColor(incident.severity)}>
+                            <Badge className={`${getSeverityColor(incident.severity)} shrink-0`}>
                               {incident.severity.toUpperCase()}
                             </Badge>
                           </div>
-                          <p className="text-sm text-muted-foreground mb-3">{incident.impact}</p>
-                          <div className="flex items-center justify-between text-xs font-mono text-muted-foreground/70 bg-sidebar/50 p-2 rounded">
-                            <span className="flex items-center gap-2">
-                              <span>ID: {incident.incidentId}</span>
-                              {incident.rawHash && (
-                                <span className="text-[10px] text-muted-foreground/50 border-l border-white/10 pl-2 flex items-center gap-1" title="Stable Hash">
-                                  <Hash className="w-3 h-3" />
-                                  {incident.rawHash.substring(0, 8)}...
-                                </span>
-                              )}
-                            </span>
-                            <span>{incident.startedAt}</span>
+                          <p className="text-sm text-muted-foreground mb-3 break-words">{incident.impact}</p>
+                          <div className="text-xs font-mono text-muted-foreground/70 bg-sidebar/50 p-2 rounded mb-3">
+                            <div className="truncate">ID: {incident.incidentId}</div>
+                            <div className="text-[10px] mt-1">{incident.startedAt}</div>
                           </div>
-                          <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <Badge variant="outline" className="text-xs">Status: {incident.status}</Badge>
-                              {isAcknowledged(incident.id) && (
-                                <Badge variant="secondary" className="text-xs bg-emerald-500/10 text-emerald-500">
+                          <div className="flex items-center gap-2 flex-wrap mb-2">
+                            <Badge variant="outline" className="text-xs">Status: {incident.status}</Badge>
+                            {isAcknowledged(incident.id) && (
+                              <Badge variant="secondary" className="text-xs bg-emerald-500/10 text-emerald-500">
+                                <BellOff className="w-3 h-3 mr-1" />
+                                Ack'd
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant={isAcknowledged(incident.id) ? "secondary" : "outline"}
+                              size="sm"
+                              className="text-xs h-8 flex-1"
+                              onClick={() => isAcknowledged(incident.id) 
+                                ? unacknowledgeMutation.mutate(incident.id)
+                                : acknowledgeMutation.mutate(incident.id)
+                              }
+                              disabled={acknowledgeMutation.isPending || unacknowledgeMutation.isPending}
+                              data-testid={`button-acknowledge-${incident.id}`}
+                            >
+                              {isAcknowledged(incident.id) ? (
+                                <>
+                                  <Bell className="w-3 h-3 mr-1" />
+                                  Resume
+                                </>
+                              ) : (
+                                <>
                                   <BellOff className="w-3 h-3 mr-1" />
-                                  Acknowledged
-                                </Badge>
+                                  Acknowledge
+                                </>
                               )}
-                            </div>
-                            <div className="flex items-center gap-2 w-full sm:w-auto">
-                              <Button
-                                variant={isAcknowledged(incident.id) ? "secondary" : "outline"}
-                                size="sm"
-                                className="text-xs h-7 flex-1 sm:flex-none"
-                                onClick={() => isAcknowledged(incident.id) 
-                                  ? unacknowledgeMutation.mutate(incident.id)
-                                  : acknowledgeMutation.mutate(incident.id)
-                                }
-                                disabled={acknowledgeMutation.isPending || unacknowledgeMutation.isPending}
-                                data-testid={`button-acknowledge-${incident.id}`}
-                              >
-                                {isAcknowledged(incident.id) ? (
-                                  <>
-                                    <Bell className="w-3 h-3 mr-1" />
-                                    Resume Alerts
-                                  </>
-                                ) : (
-                                  <>
-                                    <BellOff className="w-3 h-3 mr-1" />
-                                    Acknowledge
-                                  </>
-                                )}
-                              </Button>
-                              <a href={incident.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1 shrink-0">
-                                View <ExternalLink className="w-3 h-3" />
-                              </a>
-                            </div>
+                            </Button>
+                            <a href={incident.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1 px-2 py-1.5 border border-primary/30 rounded shrink-0">
+                              View <ExternalLink className="w-3 h-3" />
+                            </a>
                           </div>
                         </div>
                       ))
@@ -805,64 +795,54 @@ export default function Vendors() {
                   {getVendorIncidents(selectedVendor.key).length > 0 ? (
                     <div className="space-y-4">
                       {getVendorIncidents(selectedVendor.key).map((incident) => (
-                        <div key={incident.id} className="border border-sidebar-border rounded-lg bg-background/50 p-4 transition-all hover:border-primary/30" data-testid={`card-incident-${incident.incidentId}`}>
-                          <div className="flex items-start justify-between mb-2">
-                            <h4 className="font-semibold text-lg">{incident.title}</h4>
-                            <Badge className={getSeverityColor(incident.severity)}>
+                        <div key={incident.id} className="border border-sidebar-border rounded-lg bg-background/50 p-3 sm:p-4 transition-all hover:border-primary/30 overflow-hidden" data-testid={`card-incident-${incident.incidentId}`}>
+                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2">
+                            <h4 className="font-semibold text-base sm:text-lg break-words min-w-0 flex-1">{incident.title}</h4>
+                            <Badge className={`${getSeverityColor(incident.severity)} shrink-0`}>
                               {incident.severity.toUpperCase()}
                             </Badge>
                           </div>
-                          <p className="text-sm text-muted-foreground mb-3">{incident.impact}</p>
-                          <div className="flex items-center justify-between text-xs font-mono text-muted-foreground/70 bg-sidebar/50 p-2 rounded">
-                            <span className="flex items-center gap-2">
-                              <span>ID: {incident.incidentId}</span>
-                              {incident.rawHash && (
-                                <span className="text-[10px] text-muted-foreground/50 border-l border-white/10 pl-2 flex items-center gap-1" title="Stable Hash">
-                                  <Hash className="w-3 h-3" />
-                                  {incident.rawHash.substring(0, 8)}...
-                                </span>
-                              )}
-                            </span>
-                            <span>{incident.startedAt}</span>
+                          <p className="text-sm text-muted-foreground mb-3 break-words">{incident.impact}</p>
+                          <div className="text-xs font-mono text-muted-foreground/70 bg-sidebar/50 p-2 rounded mb-3">
+                            <div className="truncate">ID: {incident.incidentId}</div>
+                            <div className="text-[10px] mt-1">{incident.startedAt}</div>
                           </div>
-                          <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <Badge variant="outline" className="text-xs">Status: {incident.status}</Badge>
-                              {isAcknowledged(incident.id) && (
-                                <Badge variant="secondary" className="text-xs bg-emerald-500/10 text-emerald-500">
+                          <div className="flex items-center gap-2 flex-wrap mb-2">
+                            <Badge variant="outline" className="text-xs">Status: {incident.status}</Badge>
+                            {isAcknowledged(incident.id) && (
+                              <Badge variant="secondary" className="text-xs bg-emerald-500/10 text-emerald-500">
+                                <BellOff className="w-3 h-3 mr-1" />
+                                Ack'd
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant={isAcknowledged(incident.id) ? "secondary" : "outline"}
+                              size="sm"
+                              className="text-xs h-8 flex-1"
+                              onClick={() => isAcknowledged(incident.id) 
+                                ? unacknowledgeMutation.mutate(incident.id)
+                                : acknowledgeMutation.mutate(incident.id)
+                              }
+                              disabled={acknowledgeMutation.isPending || unacknowledgeMutation.isPending}
+                              data-testid={`button-acknowledge-vendor-${incident.id}`}
+                            >
+                              {isAcknowledged(incident.id) ? (
+                                <>
+                                  <Bell className="w-3 h-3 mr-1" />
+                                  Resume
+                                </>
+                              ) : (
+                                <>
                                   <BellOff className="w-3 h-3 mr-1" />
-                                  Acknowledged
-                                </Badge>
+                                  Acknowledge
+                                </>
                               )}
-                            </div>
-                            <div className="flex items-center gap-2 w-full sm:w-auto">
-                              <Button
-                                variant={isAcknowledged(incident.id) ? "secondary" : "outline"}
-                                size="sm"
-                                className="text-xs h-7 flex-1 sm:flex-none"
-                                onClick={() => isAcknowledged(incident.id) 
-                                  ? unacknowledgeMutation.mutate(incident.id)
-                                  : acknowledgeMutation.mutate(incident.id)
-                                }
-                                disabled={acknowledgeMutation.isPending || unacknowledgeMutation.isPending}
-                                data-testid={`button-acknowledge-vendor-${incident.id}`}
-                              >
-                                {isAcknowledged(incident.id) ? (
-                                  <>
-                                    <Bell className="w-3 h-3 mr-1" />
-                                    Resume Alerts
-                                  </>
-                                ) : (
-                                  <>
-                                    <BellOff className="w-3 h-3 mr-1" />
-                                    Acknowledge
-                                  </>
-                                )}
-                              </Button>
-                              <a href={incident.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1 shrink-0">
-                                View <ExternalLink className="w-3 h-3" />
-                              </a>
-                            </div>
+                            </Button>
+                            <a href={incident.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1 px-2 py-1.5 border border-primary/30 rounded shrink-0">
+                              View <ExternalLink className="w-3 h-3" />
+                            </a>
                           </div>
                         </div>
                       ))}
