@@ -7,10 +7,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Shield, Loader2, Eye, EyeOff } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function Login() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -35,10 +37,12 @@ export default function Login() {
         throw new Error(data.message || "Login failed");
       }
 
+      await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      
       if (data.twoFactorEnabled) {
         setLocation("/verify-2fa");
       } else {
-        setLocation("/");
+        window.location.href = "/";
       }
     } catch (error) {
       toast({
