@@ -146,7 +146,7 @@ export async function scrapeStatuspageHtml(vendor: { key: string; statusUrl: str
 }
 
 export async function scrapeAzureStatus(vendor: { key: string; statusUrl: string }): Promise<ScrapedStatus> {
-  const result = await fetchHtml('https://status.azure.com/en-us/status');
+  const result = await fetchHtml('https://azure.status.microsoft/en-us/status');
   
   if (!result) {
     await recordParseResult(vendor.key, { success: false, errorMessage: 'Failed to fetch HTML' });

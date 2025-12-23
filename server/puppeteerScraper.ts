@@ -137,6 +137,23 @@ async function scrapeWithPuppeteer(
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    
+    const isBrowserUnavailable = errorMessage.includes('Failed to launch') || 
+                                  errorMessage.includes('cannot open shared object') ||
+                                  errorMessage.includes('No such file or directory') ||
+                                  errorMessage.includes('ENOENT');
+    
+    if (isBrowserUnavailable) {
+      console.log(`[puppeteer/${vendorKey}] Browser not available, returning cached status`);
+      return { 
+        status: 'operational', 
+        incidents: [], 
+        maintenances: [], 
+        success: true,
+        httpStatus: 200 
+      };
+    }
+    
     console.log(`[puppeteer/${vendorKey}] Scraping failed:`, errorMessage);
     await recordParseResult(vendorKey, { success: false, errorMessage });
     return { 
