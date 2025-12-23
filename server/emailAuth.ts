@@ -187,6 +187,41 @@ export async function setupEmailAuth(app: Express) {
     }
   });
 
+  // Set password endpoint (for users who signed up via Replit Auth)
+  app.post('/api/auth/set-password', async (req, res) => {
+    try {
+      const { email, password } = req.body;
+
+      if (!email || !password) {
+        return res.status(400).json({ message: 'Email and password are required' });
+      }
+
+      if (password.length < 8) {
+        return res.status(400).json({ message: 'Password must be at least 8 characters' });
+      }
+
+      // Find user
+      const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+      if (!user) {
+        return res.status(404).json({ message: 'No account found with this email' });
+      }
+
+      if (user.password) {
+        return res.status(400).json({ message: 'This account already has a password. Use the login page.' });
+      }
+
+      // Hash and set password
+      const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+      await db.update(users).set({ password: hashedPassword }).where(eq(users.id, user.id));
+
+      console.log(`[auth] Password set for user: ${email}`);
+      res.json({ message: 'Password set successfully' });
+    } catch (error) {
+      console.error('[auth] Set password error:', error);
+      res.status(500).json({ message: 'Failed to set password' });
+    }
+  });
+
   // Logout endpoint
   app.post('/api/auth/logout', (req, res) => {
     req.session.destroy((err) => {
