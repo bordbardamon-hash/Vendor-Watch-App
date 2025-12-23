@@ -12,7 +12,8 @@ import {
   LogOut,
   User,
   FileCheck,
-  Boxes
+  Boxes,
+  MessageSquare
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -44,6 +45,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { href: "/jobs", icon: List, label: UI_LABELS.nav.scrapers, adminOnly: true },
     { href: "/logs", icon: Terminal, label: UI_LABELS.nav.logs, adminOnly: true },
     { href: "/consents", icon: FileCheck, label: "Consents", adminOnly: true },
+    { href: "/feedback", icon: MessageSquare, label: "Feedback", adminOnly: true },
     { href: "/settings", icon: Settings, label: UI_LABELS.nav.config, adminOnly: false },
   ];
 
