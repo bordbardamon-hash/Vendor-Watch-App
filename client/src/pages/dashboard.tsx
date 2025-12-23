@@ -373,7 +373,7 @@ export default function Dashboard() {
             clickable
           />
         </Link>
-        {user?.isAdmin && (
+        {user?.isOwner && (
           <div className="animate-fade-in-up opacity-0 stagger-3">
             <MetricCard 
               title={UI_LABELS.cards.dbSize}

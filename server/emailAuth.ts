@@ -394,6 +394,7 @@ export async function setupEmailAuth(app: Express) {
         lastName: user.lastName,
         profileImageUrl: user.profileImageUrl,
         isAdmin: user.isAdmin,
+        isOwner: user.isOwner,
         subscriptionTier: user.subscriptionTier,
         twoFactorEnabled: user.twoFactorEnabled,
       });
