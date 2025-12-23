@@ -373,15 +373,17 @@ export default function Dashboard() {
             clickable
           />
         </Link>
-        <div className="animate-fade-in-up opacity-0 stagger-3">
-          <MetricCard 
-            title={UI_LABELS.cards.dbSize}
-            value="12.4 MB" 
-            change="+0.2 MB" 
-            icon={Database}
-            trend="up"
-          />
-        </div>
+        {user?.isAdmin && (
+          <div className="animate-fade-in-up opacity-0 stagger-3">
+            <MetricCard 
+              title={UI_LABELS.cards.dbSize}
+              value="12.4 MB" 
+              change="+0.2 MB" 
+              icon={Database}
+              trend="up"
+            />
+          </div>
+        )}
         <Link href="/blockchain" data-testid="link-blockchain-metric" className="animate-fade-in-up opacity-0 stagger-4">
           <MetricCard 
             title="Blockchains"

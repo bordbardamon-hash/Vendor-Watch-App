@@ -512,3 +512,45 @@ export type BlockchainIncident = typeof blockchainIncidents.$inferSelect;
 
 export type InsertUserBlockchainSubscription = z.infer<typeof insertUserBlockchainSubscriptionSchema>;
 export type UserBlockchainSubscription = typeof userBlockchainSubscriptions.$inferSelect;
+
+// Analytics - User Activity Events
+export const USER_ACTIVITY_TYPES = ['login', 'page_view', 'incident_ack', 'maintenance_ack', 'settings_change'] as const;
+export type UserActivityType = typeof USER_ACTIVITY_TYPES[number];
+
+export const userActivityEvents = pgTable("user_activity_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: text("user_id").notNull(),
+  eventType: text("event_type").notNull(),
+  metadata: text("metadata"), // JSON string for additional context (page path, incident ID, etc.)
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Analytics - Vendor Daily Metrics (aggregated stats per vendor per day)
+export const vendorDailyMetrics = pgTable("vendor_daily_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  vendorKey: text("vendor_key").notNull(),
+  date: text("date").notNull(), // YYYY-MM-DD format
+  uptimeMinutes: integer("uptime_minutes").notNull().default(0),
+  downtimeMinutes: integer("downtime_minutes").notNull().default(0),
+  incidentCount: integer("incident_count").notNull().default(0),
+  avgResolutionMinutes: integer("avg_resolution_minutes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Insert schemas for analytics tables
+export const insertUserActivityEventSchema = createInsertSchema(userActivityEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertVendorDailyMetricsSchema = createInsertSchema(vendorDailyMetrics).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Types for analytics tables
+export type InsertUserActivityEvent = z.infer<typeof insertUserActivityEventSchema>;
+export type UserActivityEvent = typeof userActivityEvents.$inferSelect;
+
+export type InsertVendorDailyMetrics = z.infer<typeof insertVendorDailyMetricsSchema>;
+export type VendorDailyMetrics = typeof vendorDailyMetrics.$inferSelect;

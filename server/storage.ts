@@ -1,7 +1,7 @@
 import { 
   users, vendors, incidents, jobs, config, feedback, notificationConsents, incidentAlerts, userVendorSubscriptions, userVendorOrder, customVendorRequests,
   blockchainChains, blockchainIncidents, userBlockchainSubscriptions, incidentAcknowledgements, maintenanceAcknowledgements,
-  vendorMaintenances, blockchainMaintenances,
+  vendorMaintenances, blockchainMaintenances, userActivityEvents, vendorDailyMetrics,
   type User, type UpsertUser,
   type Vendor, type InsertVendor,
   type Incident, type InsertIncident,
@@ -21,7 +21,7 @@ import {
   type BlockchainMaintenance, type InsertBlockchainMaintenance,
   SUBSCRIPTION_TIERS
 } from "@shared/schema";
-import { and, isNull, inArray } from "drizzle-orm";
+import { and, isNull, inArray, gte, sql, count } from "drizzle-orm";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
 
@@ -179,6 +179,16 @@ export interface IStorage {
   
   // Maintenance stats
   getMaintenanceStats(): Promise<{ vendorActive: number; vendorUpcoming: number; blockchainActive: number; blockchainUpcoming: number; total: number }>;
+  
+  // Analytics - User Activity
+  logUserActivity(userId: string, eventType: string, metadata?: Record<string, any>): Promise<void>;
+  getUserActivityStats(userId: string, days?: number): Promise<{ logins: number; pageViews: number; acknowledgements: number; lastActive: Date | null }>;
+  getUserRecentActivity(userId: string, limit?: number): Promise<Array<{ eventType: string; metadata: string | null; createdAt: Date }>>;
+  
+  // Analytics - Vendor Performance
+  getVendorPerformanceStats(vendorKey: string, days?: number): Promise<{ uptimePercent: number; incidentCount: number; avgResolutionMinutes: number | null }>;
+  getAllVendorPerformanceStats(days?: number): Promise<Array<{ vendorKey: string; vendorName: string; uptimePercent: number; incidentCount: number }>>;
+  recordVendorDailyMetrics(vendorKey: string, date: string, metrics: { uptimeMinutes: number; downtimeMinutes: number; incidentCount: number; avgResolutionMinutes?: number }): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1237,6 +1247,138 @@ export class DatabaseStorage implements IStorage {
       blockchainUpcoming: blockchainUpcoming.length,
       total: vendorActive.length + vendorUpcoming.length + blockchainActive.length + blockchainUpcoming.length,
     };
+  }
+
+  // Analytics - User Activity
+  async logUserActivity(userId: string, eventType: string, metadata?: Record<string, any>): Promise<void> {
+    await db.insert(userActivityEvents).values({
+      userId,
+      eventType,
+      metadata: metadata ? JSON.stringify(metadata) : null,
+    });
+  }
+
+  async getUserActivityStats(userId: string, days: number = 30): Promise<{ logins: number; pageViews: number; acknowledgements: number; lastActive: Date | null }> {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    
+    const events = await db.select()
+      .from(userActivityEvents)
+      .where(and(
+        eq(userActivityEvents.userId, userId),
+        gte(userActivityEvents.createdAt, cutoff)
+      ));
+    
+    const logins = events.filter(e => e.eventType === 'login').length;
+    const pageViews = events.filter(e => e.eventType === 'page_view').length;
+    const acknowledgements = events.filter(e => e.eventType === 'incident_ack' || e.eventType === 'maintenance_ack').length;
+    
+    const lastEvent = await db.select()
+      .from(userActivityEvents)
+      .where(eq(userActivityEvents.userId, userId))
+      .orderBy(desc(userActivityEvents.createdAt))
+      .limit(1);
+    
+    return {
+      logins,
+      pageViews,
+      acknowledgements,
+      lastActive: lastEvent[0]?.createdAt || null,
+    };
+  }
+
+  async getUserRecentActivity(userId: string, limit: number = 20): Promise<Array<{ eventType: string; metadata: string | null; createdAt: Date }>> {
+    const events = await db.select({
+      eventType: userActivityEvents.eventType,
+      metadata: userActivityEvents.metadata,
+      createdAt: userActivityEvents.createdAt,
+    })
+      .from(userActivityEvents)
+      .where(eq(userActivityEvents.userId, userId))
+      .orderBy(desc(userActivityEvents.createdAt))
+      .limit(limit);
+    
+    return events;
+  }
+
+  // Analytics - Vendor Performance
+  async getVendorPerformanceStats(vendorKey: string, days: number = 30): Promise<{ uptimePercent: number; incidentCount: number; avgResolutionMinutes: number | null }> {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    const cutoffStr = cutoff.toISOString().split('T')[0];
+    
+    const metrics = await db.select()
+      .from(vendorDailyMetrics)
+      .where(and(
+        eq(vendorDailyMetrics.vendorKey, vendorKey),
+        gte(vendorDailyMetrics.date, cutoffStr)
+      ));
+    
+    if (metrics.length === 0) {
+      return { uptimePercent: 100, incidentCount: 0, avgResolutionMinutes: null };
+    }
+    
+    const totalUptime = metrics.reduce((sum, m) => sum + m.uptimeMinutes, 0);
+    const totalDowntime = metrics.reduce((sum, m) => sum + m.downtimeMinutes, 0);
+    const totalIncidents = metrics.reduce((sum, m) => sum + m.incidentCount, 0);
+    const resolutionTimes = metrics.filter(m => m.avgResolutionMinutes !== null).map(m => m.avgResolutionMinutes!);
+    
+    const totalMinutes = totalUptime + totalDowntime;
+    const uptimePercent = totalMinutes > 0 ? (totalUptime / totalMinutes) * 100 : 100;
+    const avgResolution = resolutionTimes.length > 0 
+      ? Math.round(resolutionTimes.reduce((sum, r) => sum + r, 0) / resolutionTimes.length)
+      : null;
+    
+    return {
+      uptimePercent: Math.round(uptimePercent * 100) / 100,
+      incidentCount: totalIncidents,
+      avgResolutionMinutes: avgResolution,
+    };
+  }
+
+  async getAllVendorPerformanceStats(days: number = 30): Promise<Array<{ vendorKey: string; vendorName: string; uptimePercent: number; incidentCount: number }>> {
+    const allVendors = await this.getVendors();
+    const results: Array<{ vendorKey: string; vendorName: string; uptimePercent: number; incidentCount: number }> = [];
+    
+    for (const vendor of allVendors) {
+      const stats = await this.getVendorPerformanceStats(vendor.key, days);
+      results.push({
+        vendorKey: vendor.key,
+        vendorName: vendor.name,
+        uptimePercent: stats.uptimePercent,
+        incidentCount: stats.incidentCount,
+      });
+    }
+    
+    return results.sort((a, b) => b.incidentCount - a.incidentCount);
+  }
+
+  async recordVendorDailyMetrics(vendorKey: string, date: string, metrics: { uptimeMinutes: number; downtimeMinutes: number; incidentCount: number; avgResolutionMinutes?: number }): Promise<void> {
+    const existing = await db.select()
+      .from(vendorDailyMetrics)
+      .where(and(
+        eq(vendorDailyMetrics.vendorKey, vendorKey),
+        eq(vendorDailyMetrics.date, date)
+      ))
+      .limit(1);
+    
+    if (existing.length > 0) {
+      await db.update(vendorDailyMetrics)
+        .set({
+          uptimeMinutes: metrics.uptimeMinutes,
+          downtimeMinutes: metrics.downtimeMinutes,
+          incidentCount: metrics.incidentCount,
+          avgResolutionMinutes: metrics.avgResolutionMinutes ?? null,
+        })
+        .where(eq(vendorDailyMetrics.id, existing[0].id));
+    } else {
+      await db.insert(vendorDailyMetrics).values({
+        vendorKey,
+        date,
+        ...metrics,
+        avgResolutionMinutes: metrics.avgResolutionMinutes ?? null,
+      });
+    }
   }
 }
 
