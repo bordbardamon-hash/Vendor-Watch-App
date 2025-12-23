@@ -203,6 +203,15 @@ export const incidentAcknowledgements = pgTable("incident_acknowledgements", {
   acknowledgedAt: timestamp("acknowledged_at").notNull().defaultNow(),
 });
 
+// Maintenance Acknowledgements - track which maintenances users have acknowledged to stop notifications
+export const maintenanceAcknowledgements = pgTable("maintenance_acknowledgements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: text("user_id").notNull(),
+  maintenanceId: text("maintenance_id").notNull(), // references vendorMaintenances.id or blockchainMaintenances.id
+  maintenanceType: text("maintenance_type").notNull().default('vendor'), // 'vendor' or 'blockchain'
+  acknowledgedAt: timestamp("acknowledged_at").notNull().defaultNow(),
+});
+
 // Maintenance statuses
 export const MAINTENANCE_STATUSES = ['scheduled', 'in_progress', 'verifying', 'completed'] as const;
 export type MaintenanceStatus = typeof MAINTENANCE_STATUSES[number];
@@ -325,6 +334,11 @@ export const insertIncidentAcknowledgementSchema = createInsertSchema(incidentAc
   acknowledgedAt: true,
 });
 
+export const insertMaintenanceAcknowledgementSchema = createInsertSchema(maintenanceAcknowledgements).omit({
+  id: true,
+  acknowledgedAt: true,
+});
+
 export const insertVendorMaintenanceSchema = createInsertSchema(vendorMaintenances).omit({
   id: true,
   createdAt: true,
@@ -382,6 +396,9 @@ export type WeeklyDigest = typeof weeklyDigests.$inferSelect;
 
 export type InsertIncidentAcknowledgement = z.infer<typeof insertIncidentAcknowledgementSchema>;
 export type IncidentAcknowledgement = typeof incidentAcknowledgements.$inferSelect;
+
+export type InsertMaintenanceAcknowledgement = z.infer<typeof insertMaintenanceAcknowledgementSchema>;
+export type MaintenanceAcknowledgement = typeof maintenanceAcknowledgements.$inferSelect;
 
 export type InsertVendorMaintenance = z.infer<typeof insertVendorMaintenanceSchema>;
 export type VendorMaintenance = typeof vendorMaintenances.$inferSelect;
