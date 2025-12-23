@@ -485,13 +485,17 @@ CONFIG = AppConfig(
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className={`grid w-full ${user?.isAdmin ? 'grid-cols-5 lg:w-[600px]' : 'grid-cols-4 lg:w-[500px]'} bg-sidebar border border-sidebar-border`}>
+        <TabsList className={`grid w-full ${user?.isAdmin ? 'grid-cols-5 lg:w-[600px]' : 'grid-cols-2 lg:w-[300px]'} bg-sidebar border border-sidebar-border`}>
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          <TabsTrigger value="database">System</TabsTrigger>
-          <TabsTrigger value="code" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
-            <Code className="w-4 h-4 mr-2" /> Code
-          </TabsTrigger>
+          {user?.isAdmin && (
+            <TabsTrigger value="database">System</TabsTrigger>
+          )}
+          {user?.isAdmin && (
+            <TabsTrigger value="code" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
+              <Code className="w-4 h-4 mr-2" /> Code
+            </TabsTrigger>
+          )}
           {user?.isAdmin && (
             <TabsTrigger value="users" className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-500">
               <Users className="w-4 h-4 mr-2" /> Users
@@ -964,13 +968,14 @@ CONFIG = AppConfig(
           </Card>
         </TabsContent>
 
-        <TabsContent value="database" className="space-y-6">
-          <Card className="border-sidebar-border bg-sidebar/30 backdrop-blur-sm">
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Database className="w-5 h-5 text-primary" />
-                <CardTitle>Storage Settings</CardTitle>
-              </div>
+        {user?.isAdmin && (
+          <TabsContent value="database" className="space-y-6">
+            <Card className="border-sidebar-border bg-sidebar/30 backdrop-blur-sm">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Database className="w-5 h-5 text-primary" />
+                  <CardTitle>Storage Settings</CardTitle>
+                </div>
               <CardDescription>
                 Manage local database persistence and backup settings.
               </CardDescription>
@@ -1056,7 +1061,9 @@ CREATE TABLE IF NOT EXISTS alerts_sent (
             </CardContent>
           </Card>
         </TabsContent>
+        )}
 
+        {user?.isAdmin && (
         <TabsContent value="code" className="space-y-6">
           <Card className="border-sidebar-border bg-sidebar/30 backdrop-blur-sm">
             <CardHeader className="flex flex-row items-center justify-between">
@@ -1080,6 +1087,7 @@ CREATE TABLE IF NOT EXISTS alerts_sent (
             </CardContent>
           </Card>
         </TabsContent>
+        )}
 
         {user?.isAdmin && (
           <TabsContent value="users" className="space-y-6">
