@@ -312,9 +312,9 @@ export type WeeklyDigest = typeof weeklyDigests.$inferSelect;
 
 // Subscription tier constants
 export const SUBSCRIPTION_TIERS = {
-  standard: { name: 'Standard', price: 89.99, vendorLimit: 10, customVendorRequests: 0, blockchainLimit: 0 },
-  gold: { name: 'Gold', price: 99.99, vendorLimit: 25, customVendorRequests: 5, blockchainLimit: 5 },
-  platinum: { name: 'Platinum', price: 129.99, vendorLimit: null, customVendorRequests: null, blockchainLimit: null },
+  standard: { name: 'Standard', price: 89.99, vendorLimit: 10, customVendorRequests: 0, blockchainLimit: 2 },
+  gold: { name: 'Gold', price: 99.99, vendorLimit: 25, customVendorRequests: 5, blockchainLimit: 10 },
+  platinum: { name: 'Platinum', price: 129.99, vendorLimit: null, customVendorRequests: null, blockchainLimit: 25 },
 } as const;
 
 // ==========================================

@@ -943,11 +943,6 @@ export class DatabaseStorage implements IStorage {
     
     const tierInfo = SUBSCRIPTION_TIERS[tier];
     
-    // Standard tier has no blockchain access
-    if (tier === 'standard') {
-      throw new Error('Blockchain monitoring requires Gold or Platinum subscription');
-    }
-    
     const currentSubs = await this.getUserBlockchainSubscriptions(userId);
     const isCurrentlySubscribed = currentSubs.includes(chainKey);
     

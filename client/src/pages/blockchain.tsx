@@ -169,9 +169,9 @@ export default function Blockchain() {
     return subscriptionData.current < subscriptionData.limit;
   };
 
-  // Check if user has blockchain access (Gold or Platinum)
+  // Check if user has blockchain access (all tiers now have access)
   const hasBlockchainAccess = () => {
-    return subscriptionData?.tier === 'gold' || subscriptionData?.tier === 'platinum';
+    return subscriptionData?.tier === 'standard' || subscriptionData?.tier === 'gold' || subscriptionData?.tier === 'platinum';
   };
 
   const { data: chains = [], isLoading: chainsLoading, refetch } = useQuery<BlockchainChain[]>({
@@ -399,7 +399,7 @@ export default function Blockchain() {
                   <p className="text-sm text-muted-foreground">
                     {hasBlockchainAccess() 
                       ? `Select up to ${subscriptionData.limit === null ? 'unlimited' : subscriptionData.limit} blockchain networks to monitor`
-                      : "Upgrade to Gold ($99.99/mo) for 5 chains or Platinum ($129.99/mo) for unlimited"}
+                      : "Subscribe to a plan to monitor blockchain networks (Standard: 2, Gold: 10, Platinum: 25)"}
                   </p>
                 </div>
               </div>
