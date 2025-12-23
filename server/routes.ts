@@ -1360,6 +1360,92 @@ export async function registerRoutes(
     }
   });
 
+  // ============ INCIDENT ACKNOWLEDGEMENTS ============
+  
+  // Get user's acknowledged incidents
+  app.get("/api/incidents/acknowledgements", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const acknowledgements = await storage.getUserAcknowledgements(userId);
+      res.json(acknowledgements);
+    } catch (error) {
+      console.error("Error fetching acknowledgements:", error);
+      res.status(500).json({ error: "Failed to fetch acknowledgements" });
+    }
+  });
+
+  // Acknowledge a vendor incident
+  app.post("/api/incidents/:id/acknowledge", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const incidentId = req.params.id;
+      const ack = await storage.acknowledgeIncident(userId, incidentId, 'vendor');
+      res.json({ success: true, acknowledgement: ack });
+    } catch (error) {
+      console.error("Error acknowledging incident:", error);
+      res.status(500).json({ error: "Failed to acknowledge incident" });
+    }
+  });
+
+  // Unacknowledge a vendor incident
+  app.delete("/api/incidents/:id/acknowledge", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const incidentId = req.params.id;
+      await storage.unacknowledgeIncident(userId, incidentId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error unacknowledging incident:", error);
+      res.status(500).json({ error: "Failed to unacknowledge incident" });
+    }
+  });
+
+  // Acknowledge a blockchain incident
+  app.post("/api/blockchain/incidents/:id/acknowledge", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const incidentId = req.params.id;
+      const ack = await storage.acknowledgeIncident(userId, incidentId, 'blockchain');
+      res.json({ success: true, acknowledgement: ack });
+    } catch (error) {
+      console.error("Error acknowledging blockchain incident:", error);
+      res.status(500).json({ error: "Failed to acknowledge blockchain incident" });
+    }
+  });
+
+  // Unacknowledge a blockchain incident
+  app.delete("/api/blockchain/incidents/:id/acknowledge", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const incidentId = req.params.id;
+      await storage.unacknowledgeIncident(userId, incidentId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error unacknowledging blockchain incident:", error);
+      res.status(500).json({ error: "Failed to unacknowledge blockchain incident" });
+    }
+  });
+
   // ============ TWO-FACTOR AUTHENTICATION ============
   
   // Get 2FA status for current user

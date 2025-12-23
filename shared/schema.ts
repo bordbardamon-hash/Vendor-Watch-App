@@ -194,6 +194,15 @@ export const notificationConsents = pgTable("notification_consents", {
   revokedAt: timestamp("revoked_at"),
 });
 
+// Incident Acknowledgements - track which incidents users have acknowledged to stop notifications
+export const incidentAcknowledgements = pgTable("incident_acknowledgements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: text("user_id").notNull(),
+  incidentId: text("incident_id").notNull(), // references incidents.id
+  incidentType: text("incident_type").notNull().default('vendor'), // 'vendor' or 'blockchain'
+  acknowledgedAt: timestamp("acknowledged_at").notNull().defaultNow(),
+});
+
 // Insert schemas
 export const insertVendorSchema = createInsertSchema(vendors).omit({
   id: true,
@@ -267,6 +276,11 @@ export const insertWeeklyDigestSchema = createInsertSchema(weeklyDigests).omit({
   sentAt: true,
 });
 
+export const insertIncidentAcknowledgementSchema = createInsertSchema(incidentAcknowledgements).omit({
+  id: true,
+  acknowledgedAt: true,
+});
+
 // Types
 export type InsertVendor = z.infer<typeof insertVendorSchema>;
 export type Vendor = typeof vendors.$inferSelect;
@@ -309,6 +323,9 @@ export type VendorReliabilityStats = typeof vendorReliabilityStats.$inferSelect;
 
 export type InsertWeeklyDigest = z.infer<typeof insertWeeklyDigestSchema>;
 export type WeeklyDigest = typeof weeklyDigests.$inferSelect;
+
+export type InsertIncidentAcknowledgement = z.infer<typeof insertIncidentAcknowledgementSchema>;
+export type IncidentAcknowledgement = typeof incidentAcknowledgements.$inferSelect;
 
 // Subscription tier constants
 export const SUBSCRIPTION_TIERS = {

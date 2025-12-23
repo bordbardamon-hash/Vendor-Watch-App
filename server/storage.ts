@@ -1,6 +1,6 @@
 import { 
   users, vendors, incidents, jobs, config, feedback, notificationConsents, incidentAlerts, userVendorSubscriptions, userVendorOrder, customVendorRequests,
-  blockchainChains, blockchainIncidents, userBlockchainSubscriptions,
+  blockchainChains, blockchainIncidents, userBlockchainSubscriptions, incidentAcknowledgements,
   type User, type UpsertUser,
   type Vendor, type InsertVendor,
   type Incident, type InsertIncident,
@@ -14,6 +14,7 @@ import {
   type CustomVendorRequest, type InsertCustomVendorRequest,
   type BlockchainChain, type InsertBlockchainChain,
   type BlockchainIncident, type InsertBlockchainIncident,
+  type IncidentAcknowledgement,
   SUBSCRIPTION_TIERS
 } from "@shared/schema";
 import { and, isNull, inArray } from "drizzle-orm";
@@ -141,6 +142,13 @@ export interface IStorage {
   // Toggle individual vendor/blockchain subscription
   toggleVendorSubscription(userId: string, vendorKey: string): Promise<{ subscribed: boolean; current: number; limit: number | null }>;
   toggleBlockchainSubscription(userId: string, chainKey: string): Promise<{ subscribed: boolean; current: number; limit: number | null }>;
+  
+  // Incident Acknowledgements
+  acknowledgeIncident(userId: string, incidentId: string, incidentType: 'vendor' | 'blockchain'): Promise<IncidentAcknowledgement>;
+  unacknowledgeIncident(userId: string, incidentId: string): Promise<boolean>;
+  isIncidentAcknowledged(userId: string, incidentId: string): Promise<boolean>;
+  getUserAcknowledgements(userId: string): Promise<IncidentAcknowledgement[]>;
+  clearAcknowledgementsForIncident(incidentId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -966,6 +974,64 @@ export class DatabaseStorage implements IStorage {
       await this.setConfig(`blockchain_subscriptions_set:${userId}`, 'true');
       return { subscribed: true, current: currentSubs.length + 1, limit: tierInfo.blockchainLimit };
     }
+  }
+
+  // Incident Acknowledgements
+  async acknowledgeIncident(userId: string, incidentId: string, incidentType: 'vendor' | 'blockchain'): Promise<IncidentAcknowledgement> {
+    // Check if already acknowledged
+    const existing = await db
+      .select()
+      .from(incidentAcknowledgements)
+      .where(
+        and(
+          eq(incidentAcknowledgements.userId, userId),
+          eq(incidentAcknowledgements.incidentId, incidentId)
+        )
+      )
+      .limit(1);
+    
+    if (existing.length > 0) {
+      return existing[0];
+    }
+    
+    const [ack] = await db.insert(incidentAcknowledgements).values({
+      userId,
+      incidentId,
+      incidentType,
+    }).returning();
+    return ack;
+  }
+
+  async unacknowledgeIncident(userId: string, incidentId: string): Promise<boolean> {
+    const result = await db.delete(incidentAcknowledgements).where(
+      and(
+        eq(incidentAcknowledgements.userId, userId),
+        eq(incidentAcknowledgements.incidentId, incidentId)
+      )
+    );
+    return true;
+  }
+
+  async isIncidentAcknowledged(userId: string, incidentId: string): Promise<boolean> {
+    const ack = await db
+      .select()
+      .from(incidentAcknowledgements)
+      .where(
+        and(
+          eq(incidentAcknowledgements.userId, userId),
+          eq(incidentAcknowledgements.incidentId, incidentId)
+        )
+      )
+      .limit(1);
+    return ack.length > 0;
+  }
+
+  async getUserAcknowledgements(userId: string): Promise<IncidentAcknowledgement[]> {
+    return db.select().from(incidentAcknowledgements).where(eq(incidentAcknowledgements.userId, userId));
+  }
+
+  async clearAcknowledgementsForIncident(incidentId: string): Promise<void> {
+    await db.delete(incidentAcknowledgements).where(eq(incidentAcknowledgements.incidentId, incidentId));
   }
 }
 
