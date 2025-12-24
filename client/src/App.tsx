@@ -23,6 +23,7 @@ import Verify2FA from "@/pages/verify-2fa";
 import Login from "@/pages/login";
 import Register from "@/pages/register";
 import SetPassword from "@/pages/set-password";
+import SmsConsent from "@/pages/sms-consent";
 import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
 
@@ -97,6 +98,7 @@ function Router() {
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
       <Route path="/set-password" component={SetPassword} />
+      <Route path="/sms-consent" component={SmsConsent} />
       <Route>
         {user ? <AuthenticatedRouter /> : <Landing />}
       </Route>

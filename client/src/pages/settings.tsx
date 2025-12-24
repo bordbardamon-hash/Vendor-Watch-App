@@ -33,7 +33,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 
 const EMAIL_CONSENT_TEXT = "I agree to receive vendor incident alerts and system notifications via email. I understand I can unsubscribe at any time by disabling email notifications in my settings.";
-const SMS_CONSENT_TEXT = "I agree to receive vendor incident alerts via SMS text messages. Message and data rates may apply. I understand I can opt out at any time by disabling SMS notifications in my settings or replying STOP.";
+const SMS_CONSENT_TEXT = "I expressly consent to receive automated SMS text messages from Vendor Watch for vendor incident alerts, maintenance notifications, and status updates. Message frequency varies based on vendor status events. Message and data rates may apply. I can opt out at any time by replying STOP to any message or disabling SMS in my settings. Reply HELP for assistance.";
 
 export default function Settings() {
   const { toast } = useToast();
