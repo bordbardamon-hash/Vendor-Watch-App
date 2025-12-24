@@ -15,7 +15,8 @@ import {
   Server,
   Boxes,
   BellOff,
-  Bell
+  Bell,
+  Wallet
 } from "lucide-react";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -140,6 +141,18 @@ export default function Maintenance() {
   });
 
   const acknowledgedMaintenanceIds = new Set(acknowledgements.map(a => a.maintenanceId));
+
+  const walletChainKeys = new Set([
+    'metamask', 'trustwallet', 'ledger', 'coinbasewallet', 
+    'rainbow', 'argent', 'gnosissafe', 'bybitwallet'
+  ]);
+  
+  const isWalletMaintenance = (chainKey: string) => walletChainKeys.has(chainKey);
+  
+  const walletActive = blockchainActive.filter(m => isWalletMaintenance(m.chainKey));
+  const walletUpcoming = blockchainUpcoming.filter(m => isWalletMaintenance(m.chainKey));
+  const chainOnlyActive = blockchainActive.filter(m => !isWalletMaintenance(m.chainKey));
+  const chainOnlyUpcoming = blockchainUpcoming.filter(m => !isWalletMaintenance(m.chainKey));
 
   const acknowledgeVendorMutation = useMutation({
     mutationFn: async (maintenanceId: string) => {
@@ -348,13 +361,18 @@ export default function Maintenance() {
 
   const renderBlockchainMaintenanceCard = (maint: BlockchainMaintenance) => {
     const isAcked = acknowledgedMaintenanceIds.has(maint.id);
+    const isWallet = isWalletMaintenance(maint.chainKey);
     return (
       <Card key={maint.id} className={`bg-sidebar border-sidebar-border ${isAcked ? 'opacity-60' : ''}`} data-testid={`card-blockchain-maintenance-${maint.id}`}>
         <CardContent className="p-4">
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1">
-                <Boxes className="w-4 h-4 text-muted-foreground" />
+                {isWallet ? (
+                  <Wallet className="w-4 h-4 text-purple-500" />
+                ) : (
+                  <Boxes className="w-4 h-4 text-muted-foreground" />
+                )}
                 <span className="text-sm font-medium">{maint.chainKey}</span>
                 {getStatusBadge(maint.status)}
                 {isAcked && (
