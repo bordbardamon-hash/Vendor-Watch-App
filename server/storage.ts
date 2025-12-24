@@ -1593,9 +1593,13 @@ const DEFAULT_BLOCKCHAIN_CHAINS: InsertBlockchainChain[] = [
 
 export async function seedBlockchainChainsIfEmpty(): Promise<void> {
   const existingChains = await storage.getBlockchainChains();
-  if (existingChains.length === 0) {
-    console.log('[seed] No blockchain chains found, seeding defaults...');
-    for (const chain of DEFAULT_BLOCKCHAIN_CHAINS) {
+  const existingKeys = new Set(existingChains.map(c => c.key));
+  
+  const missingChains = DEFAULT_BLOCKCHAIN_CHAINS.filter(c => !existingKeys.has(c.key));
+  
+  if (missingChains.length > 0) {
+    console.log(`[seed] Adding ${missingChains.length} missing blockchain chains...`);
+    for (const chain of missingChains) {
       try {
         await storage.createBlockchainChain(chain);
         console.log(`[seed] Created blockchain: ${chain.name}`);
@@ -1605,6 +1609,6 @@ export async function seedBlockchainChainsIfEmpty(): Promise<void> {
     }
     console.log('[seed] Blockchain seeding complete');
   } else {
-    console.log(`[seed] Found ${existingChains.length} blockchain chains, skipping seed`);
+    console.log(`[seed] Found ${existingChains.length} blockchain chains, all up to date`);
   }
 }
