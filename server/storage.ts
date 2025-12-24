@@ -1566,8 +1566,29 @@ const DEFAULT_BLOCKCHAIN_CHAINS: InsertBlockchainChain[] = [
   { key: "coinbasewallet", name: "Coinbase Wallet", symbol: "CBW", tier: "tier1", category: "wallet", sourceType: "statuspage", statusUrl: "https://status.coinbase.com" },
   { key: "rainbow", name: "Rainbow", symbol: "RBW", tier: "tier2", category: "wallet", sourceType: "manual", statusUrl: "https://rainbow.me" },
   { key: "argent", name: "Argent", symbol: "AGT", tier: "tier2", category: "wallet", sourceType: "statuspage", statusUrl: "https://argentxwallet.statuspage.io" },
-  { key: "gnosissafe", name: "Gnosis Safe", symbol: "SAFE", tier: "tier1", category: "wallet", sourceType: "manual", statusUrl: "https://status.safe.global" },
-  { key: "bybitwallet", name: "Bybit Web3 Wallet", symbol: "BYB", tier: "tier2", category: "wallet", sourceType: "manual", statusUrl: "https://www.bybit.com/en/announcement-info/deposit-withdraw/" },
+  { key: "gnosissafe", name: "Gnosis Safe", symbol: "SAFE", tier: "tier1", category: "wallet", sourceType: "statuspage", statusUrl: "https://safe.statuspage.io" },
+  { key: "bybitwallet", name: "Bybit Web3 Wallet", symbol: "BYB", tier: "tier2", category: "wallet", sourceType: "statuspage", statusUrl: "https://bybit.statuspage.io" },
+  
+  // Staking Platforms: Centralized Exchanges (CEXs)
+  { key: "binance", name: "Binance", symbol: "BNB", tier: "tier1", category: "staking", sourceType: "manual", statusUrl: "https://www.binance.com/en/network" },
+  { key: "coinbase", name: "Coinbase", symbol: "COIN", tier: "tier1", category: "staking", sourceType: "statuspage", statusUrl: "https://status.coinbase.com" },
+  { key: "kraken", name: "Kraken", symbol: "KRK", tier: "tier1", category: "staking", sourceType: "statuspage", statusUrl: "https://status.kraken.com" },
+  { key: "gemini", name: "Gemini", symbol: "GEM", tier: "tier1", category: "staking", sourceType: "statuspage", statusUrl: "https://status.gemini.com" },
+  
+  // Staking Platforms: Decentralized & Liquid Staking
+  { key: "lido", name: "Lido Finance", symbol: "LDO", tier: "tier1", category: "staking", sourceType: "manual", statusUrl: "https://lido.fi" },
+  { key: "rocketpool", name: "Rocket Pool", symbol: "RPL", tier: "tier2", category: "staking", sourceType: "manual", statusUrl: "https://rocketpool.net" },
+  { key: "stakewise", name: "StakeWise", symbol: "SWISE", tier: "tier2", category: "staking", sourceType: "manual", statusUrl: "https://stakewise.io" },
+  { key: "stakedao", name: "Stake DAO", symbol: "SDT", tier: "tier2", category: "staking", sourceType: "manual", statusUrl: "https://stakedao.org" },
+  { key: "marinade", name: "Marinade Finance", symbol: "MNDE", tier: "tier2", category: "staking", sourceType: "manual", statusUrl: "https://marinade.finance" },
+  
+  // Staking Platforms: Institutional & Infrastructure Providers
+  { key: "rockx", name: "RockX", symbol: "RKX", tier: "tier2", category: "staking", sourceType: "manual", statusUrl: "https://www.rockx.com" },
+  { key: "figment", name: "Figment", symbol: "FIG", tier: "tier2", category: "staking", sourceType: "manual", statusUrl: "https://figment.io" },
+  { key: "ankr", name: "Ankr", symbol: "ANKR", tier: "tier2", category: "staking", sourceType: "manual", statusUrl: "https://status.ankr.com" },
+  { key: "cryptocom", name: "Crypto.com", symbol: "CRO", tier: "tier1", category: "staking", sourceType: "statuspage", statusUrl: "https://status.crypto.com" },
+  { key: "kiln", name: "Kiln", symbol: "KLN", tier: "tier2", category: "staking", sourceType: "manual", statusUrl: "https://kiln.fi" },
+  { key: "bybit", name: "Bybit", symbol: "BYB", tier: "tier1", category: "staking", sourceType: "statuspage", statusUrl: "https://bybit.statuspage.io" },
 ];
 
 export async function seedBlockchainChainsIfEmpty(): Promise<void> {

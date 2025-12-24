@@ -49,6 +49,11 @@ const BLOCKCHAIN_STATUSPAGE_URLS: Record<string, string> = {
   polygon: "https://status.polygon.technology",
   gnosissafe: "https://safe.statuspage.io",
   bybitwallet: "https://bybit.statuspage.io",
+  coinbase: "https://status.coinbase.com",
+  kraken: "https://status.kraken.com",
+  gemini: "https://status.gemini.com",
+  cryptocom: "https://status.crypto.com",
+  bybit: "https://bybit.statuspage.io",
 };
 
 function mapStatusIndicator(indicator: string): string {
