@@ -65,6 +65,10 @@ Key entities include Users, Sessions, Vendors, Incidents, Jobs, and Configuratio
 - **Blockchain APIs**: Statuspage.io APIs for 16 chains/wallets (Solana, Avalanche, Arbitrum, Base, Stellar, Infura, Alchemy, QuickNode, The Graph, MetaMask, Ledger, Coinbase Wallet, Argent, Polygon, Gnosis Safe, Bybit Wallet).
 - **WalletConnect Wallets**: 8 popular wallet vendors monitored (MetaMask, Trust Wallet, Ledger, Coinbase Wallet, Rainbow, Argent, Gnosis Safe, Bybit). Wallets with Statuspage APIs sync automatically; others track timestamps only.
 - **Decentralized Chains**: Bitcoin, Ethereum, BSC, Cosmos, TRON, Ripple tracked with timestamp updates (no centralized status pages exist for fully decentralized networks).
+- **Staking Platforms**: 15 staking platforms across three categories:
+  - CEXs: Binance, Coinbase, Kraken, Gemini (4 platforms; Coinbase, Kraken, Gemini sync via Statuspage)
+  - Liquid Staking/DeFi: Lido Finance, Rocket Pool, StakeWise, Stake DAO, Marinade Finance (5 platforms)
+  - Institutional Providers: RockX, Figment, Ankr, Crypto.com, Kiln, Bybit (6 platforms; Crypto.com, Bybit sync via Statuspage)
 
 ### Notification Providers
 - **Resend**: For email notifications (`RESEND_API_KEY`).
