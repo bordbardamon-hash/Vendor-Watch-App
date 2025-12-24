@@ -16,7 +16,8 @@ import {
   Boxes,
   BellOff,
   Bell,
-  Wallet
+  Wallet,
+  Coins
 } from "lucide-react";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -147,12 +148,21 @@ export default function Maintenance() {
     'rainbow', 'argent', 'gnosissafe', 'bybitwallet'
   ]);
   
+  const stakingChainKeys = new Set([
+    'binance', 'coinbase', 'kraken', 'gemini',
+    'lido', 'rocketpool', 'stakewise', 'stakedao', 'marinade',
+    'rockx', 'figment', 'ankr', 'cryptocom', 'kiln', 'bybit'
+  ]);
+  
   const isWalletMaintenance = (chainKey: string) => walletChainKeys.has(chainKey);
+  const isStakingMaintenance = (chainKey: string) => stakingChainKeys.has(chainKey);
   
   const walletActive = blockchainActive.filter(m => isWalletMaintenance(m.chainKey));
   const walletUpcoming = blockchainUpcoming.filter(m => isWalletMaintenance(m.chainKey));
-  const chainOnlyActive = blockchainActive.filter(m => !isWalletMaintenance(m.chainKey));
-  const chainOnlyUpcoming = blockchainUpcoming.filter(m => !isWalletMaintenance(m.chainKey));
+  const stakingActive = blockchainActive.filter(m => isStakingMaintenance(m.chainKey));
+  const stakingUpcoming = blockchainUpcoming.filter(m => isStakingMaintenance(m.chainKey));
+  const chainOnlyActive = blockchainActive.filter(m => !isWalletMaintenance(m.chainKey) && !isStakingMaintenance(m.chainKey));
+  const chainOnlyUpcoming = blockchainUpcoming.filter(m => !isWalletMaintenance(m.chainKey) && !isStakingMaintenance(m.chainKey));
 
   const acknowledgeVendorMutation = useMutation({
     mutationFn: async (maintenanceId: string) => {
@@ -504,6 +514,7 @@ export default function Maintenance() {
             <TabsTrigger value="vendors" data-testid="tab-vendors" className="text-xs sm:text-sm">Vendors</TabsTrigger>
             <TabsTrigger value="blockchain" data-testid="tab-blockchain" className="text-xs sm:text-sm">Chain</TabsTrigger>
             <TabsTrigger value="wallets" data-testid="tab-wallets" className="text-xs sm:text-sm">Wallets</TabsTrigger>
+            <TabsTrigger value="staking" data-testid="tab-staking" className="text-xs sm:text-sm">Staking</TabsTrigger>
           </TabsList>
 
           <TabsContent value="all" className="space-y-6 mt-6">
@@ -665,6 +676,39 @@ export default function Maintenance() {
                   <h3 className="text-lg font-semibold">No Wallet Maintenance</h3>
                   <p className="text-muted-foreground text-sm mt-2">
                     Monitoring MetaMask, Trust Wallet, Ledger, Coinbase Wallet, Rainbow, Argent, Gnosis Safe, and Bybit
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="staking" className="mt-6">
+            {stakingActive.length + stakingUpcoming.length > 0 ? (
+              <div className="space-y-6">
+                {stakingActive.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-muted-foreground mb-3">IN PROGRESS</h3>
+                    <div className="space-y-3">
+                      {stakingActive.map(renderBlockchainMaintenanceCard)}
+                    </div>
+                  </div>
+                )}
+                {stakingUpcoming.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-muted-foreground mb-3">UPCOMING</h3>
+                    <div className="space-y-3">
+                      {stakingUpcoming.map(renderBlockchainMaintenanceCard)}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Card className="bg-sidebar border-sidebar-border">
+                <CardContent className="p-8 text-center">
+                  <Coins className="w-12 h-12 text-amber-500/50 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold">No Staking Platform Maintenance</h3>
+                  <p className="text-muted-foreground text-sm mt-2">
+                    Monitoring Coinbase, Kraken, Gemini, Lido, Rocket Pool, Crypto.com, and more
                   </p>
                 </CardContent>
               </Card>

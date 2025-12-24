@@ -22,7 +22,8 @@ import {
   Lock,
   BellOff,
   Bell,
-  Wallet
+  Wallet,
+  Coins
 } from "lucide-react";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -118,6 +119,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   rpc_provider: "RPC Provider",
   indexer: "Indexer",
   wallet: "Wallet",
+  staking: "Staking",
 };
 
 export default function Blockchain() {
@@ -273,7 +275,7 @@ export default function Blockchain() {
   );
 
   const getChainsByTier = (tier: string) => {
-    return filteredChains.filter(c => c.tier === tier && c.category !== 'wallet');
+    return filteredChains.filter(c => c.tier === tier && c.category !== 'wallet' && c.category !== 'staking');
   };
 
   const getChainsByCategory = (category: string) => {
@@ -281,6 +283,7 @@ export default function Blockchain() {
   };
 
   const wallets = getChainsByCategory('wallet');
+  const stakingPlatforms = getChainsByCategory('staking');
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -621,6 +624,10 @@ export default function Blockchain() {
               <Wallet className="w-4 h-4 mr-1.5" />
               WalletConnect
             </TabsTrigger>
+            <TabsTrigger value="staking" data-testid="tab-staking">
+              <Coins className="w-4 h-4 mr-1.5" />
+              Staking
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="all" className="space-y-8 mt-6">
@@ -637,6 +644,21 @@ export default function Blockchain() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {wallets.map(renderChainCard)}
+                </div>
+              </div>
+            )}
+            
+            {stakingPlatforms.length > 0 && (
+              <div className="space-y-4" data-testid="section-staking">
+                <div className="flex items-center gap-3">
+                  <Coins className="w-5 h-5 text-amber-400" />
+                  <div>
+                    <h2 className="text-lg font-semibold">Staking Platforms</h2>
+                    <p className="text-sm text-muted-foreground">CEXs, liquid staking protocols, and institutional staking providers</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {stakingPlatforms.map(renderChainCard)}
                 </div>
               </div>
             )}
@@ -659,6 +681,21 @@ export default function Blockchain() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {wallets.map(renderChainCard)}
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="staking" className="mt-6">
+            <div className="space-y-4" data-testid="section-staking-tab">
+              <div className="flex items-center gap-3">
+                <Coins className="w-5 h-5 text-amber-400" />
+                <div>
+                  <h2 className="text-lg font-semibold">Staking Platforms</h2>
+                  <p className="text-sm text-muted-foreground">CEXs, liquid staking protocols, and institutional staking providers</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {stakingPlatforms.map(renderChainCard)}
               </div>
             </div>
           </TabsContent>
