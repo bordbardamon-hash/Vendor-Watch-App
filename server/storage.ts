@@ -1558,6 +1558,16 @@ const DEFAULT_BLOCKCHAIN_CHAINS: InsertBlockchainChain[] = [
   { key: "alchemy", name: "Alchemy", tier: "tier4", category: "rpc_provider", sourceType: "statuspage", statusUrl: "https://status.alchemy.com" },
   { key: "quicknode", name: "QuickNode", tier: "tier4", category: "rpc_provider", sourceType: "statuspage", statusUrl: "https://status.quicknode.com" },
   { key: "thegraph", name: "The Graph", tier: "tier4", category: "indexer", sourceType: "statuspage", statusUrl: "https://status.thegraph.com" },
+  
+  // WalletConnect: Popular Compatible Wallets
+  { key: "metamask", name: "MetaMask", symbol: "MM", tier: "tier1", category: "wallet", sourceType: "statuspage", statusUrl: "https://status.infura.io" },
+  { key: "trustwallet", name: "Trust Wallet", symbol: "TW", tier: "tier1", category: "wallet", sourceType: "manual", statusUrl: "https://status.trustwallet.com" },
+  { key: "ledger", name: "Ledger Live", symbol: "LDG", tier: "tier1", category: "wallet", sourceType: "statuspage", statusUrl: "https://status.ledger.com" },
+  { key: "coinbasewallet", name: "Coinbase Wallet", symbol: "CBW", tier: "tier1", category: "wallet", sourceType: "statuspage", statusUrl: "https://status.coinbase.com" },
+  { key: "rainbow", name: "Rainbow", symbol: "RBW", tier: "tier2", category: "wallet", sourceType: "manual", statusUrl: "https://rainbow.me" },
+  { key: "argent", name: "Argent", symbol: "AGT", tier: "tier2", category: "wallet", sourceType: "statuspage", statusUrl: "https://argentxwallet.statuspage.io" },
+  { key: "gnosissafe", name: "Gnosis Safe", symbol: "SAFE", tier: "tier1", category: "wallet", sourceType: "manual", statusUrl: "https://status.safe.global" },
+  { key: "bybitwallet", name: "Bybit Web3 Wallet", symbol: "BYB", tier: "tier2", category: "wallet", sourceType: "manual", statusUrl: "https://www.bybit.com/en/announcement-info/deposit-withdraw/" },
 ];
 
 export async function seedBlockchainChainsIfEmpty(): Promise<void> {
