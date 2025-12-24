@@ -35,8 +35,7 @@ interface BlockchainMaintenanceData {
 const BLOCKCHAIN_STATUSPAGE_URLS: Record<string, string> = {
   solana: "https://status.solana.com",
   avalanche: "https://status.avax.network",
-  arbitrum: "https://status.arbitrum.io",
-  optimism: "https://status.optimism.io",
+  arbitrum: "https://arbitrum.statuspage.io",
   base: "https://status.base.org",
   stellar: "https://status.stellar.org",
   infura: "https://status.infura.io",
@@ -47,6 +46,9 @@ const BLOCKCHAIN_STATUSPAGE_URLS: Record<string, string> = {
   ledger: "https://status.ledger.com",
   coinbasewallet: "https://status.coinbase.com",
   argent: "https://argentxwallet.statuspage.io",
+  polygon: "https://status.polygon.technology",
+  gnosissafe: "https://safe.statuspage.io",
+  bybitwallet: "https://bybit.statuspage.io",
 };
 
 function mapStatusIndicator(indicator: string): string {
@@ -168,13 +170,23 @@ async function syncBlockchainChain(chainData: { key: string; name: string; sourc
   
   let result: { status: string; incidents: BlockchainIncidentData[]; maintenances: BlockchainMaintenanceData[]; success: boolean; errorMessage?: string };
   
-  if (chainData.sourceType === 'statuspage') {
+  const hasStatuspageUrl = BLOCKCHAIN_STATUSPAGE_URLS[chainData.key] !== undefined;
+  
+  if (chainData.sourceType === 'statuspage' || hasStatuspageUrl) {
     result = await fetchStatuspageStatus(chainData);
+    
+    if (!result.success && hasStatuspageUrl && chainData.sourceType !== 'statuspage') {
+      console.log(`[blockchain:${chainData.key}] Statuspage API failed, updating timestamp only`);
+      await storage.updateBlockchainChain(chainData.key, {
+        lastChecked: new Date(),
+      });
+      return;
+    }
   } else if (chainData.sourceType === 'manual' || chainData.sourceType === 'api') {
     await storage.updateBlockchainChain(chainData.key, {
       lastChecked: new Date(),
     });
-    console.log(`[blockchain:${chainData.key}] Manual check completed (status preserved)`);
+    console.log(`[blockchain:${chainData.key}] No statuspage URL configured, timestamp updated`);
     return;
   } else {
     console.log(`[blockchain:${chainData.key}] Skipping - sourceType '${chainData.sourceType}' not yet supported`);

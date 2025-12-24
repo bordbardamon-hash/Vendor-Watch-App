@@ -62,7 +62,9 @@ Key entities include Users, Sessions, Vendors, Incidents, Jobs, and Configuratio
 - **Puppeteer Headless Browser**: For 6 JavaScript-rendered vendors (Okta, Auth0, Fastly, ConnectWise, N-able, Syncro).
 - **Custom JSON APIs**: Slack (slack-status.com API), Salesforce, AWS (status.aws.amazon.com).
 - **HTML Scraping**: For 4 vendors (Azure, Microsoft 365, Google Workspace).
-- **Blockchain APIs**: Statuspage.io APIs for Solana, Avalanche, Base, Infura, Alchemy, QuickNode, The Graph (7 chains total).
+- **Blockchain APIs**: Statuspage.io APIs for 16 chains/wallets (Solana, Avalanche, Arbitrum, Base, Stellar, Infura, Alchemy, QuickNode, The Graph, MetaMask, Ledger, Coinbase Wallet, Argent, Polygon, Gnosis Safe, Bybit Wallet).
+- **WalletConnect Wallets**: 8 popular wallet vendors monitored (MetaMask, Trust Wallet, Ledger, Coinbase Wallet, Rainbow, Argent, Gnosis Safe, Bybit). Wallets with Statuspage APIs sync automatically; others track timestamps only.
+- **Decentralized Chains**: Bitcoin, Ethereum, BSC, Cosmos, TRON, Ripple tracked with timestamp updates (no centralized status pages exist for fully decentralized networks).
 
 ### Notification Providers
 - **Resend**: For email notifications (`RESEND_API_KEY`).
