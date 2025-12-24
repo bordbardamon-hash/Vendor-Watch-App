@@ -21,7 +21,8 @@ import {
   Shield,
   Lock,
   BellOff,
-  Bell
+  Bell,
+  Wallet
 } from "lucide-react";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -116,6 +117,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   l2: "Layer 2",
   rpc_provider: "RPC Provider",
   indexer: "Indexer",
+  wallet: "Wallet",
 };
 
 export default function Blockchain() {
@@ -271,8 +273,14 @@ export default function Blockchain() {
   );
 
   const getChainsByTier = (tier: string) => {
-    return filteredChains.filter(c => c.tier === tier);
+    return filteredChains.filter(c => c.tier === tier && c.category !== 'wallet');
   };
+
+  const getChainsByCategory = (category: string) => {
+    return filteredChains.filter(c => c.category === category);
+  };
+
+  const wallets = getChainsByCategory('wallet');
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -603,16 +611,35 @@ export default function Blockchain() {
         )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="bg-sidebar border-sidebar-border">
+          <TabsList className="bg-sidebar border-sidebar-border flex-wrap">
             <TabsTrigger value="all" data-testid="tab-all">All Chains</TabsTrigger>
             <TabsTrigger value="tier1" data-testid="tab-tier1">Tier 1</TabsTrigger>
             <TabsTrigger value="tier2" data-testid="tab-tier2">Tier 2</TabsTrigger>
             <TabsTrigger value="tier3" data-testid="tab-tier3">Tier 3</TabsTrigger>
             <TabsTrigger value="tier4" data-testid="tab-tier4">Dependencies</TabsTrigger>
+            <TabsTrigger value="wallets" data-testid="tab-wallets">
+              <Wallet className="w-4 h-4 mr-1.5" />
+              WalletConnect
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="all" className="space-y-8 mt-6">
             {["tier1", "tier2", "tier3", "tier4"].map(renderTierSection)}
+            
+            {wallets.length > 0 && (
+              <div className="space-y-4" data-testid="section-wallets">
+                <div className="flex items-center gap-3">
+                  <Wallet className="w-5 h-5 text-purple-400" />
+                  <div>
+                    <h2 className="text-lg font-semibold">WalletConnect: Popular Compatible Wallets</h2>
+                    <p className="text-sm text-muted-foreground">User-facing wallets for asset management and DeFi</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {wallets.map(renderChainCard)}
+                </div>
+              </div>
+            )}
           </TabsContent>
 
           {["tier1", "tier2", "tier3", "tier4"].map((tier) => (
@@ -620,6 +647,21 @@ export default function Blockchain() {
               {renderTierSection(tier)}
             </TabsContent>
           ))}
+
+          <TabsContent value="wallets" className="mt-6">
+            <div className="space-y-4" data-testid="section-wallets-tab">
+              <div className="flex items-center gap-3">
+                <Wallet className="w-5 h-5 text-purple-400" />
+                <div>
+                  <h2 className="text-lg font-semibold">WalletConnect: Popular Compatible Wallets</h2>
+                  <p className="text-sm text-muted-foreground">User-facing wallets for asset management and DeFi</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {wallets.map(renderChainCard)}
+              </div>
+            </div>
+          </TabsContent>
         </Tabs>
       </div>
     </ScrollArea>

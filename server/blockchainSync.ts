@@ -170,6 +170,12 @@ async function syncBlockchainChain(chainData: { key: string; name: string; sourc
   
   if (chainData.sourceType === 'statuspage') {
     result = await fetchStatuspageStatus(chainData);
+  } else if (chainData.sourceType === 'manual' || chainData.sourceType === 'api') {
+    await storage.updateBlockchainChain(chainData.key, {
+      lastChecked: new Date(),
+    });
+    console.log(`[blockchain:${chainData.key}] Manual check completed (status preserved)`);
+    return;
   } else {
     console.log(`[blockchain:${chainData.key}] Skipping - sourceType '${chainData.sourceType}' not yet supported`);
     return;
@@ -284,17 +290,19 @@ export async function syncAllBlockchainChains(): Promise<void> {
   console.log('[blockchain] Starting blockchain status sync...');
   
   const chains = await storage.getBlockchainChains();
-  const statuspageChains = chains.filter(c => c.sourceType === 'statuspage');
+  const supportedChains = chains.filter(c => 
+    c.sourceType === 'statuspage' || c.sourceType === 'manual' || c.sourceType === 'api'
+  );
   
-  console.log(`[blockchain] Found ${statuspageChains.length} chains with statuspage integration`);
+  console.log(`[blockchain] Found ${supportedChains.length} chains to sync`);
   
-  for (const chain of statuspageChains) {
+  for (const chain of supportedChains) {
     try {
       await syncBlockchainChain(chain);
     } catch (error) {
       console.error(`[blockchain:${chain.key}] Sync error:`, error);
     }
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 200));
   }
   
   console.log('[blockchain] Blockchain status sync complete');
