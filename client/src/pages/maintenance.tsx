@@ -503,6 +503,7 @@ export default function Maintenance() {
             <TabsTrigger value="upcoming" data-testid="tab-upcoming" className="text-xs sm:text-sm">Upcoming</TabsTrigger>
             <TabsTrigger value="vendors" data-testid="tab-vendors" className="text-xs sm:text-sm">Vendors</TabsTrigger>
             <TabsTrigger value="blockchain" data-testid="tab-blockchain" className="text-xs sm:text-sm">Chain</TabsTrigger>
+            <TabsTrigger value="wallets" data-testid="tab-wallets" className="text-xs sm:text-sm">Wallets</TabsTrigger>
           </TabsList>
 
           <TabsContent value="all" className="space-y-6 mt-6">
@@ -608,21 +609,21 @@ export default function Maintenance() {
           </TabsContent>
 
           <TabsContent value="blockchain" className="mt-6">
-            {blockchainActive.length + blockchainUpcoming.length > 0 ? (
+            {chainOnlyActive.length + chainOnlyUpcoming.length > 0 ? (
               <div className="space-y-6">
-                {blockchainActive.length > 0 && (
+                {chainOnlyActive.length > 0 && (
                   <div>
                     <h3 className="text-sm font-semibold text-muted-foreground mb-3">IN PROGRESS</h3>
                     <div className="space-y-3">
-                      {blockchainActive.map(renderBlockchainMaintenanceCard)}
+                      {chainOnlyActive.map(renderBlockchainMaintenanceCard)}
                     </div>
                   </div>
                 )}
-                {blockchainUpcoming.length > 0 && (
+                {chainOnlyUpcoming.length > 0 && (
                   <div>
                     <h3 className="text-sm font-semibold text-muted-foreground mb-3">UPCOMING</h3>
                     <div className="space-y-3">
-                      {blockchainUpcoming.map(renderBlockchainMaintenanceCard)}
+                      {chainOnlyUpcoming.map(renderBlockchainMaintenanceCard)}
                     </div>
                   </div>
                 )}
@@ -632,6 +633,39 @@ export default function Maintenance() {
                 <CardContent className="p-8 text-center">
                   <Boxes className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                   <h3 className="text-lg font-semibold">No Blockchain Maintenance</h3>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="wallets" className="mt-6">
+            {walletActive.length + walletUpcoming.length > 0 ? (
+              <div className="space-y-6">
+                {walletActive.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-muted-foreground mb-3">IN PROGRESS</h3>
+                    <div className="space-y-3">
+                      {walletActive.map(renderBlockchainMaintenanceCard)}
+                    </div>
+                  </div>
+                )}
+                {walletUpcoming.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-muted-foreground mb-3">UPCOMING</h3>
+                    <div className="space-y-3">
+                      {walletUpcoming.map(renderBlockchainMaintenanceCard)}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Card className="bg-sidebar border-sidebar-border">
+                <CardContent className="p-8 text-center">
+                  <Wallet className="w-12 h-12 text-purple-500/50 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold">No Wallet Maintenance</h3>
+                  <p className="text-muted-foreground text-sm mt-2">
+                    Monitoring MetaMask, Trust Wallet, Ledger, Coinbase Wallet, Rainbow, Argent, Gnosis Safe, and Bybit
+                  </p>
                 </CardContent>
               </Card>
             )}
