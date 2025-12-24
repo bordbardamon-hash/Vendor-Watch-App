@@ -125,6 +125,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 export default function Blockchain() {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -268,11 +269,21 @@ export default function Blockchain() {
     return acknowledgements.some(a => a.incidentId === incidentId);
   };
 
-  const filteredChains = chains.filter(c =>
-    c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.key.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (c.symbol && c.symbol.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredChains = chains.filter(c => {
+    const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.key.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (c.symbol && c.symbol.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    if (!matchesSearch) return false;
+    
+    if (statusFilter === 'operational') return c.status === 'operational';
+    if (statusFilter === 'degraded') return c.status === 'degraded' || c.status === 'partial_outage';
+    if (statusFilter === 'outage') return c.status === 'major_outage';
+    if (statusFilter === 'l2') return c.category === 'l2';
+    if (statusFilter === 'incidents') return activeIncidents.some(i => i.chainKey === c.key);
+    
+    return true;
+  });
 
   const getChainsByTier = (tier: string) => {
     return filteredChains.filter(c => c.tier === tier && c.category !== 'wallet' && c.category !== 'staking');
@@ -490,43 +501,78 @@ export default function Blockchain() {
         )}
 
         {stats && (
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            <Card className="bg-sidebar border-sidebar-border">
-              <CardContent className="p-4">
-                <div className="text-2xl font-bold">{stats.totalChains}</div>
-                <div className="text-sm text-muted-foreground">Total Chains</div>
-              </CardContent>
-            </Card>
-            <Card className="bg-sidebar border-sidebar-border">
-              <CardContent className="p-4">
-                <div className="text-2xl font-bold text-green-500">{stats.operationalChains}</div>
-                <div className="text-sm text-muted-foreground">Operational</div>
-              </CardContent>
-            </Card>
-            <Card className="bg-sidebar border-sidebar-border">
-              <CardContent className="p-4">
-                <div className="text-2xl font-bold text-yellow-500">{stats.degradedChains}</div>
-                <div className="text-sm text-muted-foreground">Degraded</div>
-              </CardContent>
-            </Card>
-            <Card className="bg-sidebar border-sidebar-border">
-              <CardContent className="p-4">
-                <div className="text-2xl font-bold text-red-500">{stats.outageChains}</div>
-                <div className="text-sm text-muted-foreground">Outages</div>
-              </CardContent>
-            </Card>
-            <Card className="bg-sidebar border-sidebar-border">
-              <CardContent className="p-4">
-                <div className="text-2xl font-bold text-orange-500">{stats.activeIncidents}</div>
-                <div className="text-sm text-muted-foreground">Active Incidents</div>
-              </CardContent>
-            </Card>
-            <Card className="bg-sidebar border-sidebar-border">
-              <CardContent className="p-4">
-                <div className="text-2xl font-bold">{stats.chainsByCategory.l2}</div>
-                <div className="text-sm text-muted-foreground">Layer 2s</div>
-              </CardContent>
-            </Card>
+          <div className="space-y-3">
+            {statusFilter && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Filtering by:</span>
+                <Badge variant="outline" className="capitalize">{statusFilter === 'l2' ? 'Layer 2s' : statusFilter}</Badge>
+                <Button variant="ghost" size="sm" onClick={() => setStatusFilter(null)} className="h-6 px-2 text-xs">
+                  Clear filter
+                </Button>
+              </div>
+            )}
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              <Card 
+                className={`bg-sidebar border-sidebar-border cursor-pointer transition-all hover:border-primary/50 ${statusFilter === null ? 'ring-1 ring-primary/30' : ''}`}
+                onClick={() => setStatusFilter(null)}
+                data-testid="stat-total"
+              >
+                <CardContent className="p-4">
+                  <div className="text-2xl font-bold">{stats.totalChains}</div>
+                  <div className="text-sm text-muted-foreground">Total Chains</div>
+                </CardContent>
+              </Card>
+              <Card 
+                className={`bg-sidebar border-sidebar-border cursor-pointer transition-all hover:border-green-500/50 ${statusFilter === 'operational' ? 'ring-1 ring-green-500/50' : ''}`}
+                onClick={() => setStatusFilter(statusFilter === 'operational' ? null : 'operational')}
+                data-testid="stat-operational"
+              >
+                <CardContent className="p-4">
+                  <div className="text-2xl font-bold text-green-500">{stats.operationalChains}</div>
+                  <div className="text-sm text-muted-foreground">Operational</div>
+                </CardContent>
+              </Card>
+              <Card 
+                className={`bg-sidebar border-sidebar-border cursor-pointer transition-all hover:border-yellow-500/50 ${statusFilter === 'degraded' ? 'ring-1 ring-yellow-500/50' : ''}`}
+                onClick={() => setStatusFilter(statusFilter === 'degraded' ? null : 'degraded')}
+                data-testid="stat-degraded"
+              >
+                <CardContent className="p-4">
+                  <div className="text-2xl font-bold text-yellow-500">{stats.degradedChains}</div>
+                  <div className="text-sm text-muted-foreground">Degraded</div>
+                </CardContent>
+              </Card>
+              <Card 
+                className={`bg-sidebar border-sidebar-border cursor-pointer transition-all hover:border-red-500/50 ${statusFilter === 'outage' ? 'ring-1 ring-red-500/50' : ''}`}
+                onClick={() => setStatusFilter(statusFilter === 'outage' ? null : 'outage')}
+                data-testid="stat-outages"
+              >
+                <CardContent className="p-4">
+                  <div className="text-2xl font-bold text-red-500">{stats.outageChains}</div>
+                  <div className="text-sm text-muted-foreground">Outages</div>
+                </CardContent>
+              </Card>
+              <Card 
+                className={`bg-sidebar border-sidebar-border cursor-pointer transition-all hover:border-orange-500/50 ${statusFilter === 'incidents' ? 'ring-1 ring-orange-500/50' : ''}`}
+                onClick={() => setStatusFilter(statusFilter === 'incidents' ? null : 'incidents')}
+                data-testid="stat-incidents"
+              >
+                <CardContent className="p-4">
+                  <div className="text-2xl font-bold text-orange-500">{stats.activeIncidents}</div>
+                  <div className="text-sm text-muted-foreground">Active Incidents</div>
+                </CardContent>
+              </Card>
+              <Card 
+                className={`bg-sidebar border-sidebar-border cursor-pointer transition-all hover:border-primary/50 ${statusFilter === 'l2' ? 'ring-1 ring-primary/50' : ''}`}
+                onClick={() => setStatusFilter(statusFilter === 'l2' ? null : 'l2')}
+                data-testid="stat-l2"
+              >
+                <CardContent className="p-4">
+                  <div className="text-2xl font-bold">{stats.chainsByCategory.l2}</div>
+                  <div className="text-sm text-muted-foreground">Layer 2s</div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         )}
 
