@@ -24,6 +24,8 @@ import Login from "@/pages/login";
 import Register from "@/pages/register";
 import SetPassword from "@/pages/set-password";
 import SmsConsent from "@/pages/sms-consent";
+import Terms from "@/pages/terms";
+import Privacy from "@/pages/privacy";
 import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
 
@@ -99,6 +101,8 @@ function Router() {
       <Route path="/register" component={Register} />
       <Route path="/set-password" component={SetPassword} />
       <Route path="/sms-consent" component={SmsConsent} />
+      <Route path="/terms" component={Terms} />
+      <Route path="/privacy" component={Privacy} />
       <Route>
         {user ? <AuthenticatedRouter /> : <Landing />}
       </Route>
