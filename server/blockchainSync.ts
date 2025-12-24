@@ -43,6 +43,10 @@ const BLOCKCHAIN_STATUSPAGE_URLS: Record<string, string> = {
   alchemy: "https://status.alchemy.com",
   quicknode: "https://status.quicknode.com",
   thegraph: "https://status.thegraph.com",
+  metamask: "https://status.infura.io",
+  ledger: "https://status.ledger.com",
+  coinbasewallet: "https://status.coinbase.com",
+  argent: "https://argentxwallet.statuspage.io",
 };
 
 function mapStatusIndicator(indicator: string): string {
