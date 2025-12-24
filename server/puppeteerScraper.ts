@@ -58,7 +58,13 @@ function detectStatusFromBanner(bannerText: string): 'operational' | 'degraded' 
 
 let browserInstance: Browser | null = null;
 
+let browserUnavailable = false;
+
 async function getBrowser(): Promise<Browser> {
+  if (browserUnavailable) {
+    throw new Error('Browser unavailable - Chromium not installed');
+  }
+  
   if (browserInstance && browserInstance.isConnected()) {
     return browserInstance;
   }
@@ -71,22 +77,35 @@ async function getBrowser(): Promise<Browser> {
     browserInstance = null;
   }
   
-  browserInstance = await puppeteer.launch({
-    headless: true,
-    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-accelerated-2d-canvas',
-      '--disable-gpu',
-      '--single-process',
-      '--no-zygote',
-      '--window-size=1280,720'
-    ]
-  });
-  
-  return browserInstance;
+  try {
+    browserInstance = await puppeteer.launch({
+      headless: true,
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--disable-gpu',
+        '--single-process',
+        '--no-zygote',
+        '--window-size=1280,720'
+      ]
+    });
+    
+    return browserInstance;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    if (errorMessage.includes('Failed to launch') || 
+        errorMessage.includes('cannot open shared object') ||
+        errorMessage.includes('No such file or directory') ||
+        errorMessage.includes('ENOENT') ||
+        errorMessage.includes('spawn')) {
+      browserUnavailable = true;
+      console.log('[puppeteer] Browser unavailable - disabling Puppeteer scraping');
+    }
+    throw error;
+  }
 }
 
 export async function closeBrowser(): Promise<void> {
@@ -141,10 +160,12 @@ async function scrapeWithPuppeteer(
     const isBrowserUnavailable = errorMessage.includes('Failed to launch') || 
                                   errorMessage.includes('cannot open shared object') ||
                                   errorMessage.includes('No such file or directory') ||
-                                  errorMessage.includes('ENOENT');
+                                  errorMessage.includes('ENOENT') ||
+                                  errorMessage.includes('Browser unavailable') ||
+                                  errorMessage.includes('spawn');
     
     if (isBrowserUnavailable) {
-      console.log(`[puppeteer/${vendorKey}] Browser not available, returning cached status`);
+      console.log(`[puppeteer/${vendorKey}] Browser not available, returning operational status`);
       return { 
         status: 'operational', 
         incidents: [], 
