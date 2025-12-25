@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Activity, Bell, Zap, CheckCircle2, AlertTriangle, Cloud, Database, Globe, Server, Boxes, Check, X, Shield } from "lucide-react";
 import { Link } from "wouter";
+import vendorWatchLogo from "@assets/generated_images/radar_eye_monitoring_logo.png";
 
 function DashboardPreview() {
   const vendors = [
@@ -112,7 +113,7 @@ export default function Landing() {
       <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <Shield className="h-8 w-8 text-primary" />
+            <img src={vendorWatchLogo} alt="Vendor Watch" className="h-8 w-8 rounded" />
             <span className="text-xl font-bold tracking-tight">{APP_NAME}</span>
           </div>
           <div className="flex items-center gap-3">
