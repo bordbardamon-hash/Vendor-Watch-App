@@ -209,9 +209,9 @@ export default function Landing() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-4 gap-4 max-w-4xl mx-auto mb-12">
+          <div className="grid md:grid-cols-3 gap-4 max-w-3xl mx-auto mb-12">
             <div className="bg-card/50 rounded-lg p-4 border text-center">
-              <div className="text-2xl font-bold text-primary">17</div>
+              <div className="text-2xl font-bold text-primary">40+</div>
               <div className="text-sm text-muted-foreground">Networks Supported</div>
             </div>
             <div className="bg-card/50 rounded-lg p-4 border text-center">
@@ -222,17 +222,13 @@ export default function Landing() {
               <div className="text-2xl font-bold text-blue-500">4</div>
               <div className="text-sm text-muted-foreground">RPC Providers</div>
             </div>
-            <div className="bg-card/50 rounded-lg p-4 border text-center">
-              <div className="text-2xl font-bold text-yellow-500">5 min</div>
-              <div className="text-sm text-muted-foreground">Sync Interval</div>
-            </div>
           </div>
         </section>
 
         <section className="container mx-auto px-4 py-16 border-t">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold mb-4">Choose Your Plan</h2>
-            <p className="text-muted-foreground">Flexible pricing for MSPs of all sizes</p>
+            <p className="text-muted-foreground">Simple pricing for businesses of all sizes</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
