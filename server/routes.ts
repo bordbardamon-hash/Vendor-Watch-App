@@ -2973,6 +2973,86 @@ Vendor Watch | Automated Service Monitoring`;
     }
   });
 
+  // ============ BLOCKCHAIN AI COPILOT ROUTES ============
+
+  // Generate blockchain incident update
+  app.post("/api/ai-copilot/blockchain/incident-update", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const { incidentId, audience, tone, includeNextSteps } = req.body;
+      if (!incidentId) {
+        return res.status(400).json({ error: "incidentId is required" });
+      }
+      
+      // Authorization: Verify user can access this blockchain incident
+      const incident = await storage.getBlockchainIncident(incidentId);
+      if (!incident) {
+        return res.status(404).json({ error: "Blockchain incident not found" });
+      }
+      
+      const subscriptions = await storage.getUserBlockchainSubscriptions(userId);
+      const user = await storage.getUser(userId);
+      
+      const hasAccess = user?.isAdmin || 
+        subscriptions.length === 0 || 
+        subscriptions.includes(incident.chainKey);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ error: "Access denied: You are not subscribed to this blockchain" });
+      }
+      
+      const { generateBlockchainIncidentUpdate } = await import('./aiCopilot');
+      const result = await generateBlockchainIncidentUpdate(incidentId, {
+        audience: audience || 'client',
+        tone: tone || 'formal',
+        includeNextSteps: includeNextSteps !== false,
+      });
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error generating blockchain incident update:", error);
+      res.status(500).json({ error: "Failed to generate blockchain incident update" });
+    }
+  });
+
+  // Suggest blockchain root cause
+  app.post("/api/ai-copilot/blockchain/root-cause", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const { incidentId } = req.body;
+      if (!incidentId) {
+        return res.status(400).json({ error: "incidentId is required" });
+      }
+      
+      // Authorization check
+      const incident = await storage.getBlockchainIncident(incidentId);
+      if (!incident) {
+        return res.status(404).json({ error: "Blockchain incident not found" });
+      }
+      
+      const subscriptions = await storage.getUserBlockchainSubscriptions(userId);
+      const user = await storage.getUser(userId);
+      const hasAccess = user?.isAdmin || subscriptions.length === 0 || 
+        subscriptions.includes(incident.chainKey);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const { suggestBlockchainRootCause } = await import('./aiCopilot');
+      const result = await suggestBlockchainRootCause(incidentId);
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error suggesting blockchain root cause:", error);
+      res.status(500).json({ error: "Failed to suggest blockchain root cause" });
+    }
+  });
+
   // ============ SLA CONTRACTS & BREACH TRACKING ============
 
   // Get SLA contracts

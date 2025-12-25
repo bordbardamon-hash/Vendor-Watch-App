@@ -1,5 +1,5 @@
 import { db } from './db';
-import { slaContracts, slaBreaches, vendorDailyMetrics, type SlaContract } from '@shared/schema';
+import { slaContracts, slaBreaches, vendorDailyMetrics, blockchainIncidents, type SlaContract } from '@shared/schema';
 import { eq, and, gte, lte, desc } from 'drizzle-orm';
 import { storage } from './storage';
 import { sendEmail } from './emailClient';
@@ -46,6 +46,48 @@ export async function calculateSlaMetrics(
   };
 }
 
+export async function calculateBlockchainSlaMetrics(
+  chainKey: string,
+  startDate: string,
+  endDate: string
+): Promise<{ uptimePercent: number; downtimeMinutes: number; incidentCount: number }> {
+  const startDateTime = new Date(startDate);
+  const endDateTime = new Date(endDate);
+  
+  const incidents = await db.select().from(blockchainIncidents)
+    .where(and(
+      eq(blockchainIncidents.chainKey, chainKey),
+      gte(blockchainIncidents.createdAt, startDateTime)
+    ));
+  
+  if (incidents.length === 0) {
+    return { uptimePercent: 100, downtimeMinutes: 0, incidentCount: 0 };
+  }
+  
+  let totalDowntimeMinutes = 0;
+  
+  for (const incident of incidents) {
+    const incidentStart = new Date(incident.startedAt);
+    const incidentEnd = incident.resolvedAt || new Date();
+    
+    const effectiveStart = incidentStart < startDateTime ? startDateTime : incidentStart;
+    const effectiveEnd = incidentEnd > endDateTime ? endDateTime : incidentEnd;
+    
+    if (effectiveEnd > effectiveStart) {
+      totalDowntimeMinutes += (effectiveEnd.getTime() - effectiveStart.getTime()) / (1000 * 60);
+    }
+  }
+  
+  const totalMinutes = (endDateTime.getTime() - startDateTime.getTime()) / (1000 * 60);
+  const uptimePercent = totalMinutes > 0 ? ((totalMinutes - totalDowntimeMinutes) / totalMinutes) * 100 : 100;
+  
+  return {
+    uptimePercent: Math.max(0, Math.round(uptimePercent * 1000) / 1000),
+    downtimeMinutes: Math.round(totalDowntimeMinutes),
+    incidentCount: incidents.length,
+  };
+}
+
 export async function checkAllSlaBreaches(): Promise<number> {
   const contracts = await db.select().from(slaContracts).where(eq(slaContracts.isActive, true));
   let breachCount = 0;
@@ -74,7 +116,10 @@ async function checkContractForBreach(contract: SlaContract): Promise<boolean> {
     return existingBreaches[0].actualUptime < contract.uptimeTarget;
   }
   
-  const metrics = await calculateSlaMetrics(contract.vendorKey, period.start, period.end);
+  const isBlockchain = contract.resourceType === 'blockchain';
+  const metrics = isBlockchain 
+    ? await calculateBlockchainSlaMetrics(contract.vendorKey, period.start, period.end)
+    : await calculateSlaMetrics(contract.vendorKey, period.start, period.end);
   const targetUptime = parseFloat(contract.uptimeTarget);
   
   if (metrics.uptimePercent < targetUptime) {
@@ -90,6 +135,7 @@ async function checkContractForBreach(contract: SlaContract): Promise<boolean> {
     await storage.createSlaBreach({
       contractId: contract.id,
       vendorKey: contract.vendorKey,
+      resourceType: contract.resourceType || 'vendor',
       periodStart: period.start,
       periodEnd: period.end,
       targetUptime: contract.uptimeTarget,
@@ -152,7 +198,7 @@ async function sendBreachNotification(
     
     <table style="border-collapse: collapse; margin: 20px 0;">
       <tr>
-        <td style="padding: 8px; border: 1px solid #ddd;"><strong>Vendor:</strong></td>
+        <td style="padding: 8px; border: 1px solid #ddd;"><strong>${contract.resourceType === 'blockchain' ? 'Chain' : 'Vendor'}:</strong></td>
         <td style="padding: 8px; border: 1px solid #ddd;">${contract.vendorKey}</td>
       </tr>
       <tr>

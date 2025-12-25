@@ -1,7 +1,10 @@
 import { storage } from "./storage";
 import { fetchWithRetry } from "./retryUtil";
 import { notifyNewBlockchainIncident, notifyBlockchainIncidentUpdate, notifyBlockchainIncidentResolved } from "./notificationDispatcher";
+import { OrchestratorEngine } from "./orchestrator";
 import type { BlockchainChain } from "@shared/schema";
+
+const orchestrator = new OrchestratorEngine();
 
 interface StatusPageResponse {
   status: {
@@ -237,8 +240,10 @@ async function syncBlockchainChain(chainData: { key: string; name: string; sourc
         if (updated) {
           if (incident.status === 'resolved') {
             await notifyBlockchainIncidentResolved(updated, fullChain);
+            await orchestrator.processBlockchainIncident(updated, 'blockchainIncidentResolved');
           } else {
             await notifyBlockchainIncidentUpdate(updated, fullChain, previousStatus);
+            await orchestrator.processBlockchainIncident(updated, 'blockchainIncidentUpdate');
           }
         }
       }
@@ -257,6 +262,7 @@ async function syncBlockchainChain(chainData: { key: string; name: string; sourc
       console.log(`[blockchain:${chainData.key}] Created incident: ${incident.name}`);
       
       await notifyNewBlockchainIncident(newIncident, fullChain);
+      await orchestrator.processBlockchainIncident(newIncident, 'newBlockchainIncident');
     }
   }
   
@@ -271,6 +277,7 @@ async function syncBlockchainChain(chainData: { key: string; name: string; sourc
       
       if (updated) {
         await notifyBlockchainIncidentResolved(updated, fullChain);
+        await orchestrator.processBlockchainIncident(updated, 'blockchainIncidentResolved');
       }
     }
   }

@@ -144,6 +144,7 @@ export interface IStorage {
   
   // Blockchain Incidents
   getBlockchainIncidents(): Promise<BlockchainIncident[]>;
+  getBlockchainIncident(id: string): Promise<BlockchainIncident | undefined>;
   getBlockchainIncidentsByChain(chainKey: string): Promise<BlockchainIncident[]>;
   getActiveBlockchainIncidents(): Promise<BlockchainIncident[]>;
   createBlockchainIncident(incident: InsertBlockchainIncident): Promise<BlockchainIncident>;
@@ -969,6 +970,11 @@ export class DatabaseStorage implements IStorage {
   // Blockchain Incidents
   async getBlockchainIncidents(): Promise<BlockchainIncident[]> {
     return db.select().from(blockchainIncidents).orderBy(desc(blockchainIncidents.createdAt));
+  }
+
+  async getBlockchainIncident(id: string): Promise<BlockchainIncident | undefined> {
+    const [incident] = await db.select().from(blockchainIncidents).where(eq(blockchainIncidents.id, id));
+    return incident;
   }
 
   async getBlockchainIncidentsByChain(chainKey: string): Promise<BlockchainIncident[]> {

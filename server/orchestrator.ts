@@ -6,9 +6,10 @@ import {
   type AutomationAuditLog, type InsertAutomationAuditLog,
   type Runbook, type InsertRunbook,
   type EscalationPolicy, type InsertEscalationPolicy,
-  type Incident
+  type Incident,
+  type BlockchainIncident
 } from '@shared/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, or } from 'drizzle-orm';
 import { storage } from './storage';
 import { sendSMS } from './twilioClient';
 import { sendEmail } from './emailClient';
@@ -186,6 +187,78 @@ export class OrchestratorEngine {
       return false;
     }
     if (conditions.vendors && conditions.vendors.length > 0 && !conditions.vendors.includes(incident.vendorKey)) {
+      return false;
+    }
+    return true;
+  }
+
+  async processBlockchainIncident(incident: BlockchainIncident, eventType: string): Promise<void> {
+    // Map blockchain event types back to vendor equivalents for rule matching
+    // This allows rules created for vendor events to also work for blockchain
+    const vendorEventType = eventType
+      .replace('newBlockchainIncident', 'newIncident')
+      .replace('blockchainIncidentUpdate', 'incidentUpdate')
+      .replace('blockchainIncidentResolved', 'incidentResolved');
+    
+    const activeRules = await db.select().from(automationRules)
+      .where(and(
+        eq(automationRules.isActive, true), 
+        or(
+          eq(automationRules.triggerType, eventType),
+          eq(automationRules.triggerType, vendorEventType)
+        )
+      ));
+    
+    for (const rule of activeRules) {
+      const conditions = JSON.parse(rule.conditions);
+      
+      if (!this.matchesBlockchainConditions(incident, conditions)) continue;
+      
+      const actionConfig = JSON.parse(rule.actionConfig);
+      const incidentForAction = {
+        id: incident.id,
+        vendorKey: incident.chainKey,
+        title: incident.title,
+        status: incident.status,
+        severity: incident.severity,
+        impact: incident.description,
+        startedAt: incident.startedAt,
+        isBlockchain: true,
+      };
+      
+      if (rule.requiresApproval) {
+        const expiresAt = new Date();
+        expiresAt.setHours(expiresAt.getHours() + 24);
+        
+        await db.insert(automationApprovals).values({
+          ruleId: rule.id,
+          incidentId: incident.id,
+          userId: rule.userId,
+          actionType: rule.actionType,
+          actionPayload: JSON.stringify({ ...actionConfig, incident: incidentForAction }),
+          status: 'pending',
+          expiresAt,
+        });
+        
+        await this.logAction(rule.id, incident.id, rule.userId, rule.actionType, actionConfig, 'pending_approval', null, 0);
+      } else {
+        await this.executeAction(rule.actionType, { ...actionConfig, incident: incidentForAction }, rule.id, incident.id, rule.userId);
+      }
+      
+      await db.update(automationRules)
+        .set({ executionCount: rule.executionCount + 1, lastExecutedAt: new Date() })
+        .where(eq(automationRules.id, rule.id));
+    }
+  }
+
+  private matchesBlockchainConditions(incident: BlockchainIncident, conditions: any): boolean {
+    if (conditions.severity && !conditions.severity.includes(incident.severity)) {
+      return false;
+    }
+    if (conditions.chains && conditions.chains.length > 0 && !conditions.chains.includes(incident.chainKey)) {
+      return false;
+    }
+    if (conditions.vendors && conditions.vendors.length > 0 && !conditions.vendors.includes(incident.chainKey)) {
       return false;
     }
     return true;

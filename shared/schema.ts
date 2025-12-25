@@ -709,7 +709,8 @@ export const automationAuditLog = pgTable("automation_audit_log", {
 export const slaContracts = pgTable("sla_contracts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: text("user_id").notNull(),
-  vendorKey: text("vendor_key").notNull(),
+  vendorKey: text("vendor_key").notNull(), // Can be vendor key or chain key
+  resourceType: text("resource_type").notNull().default("vendor"), // "vendor" or "blockchain"
   name: text("name").notNull(),
   uptimeTarget: text("uptime_target").notNull(), // e.g., "99.9"
   measurementPeriod: text("measurement_period").notNull(), // monthly, quarterly, annual
@@ -725,7 +726,8 @@ export const slaContracts = pgTable("sla_contracts", {
 export const slaBreaches = pgTable("sla_breaches", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   contractId: text("contract_id").notNull(),
-  vendorKey: text("vendor_key").notNull(),
+  vendorKey: text("vendor_key").notNull(), // Can be vendor key or chain key
+  resourceType: text("resource_type").notNull().default("vendor"), // "vendor" or "blockchain"
   periodStart: text("period_start").notNull(),
   periodEnd: text("period_end").notNull(),
   targetUptime: text("target_uptime").notNull(),
@@ -743,7 +745,8 @@ export const syntheticProbes = pgTable("synthetic_probes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: text("user_id").notNull(),
   name: text("name").notNull(),
-  vendorKey: text("vendor_key").notNull(),
+  vendorKey: text("vendor_key").notNull(), // Can be vendor key or chain key
+  resourceType: text("resource_type").notNull().default("vendor"), // "vendor" or "blockchain"
   probeType: text("probe_type").notNull(), // http, api, page_load
   targetUrl: text("target_url").notNull(),
   expectedStatus: integer("expected_status").default(200),
