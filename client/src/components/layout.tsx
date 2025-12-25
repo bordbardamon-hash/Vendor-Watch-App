@@ -29,7 +29,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { FeedbackDialog } from "@/components/feedback-dialog";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import vendorWatchLogo from "@assets/generated_images/radar_eye_monitoring_logo.png";
+import vendorWatchLogo from "@assets/generated_images/radar_eye_logo_dark_background.png";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();

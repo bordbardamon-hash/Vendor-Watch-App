@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Loader2, Eye, EyeOff } from "lucide-react";
-import vendorWatchLogo from "@assets/generated_images/radar_eye_monitoring_logo.png";
+import vendorWatchLogo from "@assets/generated_images/radar_eye_logo_dark_background.png";
 import { Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 
@@ -79,7 +79,7 @@ export default function SetPassword() {
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="flex items-center justify-center gap-2 mb-8">
-          <img src={vendorWatchLogo} alt="Vendor Watch" className="h-10 w-10 rounded" />
+          <img src={vendorWatchLogo} alt="Vendor Watch" className="h-12 w-12" />
           <span className="text-2xl font-bold tracking-tight">{APP_NAME}</span>
         </div>
 

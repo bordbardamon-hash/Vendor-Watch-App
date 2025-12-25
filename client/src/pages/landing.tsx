@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Activity, Bell, Zap, CheckCircle2, AlertTriangle, Cloud, Database, Globe, Server, Boxes, Check, X, Shield } from "lucide-react";
 import { Link } from "wouter";
-import vendorWatchLogo from "@assets/generated_images/radar_eye_monitoring_logo.png";
+import vendorWatchLogo from "@assets/generated_images/radar_eye_logo_dark_background.png";
 
 function DashboardPreview() {
   const vendors = [
