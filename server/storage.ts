@@ -333,6 +333,7 @@ export class DatabaseStorage implements IStorage {
       rawHash: incident.rawHash,
       startedAt: incident.startedAt,
       updatedAt: incident.updatedAt,
+      resolvedAt: new Date(),
       createdAt: incident.createdAt,
     }).returning();
     return archived;

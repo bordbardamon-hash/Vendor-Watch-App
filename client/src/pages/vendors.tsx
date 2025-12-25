@@ -23,7 +23,9 @@ import {
   Crown,
   Star,
   BellOff,
-  Bell
+  Bell,
+  Archive,
+  Clock
 } from "lucide-react";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -83,15 +85,54 @@ interface Acknowledgement {
   acknowledgedAt: string;
 }
 
+interface ArchivedIncident {
+  id: string;
+  incidentId: string;
+  vendorKey: string;
+  title: string;
+  status: string;
+  severity: string;
+  impact: string;
+  url: string;
+  startedAt: string;
+  resolvedAt: string;
+  archivedAt: string;
+}
+
 export default function Vendors() {
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showAllIncidents, setShowAllIncidents] = useState(false);
+  const [showArchiveDialog, setShowArchiveDialog] = useState(false);
+  const [archiveSearchQuery, setArchiveSearchQuery] = useState("");
   const [requestForm, setRequestForm] = useState({ vendorName: "", statusPageUrl: "", integrationNotes: "" });
   const [directAddForm, setDirectAddForm] = useState({ key: "", name: "", statusUrl: "", parser: "statuspage_json" });
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Fetch archived incidents when dialog is open
+  const { data: archivedIncidents = [], isLoading: archiveLoading } = useQuery<ArchivedIncident[]>({
+    queryKey: ["archived-incidents", archiveSearchQuery],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (archiveSearchQuery) params.set("query", archiveSearchQuery);
+      params.set("limit", "50");
+      const res = await fetch(`/api/incidents/archive?${params}`);
+      if (!res.ok) throw new Error("Failed to fetch archived incidents");
+      return res.json();
+    },
+    enabled: showArchiveDialog,
+  });
+
+  const { data: archiveCount } = useQuery<{ count: number }>({
+    queryKey: ["archived-incidents-count"],
+    queryFn: async () => {
+      const res = await fetch("/api/incidents/archive/count");
+      if (!res.ok) throw new Error("Failed to fetch count");
+      return res.json();
+    },
+  });
 
   // Fetch vendor limit info
   const { data: vendorLimit } = useQuery<VendorLimit>({
@@ -589,18 +630,29 @@ export default function Vendors() {
               </div>
             </div>
           )}
-          <Button
-            variant={showAllIncidents ? "default" : "outline"}
-            className="w-full mb-4"
-            onClick={() => {
-              setShowAllIncidents(!showAllIncidents);
-              if (!showAllIncidents) setSelectedVendor(null);
-            }}
-            data-testid="button-view-all-incidents"
-          >
-            <AlertTriangle className="w-4 h-4 mr-2" />
-            {showAllIncidents ? 'Back to Vendor View' : `View All Incidents (${incidents.length})`}
-          </Button>
+          <div className="flex gap-2 mb-4">
+            <Button
+              variant={showAllIncidents ? "default" : "outline"}
+              className="flex-1"
+              onClick={() => {
+                setShowAllIncidents(!showAllIncidents);
+                if (!showAllIncidents) setSelectedVendor(null);
+              }}
+              data-testid="button-view-all-incidents"
+            >
+              <AlertTriangle className="w-4 h-4 mr-2" />
+              {showAllIncidents ? 'Back' : `Active (${incidents.length})`}
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => setShowArchiveDialog(true)}
+              data-testid="button-search-archive"
+            >
+              <Archive className="w-4 h-4 mr-2" />
+              Archive {archiveCount?.count ? `(${archiveCount.count})` : ''}
+            </Button>
+          </div>
           <ScrollArea className="h-full pr-4">
             <div className="space-y-4">
               {filteredVendors.map((vendor, index) => (
@@ -880,6 +932,101 @@ export default function Vendors() {
           )}
         </div>
       </div>
+
+      {/* Archive Search Dialog */}
+      <Dialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Archive className="w-5 h-5" />
+              Incident Archive
+            </DialogTitle>
+            <DialogDescription>
+              Search past incidents resolved more than 3 days ago. Archives are kept for 1 year.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex gap-2 mb-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by vendor, title, or description..."
+                value={archiveSearchQuery}
+                onChange={(e) => setArchiveSearchQuery(e.target.value)}
+                className="pl-10"
+                data-testid="input-archive-search"
+              />
+            </div>
+          </div>
+          
+          <ScrollArea className="flex-1 max-h-[50vh]">
+            {archiveLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : archivedIncidents.length > 0 ? (
+              <div className="space-y-3 pr-4">
+                {archivedIncidents.map((incident) => (
+                  <div
+                    key={incident.id}
+                    className="border border-sidebar-border rounded-lg bg-background/50 p-3"
+                    data-testid={`card-archive-${incident.incidentId}`}
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="min-w-0 flex-1">
+                        <span className="text-xs text-primary font-medium bg-primary/10 px-2 py-0.5 rounded inline-block mb-1">
+                          {incident.vendorKey}
+                        </span>
+                        <h4 className="font-semibold text-sm break-words">{incident.title}</h4>
+                      </div>
+                      <Badge className={getSeverityColor(incident.severity)} variant="secondary">
+                        {incident.severity.toUpperCase()}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-2 break-words line-clamp-2">{incident.impact}</p>
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground/70 font-mono">
+                      <div className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {new Date(incident.startedAt).toLocaleDateString()}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                        Resolved: {new Date(incident.resolvedAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <div className="mt-2">
+                      <a
+                        href={incident.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-primary hover:underline flex items-center gap-1 w-fit"
+                      >
+                        View details <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">
+                <Archive className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                <p>No archived incidents found.</p>
+                <p className="text-sm opacity-50">
+                  {archiveSearchQuery 
+                    ? "Try a different search term." 
+                    : "Resolved incidents older than 3 days appear here."}
+                </p>
+              </div>
+            )}
+          </ScrollArea>
+          
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setShowArchiveDialog(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -60,6 +60,7 @@ export const incidentArchive = pgTable("incident_archive", {
   rawHash: text("raw_hash"),
   startedAt: text("started_at").notNull(),
   updatedAt: text("updated_at").notNull(),
+  resolvedAt: timestamp("resolved_at").notNull(),
   createdAt: timestamp("created_at").notNull(),
   archivedAt: timestamp("archived_at").notNull().defaultNow(),
 });
