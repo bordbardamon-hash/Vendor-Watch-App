@@ -17,7 +17,8 @@ import {
   BellOff,
   Bell,
   Wallet,
-  Coins
+  Coins,
+  Download
 } from "lucide-react";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -142,6 +143,57 @@ export default function Maintenance() {
   });
 
   const acknowledgedMaintenanceIds = new Set(acknowledgements.map(a => a.maintenanceId));
+
+  const generateICS = () => {
+    const allMaintenances = [...vendorUpcoming, ...blockchainUpcoming, ...vendorActive, ...blockchainActive];
+    
+    let icsContent = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Vendor Watch//Maintenance Calendar//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:Vendor Watch Maintenance
+`;
+
+    allMaintenances.forEach((m, index) => {
+      const start = new Date(m.scheduledStartAt);
+      const end = m.scheduledEndAt ? new Date(m.scheduledEndAt) : new Date(start.getTime() + 2 * 60 * 60 * 1000);
+      
+      const formatDate = (d: Date) => d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+      
+      const name = 'vendorKey' in m ? m.vendorKey : ('chainKey' in m ? m.chainKey : 'Unknown');
+      const uid = `maintenance-${m.id}@vendorwatch`;
+      
+      icsContent += `BEGIN:VEVENT
+UID:${uid}
+DTSTAMP:${formatDate(new Date())}
+DTSTART:${formatDate(start)}
+DTEND:${formatDate(end)}
+SUMMARY:${name.toUpperCase()} Maintenance: ${m.title.replace(/[,;]/g, ' ')}
+DESCRIPTION:${(m.description || m.title).replace(/[,;]/g, ' ').substring(0, 500)}
+STATUS:${m.status === 'completed' ? 'COMPLETED' : 'CONFIRMED'}
+CATEGORIES:MAINTENANCE
+END:VEVENT
+`;
+    });
+
+    icsContent += 'END:VCALENDAR';
+
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'vendor-watch-maintenance.ics';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    toast({
+      title: "Calendar Exported",
+      description: "Maintenance calendar exported as ICS file. Import it into your calendar app.",
+    });
+  };
 
   const walletChainKeys = new Set([
     'metamask', 'trustwallet', 'ledger', 'coinbasewallet', 
@@ -454,9 +506,19 @@ export default function Maintenance() {
               Track planned maintenance windows across vendors and blockchain infrastructure
             </p>
           </div>
-          <Button 
-            variant="outline" 
-            onClick={() => refreshMutation.mutate()}
+          <div className="flex gap-2">
+            <Button 
+              variant="outline"
+              onClick={generateICS}
+              data-testid="button-export-calendar"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              <span className="hidden sm:inline">Export Calendar</span>
+              <span className="sm:hidden">ICS</span>
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => refreshMutation.mutate()}
             disabled={refreshMutation.isPending}
             data-testid="button-refresh-maintenance"
             size="sm"
@@ -469,6 +531,7 @@ export default function Maintenance() {
             )}
             Refresh
           </Button>
+          </div>
         </div>
 
         {stats && (
