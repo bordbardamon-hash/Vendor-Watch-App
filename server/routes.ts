@@ -1952,6 +1952,78 @@ export async function registerRoutes(
     }
   });
 
+  // ============ SLA DASHBOARD ROUTES ============
+  
+  // Get SLA metrics for all vendors
+  app.get("/api/sla/metrics", isAuthenticated, async (req: any, res) => {
+    try {
+      const days = parseInt(req.query.days as string) || 30;
+      const target = parseFloat(req.query.target as string) || 99.9;
+      
+      const vendors = await storage.getVendors();
+      const vendorMetrics = await storage.getAllVendorPerformanceStats(days);
+      const { getAllVendorReliability } = await import('./reliabilityTracker');
+      const reliabilityStats = await getAllVendorReliability();
+      
+      const totalMinutesInPeriod = days * 24 * 60;
+      
+      const vendorSLAs = vendors.map(vendor => {
+        const metrics = vendorMetrics.find((m: any) => m.vendorKey === vendor.key);
+        const reliabilityData = reliabilityStats.find((r: any) => r.vendorKey === vendor.key);
+        const reliability = reliabilityData?.metrics;
+        
+        const downtimeMinutes = metrics?.downtimeMinutes || 0;
+        const uptimeMinutes = totalMinutesInPeriod - downtimeMinutes;
+        const uptimePercent = totalMinutesInPeriod > 0 
+          ? (uptimeMinutes / totalMinutesInPeriod) * 100 
+          : 100;
+        
+        let trend: 'up' | 'down' | 'stable' = 'stable';
+        if (reliability) {
+          if (reliability.incidents30Days > reliability.incidents90Days / 3) {
+            trend = 'down';
+          } else if (reliability.incidents30Days < reliability.incidents90Days / 4) {
+            trend = 'up';
+          }
+        }
+        
+        return {
+          vendorKey: vendor.key,
+          vendorName: vendor.name,
+          uptimePercent: Math.min(100, Math.max(0, uptimePercent)),
+          downtimeMinutes,
+          incidentCount: metrics?.incidentCount || 0,
+          avgResolutionMinutes: metrics?.avgResolutionMinutes || null,
+          slaTarget: target,
+          meetsTarget: uptimePercent >= target,
+          trend,
+        };
+      });
+      
+      vendorSLAs.sort((a, b) => a.uptimePercent - b.uptimePercent);
+      
+      const totalUptime = vendorSLAs.reduce((sum, v) => sum + v.uptimePercent, 0);
+      const overallUptime = vendorSLAs.length > 0 ? totalUptime / vendorSLAs.length : 100;
+      const totalIncidents = vendorSLAs.reduce((sum, v) => sum + v.incidentCount, 0);
+      const resolutionTimes = vendorSLAs.filter(v => v.avgResolutionMinutes !== null).map(v => v.avgResolutionMinutes!);
+      const avgResolution = resolutionTimes.length > 0 
+        ? Math.round(resolutionTimes.reduce((a, b) => a + b, 0) / resolutionTimes.length)
+        : 0;
+      const vendorsBelowTarget = vendorSLAs.filter(v => !v.meetsTarget).length;
+      
+      res.json({
+        vendors: vendorSLAs,
+        overallUptime,
+        totalIncidents,
+        avgResolution,
+        vendorsBelowTarget,
+      });
+    } catch (error) {
+      console.error("Error fetching SLA metrics:", error);
+      res.status(500).json({ error: "Failed to fetch SLA metrics" });
+    }
+  });
+
   // ============ ANALYTICS ROUTES ============
   
   // Log user activity (page views, etc.)
