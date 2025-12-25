@@ -1,10 +1,11 @@
 import { 
-  users, vendors, incidents, jobs, config, feedback, notificationConsents, incidentAlerts, userVendorSubscriptions, userVendorOrder, customVendorRequests,
+  users, vendors, incidents, incidentArchive, jobs, config, feedback, notificationConsents, incidentAlerts, userVendorSubscriptions, userVendorOrder, customVendorRequests,
   blockchainChains, blockchainIncidents, userBlockchainSubscriptions, incidentAcknowledgements, maintenanceAcknowledgements,
   vendorMaintenances, blockchainMaintenances, userActivityEvents, vendorDailyMetrics,
   type User, type UpsertUser,
   type Vendor, type InsertVendor,
   type Incident, type InsertIncident,
+  type IncidentArchive, type InsertIncidentArchive,
   type Job, type InsertJob,
   type Config, type InsertConfig,
   type Feedback, type InsertFeedback,
@@ -21,7 +22,7 @@ import {
   type BlockchainMaintenance, type InsertBlockchainMaintenance,
   SUBSCRIPTION_TIERS
 } from "@shared/schema";
-import { and, isNull, inArray, gte, sql, count } from "drizzle-orm";
+import { and, isNull, inArray, gte, lte, sql, count, ilike, or } from "drizzle-orm";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
 
@@ -47,6 +48,13 @@ export interface IStorage {
   createIncident(incident: InsertIncident): Promise<Incident>;
   updateIncident(id: string, data: { status?: string; severity?: string; impact?: string; updatedAt?: string }): Promise<Incident | undefined>;
   deleteIncident(id: string): Promise<boolean>;
+  
+  // Incident Archive
+  archiveIncident(incident: Incident): Promise<IncidentArchive>;
+  searchArchivedIncidents(options: { vendorKey?: string; query?: string; limit?: number; offset?: number }): Promise<IncidentArchive[]>;
+  getArchivedIncidentsCount(options?: { vendorKey?: string; query?: string }): Promise<number>;
+  archiveResolvedIncidents(olderThanDays: number): Promise<number>;
+  purgeOldArchivedIncidents(olderThanDays: number): Promise<number>;
   
   // Jobs
   getJobs(): Promise<Job[]>;
@@ -309,6 +317,107 @@ export class DatabaseStorage implements IStorage {
   async deleteIncident(id: string): Promise<boolean> {
     const result = await db.delete(incidents).where(eq(incidents.id, id));
     return result.rowCount ? result.rowCount > 0 : false;
+  }
+  
+  // Incident Archive
+  async archiveIncident(incident: Incident): Promise<IncidentArchive> {
+    const [archived] = await db.insert(incidentArchive).values({
+      originalId: incident.id,
+      vendorKey: incident.vendorKey,
+      incidentId: incident.incidentId,
+      title: incident.title,
+      status: incident.status,
+      severity: incident.severity,
+      impact: incident.impact,
+      url: incident.url,
+      rawHash: incident.rawHash,
+      startedAt: incident.startedAt,
+      updatedAt: incident.updatedAt,
+      createdAt: incident.createdAt,
+    }).returning();
+    return archived;
+  }
+  
+  async searchArchivedIncidents(options: { vendorKey?: string; query?: string; limit?: number; offset?: number }): Promise<IncidentArchive[]> {
+    const conditions = [];
+    
+    if (options.vendorKey) {
+      conditions.push(eq(incidentArchive.vendorKey, options.vendorKey));
+    }
+    
+    if (options.query) {
+      conditions.push(or(
+        ilike(incidentArchive.title, `%${options.query}%`),
+        ilike(incidentArchive.impact, `%${options.query}%`)
+      ));
+    }
+    
+    const query = db
+      .select()
+      .from(incidentArchive)
+      .orderBy(desc(incidentArchive.archivedAt))
+      .limit(options.limit || 50)
+      .offset(options.offset || 0);
+    
+    if (conditions.length > 0) {
+      return await query.where(and(...conditions));
+    }
+    
+    return await query;
+  }
+  
+  async getArchivedIncidentsCount(options?: { vendorKey?: string; query?: string }): Promise<number> {
+    const conditions = [];
+    
+    if (options?.vendorKey) {
+      conditions.push(eq(incidentArchive.vendorKey, options.vendorKey));
+    }
+    
+    if (options?.query) {
+      conditions.push(or(
+        ilike(incidentArchive.title, `%${options.query}%`),
+        ilike(incidentArchive.impact, `%${options.query}%`)
+      ));
+    }
+    
+    const [result] = conditions.length > 0
+      ? await db.select({ count: count() }).from(incidentArchive).where(and(...conditions))
+      : await db.select({ count: count() }).from(incidentArchive);
+    
+    return result?.count || 0;
+  }
+  
+  async archiveResolvedIncidents(olderThanDays: number): Promise<number> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
+    
+    const resolvedIncidents = await db
+      .select()
+      .from(incidents)
+      .where(and(
+        eq(incidents.status, 'resolved'),
+        lte(incidents.createdAt, cutoffDate)
+      ));
+    
+    let archivedCount = 0;
+    for (const incident of resolvedIncidents) {
+      await this.archiveIncident(incident);
+      await this.deleteIncident(incident.id);
+      archivedCount++;
+    }
+    
+    return archivedCount;
+  }
+  
+  async purgeOldArchivedIncidents(olderThanDays: number): Promise<number> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
+    
+    const result = await db
+      .delete(incidentArchive)
+      .where(lte(incidentArchive.archivedAt, cutoffDate));
+    
+    return result.rowCount || 0;
   }
   
   // Jobs
