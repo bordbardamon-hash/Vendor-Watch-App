@@ -48,6 +48,11 @@ Key entities include Users, Sessions, Vendors, Incidents, Jobs, and Configuratio
     - **Vendor Reliability Tracking**: Monitors and rates vendor performance based on incident history.
     - **Customer Impact Tagging**: Allows users to tag vendors with high/medium/low customer impact.
     - **Weekly Digest Emails**: Sends periodic summaries of incidents to users.
+- **Enterprise Features (Vendors and Blockchain)**:
+    - **Autonomous Response Orchestrator**: Automation rules trigger on both vendor and blockchain incidents. Rules defined for vendor events (newIncident, incidentUpdate, incidentResolved) also fire for corresponding blockchain events.
+    - **SLA Breach Tracker**: Tracks SLA contracts with uptime targets for both vendors and blockchain chains. Uses `resourceType` field to distinguish between resource types. Calculates blockchain uptime from incident duration data.
+    - **Synthetic Monitoring**: Probes can monitor both vendor and blockchain API endpoints using the `resourceType` field to specify the target resource type.
+    - **AI Communication Copilot**: Generates professional incident updates and root cause analysis for both vendor and blockchain incidents. Separate API routes for blockchain incidents with subscription-based authorization.
 - **Owner-Only Parser Alerts**: Health alerts for scraping failures are sent exclusively to the designated owner user.
 - **Analytics Dashboard**: In-app analytics page (`/analytics`) showing user activity patterns (logins, page views, acknowledgements) and vendor performance trends (uptime %, incident frequency). Activity logging tracks logins, incident/maintenance acknowledgements. Uses `userActivityEvents` and `vendorDailyMetrics` tables for storage.
 
