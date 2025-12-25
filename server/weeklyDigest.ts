@@ -1,5 +1,5 @@
 import { db } from './db';
-import { weeklyDigests, incidents, vendors, users } from '@shared/schema';
+import { weeklyDigests, incidents, vendors, users, blockchainIncidents, blockchainChains } from '@shared/schema';
 import { storage } from './storage';
 import { sendEmail } from './emailClient';
 import { eq, and, gte, lte } from 'drizzle-orm';
@@ -11,6 +11,12 @@ interface WeeklyDigestData {
   criticalIncidents: number;
   majorIncidents: number;
   resolvedIncidents: number;
+  // Blockchain data
+  blockchainIncidentCount: number;
+  chainsAffected: string[];
+  blockchainCriticalIncidents: number;
+  blockchainMajorIncidents: number;
+  blockchainResolvedIncidents: number;
 }
 
 function getWeekStartDate(date: Date = new Date()): string {
@@ -43,6 +49,7 @@ function getPreviousWeekDates(): { start: Date; end: Date; weekStartDate: string
 }
 
 async function getWeeklyDigestData(startDate: Date, endDate: Date): Promise<WeeklyDigestData> {
+  // Vendor incidents
   const allIncidents = await db.select().from(incidents);
   
   const weekIncidents = allIncidents.filter(i => {
@@ -71,6 +78,26 @@ async function getWeeklyDigestData(startDate: Date, endDate: Date): Promise<Week
     if (incident.status === 'resolved') resolvedCount++;
   }
   
+  // Blockchain incidents
+  const allBlockchainIncidents = await db.select().from(blockchainIncidents);
+  
+  const weekBlockchainIncidents = allBlockchainIncidents.filter(i => {
+    const incidentDate = new Date(i.startedAt);
+    return incidentDate >= startDate && incidentDate <= endDate;
+  });
+  
+  const chainsAffected = Array.from(new Set(weekBlockchainIncidents.map(i => i.chainKey)));
+  
+  let blockchainCriticalCount = 0;
+  let blockchainMajorCount = 0;
+  let blockchainResolvedCount = 0;
+  
+  for (const incident of weekBlockchainIncidents) {
+    if (incident.severity === 'critical') blockchainCriticalCount++;
+    if (incident.severity === 'major') blockchainMajorCount++;
+    if (incident.status === 'resolved') blockchainResolvedCount++;
+  }
+  
   return {
     incidentCount: weekIncidents.length,
     vendorsAffected,
@@ -78,6 +105,11 @@ async function getWeeklyDigestData(startDate: Date, endDate: Date): Promise<Week
     criticalIncidents: criticalCount,
     majorIncidents: majorCount,
     resolvedIncidents: resolvedCount,
+    blockchainIncidentCount: weekBlockchainIncidents.length,
+    chainsAffected,
+    blockchainCriticalIncidents: blockchainCriticalCount,
+    blockchainMajorIncidents: blockchainMajorCount,
+    blockchainResolvedIncidents: blockchainResolvedCount,
   };
 }
 
@@ -87,10 +119,11 @@ function formatDigestEmail(data: WeeklyDigestData, weekStartDate: string): { sub
   weekEndDate.setDate(weekDate.getDate() + 6);
   
   const dateRange = `${weekDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${weekEndDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+  const totalIncidents = data.incidentCount + data.blockchainIncidentCount;
   
-  if (data.incidentCount === 0) {
+  if (totalIncidents === 0) {
     return {
-      subject: `Weekly Vendor Status Digest: All Clear (${dateRange})`,
+      subject: `Weekly Status Digest: All Clear (${dateRange})`,
       html: `
 <!DOCTYPE html>
 <html>
@@ -111,14 +144,14 @@ function formatDigestEmail(data: WeeklyDigestData, weekStartDate: string): { sub
 <body>
   <div class="container">
     <div class="header">
-      <h1>Weekly Vendor Status Digest</h1>
+      <h1>Weekly Status Digest</h1>
     </div>
     <div class="content">
       <div class="success-icon">✅</div>
-      <div class="message">No major vendor incidents this week.</div>
+      <div class="message">No vendor or blockchain incidents this week.</div>
       <div class="submessage">${dateRange}</div>
       <p style="margin-top: 24px; color: #6b7280; font-size: 14px;">
-        All monitored vendors operated normally. Your customers experienced uninterrupted service.
+        All monitored vendors and blockchain networks operated normally. Your customers experienced uninterrupted service.
       </p>
     </div>
     <div class="footer">
@@ -136,8 +169,12 @@ function formatDigestEmail(data: WeeklyDigestData, weekStartDate: string): { sub
       : `${Math.round(data.longestIncidentMinutes / 60)}h ${data.longestIncidentMinutes % 60}m`
     : 'N/A';
   
+  const totalCritical = data.criticalIncidents + data.blockchainCriticalIncidents;
+  const totalMajor = data.majorIncidents + data.blockchainMajorIncidents;
+  const totalResolved = data.resolvedIncidents + data.blockchainResolvedIncidents;
+  
   return {
-    subject: `Weekly Vendor Status Digest: ${data.incidentCount} Incident${data.incidentCount !== 1 ? 's' : ''} (${dateRange})`,
+    subject: `Weekly Status Digest: ${totalIncidents} Incident${totalIncidents !== 1 ? 's' : ''} (${dateRange})`,
     html: `
 <!DOCTYPE html>
 <html>
@@ -149,7 +186,8 @@ function formatDigestEmail(data: WeeklyDigestData, weekStartDate: string): { sub
     .header { background: #3b82f6; color: white; padding: 24px; text-align: center; }
     .header h1 { margin: 0; font-size: 20px; }
     .content { padding: 24px; }
-    .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px; }
+    .section-title { font-size: 16px; font-weight: 600; color: #374151; margin: 16px 0 12px 0; }
+    .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 16px; }
     .stat-box { background: #f9fafb; border-radius: 8px; padding: 16px; text-align: center; }
     .stat-number { font-size: 28px; font-weight: bold; color: #374151; }
     .stat-label { font-size: 12px; color: #6b7280; text-transform: uppercase; }
@@ -158,43 +196,57 @@ function formatDigestEmail(data: WeeklyDigestData, weekStartDate: string): { sub
     .vendors-list { background: #fef3c7; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
     .vendors-list h4 { margin: 0 0 8px 0; color: #92400e; font-size: 14px; }
     .vendors-list p { margin: 0; color: #78350f; }
+    .chains-list { background: #dbeafe; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+    .chains-list h4 { margin: 0 0 8px 0; color: #1e40af; font-size: 14px; }
+    .chains-list p { margin: 0; color: #1e3a8a; }
     .footer { padding: 16px 24px; background: #f9f9f9; text-align: center; font-size: 12px; color: #999; }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <h1>Weekly Vendor Status Digest</h1>
+      <h1>Weekly Status Digest</h1>
       <p style="margin: 8px 0 0 0; opacity: 0.9;">${dateRange}</p>
     </div>
     <div class="content">
       <div class="stats-grid">
         <div class="stat-box">
-          <div class="stat-number">${data.incidentCount}</div>
+          <div class="stat-number">${totalIncidents}</div>
           <div class="stat-label">Total Incidents</div>
         </div>
         <div class="stat-box">
-          <div class="stat-number">${data.vendorsAffected.length}</div>
-          <div class="stat-label">Vendors Affected</div>
+          <div class="stat-number">${data.vendorsAffected.length + data.chainsAffected.length}</div>
+          <div class="stat-label">Resources Affected</div>
         </div>
         <div class="stat-box stat-critical">
-          <div class="stat-number">${data.criticalIncidents}</div>
+          <div class="stat-number">${totalCritical}</div>
           <div class="stat-label">Critical</div>
         </div>
         <div class="stat-box stat-major">
-          <div class="stat-number">${data.majorIncidents}</div>
+          <div class="stat-number">${totalMajor}</div>
           <div class="stat-label">Major</div>
         </div>
       </div>
       
+      ${data.incidentCount > 0 ? `
+      <div class="section-title">Vendor Incidents (${data.incidentCount})</div>
       <div class="vendors-list">
         <h4>Vendors Affected</h4>
         <p>${data.vendorsAffected.join(', ') || 'None'}</p>
       </div>
+      ` : ''}
+      
+      ${data.blockchainIncidentCount > 0 ? `
+      <div class="section-title">Blockchain Incidents (${data.blockchainIncidentCount})</div>
+      <div class="chains-list">
+        <h4>Chains Affected</h4>
+        <p>${data.chainsAffected.join(', ') || 'None'}</p>
+      </div>
+      ` : ''}
       
       <div style="background: #f0f9ff; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-          <span style="color: #0369a1; font-weight: 600;">Longest Incident</span>
+          <span style="color: #0369a1; font-weight: 600;">Longest Vendor Incident</span>
           <span style="color: #0284c7; font-size: 18px; font-weight: bold;">${longestDisplay}</span>
         </div>
       </div>
@@ -202,12 +254,12 @@ function formatDigestEmail(data: WeeklyDigestData, weekStartDate: string): { sub
       <div style="background: #f0fdf4; border-radius: 8px; padding: 16px;">
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <span style="color: #15803d; font-weight: 600;">Resolved This Week</span>
-          <span style="color: #16a34a; font-size: 18px; font-weight: bold;">${data.resolvedIncidents}</span>
+          <span style="color: #16a34a; font-size: 18px; font-weight: bold;">${totalResolved}</span>
         </div>
       </div>
     </div>
     <div class="footer">
-      <p>Vendor Watch - Weekly summary of vendor health.</p>
+      <p>Vendor Watch - Weekly summary of vendor and blockchain health.</p>
     </div>
   </div>
 </body>

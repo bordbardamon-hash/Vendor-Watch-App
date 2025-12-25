@@ -85,6 +85,107 @@ export async function registerRoutes(
     }
   });
   
+  // ============ MOBILE-FRIENDLY ALERT SUMMARY ============
+  
+  // Get critical alerts summary for mobile devices
+  app.get("/api/alerts/mobile-summary", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      // Get active vendor incidents
+      const vendorIncidents = await storage.getIncidents();
+      const activeVendorIncidents = vendorIncidents.filter(i => i.status !== 'resolved');
+      
+      // Get active blockchain incidents
+      const blockchainIncidentsList = await storage.getActiveBlockchainIncidents();
+      
+      // Get vendors and chains for names
+      const vendors = await storage.getVendors();
+      const chains = await storage.getBlockchainChains();
+      
+      // Build mobile-friendly summary
+      const vendorAlerts = activeVendorIncidents
+        .sort((a, b) => {
+          const severityOrder = { critical: 0, major: 1, minor: 2, info: 3 };
+          return (severityOrder[a.severity as keyof typeof severityOrder] || 3) - 
+                 (severityOrder[b.severity as keyof typeof severityOrder] || 3);
+        })
+        .slice(0, 10)
+        .map(i => {
+          const vendor = vendors.find(v => v.key === i.vendorKey);
+          return {
+            id: i.id,
+            type: 'vendor',
+            resource: vendor?.name || i.vendorKey,
+            title: i.title,
+            severity: i.severity,
+            status: i.status,
+            startedAt: i.startedAt,
+            icon: i.severity === 'critical' ? '🔴' : i.severity === 'major' ? '🟠' : '🟡',
+          };
+        });
+      
+      const blockchainAlerts = blockchainIncidentsList
+        .sort((a, b) => {
+          const severityOrder = { critical: 0, major: 1, minor: 2, info: 3 };
+          return (severityOrder[a.severity as keyof typeof severityOrder] || 3) - 
+                 (severityOrder[b.severity as keyof typeof severityOrder] || 3);
+        })
+        .slice(0, 10)
+        .map(i => {
+          const chain = chains.find(c => c.chainKey === i.chainKey);
+          return {
+            id: i.id,
+            type: 'blockchain',
+            resource: chain?.name || i.chainKey,
+            title: i.title,
+            severity: i.severity,
+            status: i.status,
+            startedAt: i.startedAt,
+            icon: i.severity === 'critical' ? '🔴' : i.severity === 'major' ? '🟠' : '🟡',
+          };
+        });
+      
+      // Combine and sort all alerts
+      const allAlerts = [...vendorAlerts, ...blockchainAlerts]
+        .sort((a, b) => {
+          const severityOrder = { critical: 0, major: 1, minor: 2, info: 3 };
+          return (severityOrder[a.severity as keyof typeof severityOrder] || 3) - 
+                 (severityOrder[b.severity as keyof typeof severityOrder] || 3);
+        });
+      
+      const criticalCount = allAlerts.filter(a => a.severity === 'critical').length;
+      const majorCount = allAlerts.filter(a => a.severity === 'major').length;
+      
+      res.json({
+        summary: {
+          totalActive: allAlerts.length,
+          critical: criticalCount,
+          major: majorCount,
+          vendorAlerts: vendorAlerts.length,
+          blockchainAlerts: blockchainAlerts.length,
+          overallStatus: criticalCount > 0 ? 'critical' : majorCount > 0 ? 'degraded' : allAlerts.length > 0 ? 'warning' : 'healthy',
+          statusEmoji: criticalCount > 0 ? '🔴' : majorCount > 0 ? '🟠' : allAlerts.length > 0 ? '🟡' : '🟢',
+          statusMessage: criticalCount > 0 
+            ? `${criticalCount} critical issue${criticalCount > 1 ? 's' : ''} need attention`
+            : majorCount > 0 
+              ? `${majorCount} major incident${majorCount > 1 ? 's' : ''} in progress`
+              : allAlerts.length > 0 
+                ? `${allAlerts.length} minor issue${allAlerts.length > 1 ? 's' : ''} being monitored`
+                : 'All systems operational',
+        },
+        alerts: allAlerts.slice(0, 15), // Top 15 most critical
+        lastUpdated: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("Error fetching mobile summary:", error);
+      res.status(500).json({ error: "Failed to fetch mobile summary" });
+    }
+  });
+  
   // ============ VENDORS ============
   
   // Get all vendors (protected)
@@ -259,16 +360,55 @@ export async function registerRoutes(
     try {
       const archived = await storage.archiveResolvedIncidents(3); // 3 days
       const purged = await storage.purgeOldArchivedIncidents(365); // 1 year
+      const blockchainArchived = await storage.archiveResolvedBlockchainIncidents(3);
+      const blockchainPurged = await storage.purgeOldArchivedBlockchainIncidents(365);
       res.json({ 
         message: "Archival complete", 
         archived, 
         purged,
-        archivedMessage: `Archived ${archived} resolved incidents older than 3 days`,
-        purgedMessage: `Purged ${purged} archived incidents older than 1 year`
+        blockchainArchived,
+        blockchainPurged,
+        archivedMessage: `Archived ${archived} vendor incidents and ${blockchainArchived} blockchain incidents older than 3 days`,
+        purgedMessage: `Purged ${purged} vendor and ${blockchainPurged} blockchain archived incidents older than 1 year`
       });
     } catch (error) {
       console.error("Error running archival:", error);
       res.status(500).json({ error: "Failed to run archival" });
+    }
+  });
+  
+  // ============ BLOCKCHAIN INCIDENT ARCHIVE ============
+  
+  // Search archived blockchain incidents
+  app.get("/api/blockchain/incidents/archive", isAuthenticated, async (req, res) => {
+    try {
+      const { chainKey, query, dateRange, limit, offset } = req.query;
+      const archived = await storage.searchArchivedBlockchainIncidents({
+        chainKey: chainKey as string | undefined,
+        query: query as string | undefined,
+        dateRange: dateRange as string | undefined,
+        limit: limit ? parseInt(limit as string, 10) : 50,
+        offset: offset ? parseInt(offset as string, 10) : 0,
+      });
+      res.json(archived);
+    } catch (error) {
+      console.error("Error searching archived blockchain incidents:", error);
+      res.status(500).json({ error: "Failed to search archived blockchain incidents" });
+    }
+  });
+  
+  // Get archived blockchain incidents count
+  app.get("/api/blockchain/incidents/archive/count", isAuthenticated, async (req, res) => {
+    try {
+      const { chainKey, query } = req.query;
+      const count = await storage.getArchivedBlockchainIncidentsCount({
+        chainKey: chainKey as string | undefined,
+        query: query as string | undefined,
+      });
+      res.json({ count });
+    } catch (error) {
+      console.error("Error getting archived blockchain incidents count:", error);
+      res.status(500).json({ error: "Failed to get archived blockchain incidents count" });
     }
   });
   
@@ -1572,6 +1712,105 @@ Vendor Watch | Automated Service Monitoring`;
       res.status(500).json({ error: "Failed to generate customer summary" });
     }
   });
+  
+  // Generate customer-ready blockchain incident summary email template
+  app.get("/api/blockchain/incidents/:id/customer-summary", isAuthenticated, async (req: any, res) => {
+    try {
+      const incident = await storage.getBlockchainIncident(req.params.id);
+      
+      if (!incident) {
+        return res.status(404).json({ error: "Blockchain incident not found" });
+      }
+      
+      const chains = await storage.getBlockchainChains();
+      const chain = chains.find(c => c.chainKey === incident.chainKey);
+      const chainName = chain?.name || incident.chainKey;
+      
+      const statusText = incident.status === 'resolved' 
+        ? 'RESOLVED' 
+        : incident.status === 'investigating' 
+          ? 'Under Investigation' 
+          : 'In Progress';
+      
+      const impactLevel = incident.severity === 'critical' 
+        ? 'significant' 
+        : incident.severity === 'major' 
+          ? 'moderate' 
+          : 'minimal';
+      
+      const startDate = new Date(incident.startedAt);
+      const formattedDate = startDate.toLocaleDateString('en-US', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZoneName: 'short'
+      });
+      
+      const subject = `[${statusText}] ${chainName} Blockchain Update - ${incident.title}`;
+      
+      const emailBody = `Dear Valued Client,
+
+We are writing to inform you of a service event affecting ${chainName} blockchain infrastructure.
+
+**Incident Summary**
+- Status: ${statusText}
+- Started: ${formattedDate}
+- Impact Level: ${impactLevel.charAt(0).toUpperCase() + impactLevel.slice(1)}
+- Incident Type: ${incident.incidentType}
+
+**Description**
+${incident.description || incident.title}
+
+**Current Status**
+${incident.status === 'resolved' 
+  ? `This incident has been resolved. ${chainName} services have returned to normal operation.`
+  : `Our team is actively monitoring this situation. The ${chainName} team is working to resolve the issue.`}
+
+**What This Means for You**
+${incident.severity === 'critical' || incident.severity === 'major'
+  ? `You may experience ${impactLevel} disruption to services that depend on ${chainName}. We recommend planning for potential delays or interruptions to blockchain transactions.`
+  : `This event may have ${impactLevel} impact on your blockchain-related services. No immediate action is required.`}
+
+${incident.affectedServices ? `**Affected Services**
+${incident.affectedServices}
+
+` : ''}**Next Steps**
+We will continue to monitor this situation and provide updates as they become available.
+
+If you have any questions or concerns, please don't hesitate to contact our support team.
+
+Best regards,
+Your IT Support Team
+
+---
+Vendor Watch | Blockchain Infrastructure Monitoring`;
+
+      const plainText = emailBody
+        .replace(/\*\*/g, '')
+        .replace(/\n\n/g, '\n\n');
+
+      res.json({
+        subject,
+        emailBody,
+        plainText,
+        incident: {
+          id: incident.id,
+          title: incident.title,
+          status: incident.status,
+          severity: incident.severity,
+          chainName,
+          incidentType: incident.incidentType,
+          startedAt: incident.startedAt,
+        }
+      });
+    } catch (error) {
+      console.error("Error generating blockchain customer summary:", error);
+      res.status(500).json({ error: "Failed to generate blockchain customer summary" });
+    }
+  });
 
   // Acknowledge a blockchain incident
   app.post("/api/blockchain/incidents/:id/acknowledge", isAuthenticated, async (req: any, res) => {
@@ -1605,6 +1844,18 @@ Vendor Watch | Automated Service Monitoring`;
     } catch (error) {
       console.error("Error unacknowledging blockchain incident:", error);
       res.status(500).json({ error: "Failed to unacknowledge blockchain incident" });
+    }
+  });
+  
+  // Get acknowledgement history for a blockchain incident
+  app.get("/api/blockchain/incidents/:id/acknowledgement-history", isAuthenticated, async (req: any, res) => {
+    try {
+      const incidentId = req.params.id;
+      const history = await storage.getIncidentAcknowledgementHistory(incidentId);
+      res.json(history);
+    } catch (error) {
+      console.error("Error fetching blockchain incident acknowledgement history:", error);
+      res.status(500).json({ error: "Failed to fetch acknowledgement history" });
     }
   });
 
@@ -2115,6 +2366,252 @@ Vendor Watch | Automated Service Monitoring`;
     } catch (error) {
       console.error("Error fetching SLA metrics:", error);
       res.status(500).json({ error: "Failed to fetch SLA metrics" });
+    }
+  });
+
+  // SLA Dashboard - Combined view for vendors and blockchain
+  app.get("/api/sla/dashboard", isAuthenticated, async (req: any, res) => {
+    try {
+      const days = parseInt(req.query.days as string) || 30;
+      const target = parseFloat(req.query.target as string) || 99.9;
+      
+      // Get vendor SLA data
+      const vendors = await storage.getVendors();
+      const vendorMetrics = await storage.getAllVendorPerformanceStats(days);
+      const { getAllVendorReliability } = await import('./reliabilityTracker');
+      const reliabilityStats = await getAllVendorReliability();
+      
+      const totalMinutesInPeriod = days * 24 * 60;
+      
+      const vendorSLAs = vendors.map(vendor => {
+        const metrics = vendorMetrics.find((m: any) => m.vendorKey === vendor.key);
+        const reliabilityData = reliabilityStats.find((r: any) => r.vendorKey === vendor.key);
+        const reliability = reliabilityData?.metrics;
+        
+        const uptimePercent = metrics?.uptimePercent ?? 100;
+        const downtimeMinutes = Math.round(totalMinutesInPeriod * (1 - uptimePercent / 100));
+        
+        let trend: 'up' | 'down' | 'stable' = 'stable';
+        if (reliability) {
+          if (reliability.incidents30Days > reliability.incidents90Days / 3) {
+            trend = 'down';
+          } else if (reliability.incidents30Days < reliability.incidents90Days / 4) {
+            trend = 'up';
+          }
+        }
+        
+        return {
+          type: 'vendor' as const,
+          key: vendor.key,
+          name: vendor.name,
+          uptimePercent: Math.min(100, Math.max(0, uptimePercent)),
+          downtimeMinutes,
+          incidentCount: metrics?.incidentCount || 0,
+          slaTarget: target,
+          meetsTarget: uptimePercent >= target,
+          trend,
+          warning: uptimePercent < target ? `Below ${target}% target` : null,
+        };
+      });
+      
+      // Get blockchain SLA data - filter to the requested time period
+      const chains = await storage.getBlockchainChains();
+      const blockchainIncidentsList = await storage.getBlockchainIncidents();
+      
+      const now = Date.now();
+      const periodStart = now - (days * 24 * 60 * 60 * 1000);
+      
+      const blockchainSLAs = chains.map(chain => {
+        // Filter incidents to those that started within the requested period
+        const chainIncidents = blockchainIncidentsList.filter(i => {
+          const startedAt = new Date(i.startedAt).getTime();
+          return i.chainKey === chain.chainKey && startedAt >= periodStart;
+        });
+        
+        const resolvedIncidents = chainIncidents.filter(i => i.status === 'resolved' && i.resolvedAt);
+        
+        let totalDowntimeMinutes = 0;
+        for (const incident of resolvedIncidents) {
+          const start = new Date(incident.startedAt).getTime();
+          const end = incident.resolvedAt ? new Date(incident.resolvedAt).getTime() : now;
+          // Only count downtime within the period
+          const effectiveStart = Math.max(start, periodStart);
+          const effectiveEnd = Math.min(end, now);
+          if (effectiveEnd > effectiveStart) {
+            totalDowntimeMinutes += (effectiveEnd - effectiveStart) / (1000 * 60);
+          }
+        }
+        
+        // Also account for ongoing incidents (not resolved yet)
+        const ongoingIncidents = chainIncidents.filter(i => i.status !== 'resolved');
+        for (const incident of ongoingIncidents) {
+          const start = new Date(incident.startedAt).getTime();
+          const effectiveStart = Math.max(start, periodStart);
+          if (now > effectiveStart) {
+            totalDowntimeMinutes += (now - effectiveStart) / (1000 * 60);
+          }
+        }
+        
+        const uptimePercent = totalMinutesInPeriod > 0 
+          ? Math.max(0, Math.min(100, 100 - (totalDowntimeMinutes / totalMinutesInPeriod * 100)))
+          : 100;
+        
+        return {
+          type: 'blockchain' as const,
+          key: chain.chainKey,
+          name: chain.name,
+          uptimePercent,
+          downtimeMinutes: Math.round(totalDowntimeMinutes),
+          incidentCount: chainIncidents.length,
+          slaTarget: target,
+          meetsTarget: uptimePercent >= target,
+          trend: 'stable' as const,
+          warning: uptimePercent < target ? `Below ${target}% target` : null,
+        };
+      });
+      
+      const allSLAs = [...vendorSLAs, ...blockchainSLAs].sort((a, b) => a.uptimePercent - b.uptimePercent);
+      const belowTarget = allSLAs.filter(s => !s.meetsTarget);
+      const atRisk = allSLAs.filter(s => s.uptimePercent < target + 0.5 && s.meetsTarget);
+      
+      res.json({
+        summary: {
+          totalResources: allSLAs.length,
+          vendorCount: vendorSLAs.length,
+          blockchainCount: blockchainSLAs.length,
+          averageUptime: allSLAs.length > 0 
+            ? (allSLAs.reduce((sum, s) => sum + s.uptimePercent, 0) / allSLAs.length).toFixed(2)
+            : "100.00",
+          belowTargetCount: belowTarget.length,
+          atRiskCount: atRisk.length,
+          target,
+        },
+        belowTarget,
+        atRisk,
+        allResources: allSLAs,
+      });
+    } catch (error) {
+      console.error("Error fetching SLA dashboard:", error);
+      res.status(500).json({ error: "Failed to fetch SLA dashboard" });
+    }
+  });
+  
+  // Predictive Alerts - Analyze patterns and warn about reliability trends
+  app.get("/api/alerts/predictive", isAuthenticated, async (req: any, res) => {
+    try {
+      // Get vendor reliability data
+      const { getAllVendorReliability } = await import('./reliabilityTracker');
+      const reliabilityStats = await getAllVendorReliability();
+      const vendors = await storage.getVendors();
+      
+      const alerts: Array<{
+        type: 'vendor' | 'blockchain';
+        resourceKey: string;
+        resourceName: string;
+        alertType: 'reliability_declining' | 'increased_incidents' | 'resolution_time_increasing';
+        severity: 'warning' | 'critical';
+        message: string;
+        details: string;
+      }> = [];
+      
+      // Analyze vendor trends
+      for (const stat of reliabilityStats) {
+        const vendor = vendors.find(v => v.key === stat.vendorKey);
+        const vendorName = vendor?.name || stat.vendorKey;
+        const m = stat.metrics;
+        
+        // Check for increasing incident trend
+        if (m.incidents30Days > 0) {
+          const monthlyRate = m.incidents30Days;
+          const expectedRate = m.incidents90Days / 3;
+          
+          if (monthlyRate > expectedRate * 2 && monthlyRate >= 3) {
+            alerts.push({
+              type: 'vendor',
+              resourceKey: stat.vendorKey,
+              resourceName: vendorName,
+              alertType: 'increased_incidents',
+              severity: monthlyRate >= 5 ? 'critical' : 'warning',
+              message: `${vendorName} incident rate has doubled`,
+              details: `${m.incidents30Days} incidents in the last 30 days vs ${Math.round(expectedRate)} expected based on 90-day average`,
+            });
+          }
+        }
+        
+        // Check for reliability decline
+        if (m.uptimePercent < 99.5 && m.uptimePercent < 100) {
+          const trend = m.incidents30Days > m.incidents90Days / 3 ? 'declining' : 'stable';
+          if (trend === 'declining') {
+            alerts.push({
+              type: 'vendor',
+              resourceKey: stat.vendorKey,
+              resourceName: vendorName,
+              alertType: 'reliability_declining',
+              severity: m.uptimePercent < 99 ? 'critical' : 'warning',
+              message: `${vendorName} reliability is trending downward`,
+              details: `Current uptime: ${m.uptimePercent.toFixed(2)}% with ${m.incidents30Days} incidents in the last month`,
+            });
+          }
+        }
+        
+        // Check for resolution time increasing
+        if (m.avgResolutionMinutes && m.avgResolutionMinutes > 120) {
+          alerts.push({
+            type: 'vendor',
+            resourceKey: stat.vendorKey,
+            resourceName: vendorName,
+            alertType: 'resolution_time_increasing',
+            severity: m.avgResolutionMinutes > 240 ? 'critical' : 'warning',
+            message: `${vendorName} incident resolution times are high`,
+            details: `Average resolution time: ${Math.round(m.avgResolutionMinutes)} minutes`,
+          });
+        }
+      }
+      
+      // Analyze blockchain trends
+      const chains = await storage.getBlockchainChains();
+      const blockchainIncidents = await storage.getBlockchainIncidents();
+      
+      for (const chain of chains) {
+        const chainIncidents = blockchainIncidents.filter(i => i.chainKey === chain.chainKey);
+        const now = Date.now();
+        const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
+        const recentIncidents = chainIncidents.filter(i => new Date(i.startedAt).getTime() > thirtyDaysAgo);
+        
+        if (recentIncidents.length >= 3) {
+          alerts.push({
+            type: 'blockchain',
+            resourceKey: chain.chainKey,
+            resourceName: chain.name,
+            alertType: 'increased_incidents',
+            severity: recentIncidents.length >= 5 ? 'critical' : 'warning',
+            message: `${chain.name} has had multiple incidents recently`,
+            details: `${recentIncidents.length} incidents in the last 30 days`,
+          });
+        }
+      }
+      
+      // Sort alerts by severity
+      alerts.sort((a, b) => {
+        if (a.severity === 'critical' && b.severity !== 'critical') return -1;
+        if (a.severity !== 'critical' && b.severity === 'critical') return 1;
+        return 0;
+      });
+      
+      res.json({
+        alerts,
+        summary: {
+          total: alerts.length,
+          critical: alerts.filter(a => a.severity === 'critical').length,
+          warning: alerts.filter(a => a.severity === 'warning').length,
+          vendorAlerts: alerts.filter(a => a.type === 'vendor').length,
+          blockchainAlerts: alerts.filter(a => a.type === 'blockchain').length,
+        },
+        lastAnalyzed: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("Error generating predictive alerts:", error);
+      res.status(500).json({ error: "Failed to generate predictive alerts" });
     }
   });
 

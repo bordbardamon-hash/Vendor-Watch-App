@@ -508,6 +508,27 @@ export const blockchainIncidents = pgTable("blockchain_incidents", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Blockchain Incident Archive - resolved blockchain incidents moved here after 3 days
+export const blockchainIncidentArchive = pgTable("blockchain_incident_archive", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  originalId: text("original_id").notNull(),
+  chainKey: text("chain_key").notNull(),
+  incidentId: text("incident_id").notNull(),
+  incidentType: text("incident_type").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  status: text("status").notNull(),
+  severity: text("severity").notNull(),
+  affectedServices: text("affected_services"),
+  url: text("url"),
+  rawHash: text("raw_hash"),
+  startedAt: text("started_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+  resolvedAt: timestamp("resolved_at").notNull(),
+  createdAt: timestamp("created_at").notNull(),
+  archivedAt: timestamp("archived_at").notNull().defaultNow(),
+});
+
 // Blockchain subscriptions - which chains each user monitors
 export const userBlockchainSubscriptions = pgTable("user_blockchain_subscriptions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -533,6 +554,11 @@ export const insertUserBlockchainSubscriptionSchema = createInsertSchema(userBlo
   createdAt: true,
 });
 
+export const insertBlockchainIncidentArchiveSchema = createInsertSchema(blockchainIncidentArchive).omit({
+  id: true,
+  archivedAt: true,
+});
+
 // Types for blockchain tables
 export type InsertBlockchainChain = z.infer<typeof insertBlockchainChainSchema>;
 export type BlockchainChain = typeof blockchainChains.$inferSelect;
@@ -542,6 +568,9 @@ export type BlockchainIncident = typeof blockchainIncidents.$inferSelect;
 
 export type InsertUserBlockchainSubscription = z.infer<typeof insertUserBlockchainSubscriptionSchema>;
 export type UserBlockchainSubscription = typeof userBlockchainSubscriptions.$inferSelect;
+
+export type InsertBlockchainIncidentArchive = z.infer<typeof insertBlockchainIncidentArchiveSchema>;
+export type BlockchainIncidentArchive = typeof blockchainIncidentArchive.$inferSelect;
 
 // Analytics - User Activity Events
 export const USER_ACTIVITY_TYPES = ['login', 'page_view', 'incident_ack', 'maintenance_ack', 'settings_change'] as const;

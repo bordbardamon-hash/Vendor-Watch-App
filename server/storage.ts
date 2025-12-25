@@ -1,6 +1,6 @@
 import { 
   users, vendors, incidents, incidentArchive, jobs, config, feedback, notificationConsents, incidentAlerts, userVendorSubscriptions, userVendorOrder, customVendorRequests,
-  blockchainChains, blockchainIncidents, userBlockchainSubscriptions, incidentAcknowledgements, maintenanceAcknowledgements,
+  blockchainChains, blockchainIncidents, blockchainIncidentArchive, userBlockchainSubscriptions, incidentAcknowledgements, maintenanceAcknowledgements,
   vendorMaintenances, blockchainMaintenances, userActivityEvents, vendorDailyMetrics, psaWebhooks,
   slaContracts, slaBreaches, syntheticProbes, syntheticProbeResults,
   type User, type UpsertUser,
@@ -17,6 +17,7 @@ import {
   type CustomVendorRequest, type InsertCustomVendorRequest,
   type BlockchainChain, type InsertBlockchainChain,
   type BlockchainIncident, type InsertBlockchainIncident,
+  type BlockchainIncidentArchive, type InsertBlockchainIncidentArchive,
   type IncidentAcknowledgement,
   type MaintenanceAcknowledgement,
   type VendorMaintenance, type InsertVendorMaintenance,
@@ -61,6 +62,13 @@ export interface IStorage {
   getArchivedIncidentsCount(options?: { vendorKey?: string; query?: string }): Promise<number>;
   archiveResolvedIncidents(olderThanDays: number): Promise<number>;
   purgeOldArchivedIncidents(olderThanDays: number): Promise<number>;
+  
+  // Blockchain Incident Archive
+  archiveBlockchainIncident(incident: BlockchainIncident): Promise<BlockchainIncidentArchive>;
+  searchArchivedBlockchainIncidents(options: { chainKey?: string; query?: string; dateRange?: string; limit?: number; offset?: number }): Promise<BlockchainIncidentArchive[]>;
+  getArchivedBlockchainIncidentsCount(options?: { chainKey?: string; query?: string }): Promise<number>;
+  archiveResolvedBlockchainIncidents(olderThanDays: number): Promise<number>;
+  purgeOldArchivedBlockchainIncidents(olderThanDays: number): Promise<number>;
   
   // Jobs
   getJobs(): Promise<Job[]>;
@@ -486,6 +494,130 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .delete(incidentArchive)
       .where(lte(incidentArchive.archivedAt, cutoffDate));
+    
+    return result.rowCount || 0;
+  }
+  
+  // Blockchain Incident Archive
+  async archiveBlockchainIncident(incident: BlockchainIncident): Promise<BlockchainIncidentArchive> {
+    const [archived] = await db.insert(blockchainIncidentArchive).values({
+      originalId: incident.id,
+      chainKey: incident.chainKey,
+      incidentId: incident.incidentId,
+      incidentType: incident.incidentType,
+      title: incident.title,
+      description: incident.description,
+      status: incident.status,
+      severity: incident.severity,
+      affectedServices: incident.affectedServices,
+      url: incident.url,
+      rawHash: incident.rawHash,
+      startedAt: incident.startedAt,
+      updatedAt: incident.updatedAt,
+      resolvedAt: incident.resolvedAt || new Date(),
+      createdAt: incident.createdAt,
+    }).returning();
+    return archived;
+  }
+  
+  async searchArchivedBlockchainIncidents(options: { chainKey?: string; query?: string; dateRange?: string; limit?: number; offset?: number }): Promise<BlockchainIncidentArchive[]> {
+    const conditions = [];
+    
+    if (options.chainKey) {
+      conditions.push(eq(blockchainIncidentArchive.chainKey, options.chainKey));
+    }
+    
+    if (options.query) {
+      conditions.push(or(
+        ilike(blockchainIncidentArchive.title, `%${options.query}%`),
+        ilike(blockchainIncidentArchive.description || '', `%${options.query}%`)
+      ));
+    }
+    
+    if (options.dateRange) {
+      const now = new Date();
+      let startDate: Date;
+      switch (options.dateRange) {
+        case '7d':
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case '30d':
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        case '90d':
+          startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+          break;
+        case '1y':
+          startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          startDate = new Date(0);
+      }
+      conditions.push(gte(blockchainIncidentArchive.archivedAt, startDate));
+    }
+    
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    
+    return db.select()
+      .from(blockchainIncidentArchive)
+      .where(whereClause)
+      .orderBy(desc(blockchainIncidentArchive.archivedAt))
+      .limit(options.limit || 50)
+      .offset(options.offset || 0);
+  }
+  
+  async getArchivedBlockchainIncidentsCount(options?: { chainKey?: string; query?: string }): Promise<number> {
+    const conditions = [];
+    
+    if (options?.chainKey) {
+      conditions.push(eq(blockchainIncidentArchive.chainKey, options.chainKey));
+    }
+    
+    if (options?.query) {
+      conditions.push(or(
+        ilike(blockchainIncidentArchive.title, `%${options.query}%`),
+        ilike(blockchainIncidentArchive.description || '', `%${options.query}%`)
+      ));
+    }
+    
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    
+    const [result] = whereClause
+      ? await db.select({ count: count() }).from(blockchainIncidentArchive).where(whereClause)
+      : await db.select({ count: count() }).from(blockchainIncidentArchive);
+    
+    return result?.count || 0;
+  }
+  
+  async archiveResolvedBlockchainIncidents(olderThanDays: number): Promise<number> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
+    
+    const resolvedIncidents = await db
+      .select()
+      .from(blockchainIncidents)
+      .where(and(
+        eq(blockchainIncidents.status, 'resolved'),
+        lte(blockchainIncidents.createdAt, cutoffDate)
+      ));
+    
+    let archivedCount = 0;
+    for (const incident of resolvedIncidents) {
+      await this.archiveBlockchainIncident(incident);
+      await db.delete(blockchainIncidents).where(eq(blockchainIncidents.id, incident.id));
+      archivedCount++;
+    }
+    
+    return archivedCount;
+  }
+  
+  async purgeOldArchivedBlockchainIncidents(olderThanDays: number): Promise<number> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
+    
+    const result = await db
+      .delete(blockchainIncidentArchive)
+      .where(lte(blockchainIncidentArchive.archivedAt, cutoffDate));
     
     return result.rowCount || 0;
   }

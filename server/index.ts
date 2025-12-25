@@ -234,14 +234,26 @@ app.use((req, res, next) => {
       setInterval(async () => {
         console.log('[archive] Starting incident archival cleanup...');
         try {
+          // Archive vendor incidents
           const archived = await storage.archiveResolvedIncidents(ARCHIVE_AFTER_DAYS);
           if (archived > 0) {
-            console.log(`[archive] Archived ${archived} resolved incidents older than ${ARCHIVE_AFTER_DAYS} days`);
+            console.log(`[archive] Archived ${archived} resolved vendor incidents older than ${ARCHIVE_AFTER_DAYS} days`);
           }
           
           const purged = await storage.purgeOldArchivedIncidents(PURGE_AFTER_DAYS);
           if (purged > 0) {
-            console.log(`[archive] Purged ${purged} archived incidents older than ${PURGE_AFTER_DAYS} days`);
+            console.log(`[archive] Purged ${purged} archived vendor incidents older than ${PURGE_AFTER_DAYS} days`);
+          }
+          
+          // Archive blockchain incidents
+          const blockchainArchived = await storage.archiveResolvedBlockchainIncidents(ARCHIVE_AFTER_DAYS);
+          if (blockchainArchived > 0) {
+            console.log(`[archive] Archived ${blockchainArchived} resolved blockchain incidents older than ${ARCHIVE_AFTER_DAYS} days`);
+          }
+          
+          const blockchainPurged = await storage.purgeOldArchivedBlockchainIncidents(PURGE_AFTER_DAYS);
+          if (blockchainPurged > 0) {
+            console.log(`[archive] Purged ${blockchainPurged} archived blockchain incidents older than ${PURGE_AFTER_DAYS} days`);
           }
         } catch (err) {
           console.error('[archive] Archival cleanup failed:', err);
