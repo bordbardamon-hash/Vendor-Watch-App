@@ -5,7 +5,7 @@ import { createServer } from "http";
 import { runMigrations } from 'stripe-replit-sync';
 import { getStripeSync } from './stripeClient';
 import { WebhookHandlers } from './webhookHandlers';
-import { seedVendorsIfEmpty, seedBlockchainChainsIfEmpty } from './storage';
+import { seedVendorsIfEmpty, seedBlockchainChainsIfEmpty, storage } from './storage';
 import { syncVendorStatus } from './statusSync';
 import { syncAllBlockchainChains } from './blockchainSync';
 
@@ -225,6 +225,30 @@ app.use((req, res, next) => {
       }, SYNC_INTERVAL_MS);
       
       console.log(`[sync] Automatic sync configured: every ${SYNC_INTERVAL_MS / 60000} minutes (vendors + blockchain)`);
+      
+      // Incident archival cleanup: runs every hour
+      const ARCHIVE_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
+      const ARCHIVE_AFTER_DAYS = 3; // Archive resolved incidents after 3 days
+      const PURGE_AFTER_DAYS = 365; // Purge archived incidents after 1 year
+      
+      setInterval(async () => {
+        console.log('[archive] Starting incident archival cleanup...');
+        try {
+          const archived = await storage.archiveResolvedIncidents(ARCHIVE_AFTER_DAYS);
+          if (archived > 0) {
+            console.log(`[archive] Archived ${archived} resolved incidents older than ${ARCHIVE_AFTER_DAYS} days`);
+          }
+          
+          const purged = await storage.purgeOldArchivedIncidents(PURGE_AFTER_DAYS);
+          if (purged > 0) {
+            console.log(`[archive] Purged ${purged} archived incidents older than ${PURGE_AFTER_DAYS} days`);
+          }
+        } catch (err) {
+          console.error('[archive] Archival cleanup failed:', err);
+        }
+      }, ARCHIVE_INTERVAL_MS);
+      
+      console.log(`[archive] Automatic archival configured: resolved incidents archived after ${ARCHIVE_AFTER_DAYS} days, purged after ${PURGE_AFTER_DAYS} days`);
     },
   );
 })();
