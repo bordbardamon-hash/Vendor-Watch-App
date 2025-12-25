@@ -160,6 +160,7 @@ export interface IStorage {
   unacknowledgeIncident(userId: string, incidentId: string): Promise<boolean>;
   isIncidentAcknowledged(userId: string, incidentId: string): Promise<boolean>;
   getUserAcknowledgements(userId: string): Promise<IncidentAcknowledgement[]>;
+  getIncidentAcknowledgementHistory(incidentId: string): Promise<Array<{ userId: string; userName: string; userEmail: string; acknowledgedAt: Date }>>;
   clearAcknowledgementsForIncident(incidentId: string): Promise<void>;
   
   // Maintenance Acknowledgements
@@ -1209,6 +1210,27 @@ export class DatabaseStorage implements IStorage {
 
   async getUserAcknowledgements(userId: string): Promise<IncidentAcknowledgement[]> {
     return db.select().from(incidentAcknowledgements).where(eq(incidentAcknowledgements.userId, userId));
+  }
+
+  async getIncidentAcknowledgementHistory(incidentId: string): Promise<Array<{ userId: string; userName: string; userEmail: string; acknowledgedAt: Date }>> {
+    const acks = await db
+      .select({
+        userId: incidentAcknowledgements.userId,
+        acknowledgedAt: incidentAcknowledgements.acknowledgedAt,
+        userName: users.firstName,
+        userEmail: users.email,
+      })
+      .from(incidentAcknowledgements)
+      .leftJoin(users, eq(incidentAcknowledgements.userId, users.id))
+      .where(eq(incidentAcknowledgements.incidentId, incidentId))
+      .orderBy(desc(incidentAcknowledgements.acknowledgedAt));
+    
+    return acks.map(a => ({
+      userId: a.userId,
+      userName: a.userName || 'Unknown User',
+      userEmail: a.userEmail || '',
+      acknowledgedAt: a.acknowledgedAt,
+    }));
   }
 
   async clearAcknowledgementsForIncident(incidentId: string): Promise<void> {

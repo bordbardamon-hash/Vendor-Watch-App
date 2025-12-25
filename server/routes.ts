@@ -1466,6 +1466,18 @@ export async function registerRoutes(
     }
   });
 
+  // Get acknowledgement history for an incident (with user details)
+  app.get("/api/incidents/:id/acknowledgement-history", isAuthenticated, async (req: any, res) => {
+    try {
+      const incidentId = req.params.id;
+      const history = await storage.getIncidentAcknowledgementHistory(incidentId);
+      res.json(history);
+    } catch (error) {
+      console.error("Error fetching acknowledgement history:", error);
+      res.status(500).json({ error: "Failed to fetch acknowledgement history" });
+    }
+  });
+
   // Acknowledge a blockchain incident
   app.post("/api/blockchain/incidents/:id/acknowledge", isAuthenticated, async (req: any, res) => {
     try {
