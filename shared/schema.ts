@@ -46,6 +46,24 @@ export const incidents = pgTable("incidents", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Incident Archive - resolved incidents moved here after 3 days, searchable for 1 year
+export const incidentArchive = pgTable("incident_archive", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  originalId: text("original_id").notNull(),
+  vendorKey: text("vendor_key").notNull(),
+  incidentId: text("incident_id").notNull(),
+  title: text("title").notNull(),
+  status: text("status").notNull(),
+  severity: text("severity").notNull(),
+  impact: text("impact").notNull(),
+  url: text("url").notNull(),
+  rawHash: text("raw_hash"),
+  startedAt: text("started_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+  createdAt: timestamp("created_at").notNull(),
+  archivedAt: timestamp("archived_at").notNull().defaultNow(),
+});
+
 // Jobs - scraping tasks and schedules
 export const jobs = pgTable("jobs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -267,6 +285,11 @@ export const insertIncidentSchema = createInsertSchema(incidents).omit({
   createdAt: true,
 });
 
+export const insertIncidentArchiveSchema = createInsertSchema(incidentArchive).omit({
+  id: true,
+  archivedAt: true,
+});
+
 export const insertJobSchema = createInsertSchema(jobs).omit({
   id: true,
   createdAt: true,
@@ -357,6 +380,9 @@ export type Vendor = typeof vendors.$inferSelect;
 
 export type InsertIncident = z.infer<typeof insertIncidentSchema>;
 export type Incident = typeof incidents.$inferSelect;
+
+export type InsertIncidentArchive = z.infer<typeof insertIncidentArchiveSchema>;
+export type IncidentArchive = typeof incidentArchive.$inferSelect;
 
 export type InsertJob = z.infer<typeof insertJobSchema>;
 export type Job = typeof jobs.$inferSelect;
