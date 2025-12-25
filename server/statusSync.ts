@@ -394,12 +394,9 @@ export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: nu
         result = await fetchStatuspageJson(vendor);
       }
       
+      // Parser health alerts disabled - viewable on owner dashboard instead
       if (await shouldSendParserHealthAlert(vendor.key)) {
-        console.log(`[parser-health] ALERT: Parser unhealthy for ${vendor.name}`);
-        const healthStatus = await getParserHealthStatus(vendor.key);
-        if (healthStatus) {
-          await sendParserHealthAlert(vendor.key, healthStatus.consecutiveFailures, healthStatus.lastError);
-        }
+        console.log(`[parser-health] Parser unhealthy for ${vendor.name} - check /parser-health dashboard`);
         await markAlertSent(vendor.key);
       }
       

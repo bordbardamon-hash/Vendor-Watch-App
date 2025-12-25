@@ -50,6 +50,23 @@ const isAdmin = async (req: any, res: any, next: any) => {
   }
 };
 
+// Owner-only middleware - requires isAuthenticated to run first
+const isOwner = async (req: any, res: any, next: any) => {
+  try {
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    if (!user.isOwner) {
+      return res.status(403).json({ error: "Owner access required" });
+    }
+    next();
+  } catch (error) {
+    console.error("Owner check error:", error);
+    res.status(500).json({ error: "Failed to verify owner status" });
+  }
+};
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -409,6 +426,66 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error getting archived blockchain incidents count:", error);
       res.status(500).json({ error: "Failed to get archived blockchain incidents count" });
+    }
+  });
+  
+  // ============ PARSER HEALTH (Owner Only) ============
+  
+  // Get all parser health data (owner only)
+  app.get("/api/parser-health", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const { getAllParserHealth } = await import('./parserHealthTracker');
+      const healthData = await getAllParserHealth();
+      const vendors = await storage.getVendors();
+      
+      const enrichedData = healthData.map(h => {
+        const vendor = vendors.find(v => v.key === h.vendorKey);
+        return {
+          ...h,
+          vendorName: vendor?.name || h.vendorKey,
+        };
+      });
+      
+      // Sort by health status (unhealthy first) then by consecutive failures
+      enrichedData.sort((a, b) => {
+        if (a.isHealthy !== b.isHealthy) return a.isHealthy ? 1 : -1;
+        return b.consecutiveFailures - a.consecutiveFailures;
+      });
+      
+      const unhealthyCount = enrichedData.filter(h => !h.isHealthy).length;
+      const healthyCount = enrichedData.filter(h => h.isHealthy).length;
+      
+      res.json({
+        summary: {
+          total: enrichedData.length,
+          healthy: healthyCount,
+          unhealthy: unhealthyCount,
+        },
+        parsers: enrichedData,
+      });
+    } catch (error) {
+      console.error("Error fetching parser health:", error);
+      res.status(500).json({ error: "Failed to fetch parser health" });
+    }
+  });
+  
+  // Reset parser health for a specific vendor (owner only)
+  app.post("/api/parser-health/:vendorKey/reset", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const { vendorKey } = req.params;
+      const { recordParseResult } = await import('./parserHealthTracker');
+      
+      // Reset by recording a successful parse
+      await recordParseResult(vendorKey, {
+        success: true,
+        httpStatus: 200,
+        incidentsParsed: 0,
+      });
+      
+      res.json({ success: true, message: `Parser health reset for ${vendorKey}` });
+    } catch (error) {
+      console.error("Error resetting parser health:", error);
+      res.status(500).json({ error: "Failed to reset parser health" });
     }
   });
   
