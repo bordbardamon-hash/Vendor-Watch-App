@@ -581,3 +581,39 @@ export type UserActivityEvent = typeof userActivityEvents.$inferSelect;
 
 export type InsertVendorDailyMetrics = z.infer<typeof insertVendorDailyMetricsSchema>;
 export type VendorDailyMetrics = typeof vendorDailyMetrics.$inferSelect;
+
+// ==========================================
+// PSA WEBHOOKS INTEGRATION
+// ==========================================
+
+export const PSA_PLATFORMS = ['connectwise', 'autotask', 'custom'] as const;
+export type PsaPlatform = typeof PSA_PLATFORMS[number];
+
+export const WEBHOOK_EVENTS = ['incident_created', 'incident_updated', 'incident_resolved', 'maintenance_scheduled'] as const;
+export type WebhookEvent = typeof WEBHOOK_EVENTS[number];
+
+export const psaWebhooks = pgTable("psa_webhooks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: text("user_id").notNull(),
+  name: text("name").notNull(),
+  platform: text("platform").notNull(), // connectwise, autotask, custom
+  webhookUrl: text("webhook_url").notNull(),
+  secret: text("secret"), // Optional HMAC secret for signature verification
+  events: text("events").notNull(), // comma-separated list of events to trigger on
+  isActive: boolean("is_active").notNull().default(true),
+  lastTriggered: timestamp("last_triggered"),
+  successCount: integer("success_count").notNull().default(0),
+  failureCount: integer("failure_count").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertPsaWebhookSchema = createInsertSchema(psaWebhooks).omit({
+  id: true,
+  lastTriggered: true,
+  successCount: true,
+  failureCount: true,
+  createdAt: true,
+});
+
+export type InsertPsaWebhook = z.infer<typeof insertPsaWebhookSchema>;
+export type PsaWebhook = typeof psaWebhooks.$inferSelect;

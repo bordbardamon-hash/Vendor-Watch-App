@@ -2250,5 +2250,163 @@ Vendor Watch | Automated Service Monitoring`;
     }
   });
 
+  // ============ PSA WEBHOOKS ============
+
+  // Get user's PSA webhooks
+  app.get("/api/webhooks", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const webhooks = await storage.getPsaWebhooks(userId);
+      res.json(webhooks);
+    } catch (error) {
+      console.error("Error fetching webhooks:", error);
+      res.status(500).json({ error: "Failed to fetch webhooks" });
+    }
+  });
+
+  // Create a new PSA webhook
+  app.post("/api/webhooks", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const { name, platform, webhookUrl, secret, events, isActive } = req.body;
+      
+      if (!name || !platform || !webhookUrl || !events) {
+        return res.status(400).json({ error: "Missing required fields: name, platform, webhookUrl, events" });
+      }
+      
+      const webhook = await storage.createPsaWebhook({
+        userId,
+        name,
+        platform,
+        webhookUrl,
+        secret: secret || null,
+        events: Array.isArray(events) ? events.join(',') : events,
+        isActive: isActive !== false,
+      });
+      
+      res.status(201).json(webhook);
+    } catch (error) {
+      console.error("Error creating webhook:", error);
+      res.status(500).json({ error: "Failed to create webhook" });
+    }
+  });
+
+  // Update a PSA webhook
+  app.put("/api/webhooks/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const webhook = await storage.getPsaWebhook(req.params.id);
+      if (!webhook) {
+        return res.status(404).json({ error: "Webhook not found" });
+      }
+      if (webhook.userId !== userId) {
+        return res.status(403).json({ error: "Not authorized to update this webhook" });
+      }
+      
+      const { name, platform, webhookUrl, secret, events, isActive } = req.body;
+      
+      const updated = await storage.updatePsaWebhook(req.params.id, {
+        ...(name && { name }),
+        ...(platform && { platform }),
+        ...(webhookUrl && { webhookUrl }),
+        ...(secret !== undefined && { secret }),
+        ...(events && { events: Array.isArray(events) ? events.join(',') : events }),
+        ...(isActive !== undefined && { isActive }),
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating webhook:", error);
+      res.status(500).json({ error: "Failed to update webhook" });
+    }
+  });
+
+  // Delete a PSA webhook
+  app.delete("/api/webhooks/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const webhook = await storage.getPsaWebhook(req.params.id);
+      if (!webhook) {
+        return res.status(404).json({ error: "Webhook not found" });
+      }
+      if (webhook.userId !== userId) {
+        return res.status(403).json({ error: "Not authorized to delete this webhook" });
+      }
+      
+      await storage.deletePsaWebhook(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting webhook:", error);
+      res.status(500).json({ error: "Failed to delete webhook" });
+    }
+  });
+
+  // Test a PSA webhook
+  app.post("/api/webhooks/:id/test", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const webhook = await storage.getPsaWebhook(req.params.id);
+      if (!webhook) {
+        return res.status(404).json({ error: "Webhook not found" });
+      }
+      if (webhook.userId !== userId) {
+        return res.status(403).json({ error: "Not authorized to test this webhook" });
+      }
+      
+      const testPayload = {
+        event: "test",
+        timestamp: new Date().toISOString(),
+        data: {
+          message: "This is a test webhook from Vendor Watch",
+          source: "vendor-watch",
+        }
+      };
+      
+      try {
+        const response = await fetch(webhook.webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(webhook.secret && { 'X-Webhook-Secret': webhook.secret }),
+          },
+          body: JSON.stringify(testPayload),
+        });
+        
+        if (response.ok) {
+          await storage.recordWebhookResult(webhook.id, true);
+          res.json({ success: true, status: response.status });
+        } else {
+          await storage.recordWebhookResult(webhook.id, false);
+          res.json({ success: false, status: response.status, error: await response.text() });
+        }
+      } catch (fetchError: any) {
+        await storage.recordWebhookResult(webhook.id, false);
+        res.json({ success: false, error: fetchError.message });
+      }
+    } catch (error) {
+      console.error("Error testing webhook:", error);
+      res.status(500).json({ error: "Failed to test webhook" });
+    }
+  });
+
   return httpServer;
 }

@@ -1,7 +1,7 @@
 import { 
   users, vendors, incidents, incidentArchive, jobs, config, feedback, notificationConsents, incidentAlerts, userVendorSubscriptions, userVendorOrder, customVendorRequests,
   blockchainChains, blockchainIncidents, userBlockchainSubscriptions, incidentAcknowledgements, maintenanceAcknowledgements,
-  vendorMaintenances, blockchainMaintenances, userActivityEvents, vendorDailyMetrics,
+  vendorMaintenances, blockchainMaintenances, userActivityEvents, vendorDailyMetrics, psaWebhooks,
   type User, type UpsertUser,
   type Vendor, type InsertVendor,
   type Incident, type InsertIncident,
@@ -20,6 +20,7 @@ import {
   type MaintenanceAcknowledgement,
   type VendorMaintenance, type InsertVendorMaintenance,
   type BlockchainMaintenance, type InsertBlockchainMaintenance,
+  type PsaWebhook, type InsertPsaWebhook,
   SUBSCRIPTION_TIERS
 } from "@shared/schema";
 import { and, isNull, inArray, gte, lte, sql, count, ilike, or } from "drizzle-orm";
@@ -202,6 +203,15 @@ export interface IStorage {
   // Analytics - Blockchain Performance
   getBlockchainPerformanceStats(chainKey: string, days?: number): Promise<{ uptimePercent: number; incidentCount: number; avgResolutionMinutes: number | null }>;
   getAllBlockchainPerformanceStats(days?: number): Promise<Array<{ chainKey: string; chainName: string; uptimePercent: number; incidentCount: number }>>;
+  
+  // PSA Webhooks
+  getPsaWebhooks(userId: string): Promise<PsaWebhook[]>;
+  getPsaWebhook(id: string): Promise<PsaWebhook | undefined>;
+  createPsaWebhook(webhook: InsertPsaWebhook): Promise<PsaWebhook>;
+  updatePsaWebhook(id: string, data: Partial<InsertPsaWebhook>): Promise<PsaWebhook | undefined>;
+  deletePsaWebhook(id: string): Promise<boolean>;
+  getActiveWebhooksForEvent(event: string): Promise<PsaWebhook[]>;
+  recordWebhookResult(id: string, success: boolean): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1636,6 +1646,57 @@ export class DatabaseStorage implements IStorage {
         ...metrics,
         avgResolutionMinutes: metrics.avgResolutionMinutes ?? null,
       });
+    }
+  }
+
+  // PSA Webhooks
+  async getPsaWebhooks(userId: string): Promise<PsaWebhook[]> {
+    return db.select().from(psaWebhooks).where(eq(psaWebhooks.userId, userId)).orderBy(desc(psaWebhooks.createdAt));
+  }
+
+  async getPsaWebhook(id: string): Promise<PsaWebhook | undefined> {
+    const [webhook] = await db.select().from(psaWebhooks).where(eq(psaWebhooks.id, id));
+    return webhook || undefined;
+  }
+
+  async createPsaWebhook(webhook: InsertPsaWebhook): Promise<PsaWebhook> {
+    const [created] = await db.insert(psaWebhooks).values(webhook).returning();
+    return created;
+  }
+
+  async updatePsaWebhook(id: string, data: Partial<InsertPsaWebhook>): Promise<PsaWebhook | undefined> {
+    const [updated] = await db.update(psaWebhooks).set(data).where(eq(psaWebhooks.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deletePsaWebhook(id: string): Promise<boolean> {
+    const result = await db.delete(psaWebhooks).where(eq(psaWebhooks.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async getActiveWebhooksForEvent(event: string): Promise<PsaWebhook[]> {
+    const allActive = await db.select().from(psaWebhooks).where(eq(psaWebhooks.isActive, true));
+    return allActive.filter(w => w.events.split(',').includes(event));
+  }
+
+  async recordWebhookResult(id: string, success: boolean): Promise<void> {
+    const webhook = await this.getPsaWebhook(id);
+    if (!webhook) return;
+    
+    if (success) {
+      await db.update(psaWebhooks)
+        .set({ 
+          lastTriggered: new Date(), 
+          successCount: webhook.successCount + 1 
+        })
+        .where(eq(psaWebhooks.id, id));
+    } else {
+      await db.update(psaWebhooks)
+        .set({ 
+          lastTriggered: new Date(), 
+          failureCount: webhook.failureCount + 1 
+        })
+        .where(eq(psaWebhooks.id, id));
     }
   }
 }
