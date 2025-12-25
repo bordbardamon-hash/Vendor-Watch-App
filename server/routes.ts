@@ -2250,6 +2250,102 @@ Vendor Watch | Automated Service Monitoring`;
     }
   });
 
+  // ============ PREDICTIVE RELIABILITY ALERTS ============
+
+  // Get vendors with declining reliability trends
+  app.get("/api/reliability/trends", isAuthenticated, async (req: any, res) => {
+    try {
+      const vendors = await storage.getVendors();
+      const incidents = await storage.getIncidents();
+      const now = new Date();
+      
+      const trends: Array<{
+        vendorKey: string;
+        vendorName: string;
+        trend: 'declining' | 'stable' | 'improving';
+        recentIncidents: number;
+        previousIncidents: number;
+        changePercent: number;
+        riskLevel: 'high' | 'medium' | 'low';
+        recommendation: string;
+      }> = [];
+      
+      for (const vendor of vendors) {
+        const vendorIncidents = incidents.filter(i => i.vendorKey === vendor.key);
+        
+        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+        
+        const recentIncidents = vendorIncidents.filter(i => new Date(i.startedAt) >= thirtyDaysAgo).length;
+        const previousIncidents = vendorIncidents.filter(i => {
+          const date = new Date(i.startedAt);
+          return date >= sixtyDaysAgo && date < thirtyDaysAgo;
+        }).length;
+        
+        let trend: 'declining' | 'stable' | 'improving' = 'stable';
+        let changePercent = 0;
+        
+        if (previousIncidents > 0) {
+          changePercent = Math.round(((recentIncidents - previousIncidents) / previousIncidents) * 100);
+          if (changePercent >= 50) trend = 'declining';
+          else if (changePercent <= -30) trend = 'improving';
+        } else if (recentIncidents > 0) {
+          changePercent = 100;
+          trend = 'declining';
+        }
+        
+        let riskLevel: 'high' | 'medium' | 'low' = 'low';
+        let recommendation = 'Continue normal monitoring.';
+        
+        if (trend === 'declining') {
+          if (recentIncidents >= 5 || changePercent >= 100) {
+            riskLevel = 'high';
+            recommendation = 'Consider notifying stakeholders and reviewing backup options.';
+          } else {
+            riskLevel = 'medium';
+            recommendation = 'Monitor closely for further incidents.';
+          }
+        } else if (trend === 'improving') {
+          recommendation = 'Reliability is improving. Consider reducing alert thresholds.';
+        }
+        
+        if (trend !== 'stable' || recentIncidents > 0 || previousIncidents > 0) {
+          trends.push({
+            vendorKey: vendor.key,
+            vendorName: vendor.name,
+            trend,
+            recentIncidents,
+            previousIncidents,
+            changePercent,
+            riskLevel,
+            recommendation,
+          });
+        }
+      }
+      
+      trends.sort((a, b) => {
+        const riskOrder = { high: 0, medium: 1, low: 2 };
+        if (riskOrder[a.riskLevel] !== riskOrder[b.riskLevel]) {
+          return riskOrder[a.riskLevel] - riskOrder[b.riskLevel];
+        }
+        return b.recentIncidents - a.recentIncidents;
+      });
+      
+      res.json({
+        trends,
+        summary: {
+          total: trends.length,
+          declining: trends.filter(t => t.trend === 'declining').length,
+          improving: trends.filter(t => t.trend === 'improving').length,
+          highRisk: trends.filter(t => t.riskLevel === 'high').length,
+        }
+      });
+    } catch (error) {
+      console.error("Error calculating reliability trends:", error);
+      res.status(500).json({ error: "Failed to calculate reliability trends" });
+    }
+  });
+
   // ============ PSA WEBHOOKS ============
 
   // Get user's PSA webhooks
