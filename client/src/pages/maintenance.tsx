@@ -147,15 +147,27 @@ export default function Maintenance() {
   const generateICS = () => {
     const allMaintenances = [...vendorUpcoming, ...blockchainUpcoming, ...vendorActive, ...blockchainActive];
     
-    let icsContent = `BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Vendor Watch//Maintenance Calendar//EN
-CALSCALE:GREGORIAN
-METHOD:PUBLISH
-X-WR-CALNAME:Vendor Watch Maintenance
-`;
+    const CRLF = '\r\n';
+    
+    const escapeIcsText = (text: string): string => {
+      return text
+        .replace(/\\/g, '\\\\')
+        .replace(/;/g, '\\;')
+        .replace(/,/g, '\\,')
+        .replace(/\n/g, '\\n')
+        .replace(/\r/g, '');
+    };
+    
+    const lines: string[] = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//Vendor Watch//Maintenance Calendar//EN',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH',
+      'X-WR-CALNAME:Vendor Watch Maintenance',
+    ];
 
-    allMaintenances.forEach((m, index) => {
+    allMaintenances.forEach((m) => {
       const start = new Date(m.scheduledStartAt);
       const end = m.scheduledEndAt ? new Date(m.scheduledEndAt) : new Date(start.getTime() + 2 * 60 * 60 * 1000);
       
@@ -163,21 +175,24 @@ X-WR-CALNAME:Vendor Watch Maintenance
       
       const name = 'vendorKey' in m ? m.vendorKey : ('chainKey' in m ? m.chainKey : 'Unknown');
       const uid = `maintenance-${m.id}@vendorwatch`;
+      const summary = escapeIcsText(`${name.toUpperCase()} Maintenance: ${m.title}`);
+      const description = escapeIcsText((m.description || m.title).substring(0, 500));
       
-      icsContent += `BEGIN:VEVENT
-UID:${uid}
-DTSTAMP:${formatDate(new Date())}
-DTSTART:${formatDate(start)}
-DTEND:${formatDate(end)}
-SUMMARY:${name.toUpperCase()} Maintenance: ${m.title.replace(/[,;]/g, ' ')}
-DESCRIPTION:${(m.description || m.title).replace(/[,;]/g, ' ').substring(0, 500)}
-STATUS:${m.status === 'completed' ? 'COMPLETED' : 'CONFIRMED'}
-CATEGORIES:MAINTENANCE
-END:VEVENT
-`;
+      lines.push('BEGIN:VEVENT');
+      lines.push(`UID:${uid}`);
+      lines.push(`DTSTAMP:${formatDate(new Date())}`);
+      lines.push(`DTSTART:${formatDate(start)}`);
+      lines.push(`DTEND:${formatDate(end)}`);
+      lines.push(`SUMMARY:${summary}`);
+      lines.push(`DESCRIPTION:${description}`);
+      lines.push(`STATUS:${m.status === 'completed' ? 'COMPLETED' : 'CONFIRMED'}`);
+      lines.push('CATEGORIES:MAINTENANCE');
+      lines.push('END:VEVENT');
     });
 
-    icsContent += 'END:VCALENDAR';
+    lines.push('END:VCALENDAR');
+    
+    const icsContent = lines.join(CRLF) + CRLF;
 
     const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
     const url = URL.createObjectURL(blob);
