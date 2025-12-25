@@ -19,6 +19,7 @@ import Maintenance from "@/pages/maintenance";
 import Analytics from "@/pages/analytics";
 import SLA from "@/pages/sla";
 import Automation from "@/pages/automation";
+import ParserHealth from "@/pages/parser-health";
 import Signup from "@/pages/signup";
 import SignupSuccess from "@/pages/signup-success";
 import Verify2FA from "@/pages/verify-2fa";
@@ -79,6 +80,7 @@ function AuthenticatedRouter() {
         <Route path="/settings" component={Settings} />
         <Route path="/consents" component={Consents} />
         <Route path="/feedback" component={FeedbackAdmin} />
+        <Route path="/parser-health" component={ParserHealth} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
