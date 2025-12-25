@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Shield, Check, CreditCard, ArrowRight, Crown, Star, Zap } from "lucide-react";
+import { Check, CreditCard, ArrowRight, Crown, Star, Zap, Shield } from "lucide-react";
+import vendorWatchLogo from "@assets/generated_images/radar_eye_monitoring_logo.png";
 import { APP_NAME } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 
@@ -117,7 +118,7 @@ export default function Signup() {
       <div className="w-full max-w-6xl space-y-8">
         <div className="text-center space-y-2">
           <div className="flex items-center justify-center gap-2">
-            <Shield className="h-10 w-10 text-primary" />
+            <img src={vendorWatchLogo} alt="Vendor Watch" className="h-10 w-10 rounded" />
             <h1 className="text-4xl font-bold">{APP_NAME}</h1>
           </div>
           <p className="text-muted-foreground text-lg">
