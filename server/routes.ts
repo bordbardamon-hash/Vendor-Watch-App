@@ -1478,6 +1478,101 @@ export async function registerRoutes(
     }
   });
 
+  // Generate customer-ready incident summary email template
+  app.get("/api/incidents/:id/customer-summary", isAuthenticated, async (req: any, res) => {
+    try {
+      const incidents = await storage.getIncidents();
+      const incident = incidents.find(i => i.id === req.params.id);
+      
+      if (!incident) {
+        return res.status(404).json({ error: "Incident not found" });
+      }
+      
+      const vendors = await storage.getVendors();
+      const vendor = vendors.find(v => v.key === incident.vendorKey);
+      const vendorName = vendor?.name || incident.vendorKey;
+      
+      const statusText = incident.status === 'resolved' 
+        ? 'RESOLVED' 
+        : incident.status === 'investigating' 
+          ? 'Under Investigation' 
+          : 'In Progress';
+      
+      const impactLevel = incident.severity === 'critical' 
+        ? 'significant' 
+        : incident.severity === 'major' 
+          ? 'moderate' 
+          : 'minimal';
+      
+      const startDate = new Date(incident.startedAt);
+      const formattedDate = startDate.toLocaleDateString('en-US', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZoneName: 'short'
+      });
+      
+      const subject = `[${statusText}] ${vendorName} Service Update - ${incident.title}`;
+      
+      const emailBody = `Dear Valued Client,
+
+We are writing to inform you of a service event affecting ${vendorName}.
+
+**Incident Summary**
+- Status: ${statusText}
+- Started: ${formattedDate}
+- Impact Level: ${impactLevel.charAt(0).toUpperCase() + impactLevel.slice(1)}
+
+**Description**
+${incident.impact || incident.title}
+
+**Current Status**
+${incident.status === 'resolved' 
+  ? `This incident has been resolved. Services have returned to normal operation.`
+  : `Our team is actively monitoring this situation. ${vendorName}'s engineering team is working to resolve the issue.`}
+
+**What This Means for You**
+${incident.severity === 'critical' || incident.severity === 'major'
+  ? `You may experience ${impactLevel} disruption to services that depend on ${vendorName}. We recommend planning for potential delays or interruptions.`
+  : `This event may have ${impactLevel} impact on your services. No immediate action is required.`}
+
+**Next Steps**
+We will continue to monitor this situation and provide updates as they become available.
+
+If you have any questions or concerns, please don't hesitate to contact our support team.
+
+Best regards,
+Your IT Support Team
+
+---
+Vendor Watch | Automated Service Monitoring`;
+
+      const plainText = emailBody
+        .replace(/\*\*/g, '')
+        .replace(/\n\n/g, '\n\n');
+
+      res.json({
+        subject,
+        emailBody,
+        plainText,
+        incident: {
+          id: incident.id,
+          title: incident.title,
+          status: incident.status,
+          severity: incident.severity,
+          vendorName,
+          startedAt: incident.startedAt,
+        }
+      });
+    } catch (error) {
+      console.error("Error generating customer summary:", error);
+      res.status(500).json({ error: "Failed to generate customer summary" });
+    }
+  });
+
   // Acknowledge a blockchain incident
   app.post("/api/blockchain/incidents/:id/acknowledge", isAuthenticated, async (req: any, res) => {
     try {
