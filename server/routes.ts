@@ -219,6 +219,58 @@ export async function registerRoutes(
     }
   });
   
+  // ============ INCIDENT ARCHIVE ============
+  
+  // Search archived incidents (protected)
+  app.get("/api/incidents/archive", isAuthenticated, async (req, res) => {
+    try {
+      const { vendorKey, query, limit, offset } = req.query;
+      const archived = await storage.searchArchivedIncidents({
+        vendorKey: vendorKey as string | undefined,
+        query: query as string | undefined,
+        limit: limit ? parseInt(limit as string, 10) : 50,
+        offset: offset ? parseInt(offset as string, 10) : 0,
+      });
+      res.json(archived);
+    } catch (error) {
+      console.error("Error searching archived incidents:", error);
+      res.status(500).json({ error: "Failed to search archived incidents" });
+    }
+  });
+  
+  // Get archived incidents count (protected)
+  app.get("/api/incidents/archive/count", isAuthenticated, async (req, res) => {
+    try {
+      const { vendorKey, query } = req.query;
+      const count = await storage.getArchivedIncidentsCount({
+        vendorKey: vendorKey as string | undefined,
+        query: query as string | undefined,
+      });
+      res.json({ count });
+    } catch (error) {
+      console.error("Error getting archived incidents count:", error);
+      res.status(500).json({ error: "Failed to get archived incidents count" });
+    }
+  });
+  
+  // Manual trigger for archival (admin only)
+  app.post("/api/incidents/archive/run", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const archived = await storage.archiveResolvedIncidents(3); // 3 days
+      const purged = await storage.purgeOldArchivedIncidents(365); // 1 year
+      res.json({ 
+        message: "Archival complete", 
+        archived, 
+        purged,
+        archivedMessage: `Archived ${archived} resolved incidents older than 3 days`,
+        purgedMessage: `Purged ${purged} archived incidents older than 1 year`
+      });
+    } catch (error) {
+      console.error("Error running archival:", error);
+      res.status(500).json({ error: "Failed to run archival" });
+    }
+  });
+  
   // ============ JOBS (Admin Only) ============
   
   // Get all jobs (admin only)
