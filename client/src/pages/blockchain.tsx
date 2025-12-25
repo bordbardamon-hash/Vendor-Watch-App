@@ -191,12 +191,30 @@ export default function Blockchain() {
     return subscriptionData?.tier === 'standard' || subscriptionData?.tier === 'gold' || subscriptionData?.tier === 'platinum';
   };
 
-  const { data: chains = [], isLoading: chainsLoading, refetch } = useQuery<BlockchainChain[]>({
+  const { data: chains = [], isLoading: chainsLoading, refetch, isFetching } = useQuery<BlockchainChain[]>({
     queryKey: ["blockchain-chains"],
     queryFn: async () => {
       const res = await fetch("/api/blockchain/chains");
       if (!res.ok) throw new Error("Failed to fetch blockchain chains");
       return res.json();
+    },
+  });
+
+  // Manual refresh mutation
+  const refreshMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/blockchain/refresh", { method: "POST" });
+      if (!res.ok) throw new Error("Failed to refresh blockchain data");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["blockchain-chains"] });
+      queryClient.invalidateQueries({ queryKey: ["blockchain-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["blockchain-incidents-active"] });
+      toast({ title: "Refreshed", description: "Blockchain data updated" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Refresh Failed", description: error.message, variant: "destructive" });
     },
   });
 
@@ -458,9 +476,19 @@ export default function Blockchain() {
                 data-testid="input-search-chains"
               />
             </div>
-            <Button variant="outline" onClick={() => refetch()} data-testid="button-refresh-chains" className="flex-1 sm:flex-none">
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Refresh
+            <Button 
+              variant="outline" 
+              onClick={() => refreshMutation.mutate()} 
+              disabled={refreshMutation.isPending || isFetching}
+              data-testid="button-refresh-chains" 
+              className="flex-1 sm:flex-none"
+            >
+              {refreshMutation.isPending || isFetching ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4 mr-2" />
+              )}
+              {refreshMutation.isPending ? "Refreshing..." : "Refresh"}
             </Button>
           </div>
         </div>

@@ -206,13 +206,6 @@ async function syncBlockchainChain(chainData: { key: string; name: string; sourc
     return;
   }
   
-  await storage.updateBlockchainChain(chainData.key, {
-    status: result.status,
-    lastChecked: new Date(),
-  });
-  
-  console.log(`[blockchain:${chainData.key}] Status updated to: ${result.status}`);
-  
   const fullChain = await storage.getBlockchainChain(chainData.key);
   if (!fullChain) {
     console.log(`[blockchain:${chainData.key}] Chain not found in database`);
@@ -222,10 +215,38 @@ async function syncBlockchainChain(chainData: { key: string; name: string; sourc
   // Get existing active incidents for this chain
   const existingIncidents = await storage.getBlockchainIncidentsByChain(chainData.key);
   const activeExistingIncidents = existingIncidents.filter(i => i.status !== 'resolved');
-  const unresolvedIncidentIds = new Set(result.incidents.map(i => i.id));
+  
+  // Filter out old incidents (older than 1 year) to avoid stale data from status pages
+  const oneYearAgo = new Date();
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+  const recentIncidents = result.incidents.filter(incident => {
+    const createdDate = new Date(incident.created_at);
+    if (createdDate < oneYearAgo) {
+      console.log(`[blockchain:${chainData.key}] Ignoring old incident from ${createdDate.toISOString()}: ${incident.name}`);
+      return false;
+    }
+    return true;
+  });
+  
+  // Determine final status: if no recent incidents, treat as operational
+  // This prevents false positives from status pages that show internal component degradation
+  let finalStatus = result.status;
+  if (recentIncidents.length === 0 && result.status !== 'operational') {
+    console.log(`[blockchain:${chainData.key}] No recent incidents found, overriding status from '${result.status}' to 'operational'`);
+    finalStatus = 'operational';
+  }
+  
+  await storage.updateBlockchainChain(chainData.key, {
+    status: finalStatus,
+    lastChecked: new Date(),
+  });
+  
+  console.log(`[blockchain:${chainData.key}] Status updated to: ${finalStatus}`);
+  
+  const unresolvedIncidentIds = new Set(recentIncidents.map(i => i.id));
   
   // Process current unresolved incidents
-  for (const incident of result.incidents) {
+  for (const incident of recentIncidents) {
     const existing = existingIncidents.find(i => i.incidentId === incident.id);
     
     if (existing) {

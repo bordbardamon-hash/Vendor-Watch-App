@@ -1630,6 +1630,18 @@ export async function registerRoutes(
     }
   });
 
+  // Manual blockchain refresh (alias for sync)
+  app.post("/api/blockchain/refresh", isAuthenticated, async (req, res) => {
+    try {
+      console.log("[blockchain] Manual refresh triggered");
+      await syncAllBlockchainChains();
+      res.json({ success: true, message: "Blockchain data refreshed" });
+    } catch (error) {
+      console.error("Error refreshing blockchain chains:", error);
+      res.status(500).json({ error: "Failed to refresh blockchain data" });
+    }
+  });
+
   // ============ INCIDENT ACKNOWLEDGEMENTS ============
   
   // Get user's acknowledged incidents
