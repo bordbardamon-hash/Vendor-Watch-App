@@ -2067,11 +2067,10 @@ Vendor Watch | Automated Service Monitoring`;
         const reliabilityData = reliabilityStats.find((r: any) => r.vendorKey === vendor.key);
         const reliability = reliabilityData?.metrics;
         
-        const downtimeMinutes = metrics?.downtimeMinutes || 0;
-        const uptimeMinutes = totalMinutesInPeriod - downtimeMinutes;
-        const uptimePercent = totalMinutesInPeriod > 0 
-          ? (uptimeMinutes / totalMinutesInPeriod) * 100 
-          : 100;
+        // Use uptimePercent from metrics if available
+        const uptimePercent = metrics?.uptimePercent ?? 100;
+        // Calculate downtime from uptime percentage
+        const downtimeMinutes = Math.round(totalMinutesInPeriod * (1 - uptimePercent / 100));
         
         let trend: 'up' | 'down' | 'stable' = 'stable';
         if (reliability) {
@@ -2088,7 +2087,7 @@ Vendor Watch | Automated Service Monitoring`;
           uptimePercent: Math.min(100, Math.max(0, uptimePercent)),
           downtimeMinutes,
           incidentCount: metrics?.incidentCount || 0,
-          avgResolutionMinutes: metrics?.avgResolutionMinutes || null,
+          avgResolutionMinutes: reliability?.avgResolutionMinutes ?? null,
           slaTarget: target,
           meetsTarget: uptimePercent >= target,
           trend,
@@ -2870,6 +2869,24 @@ Vendor Watch | Automated Service Monitoring`;
         return res.status(400).json({ error: "incidentId is required" });
       }
       
+      // Authorization: Verify user can access this incident
+      const incident = await storage.getIncidentById(incidentId);
+      if (!incident) {
+        return res.status(404).json({ error: "Incident not found" });
+      }
+      
+      const subscriptions = await storage.getUserVendorSubscriptions(userId);
+      const user = await storage.getUser(userId);
+      
+      // Allow access if: user is admin, or incident vendor is in their subscriptions, or they have no subscriptions
+      const hasAccess = user?.isAdmin || 
+        subscriptions.length === 0 || 
+        subscriptions.includes(incident.vendorKey);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ error: "Access denied: You are not subscribed to this vendor" });
+      }
+      
       const { generateIncidentUpdate } = await import('./aiCopilot');
       const result = await generateIncidentUpdate(incidentId, {
         audience: audience || 'client',
@@ -2895,6 +2912,21 @@ Vendor Watch | Automated Service Monitoring`;
         return res.status(400).json({ error: "incidentId is required" });
       }
       
+      // Authorization check
+      const incident = await storage.getIncidentById(incidentId);
+      if (!incident) {
+        return res.status(404).json({ error: "Incident not found" });
+      }
+      
+      const subscriptions = await storage.getUserVendorSubscriptions(userId);
+      const user = await storage.getUser(userId);
+      const hasAccess = user?.isAdmin || subscriptions.length === 0 || 
+        subscriptions.includes(incident.vendorKey);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
       const { suggestRootCause } = await import('./aiCopilot');
       const result = await suggestRootCause(incidentId);
       
@@ -2914,6 +2946,21 @@ Vendor Watch | Automated Service Monitoring`;
       const { incidentId, clientType } = req.body;
       if (!incidentId || !clientType) {
         return res.status(400).json({ error: "incidentId and clientType are required" });
+      }
+      
+      // Authorization check
+      const incident = await storage.getIncidentById(incidentId);
+      if (!incident) {
+        return res.status(404).json({ error: "Incident not found" });
+      }
+      
+      const subscriptions = await storage.getUserVendorSubscriptions(userId);
+      const user = await storage.getUser(userId);
+      const hasAccess = user?.isAdmin || subscriptions.length === 0 || 
+        subscriptions.includes(incident.vendorKey);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ error: "Access denied" });
       }
       
       const { generateClientPersona } = await import('./aiCopilot');
