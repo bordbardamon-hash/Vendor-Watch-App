@@ -2250,6 +2250,126 @@ Vendor Watch | Automated Service Monitoring`;
     }
   });
 
+  // ============ ANALYTICS PRECOMPUTE ============
+
+  // Admin: Precompute vendor metrics for a date range (for scheduled nightly jobs)
+  app.post("/api/analytics/precompute", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { date } = req.body;
+      const targetDate = date || new Date().toISOString().split('T')[0];
+      
+      const vendors = await storage.getVendors();
+      const incidents = await storage.getIncidents();
+      let computed = 0;
+      
+      for (const vendor of vendors) {
+        const vendorIncidents = incidents.filter(i => {
+          const incidentDate = new Date(i.startedAt).toISOString().split('T')[0];
+          return i.vendorKey === vendor.key && incidentDate === targetDate;
+        });
+        
+        let totalDowntimeMinutes = 0;
+        let totalResolutionMinutes = 0;
+        let resolvedCount = 0;
+        
+        for (const incident of vendorIncidents) {
+          const start = new Date(incident.startedAt).getTime();
+          const end = new Date(incident.updatedAt).getTime();
+          const durationMinutes = Math.round((end - start) / (1000 * 60));
+          
+          totalDowntimeMinutes += durationMinutes;
+          
+          if (incident.status === 'resolved') {
+            totalResolutionMinutes += durationMinutes;
+            resolvedCount++;
+          }
+        }
+        
+        const uptimeMinutes = 1440 - totalDowntimeMinutes;
+        const avgResolutionMinutes = resolvedCount > 0 
+          ? Math.round(totalResolutionMinutes / resolvedCount) 
+          : undefined;
+        
+        await storage.recordVendorDailyMetrics(vendor.key, targetDate, {
+          uptimeMinutes: Math.max(0, uptimeMinutes),
+          downtimeMinutes: totalDowntimeMinutes,
+          incidentCount: vendorIncidents.length,
+          avgResolutionMinutes,
+        });
+        
+        computed++;
+      }
+      
+      console.log(`[analytics] Precomputed metrics for ${computed} vendors on ${targetDate}`);
+      res.json({ success: true, computed, date: targetDate });
+    } catch (error) {
+      console.error("Error precomputing analytics:", error);
+      res.status(500).json({ error: "Failed to precompute analytics" });
+    }
+  });
+
+  // Admin: Backfill analytics for past N days
+  app.post("/api/analytics/backfill", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { days = 30 } = req.body;
+      const today = new Date();
+      let totalComputed = 0;
+      
+      for (let i = 0; i < days; i++) {
+        const date = new Date(today);
+        date.setDate(today.getDate() - i);
+        const dateStr = date.toISOString().split('T')[0];
+        
+        const vendors = await storage.getVendors();
+        const incidents = await storage.getIncidents();
+        
+        for (const vendor of vendors) {
+          const vendorIncidents = incidents.filter(i => {
+            const incidentDate = new Date(i.startedAt).toISOString().split('T')[0];
+            return i.vendorKey === vendor.key && incidentDate === dateStr;
+          });
+          
+          let totalDowntimeMinutes = 0;
+          let totalResolutionMinutes = 0;
+          let resolvedCount = 0;
+          
+          for (const incident of vendorIncidents) {
+            const start = new Date(incident.startedAt).getTime();
+            const end = new Date(incident.updatedAt).getTime();
+            const durationMinutes = Math.round((end - start) / (1000 * 60));
+            
+            totalDowntimeMinutes += durationMinutes;
+            
+            if (incident.status === 'resolved') {
+              totalResolutionMinutes += durationMinutes;
+              resolvedCount++;
+            }
+          }
+          
+          const uptimeMinutes = 1440 - totalDowntimeMinutes;
+          const avgResolutionMinutes = resolvedCount > 0 
+            ? Math.round(totalResolutionMinutes / resolvedCount) 
+            : undefined;
+          
+          await storage.recordVendorDailyMetrics(vendor.key, dateStr, {
+            uptimeMinutes: Math.max(0, uptimeMinutes),
+            downtimeMinutes: totalDowntimeMinutes,
+            incidentCount: vendorIncidents.length,
+            avgResolutionMinutes,
+          });
+          
+          totalComputed++;
+        }
+      }
+      
+      console.log(`[analytics] Backfilled ${totalComputed} vendor-day metrics for ${days} days`);
+      res.json({ success: true, totalComputed, days });
+    } catch (error) {
+      console.error("Error backfilling analytics:", error);
+      res.status(500).json({ error: "Failed to backfill analytics" });
+    }
+  });
+
   // ============ PREDICTIVE RELIABILITY ALERTS ============
 
   // Get vendors with declining reliability trends
