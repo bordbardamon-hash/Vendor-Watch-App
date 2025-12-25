@@ -621,6 +621,49 @@ export default function Vendors() {
         </div>
       )}
 
+      {/* Mobile Alert Summary - visible only on small screens */}
+      <div className="md:hidden bg-sidebar/30 border border-sidebar-border rounded-lg p-4" data-testid="mobile-alert-summary">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold flex items-center gap-2">
+            <Activity className="w-4 h-4 text-primary" />
+            Quick Status
+          </h3>
+        </div>
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="bg-background/50 rounded-lg p-2">
+            <div className="text-lg font-bold text-emerald-500">{vendors.filter(v => v.status === 'operational').length}</div>
+            <div className="text-[10px] text-muted-foreground">Healthy</div>
+          </div>
+          <div className="bg-background/50 rounded-lg p-2">
+            <div className="text-lg font-bold text-orange-500">{incidents.length}</div>
+            <div className="text-[10px] text-muted-foreground">Incidents</div>
+          </div>
+          <div className="bg-background/50 rounded-lg p-2">
+            <div className="text-lg font-bold text-blue-500">{acknowledgements.length}</div>
+            <div className="text-[10px] text-muted-foreground">Ack'd</div>
+          </div>
+        </div>
+        {incidents.length > 0 && (
+          <div className="mt-3 space-y-2">
+            <div className="text-xs font-medium text-muted-foreground">Recent Alerts:</div>
+            {incidents.slice(0, 3).map(incident => (
+              <div key={incident.id} className="flex items-center justify-between bg-background/30 rounded p-2 text-xs">
+                <div className="flex items-center gap-2 truncate flex-1">
+                  <AlertTriangle className="w-3 h-3 text-orange-500 flex-shrink-0" />
+                  <span className="truncate">{incident.title}</span>
+                </div>
+                {isAcknowledged(incident.id) && (
+                  <Badge variant="secondary" className="text-[10px] bg-emerald-500/10 text-emerald-500 flex-shrink-0 ml-2">
+                    <BellOff className="w-2 h-2 mr-0.5" />
+                    Ack
+                  </Badge>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 flex-1 min-h-0">
         {/* Vendor List */}
         <div className="lg:col-span-5 flex flex-col gap-4 overflow-hidden">
