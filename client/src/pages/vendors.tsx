@@ -30,7 +30,10 @@ import {
   Filter,
   X,
   Users,
-  User
+  User,
+  Bot,
+  Sparkles,
+  Copy
 } from "lucide-react";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -365,6 +368,52 @@ export default function Vendors() {
       });
     },
   });
+
+  // AI Copilot state
+  const [showAiCopilotDialog, setShowAiCopilotDialog] = useState(false);
+  const [selectedIncidentForAi, setSelectedIncidentForAi] = useState<string | null>(null);
+  const [aiDraft, setAiDraft] = useState<{ subject: string; body: string; summary: string } | null>(null);
+  const [aiAudience, setAiAudience] = useState<'client' | 'executive' | 'technical'>('client');
+
+  // AI Copilot mutation
+  const generateAiDraftMutation = useMutation({
+    mutationFn: async ({ incidentId, audience }: { incidentId: string; audience: string }) => {
+      const res = await fetch("/api/ai-copilot/incident-update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ incidentId, audience, tone: 'formal', includeNextSteps: true }),
+      });
+      if (!res.ok) throw new Error("Failed to generate AI draft");
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setAiDraft(data);
+    },
+    onError: () => {
+      toast({
+        title: "AI Draft Failed",
+        description: "Could not generate incident update. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const openAiCopilot = (incidentId: string) => {
+    setSelectedIncidentForAi(incidentId);
+    setAiDraft(null);
+    setShowAiCopilotDialog(true);
+  };
+
+  const handleGenerateAiDraft = () => {
+    if (selectedIncidentForAi) {
+      generateAiDraftMutation.mutate({ incidentId: selectedIncidentForAi, audience: aiAudience });
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({ title: "Copied to clipboard" });
+  };
 
   // Helper to check if an incident is acknowledged
   const isAcknowledged = (incidentId: string) => {
@@ -851,6 +900,16 @@ export default function Vendors() {
                                 </>
                               )}
                             </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-xs h-8 text-cyan-500 border-cyan-500/30 hover:bg-cyan-500/10"
+                              onClick={() => openAiCopilot(incident.id)}
+                              data-testid={`button-ai-draft-${incident.id}`}
+                            >
+                              <Sparkles className="w-3 h-3 mr-1" />
+                              AI Draft
+                            </Button>
                             <a href={incident.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1 px-2 py-1.5 border border-primary/30 rounded shrink-0">
                               View <ExternalLink className="w-3 h-3" />
                             </a>
@@ -943,6 +1002,16 @@ export default function Vendors() {
                                   Acknowledge
                                 </>
                               )}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-xs h-8 text-cyan-500 border-cyan-500/30 hover:bg-cyan-500/10"
+                              onClick={() => openAiCopilot(incident.id)}
+                              data-testid={`button-ai-draft-vendor-${incident.id}`}
+                            >
+                              <Sparkles className="w-3 h-3 mr-1" />
+                              AI Draft
                             </Button>
                             <a href={incident.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1 px-2 py-1.5 border border-primary/30 rounded shrink-0">
                               View <ExternalLink className="w-3 h-3" />
@@ -1121,6 +1190,92 @@ export default function Vendors() {
           
           <DialogFooter className="mt-4">
             <Button variant="outline" onClick={() => setShowArchiveDialog(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* AI Copilot Dialog */}
+      <Dialog open={showAiCopilotDialog} onOpenChange={setShowAiCopilotDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-cyan-500" />
+              AI Communication Copilot
+            </DialogTitle>
+            <DialogDescription>
+              Generate professional incident updates for your clients
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 mt-4">
+            <div className="flex items-center gap-3">
+              <Label htmlFor="audience" className="w-24">Audience:</Label>
+              <Select value={aiAudience} onValueChange={(v) => setAiAudience(v as 'client' | 'executive' | 'technical')}>
+                <SelectTrigger className="w-48" data-testid="select-ai-audience">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="client">Client (Non-technical)</SelectItem>
+                  <SelectItem value="executive">Executive Summary</SelectItem>
+                  <SelectItem value="technical">Technical Team</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button 
+                onClick={handleGenerateAiDraft}
+                disabled={generateAiDraftMutation.isPending}
+                className="bg-cyan-600 hover:bg-cyan-700"
+                data-testid="button-generate-ai-draft"
+              >
+                {generateAiDraftMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Generate Draft
+                  </>
+                )}
+              </Button>
+            </div>
+            
+            {aiDraft && (
+              <div className="space-y-4 border border-sidebar-border rounded-lg p-4 bg-background/50">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <Label className="text-xs text-muted-foreground">Subject Line</Label>
+                    <Button variant="ghost" size="sm" onClick={() => copyToClipboard(aiDraft.subject)} className="h-6 px-2" data-testid="button-copy-subject">
+                      <Copy className="w-3 h-3 mr-1" /> Copy
+                    </Button>
+                  </div>
+                  <div className="bg-sidebar/50 p-2 rounded text-sm font-medium">{aiDraft.subject}</div>
+                </div>
+                
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <Label className="text-xs text-muted-foreground">Message Body</Label>
+                    <Button variant="ghost" size="sm" onClick={() => copyToClipboard(aiDraft.body)} className="h-6 px-2" data-testid="button-copy-body">
+                      <Copy className="w-3 h-3 mr-1" /> Copy
+                    </Button>
+                  </div>
+                  <ScrollArea className="h-48">
+                    <div className="bg-sidebar/50 p-3 rounded text-sm whitespace-pre-wrap">{aiDraft.body}</div>
+                  </ScrollArea>
+                </div>
+                
+                <div className="flex items-center gap-2 pt-2 border-t border-sidebar-border">
+                  <Bot className="w-4 h-4 text-cyan-500" />
+                  <span className="text-xs text-muted-foreground">Quick Summary: {aiDraft.summary}</span>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAiCopilotDialog(false)}>
               Close
             </Button>
           </DialogFooter>

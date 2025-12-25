@@ -2,6 +2,7 @@ import {
   users, vendors, incidents, incidentArchive, jobs, config, feedback, notificationConsents, incidentAlerts, userVendorSubscriptions, userVendorOrder, customVendorRequests,
   blockchainChains, blockchainIncidents, userBlockchainSubscriptions, incidentAcknowledgements, maintenanceAcknowledgements,
   vendorMaintenances, blockchainMaintenances, userActivityEvents, vendorDailyMetrics, psaWebhooks,
+  slaContracts, slaBreaches, syntheticProbes, syntheticProbeResults,
   type User, type UpsertUser,
   type Vendor, type InsertVendor,
   type Incident, type InsertIncident,
@@ -21,6 +22,10 @@ import {
   type VendorMaintenance, type InsertVendorMaintenance,
   type BlockchainMaintenance, type InsertBlockchainMaintenance,
   type PsaWebhook, type InsertPsaWebhook,
+  type SlaContract, type InsertSlaContract,
+  type SlaBreach, type InsertSlaBreach,
+  type SyntheticProbe, type InsertSyntheticProbe,
+  type SyntheticProbeResult, type InsertSyntheticProbeResult,
   SUBSCRIPTION_TIERS
 } from "@shared/schema";
 import { and, isNull, inArray, gte, lte, sql, count, ilike, or } from "drizzle-orm";
@@ -212,6 +217,28 @@ export interface IStorage {
   deletePsaWebhook(id: string): Promise<boolean>;
   getActiveWebhooksForEvent(event: string): Promise<PsaWebhook[]>;
   recordWebhookResult(id: string, success: boolean): Promise<void>;
+  
+  // SLA Contracts
+  getSlaContracts(userId: string): Promise<SlaContract[]>;
+  getSlaContract(id: string): Promise<SlaContract | undefined>;
+  createSlaContract(contract: InsertSlaContract): Promise<SlaContract>;
+  updateSlaContract(id: string, data: Partial<InsertSlaContract>): Promise<SlaContract | undefined>;
+  deleteSlaContract(id: string): Promise<boolean>;
+  
+  // SLA Breaches
+  getSlaBreaches(userId: string): Promise<SlaBreach[]>;
+  getSlaBreachesByContract(contractId: string): Promise<SlaBreach[]>;
+  createSlaBreach(breach: InsertSlaBreach): Promise<SlaBreach>;
+  updateSlaBreach(id: string, data: Partial<InsertSlaBreach>): Promise<SlaBreach | undefined>;
+  
+  // Synthetic Monitoring
+  getSyntheticProbes(userId: string): Promise<SyntheticProbe[]>;
+  getSyntheticProbe(id: string): Promise<SyntheticProbe | undefined>;
+  createSyntheticProbe(probe: InsertSyntheticProbe): Promise<SyntheticProbe>;
+  updateSyntheticProbe(id: string, data: Partial<InsertSyntheticProbe>): Promise<SyntheticProbe | undefined>;
+  deleteSyntheticProbe(id: string): Promise<boolean>;
+  getSyntheticProbeResults(probeId: string, limit?: number): Promise<SyntheticProbeResult[]>;
+  createSyntheticProbeResult(result: InsertSyntheticProbeResult): Promise<SyntheticProbeResult>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1698,6 +1725,87 @@ export class DatabaseStorage implements IStorage {
         })
         .where(eq(psaWebhooks.id, id));
     }
+  }
+
+  // SLA Contracts
+  async getSlaContracts(userId: string): Promise<SlaContract[]> {
+    return db.select().from(slaContracts).where(eq(slaContracts.userId, userId)).orderBy(desc(slaContracts.createdAt));
+  }
+
+  async getSlaContract(id: string): Promise<SlaContract | undefined> {
+    const [contract] = await db.select().from(slaContracts).where(eq(slaContracts.id, id));
+    return contract || undefined;
+  }
+
+  async createSlaContract(contract: InsertSlaContract): Promise<SlaContract> {
+    const [created] = await db.insert(slaContracts).values(contract).returning();
+    return created;
+  }
+
+  async updateSlaContract(id: string, data: Partial<InsertSlaContract>): Promise<SlaContract | undefined> {
+    const [updated] = await db.update(slaContracts).set(data).where(eq(slaContracts.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deleteSlaContract(id: string): Promise<boolean> {
+    const result = await db.delete(slaContracts).where(eq(slaContracts.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // SLA Breaches
+  async getSlaBreaches(userId: string): Promise<SlaBreach[]> {
+    const userContracts = await this.getSlaContracts(userId);
+    const contractIds = userContracts.map(c => c.id);
+    if (contractIds.length === 0) return [];
+    return db.select().from(slaBreaches).where(inArray(slaBreaches.contractId, contractIds)).orderBy(desc(slaBreaches.createdAt));
+  }
+
+  async getSlaBreachesByContract(contractId: string): Promise<SlaBreach[]> {
+    return db.select().from(slaBreaches).where(eq(slaBreaches.contractId, contractId)).orderBy(desc(slaBreaches.createdAt));
+  }
+
+  async createSlaBreach(breach: InsertSlaBreach): Promise<SlaBreach> {
+    const [created] = await db.insert(slaBreaches).values(breach).returning();
+    return created;
+  }
+
+  async updateSlaBreach(id: string, data: Partial<InsertSlaBreach>): Promise<SlaBreach | undefined> {
+    const [updated] = await db.update(slaBreaches).set(data).where(eq(slaBreaches.id, id)).returning();
+    return updated || undefined;
+  }
+
+  // Synthetic Monitoring
+  async getSyntheticProbes(userId: string): Promise<SyntheticProbe[]> {
+    return db.select().from(syntheticProbes).where(eq(syntheticProbes.userId, userId)).orderBy(desc(syntheticProbes.createdAt));
+  }
+
+  async getSyntheticProbe(id: string): Promise<SyntheticProbe | undefined> {
+    const [probe] = await db.select().from(syntheticProbes).where(eq(syntheticProbes.id, id));
+    return probe || undefined;
+  }
+
+  async createSyntheticProbe(probe: InsertSyntheticProbe): Promise<SyntheticProbe> {
+    const [created] = await db.insert(syntheticProbes).values(probe).returning();
+    return created;
+  }
+
+  async updateSyntheticProbe(id: string, data: Partial<InsertSyntheticProbe>): Promise<SyntheticProbe | undefined> {
+    const [updated] = await db.update(syntheticProbes).set(data).where(eq(syntheticProbes.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deleteSyntheticProbe(id: string): Promise<boolean> {
+    const result = await db.delete(syntheticProbes).where(eq(syntheticProbes.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async getSyntheticProbeResults(probeId: string, limit: number = 100): Promise<SyntheticProbeResult[]> {
+    return db.select().from(syntheticProbeResults).where(eq(syntheticProbeResults.probeId, probeId)).orderBy(desc(syntheticProbeResults.createdAt)).limit(limit);
+  }
+
+  async createSyntheticProbeResult(result: InsertSyntheticProbeResult): Promise<SyntheticProbeResult> {
+    const [created] = await db.insert(syntheticProbeResults).values(result).returning();
+    return created;
   }
 }
 

@@ -2624,5 +2624,469 @@ Vendor Watch | Automated Service Monitoring`;
     }
   });
 
+  // ============ AUTONOMOUS RESPONSE ORCHESTRATOR ============
+
+  // Get runbooks
+  app.get("/api/orchestrator/runbooks", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const { orchestrator } = await import('./orchestrator');
+      const runbooks = await orchestrator.getRunbooks(userId);
+      res.json(runbooks);
+    } catch (error) {
+      console.error("Error fetching runbooks:", error);
+      res.status(500).json({ error: "Failed to fetch runbooks" });
+    }
+  });
+
+  // Create runbook
+  app.post("/api/orchestrator/runbooks", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const { orchestrator } = await import('./orchestrator');
+      const runbook = await orchestrator.createRunbook({ ...req.body, userId });
+      res.status(201).json(runbook);
+    } catch (error) {
+      console.error("Error creating runbook:", error);
+      res.status(500).json({ error: "Failed to create runbook" });
+    }
+  });
+
+  // Update runbook
+  app.put("/api/orchestrator/runbooks/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const { orchestrator } = await import('./orchestrator');
+      const existing = await orchestrator.getRunbook(req.params.id);
+      if (!existing || existing.userId !== userId) {
+        return res.status(404).json({ error: "Runbook not found" });
+      }
+      
+      const runbook = await orchestrator.updateRunbook(req.params.id, req.body);
+      res.json(runbook);
+    } catch (error) {
+      console.error("Error updating runbook:", error);
+      res.status(500).json({ error: "Failed to update runbook" });
+    }
+  });
+
+  // Delete runbook
+  app.delete("/api/orchestrator/runbooks/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const { orchestrator } = await import('./orchestrator');
+      const existing = await orchestrator.getRunbook(req.params.id);
+      if (!existing || existing.userId !== userId) {
+        return res.status(404).json({ error: "Runbook not found" });
+      }
+      
+      await orchestrator.deleteRunbook(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting runbook:", error);
+      res.status(500).json({ error: "Failed to delete runbook" });
+    }
+  });
+
+  // Get automation rules
+  app.get("/api/orchestrator/rules", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const { orchestrator } = await import('./orchestrator');
+      const rules = await orchestrator.getAutomationRules(userId);
+      res.json(rules);
+    } catch (error) {
+      console.error("Error fetching automation rules:", error);
+      res.status(500).json({ error: "Failed to fetch automation rules" });
+    }
+  });
+
+  // Create automation rule
+  app.post("/api/orchestrator/rules", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const { orchestrator } = await import('./orchestrator');
+      const rule = await orchestrator.createAutomationRule({ ...req.body, userId });
+      res.status(201).json(rule);
+    } catch (error) {
+      console.error("Error creating automation rule:", error);
+      res.status(500).json({ error: "Failed to create automation rule" });
+    }
+  });
+
+  // Update automation rule
+  app.put("/api/orchestrator/rules/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const { orchestrator } = await import('./orchestrator');
+      const existing = await orchestrator.getAutomationRule(req.params.id);
+      if (!existing || existing.userId !== userId) {
+        return res.status(404).json({ error: "Rule not found" });
+      }
+      
+      const rule = await orchestrator.updateAutomationRule(req.params.id, req.body);
+      res.json(rule);
+    } catch (error) {
+      console.error("Error updating automation rule:", error);
+      res.status(500).json({ error: "Failed to update automation rule" });
+    }
+  });
+
+  // Delete automation rule
+  app.delete("/api/orchestrator/rules/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const { orchestrator } = await import('./orchestrator');
+      const existing = await orchestrator.getAutomationRule(req.params.id);
+      if (!existing || existing.userId !== userId) {
+        return res.status(404).json({ error: "Rule not found" });
+      }
+      
+      await orchestrator.deleteAutomationRule(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting automation rule:", error);
+      res.status(500).json({ error: "Failed to delete automation rule" });
+    }
+  });
+
+  // Get escalation policies
+  app.get("/api/orchestrator/escalation-policies", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const { orchestrator } = await import('./orchestrator');
+      const policies = await orchestrator.getEscalationPolicies(userId);
+      res.json(policies);
+    } catch (error) {
+      console.error("Error fetching escalation policies:", error);
+      res.status(500).json({ error: "Failed to fetch escalation policies" });
+    }
+  });
+
+  // Create escalation policy
+  app.post("/api/orchestrator/escalation-policies", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const { orchestrator } = await import('./orchestrator');
+      const policy = await orchestrator.createEscalationPolicy({ ...req.body, userId });
+      res.status(201).json(policy);
+    } catch (error) {
+      console.error("Error creating escalation policy:", error);
+      res.status(500).json({ error: "Failed to create escalation policy" });
+    }
+  });
+
+  // Get pending approvals
+  app.get("/api/orchestrator/approvals", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const { orchestrator } = await import('./orchestrator');
+      const approvals = await orchestrator.getPendingApprovals(userId);
+      res.json(approvals);
+    } catch (error) {
+      console.error("Error fetching pending approvals:", error);
+      res.status(500).json({ error: "Failed to fetch pending approvals" });
+    }
+  });
+
+  // Approve automation
+  app.post("/api/orchestrator/approvals/:id/approve", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const { orchestrator } = await import('./orchestrator');
+      const approval = await orchestrator.approveAutomation(req.params.id, userId);
+      res.json(approval);
+    } catch (error) {
+      console.error("Error approving automation:", error);
+      res.status(500).json({ error: "Failed to approve automation" });
+    }
+  });
+
+  // Reject automation
+  app.post("/api/orchestrator/approvals/:id/reject", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const { orchestrator } = await import('./orchestrator');
+      const approval = await orchestrator.rejectAutomation(req.params.id, userId);
+      res.json(approval);
+    } catch (error) {
+      console.error("Error rejecting automation:", error);
+      res.status(500).json({ error: "Failed to reject automation" });
+    }
+  });
+
+  // Get audit log
+  app.get("/api/orchestrator/audit-log", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const limit = parseInt(req.query.limit as string) || 50;
+      const { orchestrator } = await import('./orchestrator');
+      const logs = await orchestrator.getAuditLog(userId, limit);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching audit log:", error);
+      res.status(500).json({ error: "Failed to fetch audit log" });
+    }
+  });
+
+  // ============ AI COMMUNICATION COPILOT ============
+
+  // Generate incident update
+  app.post("/api/ai-copilot/incident-update", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const { incidentId, audience, tone, includeNextSteps } = req.body;
+      if (!incidentId) {
+        return res.status(400).json({ error: "incidentId is required" });
+      }
+      
+      const { generateIncidentUpdate } = await import('./aiCopilot');
+      const result = await generateIncidentUpdate(incidentId, {
+        audience: audience || 'client',
+        tone: tone || 'formal',
+        includeNextSteps: includeNextSteps !== false,
+      });
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error generating incident update:", error);
+      res.status(500).json({ error: "Failed to generate incident update" });
+    }
+  });
+
+  // Suggest root cause
+  app.post("/api/ai-copilot/root-cause", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const { incidentId } = req.body;
+      if (!incidentId) {
+        return res.status(400).json({ error: "incidentId is required" });
+      }
+      
+      const { suggestRootCause } = await import('./aiCopilot');
+      const result = await suggestRootCause(incidentId);
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error suggesting root cause:", error);
+      res.status(500).json({ error: "Failed to suggest root cause" });
+    }
+  });
+
+  // Generate client persona message
+  app.post("/api/ai-copilot/client-persona", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const { incidentId, clientType } = req.body;
+      if (!incidentId || !clientType) {
+        return res.status(400).json({ error: "incidentId and clientType are required" });
+      }
+      
+      const { generateClientPersona } = await import('./aiCopilot');
+      const result = await generateClientPersona(incidentId, clientType);
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error generating client persona:", error);
+      res.status(500).json({ error: "Failed to generate client persona message" });
+    }
+  });
+
+  // ============ SLA CONTRACTS & BREACH TRACKING ============
+
+  // Get SLA contracts
+  app.get("/api/sla/contracts", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const contracts = await storage.getSlaContracts(userId);
+      res.json(contracts);
+    } catch (error) {
+      console.error("Error fetching SLA contracts:", error);
+      res.status(500).json({ error: "Failed to fetch SLA contracts" });
+    }
+  });
+
+  // Create SLA contract
+  app.post("/api/sla/contracts", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const contract = await storage.createSlaContract({ ...req.body, userId });
+      res.status(201).json(contract);
+    } catch (error) {
+      console.error("Error creating SLA contract:", error);
+      res.status(500).json({ error: "Failed to create SLA contract" });
+    }
+  });
+
+  // Get SLA breaches
+  app.get("/api/sla/breaches", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const breaches = await storage.getSlaBreaches(userId);
+      res.json(breaches);
+    } catch (error) {
+      console.error("Error fetching SLA breaches:", error);
+      res.status(500).json({ error: "Failed to fetch SLA breaches" });
+    }
+  });
+
+  // Update SLA breach claim status
+  app.put("/api/sla/breaches/:id/claim", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const { claimStatus } = req.body;
+      const breach = await storage.updateSlaBreach(req.params.id, { claimStatus });
+      res.json(breach);
+    } catch (error) {
+      console.error("Error updating SLA breach:", error);
+      res.status(500).json({ error: "Failed to update SLA breach" });
+    }
+  });
+
+  // Generate service credit claim
+  app.post("/api/sla/breaches/:id/generate-claim", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const { generateServiceCreditClaim } = await import('./slaBreachTracker');
+      const claim = await generateServiceCreditClaim(req.params.id);
+      res.json(claim);
+    } catch (error) {
+      console.error("Error generating service credit claim:", error);
+      res.status(500).json({ error: "Failed to generate service credit claim" });
+    }
+  });
+
+  // ============ SYNTHETIC MONITORING ============
+
+  // Get synthetic probes
+  app.get("/api/synthetic/probes", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const probes = await storage.getSyntheticProbes(userId);
+      res.json(probes);
+    } catch (error) {
+      console.error("Error fetching synthetic probes:", error);
+      res.status(500).json({ error: "Failed to fetch synthetic probes" });
+    }
+  });
+
+  // Create synthetic probe
+  app.post("/api/synthetic/probes", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const probe = await storage.createSyntheticProbe({ ...req.body, userId });
+      res.status(201).json(probe);
+    } catch (error) {
+      console.error("Error creating synthetic probe:", error);
+      res.status(500).json({ error: "Failed to create synthetic probe" });
+    }
+  });
+
+  // Update synthetic probe
+  app.put("/api/synthetic/probes/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const probe = await storage.updateSyntheticProbe(req.params.id, req.body);
+      res.json(probe);
+    } catch (error) {
+      console.error("Error updating synthetic probe:", error);
+      res.status(500).json({ error: "Failed to update synthetic probe" });
+    }
+  });
+
+  // Delete synthetic probe
+  app.delete("/api/synthetic/probes/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      await storage.deleteSyntheticProbe(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting synthetic probe:", error);
+      res.status(500).json({ error: "Failed to delete synthetic probe" });
+    }
+  });
+
+  // Get probe results
+  app.get("/api/synthetic/probes/:id/results", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const limit = parseInt(req.query.limit as string) || 100;
+      const results = await storage.getSyntheticProbeResults(req.params.id, limit);
+      res.json(results);
+    } catch (error) {
+      console.error("Error fetching probe results:", error);
+      res.status(500).json({ error: "Failed to fetch probe results" });
+    }
+  });
+
+  // Run probe manually
+  app.post("/api/synthetic/probes/:id/run", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const { runSyntheticProbe } = await import('./syntheticMonitor');
+      const result = await runSyntheticProbe(req.params.id);
+      res.json(result);
+    } catch (error) {
+      console.error("Error running synthetic probe:", error);
+      res.status(500).json({ error: "Failed to run synthetic probe" });
+    }
+  });
+
   return httpServer;
 }

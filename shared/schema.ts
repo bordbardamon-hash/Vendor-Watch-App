@@ -6,6 +6,9 @@ import { z } from "zod";
 // Export auth models (users and sessions tables for Replit Auth)
 export * from "./models/auth";
 
+// Export chat models for AI integration
+export * from "./models/chat";
+
 // Canonical status values for incidents
 export const CANONICAL_STATUSES = ['investigating', 'identified', 'monitoring', 'resolved'] as const;
 export type CanonicalStatus = typeof CANONICAL_STATUSES[number];
@@ -617,3 +620,189 @@ export const insertPsaWebhookSchema = createInsertSchema(psaWebhooks).omit({
 
 export type InsertPsaWebhook = z.infer<typeof insertPsaWebhookSchema>;
 export type PsaWebhook = typeof psaWebhooks.$inferSelect;
+
+// ==========================================
+// AUTONOMOUS RESPONSE ORCHESTRATOR
+// ==========================================
+
+export const AUTOMATION_TRIGGER_TYPES = ['incident_created', 'incident_escalated', 'incident_resolved', 'sla_breach', 'long_running'] as const;
+export type AutomationTriggerType = typeof AUTOMATION_TRIGGER_TYPES[number];
+
+export const AUTOMATION_ACTION_TYPES = ['create_ticket', 'send_slack', 'send_teams', 'call_escalation', 'send_email', 'webhook'] as const;
+export type AutomationActionType = typeof AUTOMATION_ACTION_TYPES[number];
+
+// Runbook templates for incident response
+export const runbooks = pgTable("runbooks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: text("user_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  vendorKey: text("vendor_key"), // null = applies to all vendors
+  severityFilter: text("severity_filter"), // comma-separated: critical,major,minor
+  steps: text("steps").notNull(), // JSON array of steps
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Escalation policies (call trees)
+export const escalationPolicies = pgTable("escalation_policies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: text("user_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  levels: text("levels").notNull(), // JSON array of escalation levels with contacts
+  delayMinutes: integer("delay_minutes").notNull().default(15), // Time before escalating to next level
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Automation rules - when X happens, do Y
+export const automationRules = pgTable("automation_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: text("user_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  triggerType: text("trigger_type").notNull(), // incident_created, incident_escalated, etc.
+  conditions: text("conditions").notNull(), // JSON: severity, vendor, time conditions
+  actionType: text("action_type").notNull(), // create_ticket, send_slack, etc.
+  actionConfig: text("action_config").notNull(), // JSON: action-specific config
+  runbookId: text("runbook_id"), // Optional linked runbook
+  escalationPolicyId: text("escalation_policy_id"), // Optional linked escalation policy
+  requiresApproval: boolean("requires_approval").notNull().default(false),
+  isActive: boolean("is_active").notNull().default(true),
+  executionCount: integer("execution_count").notNull().default(0),
+  lastExecutedAt: timestamp("last_executed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Pending automation approvals (for human-in-the-loop)
+export const automationApprovals = pgTable("automation_approvals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ruleId: text("rule_id").notNull(),
+  incidentId: text("incident_id").notNull(),
+  userId: text("user_id").notNull(), // User who should approve
+  actionType: text("action_type").notNull(),
+  actionPayload: text("action_payload").notNull(), // JSON: what would be executed
+  status: text("status").notNull().default('pending'), // pending, approved, rejected, expired
+  approvedBy: text("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Automation audit log - every action taken
+export const automationAuditLog = pgTable("automation_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ruleId: text("rule_id"),
+  incidentId: text("incident_id"),
+  userId: text("user_id"),
+  actionType: text("action_type").notNull(),
+  actionPayload: text("action_payload"), // JSON: what was executed
+  result: text("result").notNull(), // success, failed, pending_approval
+  errorMessage: text("error_message"),
+  executionTimeMs: integer("execution_time_ms"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// SLA Contracts for breach tracking
+export const slaContracts = pgTable("sla_contracts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: text("user_id").notNull(),
+  vendorKey: text("vendor_key").notNull(),
+  name: text("name").notNull(),
+  uptimeTarget: text("uptime_target").notNull(), // e.g., "99.9"
+  measurementPeriod: text("measurement_period").notNull(), // monthly, quarterly, annual
+  serviceCreditTiers: text("service_credit_tiers").notNull(), // JSON: [{ threshold: 99.0, creditPercent: 10 }]
+  contractStartDate: text("contract_start_date").notNull(),
+  contractEndDate: text("contract_end_date"),
+  notificationEmail: text("notification_email"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// SLA Breach records
+export const slaBreaches = pgTable("sla_breaches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  contractId: text("contract_id").notNull(),
+  vendorKey: text("vendor_key").notNull(),
+  periodStart: text("period_start").notNull(),
+  periodEnd: text("period_end").notNull(),
+  targetUptime: text("target_uptime").notNull(),
+  actualUptime: text("actual_uptime").notNull(),
+  downtimeMinutes: integer("downtime_minutes").notNull(),
+  creditPercent: text("credit_percent"),
+  claimStatus: text("claim_status").notNull().default('detected'), // detected, drafted, submitted, approved, rejected
+  claimDraftedAt: timestamp("claim_drafted_at"),
+  claimSubmittedAt: timestamp("claim_submitted_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Synthetic monitoring probes
+export const syntheticProbes = pgTable("synthetic_probes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: text("user_id").notNull(),
+  name: text("name").notNull(),
+  vendorKey: text("vendor_key").notNull(),
+  probeType: text("probe_type").notNull(), // http, api, page_load
+  targetUrl: text("target_url").notNull(),
+  expectedStatus: integer("expected_status").default(200),
+  timeoutMs: integer("timeout_ms").notNull().default(30000),
+  intervalMinutes: integer("interval_minutes").notNull().default(5),
+  isActive: boolean("is_active").notNull().default(true),
+  lastCheckedAt: timestamp("last_checked_at"),
+  lastStatus: text("last_status"), // healthy, degraded, down
+  lastLatencyMs: integer("last_latency_ms"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Synthetic probe results history
+export const syntheticProbeResults = pgTable("synthetic_probe_results", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  probeId: text("probe_id").notNull(),
+  status: text("status").notNull(), // healthy, degraded, down
+  latencyMs: integer("latency_ms"),
+  statusCode: integer("status_code"),
+  errorMessage: text("error_message"),
+  correlatedIncidentId: text("correlated_incident_id"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Insert schemas
+export const insertRunbookSchema = createInsertSchema(runbooks).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertEscalationPolicySchema = createInsertSchema(escalationPolicies).omit({ id: true, createdAt: true });
+export const insertAutomationRuleSchema = createInsertSchema(automationRules).omit({ id: true, executionCount: true, lastExecutedAt: true, createdAt: true });
+export const insertAutomationApprovalSchema = createInsertSchema(automationApprovals).omit({ id: true, approvedBy: true, approvedAt: true, createdAt: true });
+export const insertAutomationAuditLogSchema = createInsertSchema(automationAuditLog).omit({ id: true, createdAt: true });
+export const insertSlaContractSchema = createInsertSchema(slaContracts).omit({ id: true, createdAt: true });
+export const insertSlaBreachSchema = createInsertSchema(slaBreaches).omit({ id: true, createdAt: true });
+export const insertSyntheticProbeSchema = createInsertSchema(syntheticProbes).omit({ id: true, lastCheckedAt: true, lastStatus: true, lastLatencyMs: true, createdAt: true });
+export const insertSyntheticProbeResultSchema = createInsertSchema(syntheticProbeResults).omit({ id: true, createdAt: true });
+
+// Types
+export type InsertRunbook = z.infer<typeof insertRunbookSchema>;
+export type Runbook = typeof runbooks.$inferSelect;
+
+export type InsertEscalationPolicy = z.infer<typeof insertEscalationPolicySchema>;
+export type EscalationPolicy = typeof escalationPolicies.$inferSelect;
+
+export type InsertAutomationRule = z.infer<typeof insertAutomationRuleSchema>;
+export type AutomationRule = typeof automationRules.$inferSelect;
+
+export type InsertAutomationApproval = z.infer<typeof insertAutomationApprovalSchema>;
+export type AutomationApproval = typeof automationApprovals.$inferSelect;
+
+export type InsertAutomationAuditLog = z.infer<typeof insertAutomationAuditLogSchema>;
+export type AutomationAuditLog = typeof automationAuditLog.$inferSelect;
+
+export type InsertSlaContract = z.infer<typeof insertSlaContractSchema>;
+export type SlaContract = typeof slaContracts.$inferSelect;
+
+export type InsertSlaBreach = z.infer<typeof insertSlaBreachSchema>;
+export type SlaBreach = typeof slaBreaches.$inferSelect;
+
+export type InsertSyntheticProbe = z.infer<typeof insertSyntheticProbeSchema>;
+export type SyntheticProbe = typeof syntheticProbes.$inferSelect;
+
+export type InsertSyntheticProbeResult = z.infer<typeof insertSyntheticProbeResultSchema>;
+export type SyntheticProbeResult = typeof syntheticProbeResults.$inferSelect;

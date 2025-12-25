@@ -52,6 +52,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { href: "/maintenance", icon: Wrench, label: "Maintenance", adminOnly: false },
     { href: "/analytics", icon: BarChart3, label: "Analytics", adminOnly: false },
     { href: "/sla", icon: Target, label: "SLA Dashboard", adminOnly: false },
+    { href: "/automation", icon: Bot, label: "Automation", adminOnly: false },
     { href: "/jobs", icon: List, label: UI_LABELS.nav.scrapers, adminOnly: true },
     { href: "/logs", icon: Terminal, label: UI_LABELS.nav.logs, adminOnly: true },
     { href: "/consents", icon: FileCheck, label: "Consents", adminOnly: true },
