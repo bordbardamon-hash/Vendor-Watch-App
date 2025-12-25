@@ -331,9 +331,9 @@ async function fetchSlackStatus(vendor: { key: string; statusUrl: string }): Pro
     // Slack format: { status: "ok"|"active", active_incidents: [...] }
     const overallStatus = data.status === 'ok' ? 'operational' : 'degraded';
     const incidents = (data.active_incidents || []).map((inc: any) => ({
-      id: inc.id || `slack-${Date.now()}`,
+      id: String(inc.id || `slack-${Date.now()}`),
       name: inc.title || 'Slack Service Issue',
-      status: 'investigating',
+      status: inc.status || 'investigating',
       impact: 'minor',
       shortlink: 'https://status.slack.com',
       created_at: inc.date_created || new Date().toISOString(),
@@ -405,10 +405,10 @@ export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: nu
       
       if (result.success) {
         const existingIncidents = await storage.getIncidentsByVendor(vendor.key);
-        const activeIncidentIds = new Set(result.incidents.map((i: any) => i.id));
+        const activeIncidentIds = new Set(result.incidents.map((i: any) => String(i.id)));
         
         for (const existing of existingIncidents) {
-          if (!activeIncidentIds.has(existing.incidentId) && existing.status !== 'resolved') {
+          if (!activeIncidentIds.has(String(existing.incidentId)) && existing.status !== 'resolved') {
             const previousStatus = existing.status;
             const previousSeverity = existing.severity;
             await storage.updateIncident(existing.id, { status: 'resolved' });
@@ -440,7 +440,7 @@ export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: nu
             continue;
           }
           
-          const exists = existingIncidents.find(i => i.incidentId === incident.id);
+          const exists = existingIncidents.find(i => String(i.incidentId) === String(incident.id));
           const normalizedStatus = mapStatuspageStatus(incident.status);
           const normalizedSeverity = mapStatuspageImpact(incident.impact);
           const affectedComponents = incident.components?.map((c: { id: string; name: string; status: string }) => c.name).join(', ') || '';
