@@ -25,7 +25,10 @@ import {
   BellOff,
   Bell,
   Archive,
-  Clock
+  Clock,
+  Calendar,
+  Filter,
+  X
 } from "lucide-react";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -106,6 +109,8 @@ export default function Vendors() {
   const [showAllIncidents, setShowAllIncidents] = useState(false);
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
   const [archiveSearchQuery, setArchiveSearchQuery] = useState("");
+  const [archiveVendorFilter, setArchiveVendorFilter] = useState<string>("all");
+  const [archiveDateRange, setArchiveDateRange] = useState<string>("all");
   const [requestForm, setRequestForm] = useState({ vendorName: "", statusPageUrl: "", integrationNotes: "" });
   const [directAddForm, setDirectAddForm] = useState({ key: "", name: "", statusUrl: "", parser: "statuspage_json" });
   const { toast } = useToast();
@@ -113,11 +118,13 @@ export default function Vendors() {
 
   // Fetch archived incidents when dialog is open
   const { data: archivedIncidents = [], isLoading: archiveLoading } = useQuery<ArchivedIncident[]>({
-    queryKey: ["archived-incidents", archiveSearchQuery],
+    queryKey: ["archived-incidents", archiveSearchQuery, archiveVendorFilter, archiveDateRange],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (archiveSearchQuery) params.set("query", archiveSearchQuery);
-      params.set("limit", "50");
+      if (archiveVendorFilter && archiveVendorFilter !== "all") params.set("vendorKey", archiveVendorFilter);
+      if (archiveDateRange && archiveDateRange !== "all") params.set("dateRange", archiveDateRange);
+      params.set("limit", "100");
       const res = await fetch(`/api/incidents/archive?${params}`);
       if (!res.ok) throw new Error("Failed to fetch archived incidents");
       return res.json();
@@ -935,7 +942,7 @@ export default function Vendors() {
 
       {/* Archive Search Dialog */}
       <Dialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Archive className="w-5 h-5" />
@@ -946,16 +953,63 @@ export default function Vendors() {
             </DialogDescription>
           </DialogHeader>
           
-          <div className="flex gap-2 mb-4">
-            <div className="relative flex-1">
+          <div className="space-y-3 mb-4">
+            <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Search by vendor, title, or description..."
+                placeholder="Search by title or description..."
                 value={archiveSearchQuery}
                 onChange={(e) => setArchiveSearchQuery(e.target.value)}
                 className="pl-10"
                 data-testid="input-archive-search"
               />
+            </div>
+            
+            <div className="flex gap-2 flex-wrap">
+              <Select value={archiveVendorFilter} onValueChange={setArchiveVendorFilter}>
+                <SelectTrigger className="w-[180px]" data-testid="select-archive-vendor">
+                  <Filter className="w-4 h-4 mr-2" />
+                  <SelectValue placeholder="All Vendors" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Vendors</SelectItem>
+                  {vendors.map((v) => (
+                    <SelectItem key={v.key} value={v.key}>{v.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <Select value={archiveDateRange} onValueChange={setArchiveDateRange}>
+                <SelectTrigger className="w-[160px]" data-testid="select-archive-date">
+                  <Calendar className="w-4 h-4 mr-2" />
+                  <SelectValue placeholder="All Time" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Time</SelectItem>
+                  <SelectItem value="7d">Last 7 Days</SelectItem>
+                  <SelectItem value="30d">Last 30 Days</SelectItem>
+                  <SelectItem value="90d">Last 90 Days</SelectItem>
+                  <SelectItem value="6m">Last 6 Months</SelectItem>
+                  <SelectItem value="1y">Last Year</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              {(archiveSearchQuery || archiveVendorFilter !== "all" || archiveDateRange !== "all") && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setArchiveSearchQuery("");
+                    setArchiveVendorFilter("all");
+                    setArchiveDateRange("all");
+                  }}
+                  className="text-muted-foreground"
+                  data-testid="button-clear-archive-filters"
+                >
+                  <X className="w-4 h-4 mr-1" />
+                  Clear
+                </Button>
+              )}
             </div>
           </div>
           

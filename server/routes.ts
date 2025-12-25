@@ -224,10 +224,11 @@ export async function registerRoutes(
   // Search archived incidents (protected)
   app.get("/api/incidents/archive", isAuthenticated, async (req, res) => {
     try {
-      const { vendorKey, query, limit, offset } = req.query;
+      const { vendorKey, query, dateRange, limit, offset } = req.query;
       const archived = await storage.searchArchivedIncidents({
         vendorKey: vendorKey as string | undefined,
         query: query as string | undefined,
+        dateRange: dateRange as string | undefined,
         limit: limit ? parseInt(limit as string, 10) : 50,
         offset: offset ? parseInt(offset as string, 10) : 0,
       });

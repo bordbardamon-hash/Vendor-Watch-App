@@ -51,7 +51,7 @@ export interface IStorage {
   
   // Incident Archive
   archiveIncident(incident: Incident): Promise<IncidentArchive>;
-  searchArchivedIncidents(options: { vendorKey?: string; query?: string; limit?: number; offset?: number }): Promise<IncidentArchive[]>;
+  searchArchivedIncidents(options: { vendorKey?: string; query?: string; dateRange?: string; limit?: number; offset?: number }): Promise<IncidentArchive[]>;
   getArchivedIncidentsCount(options?: { vendorKey?: string; query?: string }): Promise<number>;
   archiveResolvedIncidents(olderThanDays: number): Promise<number>;
   purgeOldArchivedIncidents(olderThanDays: number): Promise<number>;
@@ -339,7 +339,7 @@ export class DatabaseStorage implements IStorage {
     return archived;
   }
   
-  async searchArchivedIncidents(options: { vendorKey?: string; query?: string; limit?: number; offset?: number }): Promise<IncidentArchive[]> {
+  async searchArchivedIncidents(options: { vendorKey?: string; query?: string; dateRange?: string; limit?: number; offset?: number }): Promise<IncidentArchive[]> {
     const conditions = [];
     
     if (options.vendorKey) {
@@ -351,6 +351,31 @@ export class DatabaseStorage implements IStorage {
         ilike(incidentArchive.title, `%${options.query}%`),
         ilike(incidentArchive.impact, `%${options.query}%`)
       ));
+    }
+    
+    if (options.dateRange) {
+      const now = new Date();
+      let cutoffDate: Date;
+      switch (options.dateRange) {
+        case '7d':
+          cutoffDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case '30d':
+          cutoffDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        case '90d':
+          cutoffDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+          break;
+        case '6m':
+          cutoffDate = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
+          break;
+        case '1y':
+          cutoffDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          cutoffDate = new Date(0);
+      }
+      conditions.push(gte(incidentArchive.resolvedAt, cutoffDate));
     }
     
     const query = db
