@@ -1264,6 +1264,7 @@ export async function registerRoutes(
         phone: user.phone || "",
         notifyEmail: user.notifyEmail ?? true,
         notifySms: user.notifySms ?? false,
+        timezone: user.timezone || "UTC",
       });
     } catch (error) {
       console.error("Error fetching notification preferences:", error);
@@ -1273,12 +1274,13 @@ export async function registerRoutes(
 
   app.put("/api/notifications/preferences", isAuthenticated, async (req: any, res) => {
     try {
-      const { notificationEmail, phone, notifyEmail, notifySms } = req.body;
+      const { notificationEmail, phone, notifyEmail, notifySms, timezone } = req.body;
       const user = await storage.updateUserNotifications(req.user.id, {
         notificationEmail,
         phone,
         notifyEmail,
         notifySms,
+        timezone,
       });
       if (!user) {
         return res.status(404).json({ error: "User not found" });
@@ -1289,7 +1291,8 @@ export async function registerRoutes(
           notificationEmail: user.notificationEmail || user.email, 
           phone: user.phone, 
           notifyEmail: user.notifyEmail, 
-          notifySms: user.notifySms 
+          notifySms: user.notifySms,
+          timezone: user.timezone || "UTC"
         } 
       });
     } catch (error) {

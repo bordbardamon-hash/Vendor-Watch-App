@@ -34,6 +34,8 @@ export const users = pgTable("users", {
   isOwner: boolean("is_owner").default(false), // Owner receives parser/system alerts
   notifyEmail: boolean("notify_email").default(true),
   notifySms: boolean("notify_sms").default(false),
+  // Timezone preference for alerts and dashboard display
+  timezone: varchar("timezone").default("UTC"),
   // Two-Factor Authentication fields
   twoFactorEnabled: boolean("two_factor_enabled").default(false),
   twoFactorSecret: varchar("two_factor_secret"), // encrypted TOTP secret
