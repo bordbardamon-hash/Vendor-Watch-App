@@ -28,6 +28,23 @@ function sanitizeText(text: string): string {
   return text.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+function formatDateInTimezone(date: Date | string, timezone: string = 'UTC'): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  try {
+    return d.toLocaleString('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZoneName: 'short'
+    });
+  } catch {
+    return d.toLocaleString();
+  }
+}
+
 function formatSmsMessage(notification: IncidentNotification): string {
   const { incident, vendor, eventType } = notification;
   
@@ -54,7 +71,7 @@ function formatEmailSubject(notification: IncidentNotification): string {
   return sanitizeSubject(`${prefix} ${vendor.name}: ${incident.title}`);
 }
 
-function formatEmailHtml(notification: IncidentNotification): string {
+function formatEmailHtml(notification: IncidentNotification, timezone: string = 'UTC'): string {
   const { incident, vendor, eventType } = notification;
   
   const statusColor = eventType === 'resolved' 
@@ -118,11 +135,11 @@ function formatEmailHtml(notification: IncidentNotification): string {
         </div>
         <div class="detail-row">
           <span class="detail-label">Started:</span>
-          <span class="detail-value">${new Date(incident.startedAt).toLocaleString()}</span>
+          <span class="detail-value">${formatDateInTimezone(incident.startedAt, timezone)}</span>
         </div>
         <div class="detail-row">
           <span class="detail-label">Updated:</span>
-          <span class="detail-value">${new Date(incident.updatedAt).toLocaleString()}</span>
+          <span class="detail-value">${formatDateInTimezone(incident.updatedAt, timezone)}</span>
         </div>
       </div>
       
@@ -200,7 +217,7 @@ export async function dispatchIncidentNotification(notification: IncidentNotific
       if (!alreadySent) {
         try {
           const subject = formatEmailSubject(notification);
-          const html = formatEmailHtml(notification);
+          const html = formatEmailHtml(notification, user.timezone || 'UTC');
           const success = await sendEmail(user.email, subject, html);
           if (success) {
             await storage.recordAlert({
@@ -303,7 +320,7 @@ function formatLifecycleEmailSubject(notification: LifecycleNotification): strin
   return `${prefix} ${severity} - ${vendor.name}: ${incident.title}`;
 }
 
-function formatLifecycleEmailHtml(notification: LifecycleNotification): string {
+function formatLifecycleEmailHtml(notification: LifecycleNotification, timezone: string = 'UTC'): string {
   const { incident, vendor, lifecycleEvent, previousStatus, previousSeverity, affectedServices } = notification;
   
   const severity = incident.severity as CanonicalSeverity;
@@ -383,11 +400,11 @@ function formatLifecycleEmailHtml(notification: LifecycleNotification): string {
         ${changeInfo}
         <div class="detail-row">
           <span class="detail-label">Started:</span>
-          <span class="detail-value">${new Date(incident.startedAt).toLocaleString()}</span>
+          <span class="detail-value">${formatDateInTimezone(incident.startedAt, timezone)}</span>
         </div>
         <div class="detail-row">
           <span class="detail-label">Last Updated:</span>
-          <span class="detail-value">${new Date(incident.updatedAt).toLocaleString()}</span>
+          <span class="detail-value">${formatDateInTimezone(incident.updatedAt, timezone)}</span>
         </div>
       </div>
       
@@ -492,7 +509,7 @@ export async function dispatchLifecycleNotification(notification: LifecycleNotif
       if (!alreadySent) {
         try {
           const subject = formatLifecycleEmailSubject(notification);
-          const html = formatLifecycleEmailHtml(notification);
+          const html = formatLifecycleEmailHtml(notification, user.timezone || 'UTC');
           const success = await sendEmail(user.email, subject, html);
           if (success) {
             await storage.recordAlert({
@@ -535,6 +552,9 @@ export async function sendParserHealthAlert(vendorKey: string, consecutiveFailur
   const subject = `[PARSER ALERT] ${vendorKey} parser failing`;
   const message = `Parser health alert: ${vendorKey} has failed ${consecutiveFailures} consecutive times. Last error: ${lastError || 'Unknown'}. Manual investigation required.`;
   
+  const owner = await storage.getOwnerUser();
+  const timezone = owner?.timezone || 'UTC';
+  
   const html = `
 <!DOCTYPE html>
 <html>
@@ -576,15 +596,13 @@ export async function sendParserHealthAlert(vendorKey: string, consecutiveFailur
         </div>
         <div class="detail-row">
           <span class="detail-label">Alert Time:</span>
-          <span class="detail-value">${new Date().toLocaleString()}</span>
+          <span class="detail-value">${formatDateInTimezone(new Date(), timezone)}</span>
         </div>
       </div>
     </div>
   </div>
 </body>
 </html>`;
-  
-  const owner = await storage.getOwnerUser();
   
   if (!owner) {
     console.log('[notify] No owner configured - parser health alert not sent');
@@ -640,7 +658,7 @@ function formatBlockchainEmailSubject(notification: BlockchainNotification): str
   return sanitizeSubject(`${prefix} Blockchain: ${chain.name} - ${incident.title}`);
 }
 
-function formatBlockchainEmailHtml(notification: BlockchainNotification): string {
+function formatBlockchainEmailHtml(notification: BlockchainNotification, timezone: string = 'UTC'): string {
   const { incident, chain, eventType } = notification;
   
   const statusColor = eventType === 'resolved' 
@@ -714,7 +732,7 @@ function formatBlockchainEmailHtml(notification: BlockchainNotification): string
         </div>
         <div class="detail-row">
           <span class="detail-label">Started:</span>
-          <span class="detail-value">${new Date(incident.startedAt).toLocaleString()}</span>
+          <span class="detail-value">${formatDateInTimezone(incident.startedAt, timezone)}</span>
         </div>
       </div>
       
@@ -791,7 +809,7 @@ export async function dispatchBlockchainNotification(notification: BlockchainNot
       if (!alreadySent) {
         try {
           const subject = formatBlockchainEmailSubject(notification);
-          const html = formatBlockchainEmailHtml(notification);
+          const html = formatBlockchainEmailHtml(notification, user.timezone || 'UTC');
           const success = await sendEmail(user.email, subject, html);
           if (success) {
             await storage.recordBlockchainAlert({
