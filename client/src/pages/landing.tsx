@@ -1,7 +1,7 @@
 import { APP_NAME } from "@/lib/labels";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Activity, Bell, Zap, CheckCircle2, AlertTriangle, Cloud, Database, Globe, Server, Boxes, Check, X, Shield } from "lucide-react";
+import { Activity, Bell, Zap, CheckCircle2, AlertTriangle, Cloud, Database, Globe, Server, Boxes, Check, X, Shield, Bot, Timer, Gauge, Radio, UserPlus, Settings, BellRing, Mail, Phone, MapPin, Twitter, Linkedin, Github } from "lucide-react";
 import { Link } from "wouter";
 import vendorWatchLogo from "@assets/generated_images/radar_eye_logo_dark_background.png";
 
@@ -226,6 +226,114 @@ export default function Landing() {
           </div>
         </section>
 
+        {/* Enterprise Features Section */}
+        <section className="container mx-auto px-4 py-16 border-t">
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 text-purple-400 text-sm font-medium mb-4">
+              <Zap className="h-4 w-4" />
+              Enterprise Features
+            </div>
+            <h2 className="text-3xl font-bold mb-4">Powerful Automation & Intelligence</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Go beyond basic monitoring with AI-powered tools designed for MSPs and enterprise teams
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+            <Card className="bg-gradient-to-br from-card/80 to-purple-500/5 border-purple-500/20" data-testid="card-feature-ai-copilot">
+              <CardHeader>
+                <div className="h-12 w-12 rounded-lg bg-purple-500/10 flex items-center justify-center mb-3">
+                  <Bot className="h-6 w-6 text-purple-400" />
+                </div>
+                <CardTitle className="text-lg">AI Communication Copilot</CardTitle>
+                <CardDescription>
+                  Generate professional incident updates, customer-ready summaries, and root cause analysis reports powered by AI. Save hours on client communication during outages.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+
+            <Card className="bg-gradient-to-br from-card/80 to-orange-500/5 border-orange-500/20" data-testid="card-feature-sla-tracker">
+              <CardHeader>
+                <div className="h-12 w-12 rounded-lg bg-orange-500/10 flex items-center justify-center mb-3">
+                  <Timer className="h-6 w-6 text-orange-400" />
+                </div>
+                <CardTitle className="text-lg">SLA Breach Tracker</CardTitle>
+                <CardDescription>
+                  Define uptime SLAs for each vendor and get automatic alerts when they're at risk. Track historical performance and generate compliance reports for stakeholders.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+
+            <Card className="bg-gradient-to-br from-card/80 to-cyan-500/5 border-cyan-500/20" data-testid="card-feature-orchestrator">
+              <CardHeader>
+                <div className="h-12 w-12 rounded-lg bg-cyan-500/10 flex items-center justify-center mb-3">
+                  <Gauge className="h-6 w-6 text-cyan-400" />
+                </div>
+                <CardTitle className="text-lg">Autonomous Response Orchestrator</CardTitle>
+                <CardDescription>
+                  Create automation rules that trigger on specific incidents. Automatically notify teams, execute webhooks, or escalate issues based on severity and vendor type.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+
+            <Card className="bg-gradient-to-br from-card/80 to-green-500/5 border-green-500/20" data-testid="card-feature-synthetic">
+              <CardHeader>
+                <div className="h-12 w-12 rounded-lg bg-green-500/10 flex items-center justify-center mb-3">
+                  <Radio className="h-6 w-6 text-green-400" />
+                </div>
+                <CardTitle className="text-lg">Synthetic Monitoring</CardTitle>
+                <CardDescription>
+                  Go beyond status pages with active endpoint probes. Monitor API response times, verify SSL certificates, and detect issues before they hit status pages.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </div>
+        </section>
+
+        {/* How It Works Section */}
+        <section className="container mx-auto px-4 py-16 border-t">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold mb-4">How It Works</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Get started in minutes and never miss another vendor outage
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+            <div className="text-center relative">
+              <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4 border-2 border-primary">
+                <UserPlus className="h-7 w-7 text-primary" />
+              </div>
+              <div className="absolute top-8 left-[60%] w-[80%] h-0.5 bg-gradient-to-r from-primary/50 to-transparent hidden md:block" />
+              <h3 className="font-semibold text-lg mb-2">1. Sign Up & Subscribe</h3>
+              <p className="text-sm text-muted-foreground">
+                Create your account and choose a plan that fits your needs. No credit card required for the trial.
+              </p>
+            </div>
+
+            <div className="text-center relative">
+              <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4 border-2 border-primary">
+                <Settings className="h-7 w-7 text-primary" />
+              </div>
+              <div className="absolute top-8 left-[60%] w-[80%] h-0.5 bg-gradient-to-r from-primary/50 to-transparent hidden md:block" />
+              <h3 className="font-semibold text-lg mb-2">2. Select Your Vendors</h3>
+              <p className="text-sm text-muted-foreground">
+                Choose from 24+ pre-configured vendors and 40+ blockchain networks, or request custom additions.
+              </p>
+            </div>
+
+            <div className="text-center">
+              <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4 border-2 border-primary">
+                <BellRing className="h-7 w-7 text-primary" />
+              </div>
+              <h3 className="font-semibold text-lg mb-2">3. Get Instant Alerts</h3>
+              <p className="text-sm text-muted-foreground">
+                Receive SMS and email notifications within minutes of any incident detection. Stay informed 24/7.
+              </p>
+            </div>
+          </div>
+        </section>
+
         <section className="container mx-auto px-4 py-16 border-t">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold mb-4">Choose Your Plan</h2>
@@ -296,8 +404,85 @@ export default function Landing() {
         </section>
       </main>
 
-      <footer className="border-t py-6 text-center text-sm text-muted-foreground">
-        <p>&copy; {new Date().getFullYear()} {APP_NAME}. All rights reserved.</p>
+      <footer className="border-t bg-card/30">
+        <div className="container mx-auto px-4 py-12">
+          <div className="grid md:grid-cols-4 gap-8 mb-8">
+            {/* Brand */}
+            <div className="md:col-span-1">
+              <div className="flex items-center gap-2 mb-4">
+                <img src={vendorWatchLogo} alt="Vendor Watch" className="h-8 w-8 rounded" />
+                <span className="text-lg font-bold">{APP_NAME}</span>
+              </div>
+              <p className="text-sm text-muted-foreground mb-4">
+                Enterprise-grade vendor status monitoring for MSPs and IT teams.
+              </p>
+              <div className="flex items-center gap-3">
+                <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="h-8 w-8 rounded-full bg-muted/50 flex items-center justify-center hover:bg-muted transition-colors" data-testid="link-twitter">
+                  <Twitter className="h-4 w-4" />
+                </a>
+                <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="h-8 w-8 rounded-full bg-muted/50 flex items-center justify-center hover:bg-muted transition-colors" data-testid="link-linkedin">
+                  <Linkedin className="h-4 w-4" />
+                </a>
+                <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="h-8 w-8 rounded-full bg-muted/50 flex items-center justify-center hover:bg-muted transition-colors" data-testid="link-github">
+                  <Github className="h-4 w-4" />
+                </a>
+              </div>
+            </div>
+
+            {/* Product */}
+            <div>
+              <h4 className="font-semibold mb-4">Product</h4>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li><Link href="/signup" className="hover:text-foreground transition-colors">Get Started</Link></li>
+                <li><a href="#pricing" className="hover:text-foreground transition-colors">Pricing</a></li>
+                <li><a href="#features" className="hover:text-foreground transition-colors">Features</a></li>
+                <li><a href="#blockchain" className="hover:text-foreground transition-colors">Blockchain Monitoring</a></li>
+              </ul>
+            </div>
+
+            {/* Company */}
+            <div>
+              <h4 className="font-semibold mb-4">Company</h4>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li><a href="#about" className="hover:text-foreground transition-colors">About Us</a></li>
+                <li><a href="#careers" className="hover:text-foreground transition-colors">Careers</a></li>
+                <li><a href="#blog" className="hover:text-foreground transition-colors">Blog</a></li>
+                <li><a href="#contact" className="hover:text-foreground transition-colors">Contact</a></li>
+              </ul>
+            </div>
+
+            {/* Contact */}
+            <div>
+              <h4 className="font-semibold mb-4">Contact</h4>
+              <ul className="space-y-3 text-sm text-muted-foreground">
+                <li className="flex items-center gap-2">
+                  <Mail className="h-4 w-4" />
+                  <a href="mailto:support@vendorwatch.app" className="hover:text-foreground transition-colors">support@vendorwatch.app</a>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Phone className="h-4 w-4" />
+                  <span>1-800-VENDOR-1</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <MapPin className="h-4 w-4 mt-0.5" />
+                  <span>San Francisco, CA</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Bottom bar */}
+          <div className="border-t pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+            <p className="text-sm text-muted-foreground">
+              &copy; {new Date().getFullYear()} {APP_NAME}. All rights reserved.
+            </p>
+            <div className="flex items-center gap-6 text-sm text-muted-foreground">
+              <a href="#privacy" className="hover:text-foreground transition-colors">Privacy Policy</a>
+              <a href="#terms" className="hover:text-foreground transition-colors">Terms of Service</a>
+              <a href="#sla" className="hover:text-foreground transition-colors">SLA</a>
+            </div>
+          </div>
+        </div>
       </footer>
     </div>
   );
