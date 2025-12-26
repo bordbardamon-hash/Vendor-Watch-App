@@ -4,3 +4,35 @@ import { twMerge } from "tailwind-merge"
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
+
+export function formatDateInTimezone(date: Date | string, timezone: string = 'UTC'): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  try {
+    return d.toLocaleString('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZoneName: 'short'
+    });
+  } catch {
+    return d.toLocaleString();
+  }
+}
+
+export function formatShortDateInTimezone(date: Date | string, timezone: string = 'UTC'): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  try {
+    return d.toLocaleString('en-US', {
+      timeZone: timezone,
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch {
+    return d.toLocaleString();
+  }
+}

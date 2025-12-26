@@ -38,6 +38,8 @@ import {
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
+import { formatShortDateInTimezone } from "@/lib/utils";
 
 interface VendorLimit {
   tier: string | null;
@@ -108,6 +110,8 @@ interface ArchivedIncident {
 }
 
 export default function Vendors() {
+  const { user } = useAuth();
+  const timezone = user?.timezone || 'UTC';
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -865,7 +869,7 @@ export default function Vendors() {
                           <p className="text-sm text-muted-foreground mb-3 break-words">{incident.impact}</p>
                           <div className="text-xs font-mono text-muted-foreground/70 bg-sidebar/50 p-2 rounded mb-3">
                             <div className="truncate">ID: {incident.incidentId}</div>
-                            <div className="text-[10px] mt-1">{incident.startedAt}</div>
+                            <div className="text-[10px] mt-1">{formatShortDateInTimezone(incident.startedAt, timezone)}</div>
                           </div>
                           <div className="flex items-center gap-2 flex-wrap mb-2">
                             <Badge variant="outline" className="text-xs">Status: {incident.status}</Badge>
@@ -968,7 +972,7 @@ export default function Vendors() {
                           <p className="text-sm text-muted-foreground mb-3 break-words">{incident.impact}</p>
                           <div className="text-xs font-mono text-muted-foreground/70 bg-sidebar/50 p-2 rounded mb-3">
                             <div className="truncate">ID: {incident.incidentId}</div>
-                            <div className="text-[10px] mt-1">{incident.startedAt}</div>
+                            <div className="text-[10px] mt-1">{formatShortDateInTimezone(incident.startedAt, timezone)}</div>
                           </div>
                           <div className="flex items-center gap-2 flex-wrap mb-2">
                             <Badge variant="outline" className="text-xs">Status: {incident.status}</Badge>
@@ -1155,11 +1159,11 @@ export default function Vendors() {
                     <div className="flex items-center gap-3 text-xs text-muted-foreground/70 font-mono">
                       <div className="flex items-center gap-1">
                         <Clock className="w-3 h-3" />
-                        {new Date(incident.startedAt).toLocaleDateString()}
+                        {formatShortDateInTimezone(incident.startedAt, timezone)}
                       </div>
                       <div className="flex items-center gap-1">
                         <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                        Resolved: {new Date(incident.resolvedAt).toLocaleDateString()}
+                        Resolved: {formatShortDateInTimezone(incident.resolvedAt, timezone)}
                       </div>
                     </div>
                     <div className="mt-2">

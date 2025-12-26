@@ -41,7 +41,7 @@ Key entities include Users, Sessions, Vendors, Incidents, Jobs, and Configuratio
 - **Blockchain Monitoring**: Dedicated `/blockchain` page for monitoring various blockchain networks across different tiers and categories, integrating with Statuspage.io APIs.
 - **Notification System**: Dispatches alerts for incident creation, updates, and resolution via email (Resend) and SMS (Twilio), with consent tracking and deduplication.
 - **Subscription Management**: Supports Standard, Gold, and Platinum tiers with varying vendor limits and features (e.g., custom vendor requests for Gold, direct vendor adding for Platinum), integrated with Stripe for billing.
-- **User Preferences**: Allows users to manage notification preferences (email, SMS toggles), subscribe to specific vendors, and reorder vendor display.
+- **User Preferences**: Allows users to manage notification preferences (email, SMS toggles, timezone), subscribe to specific vendors, and reorder vendor display. Timezone setting affects all date displays in emails, SMS alerts, and dashboard views.
 - **Admin Features**: `isAdmin` flag controls access to administrative pages and API routes (e.g., Jobs, Logs, Consents management).
 - **MSP-Focused Features**:
     - **Customer-Ready Alert Summaries**: Generates neutral incident summaries for client communication.
