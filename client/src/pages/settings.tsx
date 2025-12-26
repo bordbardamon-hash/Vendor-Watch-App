@@ -284,6 +284,26 @@ export default function Settings() {
     },
   });
   
+  // Common timezone list
+  const TIMEZONES = [
+    { value: "UTC", label: "UTC (Coordinated Universal Time)" },
+    { value: "America/New_York", label: "Eastern Time (ET)" },
+    { value: "America/Chicago", label: "Central Time (CT)" },
+    { value: "America/Denver", label: "Mountain Time (MT)" },
+    { value: "America/Los_Angeles", label: "Pacific Time (PT)" },
+    { value: "America/Anchorage", label: "Alaska Time (AKT)" },
+    { value: "Pacific/Honolulu", label: "Hawaii Time (HST)" },
+    { value: "Europe/London", label: "London (GMT/BST)" },
+    { value: "Europe/Paris", label: "Paris (CET/CEST)" },
+    { value: "Europe/Berlin", label: "Berlin (CET/CEST)" },
+    { value: "Asia/Tokyo", label: "Tokyo (JST)" },
+    { value: "Asia/Shanghai", label: "Shanghai (CST)" },
+    { value: "Asia/Singapore", label: "Singapore (SGT)" },
+    { value: "Asia/Dubai", label: "Dubai (GST)" },
+    { value: "Australia/Sydney", label: "Sydney (AEST/AEDT)" },
+    { value: "Australia/Perth", label: "Perth (AWST)" },
+  ];
+
   // State for configuration
   const [config, setConfig] = useState({
     monitorInterval: "10",
@@ -298,7 +318,8 @@ export default function Settings() {
     enableSms: false,
     notificationEmail: "",
     smsPhone: "",
-    enableBackup: true
+    enableBackup: true,
+    timezone: "UTC"
   });
 
   const [emailConsentChecked, setEmailConsentChecked] = useState(false);
@@ -323,6 +344,7 @@ export default function Settings() {
         smsPhone: notifPrefs.phone || "",
         enableEmail: notifPrefs.notifyEmail ?? true,
         enableSms: notifPrefs.notifySms ?? false,
+        timezone: notifPrefs.timezone || "UTC",
       }));
       if (originalEmailEnabled === null) {
         setOriginalEmailEnabled(notifPrefs.notifyEmail ?? true);
@@ -334,7 +356,7 @@ export default function Settings() {
   }, [notifPrefs, originalEmailEnabled, originalSmsEnabled]);
 
   const saveNotificationPrefs = useMutation({
-    mutationFn: async (prefs: { notificationEmail: string; phone: string; notifyEmail: boolean; notifySms: boolean }) => {
+    mutationFn: async (prefs: { notificationEmail: string; phone: string; notifyEmail: boolean; notifySms: boolean; timezone: string }) => {
       const res = await fetch("/api/notifications/preferences", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -421,6 +443,7 @@ export default function Settings() {
       phone: config.smsPhone,
       notifyEmail: config.enableEmail,
       notifySms: config.enableSms,
+      timezone: config.timezone,
     });
 
     setOriginalEmailEnabled(config.enableEmail);
@@ -775,6 +798,41 @@ CONFIG = AppConfig(
             </CardContent>
           </Card>
 
+          <Card className="border-sidebar-border bg-sidebar/30 backdrop-blur-sm hover-lift">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Clock className="w-5 h-5 text-primary" />
+                <CardTitle>Timezone</CardTitle>
+              </div>
+              <CardDescription>
+                Set your preferred timezone for alerts and dashboard time displays.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="timezone-select">Your Timezone</Label>
+                <Select
+                  value={config.timezone}
+                  onValueChange={(value) => updateConfig('timezone', value)}
+                >
+                  <SelectTrigger className="w-full max-w-[350px]" data-testid="select-timezone">
+                    <SelectValue placeholder="Select timezone" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIMEZONES.map((tz) => (
+                      <SelectItem key={tz.value} value={tz.value}>
+                        {tz.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[0.8rem] text-muted-foreground">
+                  All incident timestamps in emails, SMS alerts, and the dashboard will display in this timezone.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card className="border-primary/30 bg-primary/5 backdrop-blur-sm">
             <CardHeader>
               <div className="flex items-center gap-2">
@@ -794,6 +852,12 @@ CONFIG = AppConfig(
                   <MessageSquare className={`w-5 h-5 ${config.enableSms ? 'text-primary' : 'text-muted-foreground'}`} />
                   <span className={config.enableSms ? 'font-medium' : 'text-muted-foreground'}>
                     SMS {config.enableSms ? 'Enabled' : 'Disabled'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Clock className={`w-5 h-5 text-primary`} />
+                  <span className="font-medium">
+                    {TIMEZONES.find(tz => tz.value === config.timezone)?.label || config.timezone}
                   </span>
                 </div>
               </div>
