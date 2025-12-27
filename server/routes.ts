@@ -3804,5 +3804,346 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
     }
   });
 
+  // MSP Clients (Growth+ tier required)
+  app.get("/api/clients", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const tier = req.user?.subscriptionTier;
+      if (!tier || tier === 'essential') {
+        return res.status(403).json({ error: "Client management requires Growth or Enterprise subscription" });
+      }
+      
+      const clients = await storage.getClients(userId);
+      res.json(clients);
+    } catch (error) {
+      console.error("Error fetching clients:", error);
+      res.status(500).json({ error: "Failed to fetch clients" });
+    }
+  });
+
+  app.post("/api/clients", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const tier = req.user?.subscriptionTier;
+      if (!tier || tier === 'essential') {
+        return res.status(403).json({ error: "Client management requires Growth or Enterprise subscription" });
+      }
+      
+      const client = await storage.createClient({ ...req.body, userId });
+      res.status(201).json(client);
+    } catch (error) {
+      console.error("Error creating client:", error);
+      res.status(500).json({ error: "Failed to create client" });
+    }
+  });
+
+  app.put("/api/clients/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const client = await storage.updateClient(req.params.id, req.body);
+      if (!client) return res.status(404).json({ error: "Client not found" });
+      res.json(client);
+    } catch (error) {
+      console.error("Error updating client:", error);
+      res.status(500).json({ error: "Failed to update client" });
+    }
+  });
+
+  app.delete("/api/clients/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const deleted = await storage.deleteClient(req.params.id);
+      if (!deleted) return res.status(404).json({ error: "Client not found" });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting client:", error);
+      res.status(500).json({ error: "Failed to delete client" });
+    }
+  });
+
+  // Client-Vendor Links
+  app.get("/api/clients/vendors", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const links = await storage.getClientVendorLinks(userId);
+      res.json(links);
+    } catch (error) {
+      console.error("Error fetching client-vendor links:", error);
+      res.status(500).json({ error: "Failed to fetch client-vendor links" });
+    }
+  });
+
+  app.get("/api/vendors/:vendorKey/clients", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const clients = await storage.getVendorClients(userId, req.params.vendorKey);
+      res.json(clients);
+    } catch (error) {
+      console.error("Error fetching vendor clients:", error);
+      res.status(500).json({ error: "Failed to fetch vendor clients" });
+    }
+  });
+
+  app.post("/api/clients/:clientId/vendors/:vendorKey", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const { priority } = req.body;
+      const link = await storage.linkVendorToClient(userId, req.params.clientId, req.params.vendorKey, priority);
+      res.status(201).json(link);
+    } catch (error) {
+      console.error("Error linking vendor to client:", error);
+      res.status(500).json({ error: "Failed to link vendor to client" });
+    }
+  });
+
+  app.delete("/api/clients/:clientId/vendors/:vendorKey", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const unlinked = await storage.unlinkVendorFromClient(userId, req.params.clientId, req.params.vendorKey);
+      res.json({ success: unlinked });
+    } catch (error) {
+      console.error("Error unlinking vendor from client:", error);
+      res.status(500).json({ error: "Failed to unlink vendor from client" });
+    }
+  });
+
+  // Incident Playbooks (Growth+ tier required)
+  app.get("/api/playbooks", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const tier = req.user?.subscriptionTier;
+      if (!tier || tier === 'essential') {
+        return res.status(403).json({ error: "Incident playbooks require Growth or Enterprise subscription" });
+      }
+      
+      const playbooks = await storage.getPlaybooks(userId);
+      res.json(playbooks);
+    } catch (error) {
+      console.error("Error fetching playbooks:", error);
+      res.status(500).json({ error: "Failed to fetch playbooks" });
+    }
+  });
+
+  app.get("/api/playbooks/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const playbook = await storage.getPlaybook(req.params.id);
+      if (!playbook) return res.status(404).json({ error: "Playbook not found" });
+      
+      const steps = await storage.getPlaybookSteps(req.params.id);
+      res.json({ ...playbook, steps });
+    } catch (error) {
+      console.error("Error fetching playbook:", error);
+      res.status(500).json({ error: "Failed to fetch playbook" });
+    }
+  });
+
+  app.get("/api/playbooks/for-incident/:vendorKey", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const { severity } = req.query;
+      const playbook = await storage.getPlaybookForIncident(userId, req.params.vendorKey, severity as string);
+      
+      if (!playbook) return res.json(null);
+      
+      const steps = await storage.getPlaybookSteps(playbook.id);
+      res.json({ ...playbook, steps });
+    } catch (error) {
+      console.error("Error fetching playbook for incident:", error);
+      res.status(500).json({ error: "Failed to fetch playbook for incident" });
+    }
+  });
+
+  app.post("/api/playbooks", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const tier = req.user?.subscriptionTier;
+      if (!tier || tier === 'essential') {
+        return res.status(403).json({ error: "Incident playbooks require Growth or Enterprise subscription" });
+      }
+      
+      const playbook = await storage.createPlaybook({ ...req.body, userId });
+      res.status(201).json(playbook);
+    } catch (error) {
+      console.error("Error creating playbook:", error);
+      res.status(500).json({ error: "Failed to create playbook" });
+    }
+  });
+
+  app.put("/api/playbooks/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const playbook = await storage.updatePlaybook(req.params.id, req.body);
+      if (!playbook) return res.status(404).json({ error: "Playbook not found" });
+      res.json(playbook);
+    } catch (error) {
+      console.error("Error updating playbook:", error);
+      res.status(500).json({ error: "Failed to update playbook" });
+    }
+  });
+
+  app.delete("/api/playbooks/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const deleted = await storage.deletePlaybook(req.params.id);
+      if (!deleted) return res.status(404).json({ error: "Playbook not found" });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting playbook:", error);
+      res.status(500).json({ error: "Failed to delete playbook" });
+    }
+  });
+
+  // Playbook Steps
+  app.post("/api/playbooks/:playbookId/steps", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const step = await storage.createPlaybookStep({ ...req.body, playbookId: req.params.playbookId });
+      res.status(201).json(step);
+    } catch (error) {
+      console.error("Error creating playbook step:", error);
+      res.status(500).json({ error: "Failed to create playbook step" });
+    }
+  });
+
+  app.put("/api/playbooks/steps/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const step = await storage.updatePlaybookStep(req.params.id, req.body);
+      if (!step) return res.status(404).json({ error: "Step not found" });
+      res.json(step);
+    } catch (error) {
+      console.error("Error updating playbook step:", error);
+      res.status(500).json({ error: "Failed to update playbook step" });
+    }
+  });
+
+  app.delete("/api/playbooks/steps/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const deleted = await storage.deletePlaybookStep(req.params.id);
+      if (!deleted) return res.status(404).json({ error: "Step not found" });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting playbook step:", error);
+      res.status(500).json({ error: "Failed to delete playbook step" });
+    }
+  });
+
+  app.put("/api/playbooks/:playbookId/steps/reorder", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const { stepIds } = req.body;
+      await storage.reorderPlaybookSteps(req.params.playbookId, stepIds);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error reordering playbook steps:", error);
+      res.status(500).json({ error: "Failed to reorder playbook steps" });
+    }
+  });
+
+  // SLA Countdown Timers (Enterprise tier preferred, but Growth can view)
+  app.get("/api/sla/timers", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const tier = req.user?.subscriptionTier;
+      if (!tier || tier === 'essential') {
+        return res.status(403).json({ error: "SLA timers require Growth or Enterprise subscription" });
+      }
+      
+      const timers = await storage.getActiveSlaTimers(userId);
+      res.json(timers);
+    } catch (error) {
+      console.error("Error fetching SLA timers:", error);
+      res.status(500).json({ error: "Failed to fetch SLA timers" });
+    }
+  });
+
+  // Mobile Status API - Quick summary endpoint for mobile view
+  app.get("/api/status/summary", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const [vendors, incidents, blockchainChains, blockchainIncidentsList, maintenanceStats] = await Promise.all([
+        storage.getVendors(),
+        storage.getIncidents(),
+        storage.getBlockchainChains(),
+        storage.getActiveBlockchainIncidents(),
+        storage.getMaintenanceStats()
+      ]);
+      
+      const vendorStats = {
+        total: vendors.length,
+        operational: vendors.filter(v => v.status === 'operational').length,
+        degraded: vendors.filter(v => v.status === 'degraded').length,
+        outage: vendors.filter(v => v.status === 'outage').length,
+      };
+      
+      const blockchainStats = {
+        total: blockchainChains.length,
+        operational: blockchainChains.filter(c => c.status === 'operational').length,
+        degraded: blockchainChains.filter(c => c.status === 'degraded').length,
+        outage: blockchainChains.filter(c => c.status === 'outage').length,
+      };
+      
+      const activeIncidents = incidents.filter(i => i.status !== 'resolved');
+      const criticalIncidents = incidents.filter(i => i.severity === 'critical' && i.status !== 'resolved');
+      
+      res.json({
+        vendors: vendorStats,
+        blockchain: blockchainStats,
+        incidents: {
+          active: activeIncidents.length,
+          critical: criticalIncidents.length,
+          blockchainActive: blockchainIncidentsList.length,
+        },
+        maintenance: maintenanceStats,
+        lastUpdated: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("Error fetching status summary:", error);
+      res.status(500).json({ error: "Failed to fetch status summary" });
+    }
+  });
+
   return httpServer;
 }

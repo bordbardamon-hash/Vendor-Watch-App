@@ -20,6 +20,9 @@ import Analytics from "@/pages/analytics";
 import SLA from "@/pages/sla";
 import Automation from "@/pages/automation";
 import ParserHealth from "@/pages/parser-health";
+import Clients from "@/pages/clients";
+import Playbooks from "@/pages/playbooks";
+import MobileStatus from "@/pages/mobile-status";
 import Signup from "@/pages/signup";
 import SignupSuccess from "@/pages/signup-success";
 import Verify2FA from "@/pages/verify-2fa";
@@ -75,6 +78,9 @@ function AuthenticatedRouter() {
         <Route path="/analytics" component={Analytics} />
         <Route path="/sla" component={SLA} />
         <Route path="/automation" component={Automation} />
+        <Route path="/clients" component={Clients} />
+        <Route path="/playbooks" component={Playbooks} />
+        <Route path="/mobile-status" component={MobileStatus} />
         <Route path="/jobs" component={Jobs} />
         <Route path="/logs" component={Logs} />
         <Route path="/settings" component={Settings} />

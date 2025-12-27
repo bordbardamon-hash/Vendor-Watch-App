@@ -19,7 +19,10 @@ import {
   X,
   BarChart3,
   Target,
-  Server
+  Server,
+  Users,
+  BookOpen,
+  Smartphone
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -55,6 +58,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { href: "/analytics", icon: BarChart3, label: "Analytics", adminOnly: false, ownerOnly: false },
     { href: "/sla", icon: Target, label: "SLA Dashboard", adminOnly: false, ownerOnly: false },
     { href: "/automation", icon: Bot, label: "Automation", adminOnly: false, ownerOnly: false },
+    { href: "/clients", icon: Users, label: "Clients", adminOnly: false, ownerOnly: false },
+    { href: "/playbooks", icon: BookOpen, label: "Playbooks", adminOnly: false, ownerOnly: false },
+    { href: "/mobile-status", icon: Smartphone, label: "Mobile Status", adminOnly: false, ownerOnly: false },
     { href: "/jobs", icon: List, label: UI_LABELS.nav.scrapers, adminOnly: true, ownerOnly: false },
     { href: "/logs", icon: Terminal, label: UI_LABELS.nav.logs, adminOnly: true, ownerOnly: false },
     { href: "/consents", icon: FileCheck, label: "Consents", adminOnly: true, ownerOnly: false },
