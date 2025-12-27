@@ -80,7 +80,7 @@ async function seed() {
       key: "paypal", 
       name: "PayPal", 
       statusUrl: "https://www.paypal-status.com", 
-      parser: "statuspage_json",
+      parser: "generic_html",
       status: 'operational'
     },
     { 

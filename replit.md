@@ -37,7 +37,7 @@ Key entities include Users, Sessions, Vendors, Incidents, Jobs, and Configuratio
 - **Production**: Client built to `dist/public`, server bundled with esbuild.
 
 ### Feature Specifications
-- **Vendor Monitoring**: Automated monitoring of 24+ vendor status pages every 5 minutes, supporting Statuspage.io JSON API, custom JSON APIs, and HTML scraping.
+- **Vendor Monitoring**: Automated monitoring of 45+ vendor status pages every 5 minutes, supporting Statuspage.io JSON API, custom JSON APIs, and HTML scraping.
 - **Blockchain Monitoring**: Dedicated `/blockchain` page for monitoring various blockchain networks across different tiers and categories, integrating with Statuspage.io APIs.
 - **Notification System**: Dispatches alerts for incident creation, updates, and resolution via email (Resend) and SMS (Twilio), with consent tracking and deduplication.
 - **Subscription Management**: Supports Essential ($89/mo), Growth ($129/mo), and Enterprise ($189/mo) tiers with tiered feature access:
@@ -69,10 +69,20 @@ Key entities include Users, Sessions, Vendors, Incidents, Jobs, and Configuratio
 - **Drizzle Kit**: For database migrations.
 
 ### Third-Party Services Monitored
-- **Statuspage.io JSON API**: For 13 vendors (e.g., Akamai, Atlassian, Cloudflare, Zoom, HubSpot, Kaseya).
-- **Puppeteer Headless Browser**: For 6 JavaScript-rendered vendors (Okta, Auth0, Fastly, ConnectWise, N-able, Syncro).
+- **Statuspage.io JSON API**: For 35+ vendors including:
+  - Cloud/CDN: Cloudflare, Akamai, DigitalOcean, Linode
+  - Collaboration: Atlassian, Zoom, Slack
+  - Authentication: Okta, Auth0, Duo Security
+  - Payments: Stripe, PayPal, QuickBooks
+  - File Storage: Dropbox, Box
+  - Remote Access: TeamViewer, LogMeIn
+  - Backup/DR: Veeam, Acronis, Datto, Carbonite
+  - Business Apps: Zendesk, ServiceNow, Freshworks, HubSpot
+  - DevOps: GitHub, Datadog, PagerDuty, New Relic
+  - MSP Tools: Kaseya, ConnectWise, N-able, Syncro
+- **Puppeteer Headless Browser**: For JavaScript-rendered vendor pages requiring browser rendering.
 - **Custom JSON APIs**: Slack (slack-status.com API), Salesforce, AWS (status.aws.amazon.com).
-- **HTML Scraping**: For 4 vendors (Azure, Microsoft 365, Google Workspace).
+- **HTML Scraping**: For vendors without APIs (Azure, Microsoft 365, Google Workspace, Google Cloud Platform).
 - **Blockchain APIs**: Statuspage.io APIs for 16 chains/wallets (Solana, Avalanche, Arbitrum, Base, Stellar, Infura, Alchemy, QuickNode, The Graph, MetaMask, Ledger, Coinbase Wallet, Argent, Polygon, Gnosis Safe, Bybit Wallet).
 - **WalletConnect Wallets**: 8 popular wallet vendors monitored (MetaMask, Trust Wallet, Ledger, Coinbase Wallet, Rainbow, Argent, Gnosis Safe, Bybit). Wallets with Statuspage APIs sync automatically; others track timestamps only.
 - **Decentralized Chains**: Bitcoin, Ethereum, BSC, Cosmos, TRON, Ripple tracked with timestamp updates (no centralized status pages exist for fully decentralized networks).

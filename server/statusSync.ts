@@ -87,8 +87,6 @@ const STATUSPAGE_API_URLS: Record<string, string> = {
   acronis: "https://status.acronis.com",
   carbonite: "https://status.carbonite.com",
   veeam: "https://status.veeam.com",
-  gcp: "https://status.cloud.google.com",
-  paypal: "https://www.paypal-status.com",
 };
 
 function mapStatusIndicator(indicator: string): string {
