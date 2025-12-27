@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { 
   Bot, PlayCircle, Pause, Settings, Plus, Trash2, Clock, AlertTriangle,
   CheckCircle, XCircle, BookOpen, Users, Webhook, Mail, MessageSquare,
-  Phone, Activity, FileText
+  Phone, Activity, FileText, Edit
 } from "lucide-react";
 
 const TRIGGER_TYPES = [
@@ -40,6 +40,8 @@ export default function AutomationPage() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("rules");
   const [showNewRuleDialog, setShowNewRuleDialog] = useState(false);
+  const [showEditRuleDialog, setShowEditRuleDialog] = useState(false);
+  const [selectedRule, setSelectedRule] = useState<any>(null);
   
   const { data: rules = [], isLoading: rulesLoading } = useQuery<any[]>({
     queryKey: ["/api/orchestrator/rules"],
@@ -86,6 +88,24 @@ export default function AutomationPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/orchestrator/rules"] });
       toast({ title: "Rule deleted" });
+    },
+  });
+
+  const updateRuleMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const res = await fetch(`/api/orchestrator/rules/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Failed to update rule");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orchestrator/rules"] });
+      toast({ title: "Rule updated successfully" });
+      setShowEditRuleDialog(false);
+      setSelectedRule(null);
     },
   });
 
@@ -350,6 +370,18 @@ export default function AutomationPage() {
                             <Button 
                               size="icon" 
                               variant="ghost"
+                              className="text-cyan-400 hover:text-cyan-300 hover:bg-cyan-900/20"
+                              onClick={() => {
+                                setSelectedRule(rule);
+                                setShowEditRuleDialog(true);
+                              }}
+                              data-testid={`btn-edit-rule-${rule.id}`}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              size="icon" 
+                              variant="ghost"
                               className="text-red-400 hover:text-red-300 hover:bg-red-900/20"
                               onClick={() => deleteRuleMutation.mutate(rule.id)}
                               data-testid={`btn-delete-rule-${rule.id}`}
@@ -437,6 +469,122 @@ export default function AutomationPage() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Edit Rule Dialog */}
+        <Dialog open={showEditRuleDialog} onOpenChange={(open) => {
+          setShowEditRuleDialog(open);
+          if (!open) setSelectedRule(null);
+        }}>
+          <DialogContent className="bg-gray-900 border-gray-700 text-white max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="text-cyan-400">Edit Automation Rule</DialogTitle>
+            </DialogHeader>
+            {selectedRule && (
+              <div className="space-y-4 mt-4">
+                <div>
+                  <Label>Rule Name</Label>
+                  <Input
+                    value={selectedRule.name}
+                    onChange={(e) => setSelectedRule({ ...selectedRule, name: e.target.value })}
+                    placeholder="e.g., Critical Incident Alert"
+                    className="bg-gray-800 border-gray-600"
+                    data-testid="input-edit-rule-name"
+                  />
+                </div>
+                
+                <div>
+                  <Label>Description</Label>
+                  <Textarea
+                    value={selectedRule.description || ""}
+                    onChange={(e) => setSelectedRule({ ...selectedRule, description: e.target.value })}
+                    placeholder="What does this rule do?"
+                    className="bg-gray-800 border-gray-600"
+                    data-testid="input-edit-rule-description"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Trigger</Label>
+                    <Select
+                      value={selectedRule.triggerType}
+                      onValueChange={(v) => setSelectedRule({ ...selectedRule, triggerType: v })}
+                    >
+                      <SelectTrigger className="bg-gray-800 border-gray-600" data-testid="select-edit-trigger">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-gray-800 border-gray-600">
+                        {TRIGGER_TYPES.map(t => (
+                          <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <Label>Action</Label>
+                    <Select
+                      value={selectedRule.actionType}
+                      onValueChange={(v) => setSelectedRule({ ...selectedRule, actionType: v })}
+                    >
+                      <SelectTrigger className="bg-gray-800 border-gray-600" data-testid="select-edit-action">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-gray-800 border-gray-600">
+                        {ACTION_TYPES.map(a => (
+                          <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label>Active</Label>
+                    <p className="text-xs text-gray-500">Enable or disable this rule</p>
+                  </div>
+                  <Switch
+                    checked={selectedRule.isActive}
+                    onCheckedChange={(v) => setSelectedRule({ ...selectedRule, isActive: v })}
+                    data-testid="switch-edit-active"
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label>Require Approval</Label>
+                    <p className="text-xs text-gray-500">Human-in-the-loop before execution</p>
+                  </div>
+                  <Switch
+                    checked={selectedRule.requiresApproval}
+                    onCheckedChange={(v) => setSelectedRule({ ...selectedRule, requiresApproval: v })}
+                    data-testid="switch-edit-approval"
+                  />
+                </div>
+                
+                <Button 
+                  onClick={() => updateRuleMutation.mutate({ 
+                    id: selectedRule.id, 
+                    data: {
+                      name: selectedRule.name,
+                      description: selectedRule.description,
+                      triggerType: selectedRule.triggerType,
+                      actionType: selectedRule.actionType,
+                      isActive: selectedRule.isActive,
+                      requiresApproval: selectedRule.requiresApproval,
+                    }
+                  })} 
+                  className="w-full bg-cyan-600 hover:bg-cyan-700"
+                  disabled={!selectedRule.name || updateRuleMutation.isPending}
+                  data-testid="btn-update-rule"
+                >
+                  {updateRuleMutation.isPending ? "Updating..." : "Update Rule"}
+                </Button>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
     </div>
   );
 }
