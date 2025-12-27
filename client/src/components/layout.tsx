@@ -50,28 +50,31 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     return "U";
   };
 
+  const isGrowthOrHigher = user?.subscriptionTier === 'growth' || user?.subscriptionTier === 'enterprise';
+
   const navItems = [
-    { href: "/", icon: LayoutDashboard, label: UI_LABELS.nav.overview, adminOnly: false, ownerOnly: false },
-    { href: "/vendors", icon: Shield, label: UI_LABELS.nav.vendorsIncidents, adminOnly: false, ownerOnly: false },
-    { href: "/blockchain", icon: Boxes, label: "Blockchain", adminOnly: false, ownerOnly: false },
-    { href: "/maintenance", icon: Wrench, label: "Maintenance", adminOnly: false, ownerOnly: false },
-    { href: "/analytics", icon: BarChart3, label: "Analytics", adminOnly: false, ownerOnly: false },
-    { href: "/sla", icon: Target, label: "SLA Dashboard", adminOnly: false, ownerOnly: false },
-    { href: "/automation", icon: Bot, label: "Automation", adminOnly: false, ownerOnly: false },
-    { href: "/clients", icon: Users, label: "Clients", adminOnly: false, ownerOnly: false },
-    { href: "/playbooks", icon: BookOpen, label: "Playbooks", adminOnly: false, ownerOnly: false },
-    { href: "/mobile-status", icon: Smartphone, label: "Mobile Status", adminOnly: false, ownerOnly: false },
-    { href: "/jobs", icon: List, label: UI_LABELS.nav.scrapers, adminOnly: true, ownerOnly: false },
-    { href: "/logs", icon: Terminal, label: UI_LABELS.nav.logs, adminOnly: true, ownerOnly: false },
-    { href: "/consents", icon: FileCheck, label: "Consents", adminOnly: true, ownerOnly: false },
-    { href: "/feedback", icon: MessageSquare, label: "Feedback", adminOnly: true, ownerOnly: false },
-    { href: "/parser-health", icon: Server, label: "Parser Health", adminOnly: false, ownerOnly: true },
-    { href: "/settings", icon: Settings, label: UI_LABELS.nav.config, adminOnly: false, ownerOnly: false },
+    { href: "/", icon: LayoutDashboard, label: UI_LABELS.nav.overview, adminOnly: false, ownerOnly: false, requiresGrowth: false },
+    { href: "/vendors", icon: Shield, label: UI_LABELS.nav.vendorsIncidents, adminOnly: false, ownerOnly: false, requiresGrowth: false },
+    { href: "/blockchain", icon: Boxes, label: "Blockchain", adminOnly: false, ownerOnly: false, requiresGrowth: false },
+    { href: "/maintenance", icon: Wrench, label: "Maintenance", adminOnly: false, ownerOnly: false, requiresGrowth: false },
+    { href: "/analytics", icon: BarChart3, label: "Analytics", adminOnly: false, ownerOnly: false, requiresGrowth: false },
+    { href: "/sla", icon: Target, label: "SLA Dashboard", adminOnly: false, ownerOnly: false, requiresGrowth: false },
+    { href: "/automation", icon: Bot, label: "Automation", adminOnly: false, ownerOnly: false, requiresGrowth: false },
+    { href: "/clients", icon: Users, label: "Clients", adminOnly: false, ownerOnly: false, requiresGrowth: true },
+    { href: "/playbooks", icon: BookOpen, label: "Playbooks", adminOnly: false, ownerOnly: false, requiresGrowth: true },
+    { href: "/mobile-status", icon: Smartphone, label: "Mobile Status", adminOnly: false, ownerOnly: false, requiresGrowth: true },
+    { href: "/jobs", icon: List, label: UI_LABELS.nav.scrapers, adminOnly: true, ownerOnly: false, requiresGrowth: false },
+    { href: "/logs", icon: Terminal, label: UI_LABELS.nav.logs, adminOnly: true, ownerOnly: false, requiresGrowth: false },
+    { href: "/consents", icon: FileCheck, label: "Consents", adminOnly: true, ownerOnly: false, requiresGrowth: false },
+    { href: "/feedback", icon: MessageSquare, label: "Feedback", adminOnly: true, ownerOnly: false, requiresGrowth: false },
+    { href: "/parser-health", icon: Server, label: "Parser Health", adminOnly: false, ownerOnly: true, requiresGrowth: false },
+    { href: "/settings", icon: Settings, label: UI_LABELS.nav.config, adminOnly: false, ownerOnly: false, requiresGrowth: false },
   ];
 
   const visibleNavItems = navItems.filter(item => {
     if (item.ownerOnly && !user?.isOwner) return false;
     if (item.adminOnly && !user?.isAdmin) return false;
+    if (item.requiresGrowth && !isGrowthOrHigher) return false;
     return true;
   });
 
