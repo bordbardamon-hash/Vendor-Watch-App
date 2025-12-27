@@ -1601,15 +1601,15 @@ function UsersManagementTab() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">No Tier</SelectItem>
-                        <SelectItem value="standard">Standard</SelectItem>
-                        <SelectItem value="gold">
+                        <SelectItem value="essential">Essential</SelectItem>
+                        <SelectItem value="growth">
                           <div className="flex items-center gap-1">
-                            <Crown className="w-3 h-3 text-yellow-500" /> Gold
+                            <Crown className="w-3 h-3 text-yellow-500" /> Growth
                           </div>
                         </SelectItem>
-                        <SelectItem value="platinum">
+                        <SelectItem value="enterprise">
                           <div className="flex items-center gap-1">
-                            <Crown className="w-3 h-3 text-purple-500" /> Platinum
+                            <Crown className="w-3 h-3 text-purple-500" /> Enterprise
                           </div>
                         </SelectItem>
                       </SelectContent>

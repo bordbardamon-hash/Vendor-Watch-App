@@ -170,7 +170,7 @@ export default function Vendors() {
     },
   });
 
-  // Create vendor request mutation (for Gold users)
+  // Create vendor request mutation (for Growth users)
   const createRequestMutation = useMutation({
     mutationFn: async (data: { vendorName: string; statusPageUrl: string; integrationNotes?: string }) => {
       const res = await fetch("/api/vendor-requests", {
@@ -196,7 +196,7 @@ export default function Vendors() {
     },
   });
 
-  // Direct vendor add mutation (for Platinum users)
+  // Direct vendor add mutation (for Enterprise users)
   const directAddMutation = useMutation({
     mutationFn: async (data: { key: string; name: string; statusUrl: string; parser: string }) => {
       const res = await fetch("/api/vendors/direct", {
@@ -303,7 +303,7 @@ export default function Vendors() {
   // Helper to check if user can add more vendors
   const canAddMore = () => {
     if (!subscriptionData) return false;
-    if (subscriptionData.limit === null) return true; // Platinum
+    if (subscriptionData.limit === null) return true; // Enterprise
     return subscriptionData.current < subscriptionData.limit;
   };
 
@@ -506,7 +506,7 @@ export default function Vendors() {
                       Add New Vendor
                     </DialogTitle>
                     <DialogDescription>
-                      As a Platinum member, you can add vendors directly to the system.
+                      As an Enterprise member, you can add vendors directly to the system.
                     </DialogDescription>
                   </DialogHeader>
                   <div className="grid gap-4 py-4">
@@ -630,8 +630,8 @@ export default function Vendors() {
                   <DialogHeader>
                     <DialogTitle>Upgrade Required</DialogTitle>
                     <DialogDescription>
-                      {vendorLimit?.tier === 'standard' 
-                        ? "Standard plan does not include custom vendor requests. Upgrade to Gold for 5 custom requests or Platinum for unlimited additions."
+                      {vendorLimit?.tier === 'essential' 
+                        ? "Essential plan does not include custom vendor requests. Upgrade to Growth for 3 custom requests or Enterprise for unlimited additions."
                         : "Please upgrade your subscription to add custom vendors."}
                     </DialogDescription>
                   </DialogHeader>

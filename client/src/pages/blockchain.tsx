@@ -186,13 +186,13 @@ export default function Blockchain() {
   // Helper to check if user can add more chains
   const canAddMore = () => {
     if (!subscriptionData) return false;
-    if (subscriptionData.limit === null) return true; // Platinum
+    if (subscriptionData.limit === null) return true; // Enterprise
     return subscriptionData.current < subscriptionData.limit;
   };
 
-  // Check if user has blockchain access (all tiers now have access)
+  // Check if user has blockchain access (Growth and Enterprise tiers only)
   const hasBlockchainAccess = () => {
-    return subscriptionData?.tier === 'standard' || subscriptionData?.tier === 'gold' || subscriptionData?.tier === 'platinum';
+    return subscriptionData?.tier === 'growth' || subscriptionData?.tier === 'enterprise';
   };
 
   const { data: chains = [], isLoading: chainsLoading, refetch, isFetching } = useQuery<BlockchainChain[]>({
@@ -516,7 +516,7 @@ export default function Blockchain() {
                   <p className="text-sm text-muted-foreground">
                     {hasBlockchainAccess() 
                       ? `Select up to ${subscriptionData.limit === null ? 'unlimited' : subscriptionData.limit} blockchain networks to monitor`
-                      : "Subscribe to a plan to monitor blockchain networks (Standard: 2, Gold: 10, Platinum: 25)"}
+                      : "Upgrade to Growth (10 chains) or Enterprise (unlimited) to monitor blockchain networks"}
                   </p>
                 </div>
               </div>

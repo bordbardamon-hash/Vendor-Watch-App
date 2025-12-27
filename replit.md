@@ -40,7 +40,10 @@ Key entities include Users, Sessions, Vendors, Incidents, Jobs, and Configuratio
 - **Vendor Monitoring**: Automated monitoring of 24+ vendor status pages every 5 minutes, supporting Statuspage.io JSON API, custom JSON APIs, and HTML scraping.
 - **Blockchain Monitoring**: Dedicated `/blockchain` page for monitoring various blockchain networks across different tiers and categories, integrating with Statuspage.io APIs.
 - **Notification System**: Dispatches alerts for incident creation, updates, and resolution via email (Resend) and SMS (Twilio), with consent tracking and deduplication.
-- **Subscription Management**: Supports Standard, Gold, and Platinum tiers with varying vendor limits and features (e.g., custom vendor requests for Gold, direct vendor adding for Platinum), integrated with Stripe for billing.
+- **Subscription Management**: Supports Essential ($89/mo), Growth ($129/mo), and Enterprise ($189/mo) tiers with tiered feature access:
+  - **Essential**: 10 vendors, email alerts only, no blockchain/automation/SMS
+  - **Growth**: 25 vendors, email + SMS alerts, 10 blockchain networks, basic automation, 3 custom vendor requests
+  - **Enterprise**: Unlimited vendors/blockchain/staking, full automation, AI Copilot, direct vendor addition
 - **User Preferences**: Allows users to manage notification preferences (email, SMS toggles, timezone), subscribe to specific vendors, and reorder vendor display. Timezone setting affects all date displays in emails, SMS alerts, and dashboard views.
 - **Admin Features**: `isAdmin` flag controls access to administrative pages and API routes (e.g., Jobs, Logs, Consents management).
 - **MSP-Focused Features**:

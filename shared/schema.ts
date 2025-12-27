@@ -112,7 +112,7 @@ export const incidentAlerts = pgTable("incident_alerts", {
   sentAt: timestamp("sent_at").notNull().defaultNow(),
 });
 
-// Custom Vendor Requests - for Standard/Gold users to request new vendors
+// Custom Vendor Requests - for Growth users to request new vendors
 export const customVendorRequests = pgTable("custom_vendor_requests", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: text("user_id").notNull(),

@@ -129,7 +129,7 @@ export interface IStorage {
   getUserRequestCount(userId: string): Promise<number>;
   
   // Subscription Tier Helpers
-  updateUserSubscriptionTier(userId: string, tier: 'standard' | 'gold' | 'platinum' | null): Promise<User | undefined>;
+  updateUserSubscriptionTier(userId: string, tier: 'essential' | 'growth' | 'enterprise' | null): Promise<User | undefined>;
   checkVendorLimit(userId: string): Promise<{ allowed: boolean; current: number; limit: number | null; tier: string | null }>;
   
   // Two-Factor Authentication
@@ -990,7 +990,7 @@ export class DatabaseStorage implements IStorage {
   }
   
   // Subscription Tier Helpers
-  async updateUserSubscriptionTier(userId: string, tier: 'standard' | 'gold' | 'platinum' | null): Promise<User | undefined> {
+  async updateUserSubscriptionTier(userId: string, tier: 'essential' | 'growth' | 'enterprise' | null): Promise<User | undefined> {
     const [user] = await db
       .update(users)
       .set({ subscriptionTier: tier, updatedAt: new Date() })
@@ -1005,7 +1005,7 @@ export class DatabaseStorage implements IStorage {
       return { allowed: false, current: 0, limit: 0, tier: null };
     }
     
-    const tier = user.subscriptionTier as 'standard' | 'gold' | 'platinum' | null;
+    const tier = user.subscriptionTier as 'essential' | 'growth' | 'enterprise' | null;
     if (!tier) {
       return { allowed: false, current: 0, limit: 0, tier: null };
     }
@@ -1014,7 +1014,7 @@ export class DatabaseStorage implements IStorage {
     const subscriptions = await this.getUserVendorSubscriptions(userId);
     const currentCount = subscriptions.length;
     
-    // Platinum has no limit
+    // Enterprise has no limit
     if (tierInfo.vendorLimit === null) {
       return { allowed: true, current: currentCount, limit: null, tier };
     }
@@ -1241,7 +1241,7 @@ export class DatabaseStorage implements IStorage {
       return { allowed: false, current: 0, limit: 0, tier: null };
     }
     
-    const tier = user.subscriptionTier as 'standard' | 'gold' | 'platinum' | null;
+    const tier = user.subscriptionTier as 'essential' | 'growth' | 'enterprise' | null;
     if (!tier) {
       return { allowed: false, current: 0, limit: 0, tier: null };
     }
@@ -1250,7 +1250,7 @@ export class DatabaseStorage implements IStorage {
     const subscriptions = await this.getUserBlockchainSubscriptions(userId);
     const currentCount = subscriptions.length;
     
-    // Platinum has no limit
+    // Enterprise has no limit
     if (tierInfo.blockchainLimit === null) {
       return { allowed: true, current: currentCount, limit: null, tier };
     }
@@ -1269,7 +1269,7 @@ export class DatabaseStorage implements IStorage {
       throw new Error('User not found');
     }
     
-    const tier = user.subscriptionTier as 'standard' | 'gold' | 'platinum' | null;
+    const tier = user.subscriptionTier as 'essential' | 'growth' | 'enterprise' | null;
     if (!tier) {
       throw new Error('No active subscription');
     }
@@ -1306,7 +1306,7 @@ export class DatabaseStorage implements IStorage {
       throw new Error('User not found');
     }
     
-    const tier = user.subscriptionTier as 'standard' | 'gold' | 'platinum' | null;
+    const tier = user.subscriptionTier as 'essential' | 'growth' | 'enterprise' | null;
     if (!tier) {
       throw new Error('No active subscription');
     }
