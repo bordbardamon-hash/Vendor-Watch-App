@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle, DrawerFooter, DrawerClose } from "@/components/ui/drawer";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetFooter, SheetClose } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -567,15 +567,15 @@ export default function Playbooks() {
           </DialogContent>
         </Dialog>
       ) : (
-        <Drawer open={showAddDialog} onOpenChange={setShowAddDialog}>
-          <DrawerContent>
-            <DrawerHeader>
-              <DrawerTitle>Create Playbook</DrawerTitle>
-              <DrawerDescription>
+        <Sheet open={showAddDialog} onOpenChange={setShowAddDialog}>
+          <SheetContent side="bottom" className="h-[85vh] overflow-y-auto bg-card text-card-foreground">
+            <SheetHeader>
+              <SheetTitle>Create Playbook</SheetTitle>
+              <SheetDescription>
                 Define a response playbook for incident handling
-              </DrawerDescription>
-            </DrawerHeader>
-            <div className="space-y-4 px-4 pb-4">
+              </SheetDescription>
+            </SheetHeader>
+            <div className="space-y-4 py-4">
               <div>
                 <Label htmlFor="name-mobile">Playbook Name *</Label>
                 <Input
@@ -642,21 +642,22 @@ export default function Playbooks() {
                 />
               </div>
             </div>
-            <DrawerFooter>
+            <SheetFooter className="flex-col gap-2">
               <Button
                 onClick={() => createPlaybook.mutate(formData)}
                 disabled={!formData.name || createPlaybook.isPending}
+                className="w-full"
                 data-testid="button-save-playbook-mobile"
               >
                 {createPlaybook.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                 Create Playbook
               </Button>
-              <DrawerClose asChild>
-                <Button variant="outline">Cancel</Button>
-              </DrawerClose>
-            </DrawerFooter>
-          </DrawerContent>
-        </Drawer>
+              <SheetClose asChild>
+                <Button variant="outline" className="w-full">Cancel</Button>
+              </SheetClose>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
       )}
 
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
