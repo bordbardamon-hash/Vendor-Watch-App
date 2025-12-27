@@ -67,6 +67,28 @@ const STATUSPAGE_API_URLS: Record<string, string> = {
   auth0: "https://status.auth0.com",
   slack: "https://status.slack.com",
   fastly: "https://status.fastly.com",
+  // New vendors with Statuspage.io APIs
+  stripe: "https://status.stripe.com",
+  duo: "https://status.duo.com",
+  dropbox: "https://status.dropbox.com",
+  box: "https://status.box.com",
+  datadog: "https://status.datadoghq.com",
+  pagerduty: "https://status.pagerduty.com",
+  newrelic: "https://status.newrelic.com",
+  github: "https://www.githubstatus.com",
+  zendesk: "https://status.zendesk.com",
+  servicenow: "https://status.servicenow.com",
+  freshworks: "https://status.freshworks.com",
+  digitalocean: "https://status.digitalocean.com",
+  linode: "https://status.linode.com",
+  datto: "https://status.datto.com",
+  teamviewer: "https://status.teamviewer.com",
+  logmein: "https://status.logmeininc.com",
+  acronis: "https://status.acronis.com",
+  carbonite: "https://status.carbonite.com",
+  veeam: "https://status.veeam.com",
+  gcp: "https://status.cloud.google.com",
+  paypal: "https://www.paypal-status.com",
 };
 
 function mapStatusIndicator(indicator: string): string {
