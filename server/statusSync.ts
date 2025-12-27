@@ -47,7 +47,9 @@ interface IncidentsResponse {
   }>;
 }
 
+// Only include vendors with verified working Statuspage.io API endpoints
 const STATUSPAGE_API_URLS: Record<string, string> = {
+  // Verified working - tested Dec 2024
   cloudflare: "https://www.cloudflarestatus.com",
   zoom: "https://status.zoom.us",
   atlassian: "https://status.atlassian.com",
@@ -60,33 +62,21 @@ const STATUSPAGE_API_URLS: Record<string, string> = {
   quickbooks: "https://status.quickbooks.intuit.com",
   netsuite: "https://status.netsuite.com",
   kaseya: "https://status.kaseya.com",
-  okta: "https://status.okta.com",
-  connectwise: "https://status.connectwise.com",
   nable: "https://status.n-able.com",
   syncro: "https://www.syncrostatus.com",
-  auth0: "https://status.auth0.com",
   slack: "https://status.slack.com",
   fastly: "https://status.fastly.com",
-  // New vendors with Statuspage.io APIs
-  stripe: "https://status.stripe.com",
   duo: "https://status.duo.com",
   dropbox: "https://status.dropbox.com",
   box: "https://status.box.com",
   datadog: "https://status.datadoghq.com",
-  pagerduty: "https://status.pagerduty.com",
   newrelic: "https://status.newrelic.com",
   github: "https://www.githubstatus.com",
-  zendesk: "https://status.zendesk.com",
-  servicenow: "https://status.servicenow.com",
-  freshworks: "https://status.freshworks.com",
   digitalocean: "https://status.digitalocean.com",
   linode: "https://status.linode.com",
-  datto: "https://status.datto.com",
   teamviewer: "https://status.teamviewer.com",
-  logmein: "https://status.logmeininc.com",
-  acronis: "https://status.acronis.com",
-  carbonite: "https://status.carbonite.com",
-  veeam: "https://status.veeam.com",
+  datto: "https://status.kaseya.com", // Datto now redirects to Kaseya
+  carbonite: "https://status.opentext.com", // Carbonite now redirects to OpenText
 };
 
 function mapStatusIndicator(indicator: string): string {

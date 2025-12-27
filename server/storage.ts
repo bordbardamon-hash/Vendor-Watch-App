@@ -2257,12 +2257,12 @@ const DEFAULT_VENDORS: InsertVendor[] = [
   { key: "slack", name: "Slack", statusUrl: "https://status.slack.com/", parser: "statuspage_json", status: "operational" },
   { key: "salesforce", name: "Salesforce", statusUrl: "https://status.salesforce.com", parser: "generic_html", status: "operational" },
   // Authentication & Identity
-  { key: "okta", name: "Okta", statusUrl: "https://status.okta.com", parser: "statuspage_json", status: "operational" },
-  { key: "auth0", name: "Auth0", statusUrl: "https://status.auth0.com/", parser: "statuspage_json", status: "operational" },
+  { key: "okta", name: "Okta", statusUrl: "https://status.okta.com", parser: "generic_html", status: "operational" },
+  { key: "auth0", name: "Auth0", statusUrl: "https://status.auth0.com/", parser: "generic_html", status: "operational" },
   { key: "pingidentity", name: "Ping Identity", statusUrl: "https://status.pingidentity.com/", parser: "statuspage_json", status: "operational" },
   { key: "duo", name: "Duo Security", statusUrl: "https://status.duo.com", parser: "statuspage_json", status: "operational" },
   // Payments & Revenue
-  { key: "stripe", name: "Stripe", statusUrl: "https://status.stripe.com", parser: "statuspage_json", status: "operational" },
+  { key: "stripe", name: "Stripe", statusUrl: "https://status.stripe.com", parser: "generic_html", status: "operational" },
   { key: "paypal", name: "PayPal", statusUrl: "https://www.paypal-status.com", parser: "generic_html", status: "operational" },
   { key: "quickbooks", name: "QuickBooks Online", statusUrl: "https://status.quickbooks.intuit.com/", parser: "statuspage_json", status: "operational" },
   // File Storage & Collaboration
@@ -2270,27 +2270,27 @@ const DEFAULT_VENDORS: InsertVendor[] = [
   { key: "box", name: "Box", statusUrl: "https://status.box.com", parser: "statuspage_json", status: "operational" },
   // Remote Access & Support
   { key: "teamviewer", name: "TeamViewer", statusUrl: "https://status.teamviewer.com", parser: "statuspage_json", status: "operational" },
-  { key: "logmein", name: "LogMeIn", statusUrl: "https://status.logmeininc.com", parser: "statuspage_json", status: "operational" },
+  { key: "logmein", name: "LogMeIn", statusUrl: "https://status.logmeininc.com", parser: "generic_html", status: "operational" },
   // Backup & Disaster Recovery
-  { key: "veeam", name: "Veeam", statusUrl: "https://status.veeam.com", parser: "statuspage_json", status: "operational" },
+  { key: "veeam", name: "Veeam", statusUrl: "https://status.veeam.com", parser: "generic_html", status: "operational" },
   { key: "veeam_datacloud", name: "Veeam Data Cloud", statusUrl: "https://vdcstatus.veeam.com/", parser: "statuspage_json", status: "operational" },
-  { key: "acronis", name: "Acronis", statusUrl: "https://status.acronis.com", parser: "statuspage_json", status: "operational" },
-  { key: "datto", name: "Datto", statusUrl: "https://status.datto.com", parser: "statuspage_json", status: "operational" },
-  { key: "carbonite", name: "Carbonite", statusUrl: "https://status.carbonite.com", parser: "statuspage_json", status: "operational" },
+  { key: "acronis", name: "Acronis", statusUrl: "https://status.acronis.com", parser: "generic_html", status: "operational" },
+  { key: "datto", name: "Datto", statusUrl: "https://status.kaseya.com", parser: "statuspage_json", status: "operational" },
+  { key: "carbonite", name: "Carbonite", statusUrl: "https://status.opentext.com", parser: "statuspage_json", status: "operational" },
   // Business Applications
   { key: "hubspot", name: "HubSpot", statusUrl: "https://status.hubspot.com/", parser: "statuspage_json", status: "operational" },
-  { key: "zendesk", name: "Zendesk", statusUrl: "https://status.zendesk.com", parser: "statuspage_json", status: "operational" },
-  { key: "servicenow", name: "ServiceNow", statusUrl: "https://status.servicenow.com", parser: "statuspage_json", status: "operational" },
-  { key: "freshworks", name: "Freshworks", statusUrl: "https://status.freshworks.com", parser: "statuspage_json", status: "operational" },
+  { key: "zendesk", name: "Zendesk", statusUrl: "https://status.zendesk.com", parser: "generic_html", status: "operational" },
+  { key: "servicenow", name: "ServiceNow", statusUrl: "https://status.servicenow.com", parser: "generic_html", status: "operational" },
+  { key: "freshworks", name: "Freshworks", statusUrl: "https://status.freshworks.com", parser: "generic_html", status: "operational" },
   { key: "netsuite", name: "Oracle NetSuite", statusUrl: "https://status.netsuite.com/", parser: "statuspage_json", status: "operational" },
   // DevOps & Monitoring
   { key: "github", name: "GitHub", statusUrl: "https://www.githubstatus.com", parser: "statuspage_json", status: "operational" },
   { key: "datadog", name: "Datadog", statusUrl: "https://status.datadoghq.com", parser: "statuspage_json", status: "operational" },
-  { key: "pagerduty", name: "PagerDuty", statusUrl: "https://status.pagerduty.com", parser: "statuspage_json", status: "operational" },
+  { key: "pagerduty", name: "PagerDuty", statusUrl: "https://status.pagerduty.com", parser: "generic_html", status: "operational" },
   { key: "newrelic", name: "New Relic", statusUrl: "https://status.newrelic.com", parser: "statuspage_json", status: "operational" },
   { key: "sentinelone", name: "SentinelOne", statusUrl: "https://status.sentinelone.com/", parser: "statuspage_json", status: "operational" },
   // MSP Tools
-  { key: "connectwise", name: "ConnectWise", statusUrl: "https://status.connectwise.com/", parser: "statuspage_json", status: "operational" },
+  { key: "connectwise", name: "ConnectWise", statusUrl: "https://status.connectwise.com/", parser: "generic_html", status: "operational" },
   { key: "nable", name: "N-able", statusUrl: "https://status.n-able.com/", parser: "statuspage_json", status: "operational" },
   { key: "kaseya", name: "Kaseya", statusUrl: "https://status.kaseya.com/", parser: "statuspage_json", status: "operational" },
   { key: "syncro", name: "Syncro", statusUrl: "https://www.syncrostatus.com/", parser: "statuspage_json", status: "operational" },
