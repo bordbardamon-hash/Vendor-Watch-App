@@ -3,6 +3,7 @@ import {
   blockchainChains, blockchainIncidents, blockchainIncidentArchive, userBlockchainSubscriptions, incidentAcknowledgements, maintenanceAcknowledgements,
   vendorMaintenances, blockchainMaintenances, userActivityEvents, vendorDailyMetrics, psaWebhooks,
   slaContracts, slaBreaches, syntheticProbes, syntheticProbeResults,
+  clients, clientVendorLinks, incidentPlaybooks, incidentPlaybookSteps,
   type User, type UpsertUser,
   type Vendor, type InsertVendor,
   type Incident, type InsertIncident,
@@ -27,6 +28,10 @@ import {
   type SlaBreach, type InsertSlaBreach,
   type SyntheticProbe, type InsertSyntheticProbe,
   type SyntheticProbeResult, type InsertSyntheticProbeResult,
+  type Client, type InsertClient,
+  type ClientVendorLink, type InsertClientVendorLink,
+  type IncidentPlaybook, type InsertIncidentPlaybook,
+  type IncidentPlaybookStep, type InsertIncidentPlaybookStep,
   SUBSCRIPTION_TIERS
 } from "@shared/schema";
 import { and, isNull, inArray, gte, lte, sql, count, ilike, or } from "drizzle-orm";
@@ -248,6 +253,52 @@ export interface IStorage {
   deleteSyntheticProbe(id: string): Promise<boolean>;
   getSyntheticProbeResults(probeId: string, limit?: number): Promise<SyntheticProbeResult[]>;
   createSyntheticProbeResult(result: InsertSyntheticProbeResult): Promise<SyntheticProbeResult>;
+  
+  // MSP Clients
+  getClients(userId: string): Promise<Client[]>;
+  getClient(id: string): Promise<Client | undefined>;
+  createClient(client: InsertClient): Promise<Client>;
+  updateClient(id: string, data: Partial<InsertClient>): Promise<Client | undefined>;
+  deleteClient(id: string): Promise<boolean>;
+  
+  // Client-Vendor Links
+  getClientVendorLinks(userId: string): Promise<ClientVendorLink[]>;
+  getVendorClients(userId: string, vendorKey: string): Promise<Client[]>;
+  getClientVendors(clientId: string): Promise<string[]>;
+  linkVendorToClient(userId: string, clientId: string, vendorKey: string, priority?: string): Promise<ClientVendorLink>;
+  unlinkVendorFromClient(userId: string, clientId: string, vendorKey: string): Promise<boolean>;
+  
+  // Incident Playbooks
+  getPlaybooks(userId: string): Promise<IncidentPlaybook[]>;
+  getPlaybook(id: string): Promise<IncidentPlaybook | undefined>;
+  getPlaybookForIncident(userId: string, vendorKey: string, severity?: string): Promise<IncidentPlaybook | undefined>;
+  createPlaybook(playbook: InsertIncidentPlaybook): Promise<IncidentPlaybook>;
+  updatePlaybook(id: string, data: Partial<InsertIncidentPlaybook>): Promise<IncidentPlaybook | undefined>;
+  deletePlaybook(id: string): Promise<boolean>;
+  
+  // Playbook Steps
+  getPlaybookSteps(playbookId: string): Promise<IncidentPlaybookStep[]>;
+  createPlaybookStep(step: InsertIncidentPlaybookStep): Promise<IncidentPlaybookStep>;
+  updatePlaybookStep(id: string, data: Partial<InsertIncidentPlaybookStep>): Promise<IncidentPlaybookStep | undefined>;
+  deletePlaybookStep(id: string): Promise<boolean>;
+  reorderPlaybookSteps(playbookId: string, stepIds: string[]): Promise<void>;
+  
+  // SLA Countdown Timers
+  getActiveSlaTimers(userId: string): Promise<Array<{
+    contractId: string;
+    contractName: string;
+    vendorKey: string;
+    resourceType: string;
+    incidentId: string;
+    incidentTitle: string;
+    incidentStartedAt: string;
+    responseTimeMinutes: number | null;
+    resolutionTimeMinutes: number | null;
+    responseDeadline: Date | null;
+    resolutionDeadline: Date | null;
+    isResponseBreached: boolean;
+    isResolutionBreached: boolean;
+  }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1949,6 +2000,238 @@ export class DatabaseStorage implements IStorage {
   async createSyntheticProbeResult(result: InsertSyntheticProbeResult): Promise<SyntheticProbeResult> {
     const [created] = await db.insert(syntheticProbeResults).values(result).returning();
     return created;
+  }
+
+  // MSP Clients
+  async getClients(userId: string): Promise<Client[]> {
+    return db.select().from(clients).where(eq(clients.userId, userId)).orderBy(clients.name);
+  }
+
+  async getClient(id: string): Promise<Client | undefined> {
+    const [client] = await db.select().from(clients).where(eq(clients.id, id));
+    return client || undefined;
+  }
+
+  async createClient(client: InsertClient): Promise<Client> {
+    const [created] = await db.insert(clients).values(client).returning();
+    return created;
+  }
+
+  async updateClient(id: string, data: Partial<InsertClient>): Promise<Client | undefined> {
+    const [updated] = await db.update(clients).set({ ...data, updatedAt: new Date() }).where(eq(clients.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deleteClient(id: string): Promise<boolean> {
+    await db.delete(clientVendorLinks).where(eq(clientVendorLinks.clientId, id));
+    const result = await db.delete(clients).where(eq(clients.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Client-Vendor Links
+  async getClientVendorLinks(userId: string): Promise<ClientVendorLink[]> {
+    return db.select().from(clientVendorLinks).where(eq(clientVendorLinks.userId, userId));
+  }
+
+  async getVendorClients(userId: string, vendorKey: string): Promise<Client[]> {
+    const links = await db.select().from(clientVendorLinks)
+      .where(and(eq(clientVendorLinks.userId, userId), eq(clientVendorLinks.vendorKey, vendorKey)));
+    
+    if (links.length === 0) return [];
+    
+    const clientIds = links.map(l => l.clientId);
+    return db.select().from(clients).where(inArray(clients.id, clientIds));
+  }
+
+  async getClientVendors(clientId: string): Promise<string[]> {
+    const links = await db.select().from(clientVendorLinks).where(eq(clientVendorLinks.clientId, clientId));
+    return links.map(l => l.vendorKey);
+  }
+
+  async linkVendorToClient(userId: string, clientId: string, vendorKey: string, priority: string = 'medium'): Promise<ClientVendorLink> {
+    const existing = await db.select().from(clientVendorLinks)
+      .where(and(
+        eq(clientVendorLinks.userId, userId),
+        eq(clientVendorLinks.clientId, clientId),
+        eq(clientVendorLinks.vendorKey, vendorKey)
+      ));
+    
+    if (existing.length > 0) {
+      return existing[0];
+    }
+    
+    const [created] = await db.insert(clientVendorLinks).values({ userId, clientId, vendorKey, priority }).returning();
+    return created;
+  }
+
+  async unlinkVendorFromClient(userId: string, clientId: string, vendorKey: string): Promise<boolean> {
+    const result = await db.delete(clientVendorLinks)
+      .where(and(
+        eq(clientVendorLinks.userId, userId),
+        eq(clientVendorLinks.clientId, clientId),
+        eq(clientVendorLinks.vendorKey, vendorKey)
+      )).returning();
+    return result.length > 0;
+  }
+
+  // Incident Playbooks
+  async getPlaybooks(userId: string): Promise<IncidentPlaybook[]> {
+    return db.select().from(incidentPlaybooks).where(eq(incidentPlaybooks.userId, userId)).orderBy(desc(incidentPlaybooks.createdAt));
+  }
+
+  async getPlaybook(id: string): Promise<IncidentPlaybook | undefined> {
+    const [playbook] = await db.select().from(incidentPlaybooks).where(eq(incidentPlaybooks.id, id));
+    return playbook || undefined;
+  }
+
+  async getPlaybookForIncident(userId: string, vendorKey: string, severity?: string): Promise<IncidentPlaybook | undefined> {
+    const allPlaybooks = await db.select().from(incidentPlaybooks)
+      .where(and(eq(incidentPlaybooks.userId, userId), eq(incidentPlaybooks.isActive, true)));
+    
+    let bestMatch: IncidentPlaybook | undefined;
+    
+    for (const pb of allPlaybooks) {
+      if (pb.vendorKey === vendorKey) {
+        if (!severity || !pb.severityFilter || pb.severityFilter === severity) {
+          return pb;
+        }
+      }
+      if (pb.isDefault && !bestMatch) {
+        bestMatch = pb;
+      }
+    }
+    
+    return bestMatch;
+  }
+
+  async createPlaybook(playbook: InsertIncidentPlaybook): Promise<IncidentPlaybook> {
+    const [created] = await db.insert(incidentPlaybooks).values(playbook).returning();
+    return created;
+  }
+
+  async updatePlaybook(id: string, data: Partial<InsertIncidentPlaybook>): Promise<IncidentPlaybook | undefined> {
+    const [updated] = await db.update(incidentPlaybooks).set({ ...data, updatedAt: new Date() }).where(eq(incidentPlaybooks.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deletePlaybook(id: string): Promise<boolean> {
+    await db.delete(incidentPlaybookSteps).where(eq(incidentPlaybookSteps.playbookId, id));
+    const result = await db.delete(incidentPlaybooks).where(eq(incidentPlaybooks.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Playbook Steps
+  async getPlaybookSteps(playbookId: string): Promise<IncidentPlaybookStep[]> {
+    return db.select().from(incidentPlaybookSteps)
+      .where(eq(incidentPlaybookSteps.playbookId, playbookId))
+      .orderBy(incidentPlaybookSteps.stepOrder);
+  }
+
+  async createPlaybookStep(step: InsertIncidentPlaybookStep): Promise<IncidentPlaybookStep> {
+    const [created] = await db.insert(incidentPlaybookSteps).values(step).returning();
+    return created;
+  }
+
+  async updatePlaybookStep(id: string, data: Partial<InsertIncidentPlaybookStep>): Promise<IncidentPlaybookStep | undefined> {
+    const [updated] = await db.update(incidentPlaybookSteps).set(data).where(eq(incidentPlaybookSteps.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deletePlaybookStep(id: string): Promise<boolean> {
+    const result = await db.delete(incidentPlaybookSteps).where(eq(incidentPlaybookSteps.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async reorderPlaybookSteps(playbookId: string, stepIds: string[]): Promise<void> {
+    for (let i = 0; i < stepIds.length; i++) {
+      await db.update(incidentPlaybookSteps)
+        .set({ stepOrder: i + 1 })
+        .where(and(eq(incidentPlaybookSteps.id, stepIds[i]), eq(incidentPlaybookSteps.playbookId, playbookId)));
+    }
+  }
+
+  // SLA Countdown Timers
+  async getActiveSlaTimers(userId: string): Promise<Array<{
+    contractId: string;
+    contractName: string;
+    vendorKey: string;
+    resourceType: string;
+    incidentId: string;
+    incidentTitle: string;
+    incidentStartedAt: string;
+    responseTimeMinutes: number | null;
+    resolutionTimeMinutes: number | null;
+    responseDeadline: Date | null;
+    resolutionDeadline: Date | null;
+    isResponseBreached: boolean;
+    isResolutionBreached: boolean;
+  }>> {
+    const contracts = await db.select().from(slaContracts)
+      .where(and(eq(slaContracts.userId, userId), eq(slaContracts.isActive, true)));
+    
+    const timers: Array<{
+      contractId: string;
+      contractName: string;
+      vendorKey: string;
+      resourceType: string;
+      incidentId: string;
+      incidentTitle: string;
+      incidentStartedAt: string;
+      responseTimeMinutes: number | null;
+      resolutionTimeMinutes: number | null;
+      responseDeadline: Date | null;
+      resolutionDeadline: Date | null;
+      isResponseBreached: boolean;
+      isResolutionBreached: boolean;
+    }> = [];
+    
+    for (const contract of contracts) {
+      let activeIncidents: Array<{ id: string; title: string; startedAt: string }> = [];
+      
+      if (contract.resourceType === 'vendor') {
+        const vendorIncidents = await db.select().from(incidents)
+          .where(eq(incidents.vendorKey, contract.vendorKey));
+        activeIncidents = vendorIncidents
+          .filter(i => i.status !== 'resolved')
+          .map(i => ({ id: i.id, title: i.title, startedAt: i.startedAt }));
+      } else {
+        const chainIncidents = await db.select().from(blockchainIncidents)
+          .where(eq(blockchainIncidents.chainKey, contract.vendorKey));
+        activeIncidents = chainIncidents
+          .filter(i => i.status !== 'resolved')
+          .map(i => ({ id: i.id, title: i.title, startedAt: i.startedAt }));
+      }
+      
+      for (const incident of activeIncidents) {
+        const startTime = new Date(incident.startedAt);
+        const now = new Date();
+        
+        const responseDeadline = contract.responseTimeMinutes 
+          ? new Date(startTime.getTime() + contract.responseTimeMinutes * 60 * 1000)
+          : null;
+        const resolutionDeadline = contract.resolutionTimeMinutes
+          ? new Date(startTime.getTime() + contract.resolutionTimeMinutes * 60 * 1000)
+          : null;
+        
+        timers.push({
+          contractId: contract.id,
+          contractName: contract.name,
+          vendorKey: contract.vendorKey,
+          resourceType: contract.resourceType,
+          incidentId: incident.id,
+          incidentTitle: incident.title,
+          incidentStartedAt: incident.startedAt,
+          responseTimeMinutes: contract.responseTimeMinutes,
+          resolutionTimeMinutes: contract.resolutionTimeMinutes,
+          responseDeadline,
+          resolutionDeadline,
+          isResponseBreached: responseDeadline ? now > responseDeadline : false,
+          isResolutionBreached: resolutionDeadline ? now > resolutionDeadline : false,
+        });
+      }
+    }
+    
+    return timers;
   }
 }
 
