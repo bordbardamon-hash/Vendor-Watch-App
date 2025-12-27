@@ -2237,40 +2237,76 @@ export class DatabaseStorage implements IStorage {
 
 export const storage = new DatabaseStorage();
 
-// Default vendors to seed when database is empty
-// parser types: statuspage_json (Statuspage.io API), aws_json (AWS Health Dashboard), manual (no API - manual monitoring)
+// Default vendors to seed - adds any missing vendors on startup
+// parser types: statuspage_json (Statuspage.io API), generic_html (HTML scraping), manual (no API)
 const DEFAULT_VENDORS: InsertVendor[] = [
-  { key: "aws", name: "AWS", statusUrl: "https://status.aws.amazon.com", parser: "aws_json", status: "operational" },
-  { key: "azure", name: "Azure", statusUrl: "https://status.azure.com", parser: "manual", status: "operational" },
-  { key: "microsoft365", name: "Microsoft 365", statusUrl: "https://status.office.com", parser: "manual", status: "operational" },
-  { key: "googlews", name: "Google Workspace", statusUrl: "https://www.google.com/appsstatus/dashboard/", parser: "manual", status: "operational" },
-  { key: "salesforce", name: "Salesforce", statusUrl: "https://status.salesforce.com", parser: "manual", status: "operational" },
+  // Core Cloud & Infrastructure
+  { key: "aws", name: "AWS", statusUrl: "https://status.aws.amazon.com", parser: "generic_html", status: "operational" },
+  { key: "azure", name: "Azure", statusUrl: "https://status.azure.com", parser: "generic_html", status: "operational" },
+  { key: "microsoft365", name: "Microsoft 365", statusUrl: "https://status.office.com", parser: "generic_html", status: "operational" },
+  { key: "googlews", name: "Google Workspace", statusUrl: "https://www.google.com/appsstatus/dashboard/", parser: "generic_html", status: "operational" },
+  { key: "gcp", name: "Google Cloud Platform", statusUrl: "https://status.cloud.google.com", parser: "generic_html", status: "operational" },
   { key: "cloudflare", name: "Cloudflare", statusUrl: "https://www.cloudflarestatus.com", parser: "statuspage_json", status: "operational" },
-  { key: "okta", name: "Okta", statusUrl: "https://status.okta.com", parser: "puppeteer_js", status: "operational" },
+  { key: "digitalocean", name: "DigitalOcean", statusUrl: "https://status.digitalocean.com", parser: "statuspage_json", status: "operational" },
+  { key: "linode", name: "Linode", statusUrl: "https://status.linode.com", parser: "statuspage_json", status: "operational" },
+  { key: "akamai", name: "Akamai", statusUrl: "https://www.akamaistatus.com/", parser: "statuspage_json", status: "operational" },
+  { key: "fastly", name: "Fastly", statusUrl: "https://status.fastly.com/", parser: "statuspage_json", status: "operational" },
+  // Collaboration & Communication
   { key: "zoom", name: "Zoom", statusUrl: "https://status.zoom.us", parser: "statuspage_json", status: "operational" },
   { key: "atlassian", name: "Atlassian", statusUrl: "https://status.atlassian.com", parser: "statuspage_json", status: "operational" },
-  { key: "connectwise", name: "ConnectWise", statusUrl: "https://status.connectwise.com/", parser: "puppeteer_js", status: "operational" },
-  { key: "nable", name: "N-able", statusUrl: "https://status.n-able.com/", parser: "puppeteer_js", status: "operational" },
-  { key: "kaseya", name: "Kaseya", statusUrl: "https://status.kaseya.com/", parser: "statuspage_json", status: "operational" },
-  { key: "syncro", name: "Syncro", statusUrl: "https://www.syncrostatus.com/", parser: "puppeteer_js", status: "operational" },
-  { key: "sentinelone", name: "SentinelOne", statusUrl: "https://status.sentinelone.com/", parser: "statuspage_json", status: "operational" },
-  { key: "auth0", name: "Auth0", statusUrl: "https://status.auth0.com/", parser: "puppeteer_js", status: "operational" },
+  { key: "slack", name: "Slack", statusUrl: "https://status.slack.com/", parser: "statuspage_json", status: "operational" },
+  { key: "salesforce", name: "Salesforce", statusUrl: "https://status.salesforce.com", parser: "generic_html", status: "operational" },
+  // Authentication & Identity
+  { key: "okta", name: "Okta", statusUrl: "https://status.okta.com", parser: "statuspage_json", status: "operational" },
+  { key: "auth0", name: "Auth0", statusUrl: "https://status.auth0.com/", parser: "statuspage_json", status: "operational" },
   { key: "pingidentity", name: "Ping Identity", statusUrl: "https://status.pingidentity.com/", parser: "statuspage_json", status: "operational" },
-  { key: "slack", name: "Slack", statusUrl: "https://status.slack.com/", parser: "html", status: "operational" },
-  { key: "hubspot", name: "HubSpot", statusUrl: "https://status.hubspot.com/", parser: "statuspage_json", status: "operational" },
+  { key: "duo", name: "Duo Security", statusUrl: "https://status.duo.com", parser: "statuspage_json", status: "operational" },
+  // Payments & Revenue
+  { key: "stripe", name: "Stripe", statusUrl: "https://status.stripe.com", parser: "statuspage_json", status: "operational" },
+  { key: "paypal", name: "PayPal", statusUrl: "https://www.paypal-status.com", parser: "generic_html", status: "operational" },
   { key: "quickbooks", name: "QuickBooks Online", statusUrl: "https://status.quickbooks.intuit.com/", parser: "statuspage_json", status: "operational" },
-  { key: "netsuite", name: "Oracle NetSuite", statusUrl: "https://status.netsuite.com/", parser: "statuspage_json", status: "operational" },
-  { key: "fastly", name: "Fastly", statusUrl: "https://status.fastly.com/", parser: "puppeteer_js", status: "operational" },
-  { key: "akamai", name: "Akamai", statusUrl: "https://www.akamaistatus.com/", parser: "statuspage_json", status: "operational" },
+  // File Storage & Collaboration
+  { key: "dropbox", name: "Dropbox", statusUrl: "https://status.dropbox.com", parser: "statuspage_json", status: "operational" },
+  { key: "box", name: "Box", statusUrl: "https://status.box.com", parser: "statuspage_json", status: "operational" },
+  // Remote Access & Support
+  { key: "teamviewer", name: "TeamViewer", statusUrl: "https://status.teamviewer.com", parser: "statuspage_json", status: "operational" },
+  { key: "logmein", name: "LogMeIn", statusUrl: "https://status.logmeininc.com", parser: "statuspage_json", status: "operational" },
+  // Backup & Disaster Recovery
+  { key: "veeam", name: "Veeam", statusUrl: "https://status.veeam.com", parser: "statuspage_json", status: "operational" },
   { key: "veeam_datacloud", name: "Veeam Data Cloud", statusUrl: "https://vdcstatus.veeam.com/", parser: "statuspage_json", status: "operational" },
+  { key: "acronis", name: "Acronis", statusUrl: "https://status.acronis.com", parser: "statuspage_json", status: "operational" },
+  { key: "datto", name: "Datto", statusUrl: "https://status.datto.com", parser: "statuspage_json", status: "operational" },
+  { key: "carbonite", name: "Carbonite", statusUrl: "https://status.carbonite.com", parser: "statuspage_json", status: "operational" },
+  // Business Applications
+  { key: "hubspot", name: "HubSpot", statusUrl: "https://status.hubspot.com/", parser: "statuspage_json", status: "operational" },
+  { key: "zendesk", name: "Zendesk", statusUrl: "https://status.zendesk.com", parser: "statuspage_json", status: "operational" },
+  { key: "servicenow", name: "ServiceNow", statusUrl: "https://status.servicenow.com", parser: "statuspage_json", status: "operational" },
+  { key: "freshworks", name: "Freshworks", statusUrl: "https://status.freshworks.com", parser: "statuspage_json", status: "operational" },
+  { key: "netsuite", name: "Oracle NetSuite", statusUrl: "https://status.netsuite.com/", parser: "statuspage_json", status: "operational" },
+  // DevOps & Monitoring
+  { key: "github", name: "GitHub", statusUrl: "https://www.githubstatus.com", parser: "statuspage_json", status: "operational" },
+  { key: "datadog", name: "Datadog", statusUrl: "https://status.datadoghq.com", parser: "statuspage_json", status: "operational" },
+  { key: "pagerduty", name: "PagerDuty", statusUrl: "https://status.pagerduty.com", parser: "statuspage_json", status: "operational" },
+  { key: "newrelic", name: "New Relic", statusUrl: "https://status.newrelic.com", parser: "statuspage_json", status: "operational" },
+  { key: "sentinelone", name: "SentinelOne", statusUrl: "https://status.sentinelone.com/", parser: "statuspage_json", status: "operational" },
+  // MSP Tools
+  { key: "connectwise", name: "ConnectWise", statusUrl: "https://status.connectwise.com/", parser: "statuspage_json", status: "operational" },
+  { key: "nable", name: "N-able", statusUrl: "https://status.n-able.com/", parser: "statuspage_json", status: "operational" },
+  { key: "kaseya", name: "Kaseya", statusUrl: "https://status.kaseya.com/", parser: "statuspage_json", status: "operational" },
+  { key: "syncro", name: "Syncro", statusUrl: "https://www.syncrostatus.com/", parser: "statuspage_json", status: "operational" },
+  // Crypto & Fintech
   { key: "fireblocks", name: "Fireblocks", statusUrl: "https://status.fireblocks.com/", parser: "statuspage_json", status: "operational" },
 ];
 
 export async function seedVendorsIfEmpty(): Promise<void> {
   const existingVendors = await storage.getVendors();
-  if (existingVendors.length === 0) {
-    console.log('[seed] No vendors found, seeding default vendors...');
-    for (const vendor of DEFAULT_VENDORS) {
+  const existingKeys = new Set(existingVendors.map(v => v.key));
+  
+  const missingVendors = DEFAULT_VENDORS.filter(v => !existingKeys.has(v.key));
+  
+  if (missingVendors.length > 0) {
+    console.log(`[seed] Adding ${missingVendors.length} missing vendors...`);
+    for (const vendor of missingVendors) {
       try {
         await storage.createVendor(vendor);
         console.log(`[seed] Created vendor: ${vendor.name}`);
@@ -2280,7 +2316,7 @@ export async function seedVendorsIfEmpty(): Promise<void> {
     }
     console.log('[seed] Vendor seeding complete');
   } else {
-    console.log(`[seed] Found ${existingVendors.length} vendors, skipping seed`);
+    console.log(`[seed] Found ${existingVendors.length} vendors, all up to date`);
   }
 }
 
