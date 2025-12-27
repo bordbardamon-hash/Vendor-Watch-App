@@ -779,6 +779,8 @@ export const slaContracts = pgTable("sla_contracts", {
   contractStartDate: text("contract_start_date").notNull(),
   contractEndDate: text("contract_end_date"),
   notificationEmail: text("notification_email"),
+  responseTimeMinutes: integer("response_time_minutes"), // SLA response time requirement
+  resolutionTimeMinutes: integer("resolution_time_minutes"), // SLA resolution time requirement
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
@@ -831,6 +833,82 @@ export const syntheticProbeResults = pgTable("synthetic_probe_results", {
   correlatedIncidentId: text("correlated_incident_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+// ==========================================
+// MSP CLIENT ORGANIZATION
+// ==========================================
+
+// Clients - MSP customer/client labels for organizing vendors
+export const clients = pgTable("clients", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: text("user_id").notNull(),
+  name: text("name").notNull(),
+  color: text("color").default('#6366f1'), // hex color for UI display
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Client Vendor Links - many-to-many relationship between clients and vendors per user
+export const clientVendorLinks = pgTable("client_vendor_links", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: text("user_id").notNull(),
+  clientId: text("client_id").notNull(),
+  vendorKey: text("vendor_key").notNull(),
+  priority: text("priority").default('medium'), // high, medium, low
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// ==========================================
+// INCIDENT PLAYBOOKS
+// ==========================================
+
+// Incident Playbooks - step-by-step response guidance for incidents
+export const incidentPlaybooks = pgTable("incident_playbooks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: text("user_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  vendorKey: text("vendor_key"), // optional: apply to specific vendor
+  incidentType: text("incident_type"), // optional: 'outage', 'degraded', 'maintenance'
+  severityFilter: text("severity_filter"), // optional: 'critical', 'major', 'minor'
+  isDefault: boolean("is_default").default(false),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Incident Playbook Steps - ordered steps within a playbook
+export const incidentPlaybookSteps = pgTable("incident_playbook_steps", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playbookId: text("playbook_id").notNull(),
+  stepOrder: integer("step_order").notNull(),
+  title: text("title").notNull(),
+  guidance: text("guidance").notNull(),
+  role: text("role"), // optional: who should perform this step
+  expectedDurationMinutes: integer("expected_duration_minutes"),
+  isOptional: boolean("is_optional").default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Insert schemas for new tables
+export const insertClientSchema = createInsertSchema(clients).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertClientVendorLinkSchema = createInsertSchema(clientVendorLinks).omit({ id: true, createdAt: true });
+export const insertIncidentPlaybookSchema = createInsertSchema(incidentPlaybooks).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertIncidentPlaybookStepSchema = createInsertSchema(incidentPlaybookSteps).omit({ id: true, createdAt: true });
+
+// Types for new tables
+export type InsertClient = z.infer<typeof insertClientSchema>;
+export type Client = typeof clients.$inferSelect;
+
+export type InsertClientVendorLink = z.infer<typeof insertClientVendorLinkSchema>;
+export type ClientVendorLink = typeof clientVendorLinks.$inferSelect;
+
+export type InsertIncidentPlaybook = z.infer<typeof insertIncidentPlaybookSchema>;
+export type IncidentPlaybook = typeof incidentPlaybooks.$inferSelect;
+
+export type InsertIncidentPlaybookStep = z.infer<typeof insertIncidentPlaybookStepSchema>;
+export type IncidentPlaybookStep = typeof incidentPlaybookSteps.$inferSelect;
 
 // Insert schemas
 export const insertRunbookSchema = createInsertSchema(runbooks).omit({ id: true, createdAt: true, updatedAt: true });
