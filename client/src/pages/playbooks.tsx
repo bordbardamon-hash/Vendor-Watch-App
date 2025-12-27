@@ -59,7 +59,7 @@ interface Vendor {
 }
 
 export default function Playbooks() {
-  const { user } = useAuth();
+  const { user, isLoading: isLoadingUser } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
@@ -211,6 +211,14 @@ export default function Playbooks() {
     const vendor = vendors.find(v => v.key === key);
     return vendor?.name || key;
   };
+
+  if (isLoadingUser) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   if (!hasAccess) {
     return (

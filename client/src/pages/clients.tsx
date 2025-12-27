@@ -54,7 +54,7 @@ interface ClientVendorLink {
 }
 
 export default function Clients() {
-  const { user } = useAuth();
+  const { user, isLoading: isLoadingUser } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
@@ -203,6 +203,14 @@ export default function Clients() {
         return <Badge variant="outline" data-testid={`badge-impact-${level}`}>{level}</Badge>;
     }
   };
+
+  if (isLoadingUser) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   if (!hasAccess) {
     return (
