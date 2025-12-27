@@ -29,6 +29,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useMediaQuery } from "@/hooks/use-media-query";
+import { useLocation } from "wouter";
 
 interface PlaybookStep {
   id: string;
@@ -64,8 +65,17 @@ export default function Playbooks() {
   const { user, isLoading: isLoadingUser } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
   const isDesktop = useMediaQuery("(min-width: 768px)");
   const [searchTerm, setSearchTerm] = useState("");
+  
+  const handleAddPlaybook = () => {
+    if (isDesktop) {
+      setShowAddDialog(true);
+    } else {
+      navigate("/playbooks/create");
+    }
+  };
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showStepsDialog, setShowStepsDialog] = useState(false);
@@ -255,7 +265,7 @@ export default function Playbooks() {
             Create step-by-step response guides for different incident types
           </p>
         </div>
-        <Button onClick={() => setShowAddDialog(true)} data-testid="button-add-playbook">
+        <Button onClick={handleAddPlaybook} data-testid="button-add-playbook">
           <Plus className="w-4 h-4 mr-2" />
           Create Playbook
         </Button>
@@ -284,7 +294,7 @@ export default function Playbooks() {
             <p className="text-muted-foreground mb-4">
               Create playbooks to guide your team through incident response
             </p>
-            <Button onClick={() => setShowAddDialog(true)} variant="outline" data-testid="button-add-first-playbook">
+            <Button onClick={handleAddPlaybook} variant="outline" data-testid="button-add-first-playbook">
               <Plus className="w-4 h-4 mr-2" />
               Create Your First Playbook
             </Button>

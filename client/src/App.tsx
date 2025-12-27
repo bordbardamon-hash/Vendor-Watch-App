@@ -22,6 +22,7 @@ import Automation from "@/pages/automation";
 import ParserHealth from "@/pages/parser-health";
 import Clients from "@/pages/clients";
 import Playbooks from "@/pages/playbooks";
+import PlaybookCreate from "@/pages/playbook-create";
 import MobileStatus from "@/pages/mobile-status";
 import Signup from "@/pages/signup";
 import SignupSuccess from "@/pages/signup-success";
@@ -80,6 +81,7 @@ function AuthenticatedRouter() {
         <Route path="/automation" component={Automation} />
         <Route path="/clients" component={Clients} />
         <Route path="/playbooks" component={Playbooks} />
+        <Route path="/playbooks/create" component={PlaybookCreate} />
         <Route path="/mobile-status" component={MobileStatus} />
         <Route path="/jobs" component={Jobs} />
         <Route path="/logs" component={Logs} />
