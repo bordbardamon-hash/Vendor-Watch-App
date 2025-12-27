@@ -85,15 +85,15 @@ export default function PlaybookCreate() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div className="sticky top-0 z-50 bg-card border-b border-border p-4 flex items-center gap-3">
+    <div className="flex-1 bg-background text-foreground">
+      <div className="bg-card border-b border-border p-4 flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => navigate("/playbooks")} data-testid="button-back">
           <ArrowLeft className="w-5 h-5" />
         </Button>
-        <h1 className="text-lg font-semibold">Create Playbook</h1>
+        <h1 className="text-lg font-semibold text-foreground">Create Playbook</h1>
       </div>
       
-      <div className="p-4 space-y-6">
+      <div className="p-4 space-y-6 text-foreground">
         <Card className="bg-card">
           <CardHeader>
             <CardTitle>Playbook Details</CardTitle>
