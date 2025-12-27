@@ -133,14 +133,14 @@ export default function PlaybookCreate() {
             <div>
               <Label htmlFor="vendor">Vendor Filter (Optional)</Label>
               <Select
-                value={formData.vendorKey}
-                onValueChange={(v) => setFormData({ ...formData, vendorKey: v })}
+                value={formData.vendorKey || "__any__"}
+                onValueChange={(v) => setFormData({ ...formData, vendorKey: v === "__any__" ? "" : v })}
               >
                 <SelectTrigger className="mt-1" data-testid="select-playbook-vendor">
                   <SelectValue placeholder="Any vendor" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Any vendor</SelectItem>
+                  <SelectItem value="__any__">Any vendor</SelectItem>
                   {vendors.map(v => (
                     <SelectItem key={v.key} value={v.key}>{v.name}</SelectItem>
                   ))}
@@ -151,14 +151,14 @@ export default function PlaybookCreate() {
             <div>
               <Label htmlFor="severity">Severity Filter (Optional)</Label>
               <Select
-                value={formData.severityFilter}
-                onValueChange={(v) => setFormData({ ...formData, severityFilter: v })}
+                value={formData.severityFilter || "__any__"}
+                onValueChange={(v) => setFormData({ ...formData, severityFilter: v === "__any__" ? "" : v })}
               >
                 <SelectTrigger className="mt-1" data-testid="select-playbook-severity">
                   <SelectValue placeholder="Any severity" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Any severity</SelectItem>
+                  <SelectItem value="__any__">Any severity</SelectItem>
                   <SelectItem value="critical">Critical</SelectItem>
                   <SelectItem value="major">Major</SelectItem>
                   <SelectItem value="minor">Minor</SelectItem>
