@@ -341,62 +341,65 @@ export default function Landing() {
           </div>
 
           <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            <Card className="bg-card/50 border-2" data-testid="card-pricing-standard">
+            <Card className="bg-card/50 border-2" data-testid="card-pricing-essential">
               <CardHeader>
-                <CardTitle className="text-xl">Standard</CardTitle>
-                <div className="text-3xl font-bold">$89.99<span className="text-sm font-normal text-muted-foreground">/mo</span></div>
+                <CardTitle className="text-xl">Essential</CardTitle>
+                <div className="text-3xl font-bold">$89<span className="text-sm font-normal text-muted-foreground">/mo</span></div>
               </CardHeader>
               <CardContent>
                 <ul className="space-y-3 text-sm">
                   <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Up to 10 vendors</li>
-                  <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Email & SMS alerts</li>
+                  <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Email alerts only</li>
                   <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Weekly digest emails</li>
+                  <li className="flex items-center gap-2 text-muted-foreground"><X className="h-4 w-4 text-red-500" /> No SMS alerts</li>
                   <li className="flex items-center gap-2 text-muted-foreground"><X className="h-4 w-4 text-red-500" /> No blockchain monitoring</li>
-                  <li className="flex items-center gap-2 text-muted-foreground"><X className="h-4 w-4 text-red-500" /> No custom vendor requests</li>
+                  <li className="flex items-center gap-2 text-muted-foreground"><X className="h-4 w-4 text-red-500" /> No automation rules</li>
                 </ul>
-                <Link href="/signup?tier=standard">
-                  <Button className="w-full mt-6" variant="outline" data-testid="button-signup-standard">Get Started</Button>
+                <Link href="/signup?tier=essential">
+                  <Button className="w-full mt-6" variant="outline" data-testid="button-signup-essential">Get Started</Button>
                 </Link>
               </CardContent>
             </Card>
 
-            <Card className="bg-card/50 border-2 border-primary relative" data-testid="card-pricing-gold">
+            <Card className="bg-card/50 border-2 border-primary relative" data-testid="card-pricing-growth">
               <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-primary text-primary-foreground text-xs font-medium rounded-full">
                 Most Popular
               </div>
               <CardHeader>
-                <CardTitle className="text-xl">Gold</CardTitle>
-                <div className="text-3xl font-bold">$99.99<span className="text-sm font-normal text-muted-foreground">/mo</span></div>
+                <CardTitle className="text-xl">Growth</CardTitle>
+                <div className="text-3xl font-bold">$129<span className="text-sm font-normal text-muted-foreground">/mo</span></div>
               </CardHeader>
               <CardContent>
                 <ul className="space-y-3 text-sm">
                   <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Up to 25 vendors</li>
                   <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Email & SMS alerts</li>
                   <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Weekly digest emails</li>
-                  <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> 3 blockchain networks</li>
-                  <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> 5 custom vendor requests</li>
+                  <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Up to 10 blockchain networks</li>
+                  <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Basic automation rules</li>
+                  <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> 3 custom vendor requests</li>
                 </ul>
-                <Link href="/signup?tier=gold">
-                  <Button className="w-full mt-6" data-testid="button-signup-gold">Get Started</Button>
+                <Link href="/signup?tier=growth">
+                  <Button className="w-full mt-6" data-testid="button-signup-growth">Get Started</Button>
                 </Link>
               </CardContent>
             </Card>
 
-            <Card className="bg-card/50 border-2" data-testid="card-pricing-platinum">
+            <Card className="bg-card/50 border-2" data-testid="card-pricing-enterprise">
               <CardHeader>
-                <CardTitle className="text-xl">Platinum</CardTitle>
-                <div className="text-3xl font-bold">$129.99<span className="text-sm font-normal text-muted-foreground">/mo</span></div>
+                <CardTitle className="text-xl">Enterprise</CardTitle>
+                <div className="text-3xl font-bold">$189<span className="text-sm font-normal text-muted-foreground">/mo</span></div>
               </CardHeader>
               <CardContent>
                 <ul className="space-y-3 text-sm">
                   <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Unlimited vendors</li>
                   <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Email & SMS alerts</li>
-                  <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Weekly digest emails</li>
-                  <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Unlimited blockchain networks</li>
+                  <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Unlimited blockchain & staking</li>
+                  <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Full automation + AI Copilot</li>
                   <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Direct vendor addition</li>
+                  <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Priority support</li>
                 </ul>
-                <Link href="/signup?tier=platinum">
-                  <Button className="w-full mt-6" variant="outline" data-testid="button-signup-platinum">Get Started</Button>
+                <Link href="/signup?tier=enterprise">
+                  <Button className="w-full mt-6" variant="outline" data-testid="button-signup-enterprise">Get Started</Button>
                 </Link>
               </CardContent>
             </Card>

@@ -9,12 +9,12 @@ import vendorWatchLogo from "@assets/generated_images/radar_eye_logo_dark_backgr
 import { APP_NAME } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 
-type SubscriptionTier = 'standard' | 'gold' | 'platinum';
+type SubscriptionTier = 'essential' | 'growth' | 'enterprise';
 
 const TIERS = {
-  standard: {
-    name: "Standard",
-    price: "$89.99",
+  essential: {
+    name: "Essential",
+    price: "$89",
     icon: Shield,
     color: "text-blue-500",
     borderColor: "border-blue-500/50",
@@ -22,14 +22,14 @@ const TIERS = {
     features: [
       "Monitor up to 10 vendors",
       "Real-time incident detection",
-      "Email alerts for outages",
+      "Email alerts only",
       "Detailed incident tracking",
       "7-day free trial",
     ],
   },
-  gold: {
-    name: "Gold",
-    price: "$99.99",
+  growth: {
+    name: "Growth",
+    price: "$129",
     icon: Star,
     color: "text-yellow-500",
     borderColor: "border-yellow-500/50",
@@ -39,26 +39,25 @@ const TIERS = {
       "Monitor up to 25 vendors",
       "Real-time incident detection",
       "Email & SMS alerts",
-      "Detailed incident tracking",
-      "Request up to 5 custom vendors",
-      "Priority support",
+      "Up to 10 blockchain networks",
+      "Basic automation rules",
+      "3 custom vendor requests",
       "7-day free trial",
     ],
   },
-  platinum: {
-    name: "Platinum",
-    price: "$129.99",
+  enterprise: {
+    name: "Enterprise",
+    price: "$189",
     icon: Crown,
     color: "text-purple-500",
     borderColor: "border-purple-500/50",
     bgColor: "bg-purple-500/10",
     features: [
       "Unlimited vendor monitoring",
-      "Real-time incident detection",
       "Email & SMS alerts",
-      "Detailed incident tracking",
-      "Add vendors directly to system",
-      "API access for integrations",
+      "Unlimited blockchain & staking",
+      "Full automation + AI Copilot",
+      "Add vendors directly",
       "Priority support",
       "7-day free trial",
     ],
@@ -68,7 +67,7 @@ const TIERS = {
 export default function Signup() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [selectedTier, setSelectedTier] = useState<SubscriptionTier>('gold');
+  const [selectedTier, setSelectedTier] = useState<SubscriptionTier>('growth');
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -127,11 +126,11 @@ export default function Signup() {
         </div>
 
         <div className="grid md:grid-cols-3 gap-6">
-          {(['standard', 'gold', 'platinum'] as SubscriptionTier[]).map((tier) => {
+          {(['essential', 'growth', 'enterprise'] as SubscriptionTier[]).map((tier) => {
             const config = TIERS[tier];
             const Icon = config.icon;
             const isSelected = selectedTier === tier;
-            const isPopular = tier === 'gold';
+            const isPopular = tier === 'growth';
             return (
               <Card
                 key={tier}

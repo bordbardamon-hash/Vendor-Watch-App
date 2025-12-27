@@ -12,16 +12,16 @@ import { z } from "zod";
 
 // Stripe price IDs for each subscription tier
 const TIER_PRICE_IDS = {
-  standard: process.env.STRIPE_PRICE_STANDARD || "price_1SgaJ67qLOdMTGqKWTLEYixp", // $89.99
-  gold: process.env.STRIPE_PRICE_GOLD || "price_1SgaL47qLOdMTGqKNjygjmsw", // $99.99
-  platinum: process.env.STRIPE_PRICE_PLATINUM || "price_1SgaLT7qLOdMTGqKMT8J02bw", // $129.99
+  essential: process.env.STRIPE_PRICE_ESSENTIAL || "price_essential_placeholder", // $89
+  growth: process.env.STRIPE_PRICE_GROWTH || "price_growth_placeholder", // $129
+  enterprise: process.env.STRIPE_PRICE_ENTERPRISE || "price_enterprise_placeholder", // $189
 } as const;
 
 // Map price IDs to tiers for webhook processing
-const PRICE_ID_TO_TIER: Record<string, 'standard' | 'gold' | 'platinum'> = {
-  [TIER_PRICE_IDS.standard]: 'standard',
-  [TIER_PRICE_IDS.gold]: 'gold',
-  [TIER_PRICE_IDS.platinum]: 'platinum',
+const PRICE_ID_TO_TIER: Record<string, 'essential' | 'growth' | 'enterprise'> = {
+  [TIER_PRICE_IDS.essential]: 'essential',
+  [TIER_PRICE_IDS.growth]: 'growth',
+  [TIER_PRICE_IDS.enterprise]: 'enterprise',
 };
 
 const signupSchema = z.object({
@@ -30,7 +30,7 @@ const signupSchema = z.object({
   companyName: z.string().min(1),
   phone: z.string().min(1),
   email: z.string().email(),
-  tier: z.enum(['standard', 'gold', 'platinum']).default('standard'),
+  tier: z.enum(['essential', 'growth', 'enterprise']).default('essential'),
 });
 
 // Admin-only middleware - requires isAuthenticated to run first
@@ -240,9 +240,9 @@ export async function registerRoutes(
         return res.status(404).json({ error: "User not found" });
       }
       
-      // Only Platinum users can create vendors directly
-      if (user.subscriptionTier !== 'platinum') {
-        return res.status(403).json({ error: "Only Platinum users can add vendors directly. Use the vendor request form instead." });
+      // Only Enterprise users can create vendors directly
+      if (user.subscriptionTier !== 'enterprise') {
+        return res.status(403).json({ error: "Only Enterprise users can add vendors directly. Use the vendor request form instead." });
       }
       
       const validatedData = insertVendorSchema.parse(req.body);
@@ -887,8 +887,8 @@ export async function registerRoutes(
       const { userId } = req.params;
       const { tier } = req.body;
       
-      if (tier !== null && !['standard', 'gold', 'platinum'].includes(tier)) {
-        return res.status(400).json({ error: "Invalid tier. Must be standard, gold, platinum, or null" });
+      if (tier !== null && !['essential', 'growth', 'enterprise'].includes(tier)) {
+        return res.status(400).json({ error: "Invalid tier. Must be essential, growth, enterprise, or null" });
       }
       
       const user = await storage.updateUserSubscriptionTier(userId, tier);
@@ -967,7 +967,7 @@ export async function registerRoutes(
         return res.status(404).json({ error: "User not found" });
       }
       
-      const tier = user.subscriptionTier as 'standard' | 'gold' | 'platinum' | null;
+      const tier = user.subscriptionTier as 'essential' | 'growth' | 'enterprise' | null;
       const tierInfo = tier ? SUBSCRIPTION_TIERS[tier] : null;
       const vendorCount = await storage.getUserVendorSubscriptions(user.id);
       
@@ -975,8 +975,8 @@ export async function registerRoutes(
         tier,
         tierInfo,
         currentVendorCount: vendorCount.length,
-        canAddVendors: tier === 'platinum',
-        canRequestVendors: tier === 'gold' || tier === 'standard',
+        canAddVendors: tier === 'enterprise',
+        canRequestVendors: tier === 'growth',
       });
     } catch (error) {
       console.error("Error fetching subscription tier:", error);
@@ -1056,25 +1056,25 @@ export async function registerRoutes(
         return res.status(404).json({ error: "User not found" });
       }
       
-      const tier = user.subscriptionTier as 'standard' | 'gold' | 'platinum' | null;
+      const tier = user.subscriptionTier as 'essential' | 'growth' | 'enterprise' | null;
       
-      // Platinum users should use direct vendor add endpoint
-      if (tier === 'platinum') {
-        return res.status(400).json({ error: "Platinum users can add vendors directly" });
+      // Enterprise users should use direct vendor add endpoint
+      if (tier === 'enterprise') {
+        return res.status(400).json({ error: "Enterprise users can add vendors directly" });
       }
       
-      // Check if Standard user (no custom requests allowed)
-      if (tier === 'standard') {
-        return res.status(403).json({ error: "Standard plan does not include custom vendor requests. Upgrade to Gold or Platinum." });
+      // Check if Essential user (no custom requests allowed)
+      if (tier === 'essential') {
+        return res.status(403).json({ error: "Essential plan does not include custom vendor requests. Upgrade to Growth or Enterprise." });
       }
       
-      // Gold users get 5 custom requests max
-      if (tier === 'gold') {
+      // Growth users get 3 custom requests max
+      if (tier === 'growth') {
         const requestCount = await storage.getUserRequestCount(userId);
-        if (requestCount >= SUBSCRIPTION_TIERS.gold.customVendorRequests!) {
+        if (requestCount >= SUBSCRIPTION_TIERS.growth.customVendorRequests!) {
           return res.status(403).json({ 
-            error: "You have reached your custom vendor request limit (5). Upgrade to Platinum for unlimited additions.",
-            limit: SUBSCRIPTION_TIERS.gold.customVendorRequests,
+            error: "You have reached your custom vendor request limit (3). Upgrade to Enterprise for unlimited additions.",
+            limit: SUBSCRIPTION_TIERS.growth.customVendorRequests,
             current: requestCount
           });
         }
@@ -1130,15 +1130,15 @@ export async function registerRoutes(
       const user = await storage.getUser(userId);
       const requestCount = await storage.getUserRequestCount(userId);
       
-      const tier = user?.subscriptionTier as 'standard' | 'gold' | 'platinum' | null;
+      const tier = user?.subscriptionTier as 'essential' | 'growth' | 'enterprise' | null;
       const tierInfo = tier ? SUBSCRIPTION_TIERS[tier] : null;
       
       res.json({
         ...limitInfo,
         requestCount,
         requestLimit: tierInfo?.customVendorRequests ?? 0,
-        canRequestVendors: tier === 'gold' && requestCount < (tierInfo?.customVendorRequests || 0),
-        canAddVendorsDirectly: tier === 'platinum',
+        canRequestVendors: tier === 'growth' && requestCount < (tierInfo?.customVendorRequests || 0),
+        canAddVendorsDirectly: tier === 'enterprise',
       });
     } catch (error) {
       console.error("Error checking vendor limit:", error);
@@ -1235,8 +1235,8 @@ export async function registerRoutes(
         return res.status(404).json({ error: "User not found" });
       }
       
-      if (user.subscriptionTier !== 'platinum') {
-        return res.status(403).json({ error: "Only Platinum users can add vendors directly" });
+      if (user.subscriptionTier !== 'enterprise') {
+        return res.status(403).json({ error: "Only Enterprise users can add vendors directly" });
       }
       
       const validated = insertVendorSchema.parse(req.body);
