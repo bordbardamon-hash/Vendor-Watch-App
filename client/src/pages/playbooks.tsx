@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle, DrawerFooter, DrawerClose } from "@/components/ui/drawer";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -27,6 +28,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { useMediaQuery } from "@/hooks/use-media-query";
 
 interface PlaybookStep {
   id: string;
@@ -62,6 +64,7 @@ export default function Playbooks() {
   const { user, isLoading: isLoadingUser } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const isDesktop = useMediaQuery("(min-width: 768px)");
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -474,94 +477,187 @@ export default function Playbooks() {
         </div>
       )}
 
-      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create Playbook</DialogTitle>
-            <DialogDescription>
-              Define a response playbook for incident handling
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="name">Playbook Name *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Critical Incident Response"
-                data-testid="input-playbook-name"
-              />
-            </div>
-            <div>
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Describe when this playbook should be used..."
-                data-testid="input-playbook-description"
-              />
-            </div>
-            <div>
-              <Label htmlFor="vendor">Vendor Filter (Optional)</Label>
-              <Select
-                value={formData.vendorKey}
-                onValueChange={(v) => setFormData({ ...formData, vendorKey: v })}
-              >
-                <SelectTrigger data-testid="select-playbook-vendor">
-                  <SelectValue placeholder="Any vendor" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Any vendor</SelectItem>
-                  {vendors.map(v => (
-                    <SelectItem key={v.key} value={v.key}>{v.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="severity">Severity Filter (Optional)</Label>
-              <Select
-                value={formData.severityFilter}
-                onValueChange={(v) => setFormData({ ...formData, severityFilter: v })}
-              >
-                <SelectTrigger data-testid="select-playbook-severity">
-                  <SelectValue placeholder="Any severity" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Any severity</SelectItem>
-                  <SelectItem value="critical">Critical</SelectItem>
-                  <SelectItem value="major">Major</SelectItem>
-                  <SelectItem value="minor">Minor</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center justify-between">
+      {isDesktop ? (
+        <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create Playbook</DialogTitle>
+              <DialogDescription>
+                Define a response playbook for incident handling
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
               <div>
-                <Label htmlFor="default">Default Playbook</Label>
-                <p className="text-xs text-muted-foreground">Used when no specific match</p>
+                <Label htmlFor="name">Playbook Name *</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="Critical Incident Response"
+                  data-testid="input-playbook-name"
+                />
               </div>
-              <Switch
-                id="default"
-                checked={formData.isDefault}
-                onCheckedChange={(c) => setFormData({ ...formData, isDefault: c })}
-              />
+              <div>
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Describe when this playbook should be used..."
+                  data-testid="input-playbook-description"
+                />
+              </div>
+              <div>
+                <Label htmlFor="vendor">Vendor Filter (Optional)</Label>
+                <Select
+                  value={formData.vendorKey}
+                  onValueChange={(v) => setFormData({ ...formData, vendorKey: v })}
+                >
+                  <SelectTrigger data-testid="select-playbook-vendor">
+                    <SelectValue placeholder="Any vendor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Any vendor</SelectItem>
+                    {vendors.map(v => (
+                      <SelectItem key={v.key} value={v.key}>{v.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="severity">Severity Filter (Optional)</Label>
+                <Select
+                  value={formData.severityFilter}
+                  onValueChange={(v) => setFormData({ ...formData, severityFilter: v })}
+                >
+                  <SelectTrigger data-testid="select-playbook-severity">
+                    <SelectValue placeholder="Any severity" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Any severity</SelectItem>
+                    <SelectItem value="critical">Critical</SelectItem>
+                    <SelectItem value="major">Major</SelectItem>
+                    <SelectItem value="minor">Minor</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="default">Default Playbook</Label>
+                  <p className="text-xs text-muted-foreground">Used when no specific match</p>
+                </div>
+                <Switch
+                  id="default"
+                  checked={formData.isDefault}
+                  onCheckedChange={(c) => setFormData({ ...formData, isDefault: c })}
+                />
+              </div>
             </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddDialog(false)}>Cancel</Button>
-            <Button
-              onClick={() => createPlaybook.mutate(formData)}
-              disabled={!formData.name || createPlaybook.isPending}
-              data-testid="button-save-playbook"
-            >
-              {createPlaybook.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-              Create Playbook
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowAddDialog(false)}>Cancel</Button>
+              <Button
+                onClick={() => createPlaybook.mutate(formData)}
+                disabled={!formData.name || createPlaybook.isPending}
+                data-testid="button-save-playbook"
+              >
+                {createPlaybook.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                Create Playbook
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      ) : (
+        <Drawer open={showAddDialog} onOpenChange={setShowAddDialog}>
+          <DrawerContent>
+            <DrawerHeader>
+              <DrawerTitle>Create Playbook</DrawerTitle>
+              <DrawerDescription>
+                Define a response playbook for incident handling
+              </DrawerDescription>
+            </DrawerHeader>
+            <div className="space-y-4 px-4 pb-4">
+              <div>
+                <Label htmlFor="name-mobile">Playbook Name *</Label>
+                <Input
+                  id="name-mobile"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="Critical Incident Response"
+                  data-testid="input-playbook-name-mobile"
+                />
+              </div>
+              <div>
+                <Label htmlFor="description-mobile">Description</Label>
+                <Textarea
+                  id="description-mobile"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Describe when this playbook should be used..."
+                  data-testid="input-playbook-description-mobile"
+                />
+              </div>
+              <div>
+                <Label htmlFor="vendor-mobile">Vendor Filter (Optional)</Label>
+                <Select
+                  value={formData.vendorKey}
+                  onValueChange={(v) => setFormData({ ...formData, vendorKey: v })}
+                >
+                  <SelectTrigger data-testid="select-playbook-vendor-mobile">
+                    <SelectValue placeholder="Any vendor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Any vendor</SelectItem>
+                    {vendors.map(v => (
+                      <SelectItem key={v.key} value={v.key}>{v.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="severity-mobile">Severity Filter (Optional)</Label>
+                <Select
+                  value={formData.severityFilter}
+                  onValueChange={(v) => setFormData({ ...formData, severityFilter: v })}
+                >
+                  <SelectTrigger data-testid="select-playbook-severity-mobile">
+                    <SelectValue placeholder="Any severity" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Any severity</SelectItem>
+                    <SelectItem value="critical">Critical</SelectItem>
+                    <SelectItem value="major">Major</SelectItem>
+                    <SelectItem value="minor">Minor</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="default-mobile">Default Playbook</Label>
+                  <p className="text-xs text-muted-foreground">Used when no specific match</p>
+                </div>
+                <Switch
+                  id="default-mobile"
+                  checked={formData.isDefault}
+                  onCheckedChange={(c) => setFormData({ ...formData, isDefault: c })}
+                />
+              </div>
+            </div>
+            <DrawerFooter>
+              <Button
+                onClick={() => createPlaybook.mutate(formData)}
+                disabled={!formData.name || createPlaybook.isPending}
+                data-testid="button-save-playbook-mobile"
+              >
+                {createPlaybook.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                Create Playbook
+              </Button>
+              <DrawerClose asChild>
+                <Button variant="outline">Cancel</Button>
+              </DrawerClose>
+            </DrawerFooter>
+          </DrawerContent>
+        </Drawer>
+      )}
 
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
         <DialogContent>
