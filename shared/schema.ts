@@ -438,10 +438,42 @@ export type BlockchainMaintenance = typeof blockchainMaintenances.$inferSelect;
 
 // Subscription tier constants
 export const SUBSCRIPTION_TIERS = {
-  standard: { name: 'Standard', price: 89.99, vendorLimit: 10, customVendorRequests: 0, blockchainLimit: 2 },
-  gold: { name: 'Gold', price: 99.99, vendorLimit: 25, customVendorRequests: 5, blockchainLimit: 10 },
-  platinum: { name: 'Platinum', price: 129.99, vendorLimit: null, customVendorRequests: null, blockchainLimit: 25 },
+  essential: { 
+    name: 'Essential', 
+    price: 89, 
+    vendorLimit: 10, 
+    customVendorRequests: 0, 
+    blockchainLimit: 0,
+    smsEnabled: false,
+    automationEnabled: false,
+    aiCopilotEnabled: false,
+    stakingEnabled: false,
+  },
+  growth: { 
+    name: 'Growth', 
+    price: 129, 
+    vendorLimit: 25, 
+    customVendorRequests: 3, 
+    blockchainLimit: 10,
+    smsEnabled: true,
+    automationEnabled: true,
+    aiCopilotEnabled: false,
+    stakingEnabled: false,
+  },
+  enterprise: { 
+    name: 'Enterprise', 
+    price: 189, 
+    vendorLimit: null, 
+    customVendorRequests: null, 
+    blockchainLimit: null,
+    smsEnabled: true,
+    automationEnabled: true,
+    aiCopilotEnabled: true,
+    stakingEnabled: true,
+  },
 } as const;
+
+export type SubscriptionTierKey = keyof typeof SUBSCRIPTION_TIERS;
 
 // ==========================================
 // BLOCKCHAIN INFRASTRUCTURE MONITORING

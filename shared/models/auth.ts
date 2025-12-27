@@ -14,7 +14,7 @@ export const sessions = pgTable(
 );
 
 // Subscription tier type
-export type SubscriptionTier = 'standard' | 'gold' | 'platinum' | null;
+export type SubscriptionTier = 'essential' | 'growth' | 'enterprise' | null;
 
 // User storage table.
 export const users = pgTable("users", {
@@ -29,7 +29,7 @@ export const users = pgTable("users", {
   profileImageUrl: varchar("profile_image_url"),
   stripeCustomerId: varchar("stripe_customer_id"),
   stripeSubscriptionId: varchar("stripe_subscription_id"),
-  subscriptionTier: varchar("subscription_tier"), // 'standard', 'gold', 'platinum'
+  subscriptionTier: varchar("subscription_tier"), // 'essential', 'growth', 'enterprise'
   isAdmin: boolean("is_admin").default(false),
   isOwner: boolean("is_owner").default(false), // Owner receives parser/system alerts
   notifyEmail: boolean("notify_email").default(true),
