@@ -51,6 +51,9 @@ Key entities include Users, Sessions, Vendors, Incidents, Jobs, and Configuratio
     - **Vendor Reliability Tracking**: Monitors and rates vendor performance based on incident history.
     - **Customer Impact Tagging**: Allows users to tag vendors with high/medium/low customer impact.
     - **Weekly Digest Emails**: Sends periodic summaries of incidents to users.
+    - **Client Labels** (Growth+): Organize vendors by client with priority levels (critical/high/medium/low). Available at `/clients` page.
+    - **Incident Playbooks** (Growth+): Create step-by-step response guides for different incident types and severities. Available at `/playbooks` page.
+    - **Mobile Status View** (Growth+): Mobile-friendly quick status dashboard showing vendor and blockchain health at a glance. Available at `/mobile-status` page.
 - **Enterprise Features (Vendors and Blockchain)**:
     - **Autonomous Response Orchestrator**: Automation rules trigger on both vendor and blockchain incidents. Rules defined for vendor events (newIncident, incidentUpdate, incidentResolved) also fire for corresponding blockchain events.
     - **SLA Breach Tracker**: Tracks SLA contracts with uptime targets for both vendors and blockchain chains. Uses `resourceType` field to distinguish between resource types. Calculates blockchain uptime from incident duration data.
