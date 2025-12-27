@@ -63,7 +63,7 @@ export default function PlaybookCreate() {
 
   if (isLoadingUser) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
     );
@@ -71,13 +71,17 @@ export default function PlaybookCreate() {
 
   if (!hasAccess) {
     return (
-      <div className="p-4">
-        <Card>
+      <div className="min-h-screen bg-background p-4">
+        <Card className="bg-card">
           <CardContent className="p-8 text-center">
-            <h3 className="font-semibold mb-2">Growth Plan Required</h3>
+            <h3 className="font-semibold mb-2 text-foreground">Growth Plan Required</h3>
             <p className="text-muted-foreground">
               Upgrade to Growth or Enterprise to access Incident Playbooks.
             </p>
+            <Button className="mt-4" onClick={() => navigate("/playbooks")} data-testid="button-back-upgrade">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Playbooks
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -85,15 +89,15 @@ export default function PlaybookCreate() {
   }
 
   return (
-    <div className="flex-1 bg-background text-foreground">
-      <div className="bg-card border-b border-border p-4 flex items-center gap-3">
+    <div className="min-h-screen bg-background text-foreground overflow-auto">
+      <div className="sticky top-0 z-10 bg-card border-b border-border p-4 flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => navigate("/playbooks")} data-testid="button-back">
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <h1 className="text-lg font-semibold text-foreground">Create Playbook</h1>
       </div>
       
-      <div className="p-4 space-y-6 text-foreground">
+      <div className="p-4 pb-8 space-y-6">
         <Card className="bg-card">
           <CardHeader>
             <CardTitle>Playbook Details</CardTitle>

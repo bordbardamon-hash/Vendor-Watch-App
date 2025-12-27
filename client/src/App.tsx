@@ -68,6 +68,11 @@ function AuthenticatedRouter() {
     return <Verify2FA />;
   }
 
+  // Handle full-screen routes outside Layout (for mobile Safari compatibility)
+  if (location === "/playbooks/create") {
+    return <PlaybookCreate />;
+  }
+
   return (
     <Layout>
       <Switch>
@@ -81,7 +86,6 @@ function AuthenticatedRouter() {
         <Route path="/automation" component={Automation} />
         <Route path="/clients" component={Clients} />
         <Route path="/playbooks" component={Playbooks} />
-        <Route path="/playbooks/create" component={PlaybookCreate} />
         <Route path="/mobile-status" component={MobileStatus} />
         <Route path="/jobs" component={Jobs} />
         <Route path="/logs" component={Logs} />
