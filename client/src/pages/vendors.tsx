@@ -1131,13 +1131,13 @@ export default function Vendors() {
             </div>
           </div>
           
-          <ScrollArea className="flex-1 max-h-[50vh]">
+          <div className="flex-1 overflow-y-auto overscroll-contain -webkit-overflow-scrolling-touch" style={{ maxHeight: '50vh', WebkitOverflowScrolling: 'touch' }}>
             {archiveLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
               </div>
             ) : archivedIncidents.length > 0 ? (
-              <div className="space-y-3 pr-4">
+              <div className="space-y-3 pr-2">
                 {archivedIncidents.map((incident) => (
                   <div
                     key={incident.id}
@@ -1190,7 +1190,7 @@ export default function Vendors() {
                 </p>
               </div>
             )}
-          </ScrollArea>
+          </div>
           
           <DialogFooter className="mt-4">
             <Button variant="outline" onClick={() => setShowArchiveDialog(false)}>
