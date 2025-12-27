@@ -1060,7 +1060,7 @@ export default function Vendors() {
 
       {/* Archive Search Dialog */}
       <Dialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Archive className="w-5 h-5" />
