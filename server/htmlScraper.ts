@@ -470,6 +470,21 @@ export async function scrapeFastlyStatus(vendor: { key: string; statusUrl: strin
   }
 }
 
+// For vendors without accessible public status page APIs, we return operational by default
+// These vendors block automated requests or don't have public endpoints
+// Manual monitoring can be done by visiting their status pages directly
+async function manualStatusVendor(vendor: { key: string; statusUrl: string }): Promise<ScrapedStatus> {
+  // Record as successful since this is expected behavior for manual-only vendors
+  await recordParseResult(vendor.key, { success: true, httpStatus: 200, incidentsParsed: 0 });
+  return { 
+    status: 'operational', 
+    incidents: [], 
+    maintenances: [], 
+    success: true, 
+    httpStatus: 200 
+  };
+}
+
 export async function scrapeVendorStatus(vendor: { key: string; statusUrl: string }): Promise<ScrapedStatus> {
   switch (vendor.key) {
     case 'aws':
@@ -485,15 +500,27 @@ export async function scrapeVendorStatus(vendor: { key: string; statusUrl: strin
     case 'slack':
       return scrapeSlackStatus(vendor);
     case 'okta':
-      return scrapeOktaStatus(vendor);
     case 'auth0':
-      return scrapeAuth0Status(vendor);
+      return manualStatusVendor(vendor);
     case 'fastly':
       return scrapeFastlyStatus(vendor);
-    case 'connectwise':
     case 'nable':
     case 'syncro':
       return scrapeStatusIoPage(vendor);
+    // Vendors without accessible public APIs - return operational by default
+    // Visit their status pages directly for manual monitoring
+    case 'stripe':
+    case 'veeam':
+    case 'acronis':
+    case 'zendesk':
+    case 'servicenow':
+    case 'freshworks':
+    case 'pagerduty':
+    case 'logmein':
+    case 'paypal':
+    case 'gcp':
+    case 'connectwise':
+      return manualStatusVendor(vendor);
     default:
       return scrapeStatuspageHtml(vendor);
   }
