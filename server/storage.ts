@@ -2405,6 +2405,21 @@ const DEFAULT_VENDORS: InsertVendor[] = [
   { key: "syncro", name: "Syncro", statusUrl: "https://www.syncrostatus.com/", parser: "statuspage_json", status: "operational" },
   // Crypto & Fintech
   { key: "fireblocks", name: "Fireblocks", statusUrl: "https://status.fireblocks.com/", parser: "statuspage_json", status: "operational" },
+  // Developer Tools & Platforms
+  { key: "twilio", name: "Twilio", statusUrl: "https://status.twilio.com/", parser: "statuspage_json", status: "operational" },
+  { key: "openai", name: "OpenAI", statusUrl: "https://status.openai.com/", parser: "statuspage_json", status: "operational" },
+  { key: "vercel", name: "Vercel", statusUrl: "https://www.vercel-status.com/", parser: "statuspage_json", status: "operational" },
+  { key: "mongodb", name: "MongoDB Atlas", statusUrl: "https://status.cloud.mongodb.com/", parser: "statuspage_json", status: "operational" },
+  { key: "sentry", name: "Sentry", statusUrl: "https://status.sentry.io/", parser: "statuspage_json", status: "operational" },
+  { key: "circleci", name: "CircleCI", statusUrl: "https://status.circleci.com/", parser: "statuspage_json", status: "operational" },
+  { key: "linear", name: "Linear", statusUrl: "https://linearstatus.com/", parser: "statuspage_json", status: "operational" },
+  { key: "render", name: "Render", statusUrl: "https://status.render.com/", parser: "statuspage_json", status: "operational" },
+  { key: "supabase", name: "Supabase", statusUrl: "https://status.supabase.com/", parser: "statuspage_json", status: "operational" },
+  { key: "cloudinary", name: "Cloudinary", statusUrl: "https://status.cloudinary.com/", parser: "statuspage_json", status: "operational" },
+  { key: "mailgun", name: "Mailgun", statusUrl: "https://status.mailgun.com/", parser: "statuspage_json", status: "operational" },
+  { key: "sendgrid", name: "SendGrid", statusUrl: "https://status.sendgrid.com/", parser: "statuspage_json", status: "operational" },
+  // E-commerce
+  { key: "shopify", name: "Shopify", statusUrl: "https://status.shopify.com/", parser: "statuspage_json", status: "operational" },
 ];
 
 export async function seedVendorsIfEmpty(): Promise<void> {
@@ -2443,6 +2458,16 @@ const DEFAULT_BLOCKCHAIN_CHAINS: InsertBlockchainChain[] = [
   { key: "arbitrum", name: "Arbitrum One", symbol: "ARB", tier: "tier2", category: "l2", sourceType: "statuspage", statusUrl: "https://status.arbitrum.io", explorerUrl: "https://arbiscan.io", avgBlockTime: 1 },
   { key: "optimism", name: "Optimism", symbol: "OP", tier: "tier2", category: "l2", sourceType: "statuspage", statusUrl: "https://status.optimism.io", explorerUrl: "https://optimistic.etherscan.io", avgBlockTime: 2 },
   { key: "base", name: "Base", symbol: "ETH", tier: "tier2", category: "l2", sourceType: "statuspage", statusUrl: "https://status.base.org", explorerUrl: "https://basescan.org", avgBlockTime: 2 },
+  // Additional L2s with Statuspage
+  { key: "zksync", name: "zkSync Era", symbol: "ZK", tier: "tier2", category: "l2", sourceType: "statuspage", statusUrl: "https://status.zksync.io", explorerUrl: "https://explorer.zksync.io", avgBlockTime: 1 },
+  { key: "scroll", name: "Scroll", symbol: "SCR", tier: "tier2", category: "l2", sourceType: "statuspage", statusUrl: "https://status.scroll.io", explorerUrl: "https://scrollscan.com", avgBlockTime: 3 },
+  { key: "linea", name: "Linea", symbol: "ETH", tier: "tier2", category: "l2", sourceType: "statuspage", statusUrl: "https://status.linea.build", explorerUrl: "https://lineascan.build", avgBlockTime: 2 },
+  { key: "mode", name: "Mode", symbol: "MODE", tier: "tier3", category: "l2", sourceType: "statuspage", statusUrl: "https://status.mode.network", explorerUrl: "https://explorer.mode.network", avgBlockTime: 2 },
+  { key: "mantle", name: "Mantle", symbol: "MNT", tier: "tier3", category: "l2", sourceType: "statuspage", statusUrl: "https://status.mantle.xyz", explorerUrl: "https://explorer.mantle.xyz", avgBlockTime: 2 },
+  { key: "celo", name: "Celo", symbol: "CELO", tier: "tier3", category: "chain", sourceType: "statuspage", statusUrl: "https://status.celo.org", explorerUrl: "https://explorer.celo.org", avgBlockTime: 5 },
+  { key: "near", name: "NEAR Protocol", symbol: "NEAR", tier: "tier2", category: "chain", sourceType: "statuspage", statusUrl: "https://status.nearprotocol.com", explorerUrl: "https://nearblocks.io", avgBlockTime: 1 },
+  { key: "sui", name: "Sui", symbol: "SUI", tier: "tier2", category: "chain", sourceType: "statuspage", statusUrl: "https://status.sui.io", explorerUrl: "https://suiscan.xyz", avgBlockTime: 1 },
+  { key: "aptos", name: "Aptos", symbol: "APT", tier: "tier2", category: "chain", sourceType: "statuspage", statusUrl: "https://status.aptoslabs.com", explorerUrl: "https://aptoscan.com", avgBlockTime: 1 },
   
   // Tier 3: Enterprise / Custody-Relevant
   { key: "tron", name: "TRON", symbol: "TRX", tier: "tier3", category: "chain", sourceType: "api", explorerUrl: "https://tronscan.org", avgBlockTime: 3 },
@@ -2465,6 +2490,12 @@ const DEFAULT_BLOCKCHAIN_CHAINS: InsertBlockchainChain[] = [
   { key: "argent", name: "Argent", symbol: "AGT", tier: "tier2", category: "wallet", sourceType: "statuspage", statusUrl: "https://argentxwallet.statuspage.io" },
   { key: "gnosissafe", name: "Gnosis Safe", symbol: "SAFE", tier: "tier1", category: "wallet", sourceType: "statuspage", statusUrl: "https://safe.statuspage.io" },
   { key: "bybitwallet", name: "Bybit Web3 Wallet", symbol: "BYB", tier: "tier2", category: "wallet", sourceType: "statuspage", statusUrl: "https://bybit.statuspage.io" },
+  // Additional Wallets with Statuspage
+  { key: "phantom", name: "Phantom", symbol: "PHT", tier: "tier1", category: "wallet", sourceType: "statuspage", statusUrl: "https://status.phantom.app" },
+  { key: "trezor", name: "Trezor", symbol: "TRZ", tier: "tier1", category: "wallet", sourceType: "statuspage", statusUrl: "https://status.trezor.io" },
+  { key: "okxwallet", name: "OKX Wallet", symbol: "OKX", tier: "tier2", category: "wallet", sourceType: "statuspage", statusUrl: "https://status.okx.com" },
+  { key: "exodus", name: "Exodus", symbol: "EXO", tier: "tier2", category: "wallet", sourceType: "statuspage", statusUrl: "https://status.exodus.com" },
+  { key: "uniswap", name: "Uniswap Wallet", symbol: "UNI", tier: "tier2", category: "wallet", sourceType: "statuspage", statusUrl: "https://status.uniswap.org" },
   
   // Staking Platforms: Centralized Exchanges (CEXs)
   { key: "binance", name: "Binance", symbol: "BNB", tier: "tier1", category: "staking", sourceType: "manual", statusUrl: "https://www.binance.com/en/network" },
@@ -2481,11 +2512,18 @@ const DEFAULT_BLOCKCHAIN_CHAINS: InsertBlockchainChain[] = [
   
   // Staking Platforms: Institutional & Infrastructure Providers
   { key: "rockx", name: "RockX", symbol: "RKX", tier: "tier2", category: "staking", sourceType: "manual", statusUrl: "https://www.rockx.com" },
-  { key: "figment", name: "Figment", symbol: "FIG", tier: "tier2", category: "staking", sourceType: "manual", statusUrl: "https://figment.io" },
-  { key: "ankr", name: "Ankr", symbol: "ANKR", tier: "tier2", category: "staking", sourceType: "manual", statusUrl: "https://status.ankr.com" },
+  { key: "figment", name: "Figment", symbol: "FIG", tier: "tier2", category: "staking", sourceType: "statuspage", statusUrl: "https://status.figment.io" },
+  { key: "ankr", name: "Ankr", symbol: "ANKR", tier: "tier2", category: "staking", sourceType: "statuspage", statusUrl: "https://status.ankr.com" },
   { key: "cryptocom", name: "Crypto.com", symbol: "CRO", tier: "tier1", category: "staking", sourceType: "statuspage", statusUrl: "https://status.crypto.com" },
-  { key: "kiln", name: "Kiln", symbol: "KLN", tier: "tier2", category: "staking", sourceType: "manual", statusUrl: "https://kiln.fi" },
+  { key: "kiln", name: "Kiln", symbol: "KLN", tier: "tier2", category: "staking", sourceType: "statuspage", statusUrl: "https://status.kiln.fi" },
   { key: "bybit", name: "Bybit", symbol: "BYB", tier: "tier1", category: "staking", sourceType: "statuspage", statusUrl: "https://bybit.statuspage.io" },
+  // Additional Staking Infrastructure Providers
+  { key: "allnodes", name: "Allnodes", symbol: "ALL", tier: "tier2", category: "staking", sourceType: "statuspage", statusUrl: "https://status.allnodes.com" },
+  { key: "blockdaemon", name: "Blockdaemon", symbol: "BD", tier: "tier2", category: "staking", sourceType: "statuspage", statusUrl: "https://status.blockdaemon.com" },
+  { key: "everstake", name: "Everstake", symbol: "EVR", tier: "tier2", category: "staking", sourceType: "statuspage", statusUrl: "https://status.everstake.one" },
+  { key: "chorusone", name: "Chorus One", symbol: "CHO", tier: "tier2", category: "staking", sourceType: "statuspage", statusUrl: "https://status.chorus.one" },
+  { key: "p2p", name: "P2P Validator", symbol: "P2P", tier: "tier2", category: "staking", sourceType: "statuspage", statusUrl: "https://status.p2p.org" },
+  { key: "stakefish", name: "Stakefish", symbol: "STF", tier: "tier2", category: "staking", sourceType: "statuspage", statusUrl: "https://status.stake.fish" },
 ];
 
 export async function seedBlockchainChainsIfEmpty(): Promise<void> {

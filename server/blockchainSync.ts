@@ -36,27 +36,57 @@ interface BlockchainMaintenanceData {
 }
 
 const BLOCKCHAIN_STATUSPAGE_URLS: Record<string, string> = {
+  // Chains
   solana: "https://status.solana.com",
   avalanche: "https://status.avax.network",
-  arbitrum: "https://arbitrum.statuspage.io",
-  base: "https://status.base.org",
+  polygon: "https://status.polygon.technology",
   stellar: "https://status.stellar.org",
+  near: "https://status.nearprotocol.com",
+  sui: "https://status.sui.io",
+  aptos: "https://status.aptoslabs.com",
+  celo: "https://status.celo.org",
+  // L2s
+  arbitrum: "https://arbitrum.statuspage.io",
+  optimism: "https://status.optimism.io",
+  base: "https://status.base.org",
+  zksync: "https://status.zksync.io",
+  scroll: "https://status.scroll.io",
+  linea: "https://status.linea.build",
+  mode: "https://status.mode.network",
+  mantle: "https://status.mantle.xyz",
+  // RPC Providers
   infura: "https://status.infura.io",
   alchemy: "https://status.alchemy.com",
   quicknode: "https://status.quicknode.com",
   thegraph: "https://status.thegraph.com",
+  // Wallets
   metamask: "https://status.infura.io",
   ledger: "https://status.ledger.com",
   coinbasewallet: "https://status.coinbase.com",
   argent: "https://argentxwallet.statuspage.io",
-  polygon: "https://status.polygon.technology",
   gnosissafe: "https://safe.statuspage.io",
   bybitwallet: "https://bybit.statuspage.io",
+  phantom: "https://status.phantom.app",
+  trezor: "https://status.trezor.io",
+  okxwallet: "https://status.okx.com",
+  exodus: "https://status.exodus.com",
+  uniswap: "https://status.uniswap.org",
+  // Staking - CEXs
   coinbase: "https://status.coinbase.com",
   kraken: "https://status.kraken.com",
   gemini: "https://status.gemini.com",
   cryptocom: "https://status.crypto.com",
   bybit: "https://bybit.statuspage.io",
+  // Staking - Infrastructure
+  figment: "https://status.figment.io",
+  ankr: "https://status.ankr.com",
+  kiln: "https://status.kiln.fi",
+  allnodes: "https://status.allnodes.com",
+  blockdaemon: "https://status.blockdaemon.com",
+  everstake: "https://status.everstake.one",
+  chorusone: "https://status.chorus.one",
+  p2p: "https://status.p2p.org",
+  stakefish: "https://status.stake.fish",
 };
 
 function mapStatusIndicator(indicator: string): string {

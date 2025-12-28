@@ -76,6 +76,21 @@ const STATUSPAGE_API_URLS: Record<string, string> = {
   teamviewer: "https://status.teamviewer.com",
   datto: "https://status.kaseya.com", // Datto now redirects to Kaseya
   carbonite: "https://status.opentext.com", // Carbonite now redirects to OpenText
+  // Developer Tools & Platforms
+  twilio: "https://status.twilio.com",
+  openai: "https://status.openai.com",
+  vercel: "https://www.vercel-status.com",
+  mongodb: "https://status.cloud.mongodb.com",
+  sentry: "https://status.sentry.io",
+  circleci: "https://status.circleci.com",
+  linear: "https://linearstatus.com",
+  render: "https://status.render.com",
+  supabase: "https://status.supabase.com",
+  cloudinary: "https://status.cloudinary.com",
+  mailgun: "https://status.mailgun.com",
+  sendgrid: "https://status.sendgrid.com",
+  // E-commerce
+  shopify: "https://status.shopify.com",
 };
 
 function mapStatusIndicator(indicator: string): string {

@@ -37,7 +37,7 @@ Key entities include Users, Sessions, Vendors, Incidents, Jobs, and Configuratio
 - **Production**: Client built to `dist/public`, server bundled with esbuild.
 
 ### Feature Specifications
-- **Vendor Monitoring**: Automated monitoring of 37 vendor status pages every 5 minutes, supporting Statuspage.io JSON API, custom JSON APIs, and HTML scraping.
+- **Vendor Monitoring**: Automated monitoring of 50 vendor status pages every 5 minutes, supporting Statuspage.io JSON API, custom JSON APIs, and HTML scraping.
 - **Blockchain Monitoring**: Dedicated `/blockchain` page for monitoring various blockchain networks across different tiers and categories, integrating with Statuspage.io APIs.
 - **Notification System**: Dispatches alerts for incident creation, updates, and resolution via email (Resend) and SMS (Twilio), with consent tracking and deduplication.
 - **Subscription Management**: Supports Essential ($89/mo), Growth ($129/mo), and Enterprise ($189/mo) tiers with tiered feature access:
@@ -69,7 +69,7 @@ Key entities include Users, Sessions, Vendors, Incidents, Jobs, and Configuratio
 - **Drizzle Kit**: For database migrations.
 
 ### Third-Party Services Monitored
-- **Statuspage.io JSON API**: For 37 vendors including:
+- **Statuspage.io JSON API**: For 50 vendors including:
   - Cloud/CDN: Cloudflare, Akamai, DigitalOcean, Linode, Fastly
   - Collaboration: Atlassian, Zoom, Slack
   - Authentication: Okta, Auth0, Duo Security, Ping Identity
@@ -78,18 +78,26 @@ Key entities include Users, Sessions, Vendors, Incidents, Jobs, and Configuratio
   - Remote Access: TeamViewer
   - Backup/DR: Datto, Carbonite
   - Business Apps: HubSpot, Oracle NetSuite, SentinelOne, Fireblocks
-  - DevOps: GitHub, Datadog, New Relic
+  - DevOps: GitHub, Datadog, New Relic, Sentry, CircleCI
   - MSP Tools: Kaseya, ConnectWise, N-able, Syncro
+  - Developer Platforms: Twilio, OpenAI, Vercel, MongoDB, Supabase, Render, Linear
+  - Email Services: Mailgun, SendGrid
+  - E-commerce: Shopify
+  - Media: Cloudinary
 - **Puppeteer Headless Browser**: For JavaScript-rendered vendor pages requiring browser rendering.
 - **Custom JSON APIs**: Slack (slack-status.com API), Salesforce, AWS (status.aws.amazon.com).
 - **HTML Scraping**: For vendors without APIs (Azure, Microsoft 365, Google Workspace, Google Cloud Platform).
-- **Blockchain APIs**: Statuspage.io APIs for 16 chains/wallets (Solana, Avalanche, Arbitrum, Base, Stellar, Infura, Alchemy, QuickNode, The Graph, MetaMask, Ledger, Coinbase Wallet, Argent, Polygon, Gnosis Safe, Bybit Wallet).
+- **Blockchain APIs**: Statuspage.io APIs for 30+ chains/wallets including:
+  - L1 Chains: Solana, Avalanche, Polygon, Stellar, NEAR, Sui, Aptos, Celo
+  - L2 Networks: Arbitrum, Optimism, Base, zkSync Era, Scroll, Linea, Mode, Mantle
+  - RPC Providers: Infura, Alchemy, QuickNode, The Graph
+  - Wallets: MetaMask, Ledger, Coinbase Wallet, Argent, Gnosis Safe, Phantom, Trezor, OKX Wallet, Exodus, Uniswap Wallet
 - **WalletConnect Wallets**: 8 popular wallet vendors monitored (MetaMask, Trust Wallet, Ledger, Coinbase Wallet, Rainbow, Argent, Gnosis Safe, Bybit). Wallets with Statuspage APIs sync automatically; others track timestamps only.
 - **Decentralized Chains**: Bitcoin, Ethereum, BSC, Cosmos, TRON, Ripple tracked with timestamp updates (no centralized status pages exist for fully decentralized networks).
-- **Staking Platforms**: 15 staking platforms across three categories:
+- **Staking Platforms**: 21 staking platforms across three categories:
   - CEXs: Binance, Coinbase, Kraken, Gemini (4 platforms; Coinbase, Kraken, Gemini sync via Statuspage)
   - Liquid Staking/DeFi: Lido Finance, Rocket Pool, StakeWise, Stake DAO, Marinade Finance (5 platforms)
-  - Institutional Providers: RockX, Figment, Ankr, Crypto.com, Kiln, Bybit (6 platforms; Crypto.com, Bybit sync via Statuspage)
+  - Institutional Providers: RockX, Figment, Ankr, Crypto.com, Kiln, Bybit, Allnodes, Blockdaemon, Everstake, Chorus One, P2P Validator, Stakefish (12 platforms; most sync via Statuspage)
 
 ### Notification Providers
 - **Resend**: For email notifications (`RESEND_API_KEY`).
