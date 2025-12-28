@@ -1,5 +1,12 @@
 User-agent: *
 Allow: /
 Disallow: /api/
+Disallow: /jobs
+Disallow: /logs
+Disallow: /consents
+Disallow: /parser-health
+Disallow: /feedback
+Disallow: /verify-2fa
+Disallow: /set-password
 
 Sitemap: https://vendorwatch.app/sitemap.xml
