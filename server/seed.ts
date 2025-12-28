@@ -48,6 +48,20 @@ async function seed() {
       status: 'operational'
     },
     { 
+      key: "akamai", 
+      name: "Akamai", 
+      statusUrl: "https://www.akamaistatus.com", 
+      parser: "statuspage_json",
+      status: 'operational'
+    },
+    { 
+      key: "fastly", 
+      name: "Fastly", 
+      statusUrl: "https://www.fastlystatus.com", 
+      parser: "statuspage_json",
+      status: 'operational'
+    },
+    { 
       key: "okta", 
       name: "Okta", 
       statusUrl: "https://status.okta.com", 
@@ -65,6 +79,13 @@ async function seed() {
       key: "atlassian", 
       name: "Atlassian", 
       statusUrl: "https://status.atlassian.com", 
+      parser: "statuspage_json",
+      status: 'operational'
+    },
+    { 
+      key: "slack", 
+      name: "Slack", 
+      statusUrl: "https://status.slack.com", 
       parser: "statuspage_json",
       status: 'operational'
     },
@@ -98,6 +119,20 @@ async function seed() {
       parser: "statuspage_json",
       status: 'operational'
     },
+    { 
+      key: "auth0", 
+      name: "Auth0", 
+      statusUrl: "https://status.auth0.com", 
+      parser: "statuspage_json",
+      status: 'operational'
+    },
+    { 
+      key: "pingidentity", 
+      name: "Ping Identity", 
+      statusUrl: "https://status.pingidentity.com", 
+      parser: "statuspage_json",
+      status: 'operational'
+    },
     // File Storage
     { 
       key: "dropbox", 
@@ -121,28 +156,7 @@ async function seed() {
       parser: "statuspage_json",
       status: 'operational'
     },
-    { 
-      key: "logmein", 
-      name: "LogMeIn", 
-      statusUrl: "https://status.logmeininc.com", 
-      parser: "statuspage_json",
-      status: 'operational'
-    },
     // Backup & DR
-    { 
-      key: "veeam", 
-      name: "Veeam", 
-      statusUrl: "https://status.veeam.com", 
-      parser: "statuspage_json",
-      status: 'operational'
-    },
-    { 
-      key: "acronis", 
-      name: "Acronis", 
-      statusUrl: "https://status.acronis.com", 
-      parser: "statuspage_json",
-      status: 'operational'
-    },
     { 
       key: "datto", 
       name: "Datto", 
@@ -159,23 +173,30 @@ async function seed() {
     },
     // Business Applications
     { 
-      key: "zendesk", 
-      name: "Zendesk", 
-      statusUrl: "https://status.zendesk.com", 
+      key: "hubspot", 
+      name: "HubSpot", 
+      statusUrl: "https://status.hubspot.com", 
       parser: "statuspage_json",
       status: 'operational'
     },
     { 
-      key: "servicenow", 
-      name: "ServiceNow", 
-      statusUrl: "https://status.servicenow.com", 
+      key: "netsuite", 
+      name: "Oracle NetSuite", 
+      statusUrl: "https://status.netsuite.com", 
       parser: "statuspage_json",
       status: 'operational'
     },
     { 
-      key: "freshworks", 
-      name: "Freshworks", 
-      statusUrl: "https://status.freshworks.com", 
+      key: "sentinelone", 
+      name: "SentinelOne", 
+      statusUrl: "https://status.sentinelone.com", 
+      parser: "statuspage_json",
+      status: 'operational'
+    },
+    { 
+      key: "fireblocks", 
+      name: "Fireblocks", 
+      statusUrl: "https://status.fireblocks.com", 
       parser: "statuspage_json",
       status: 'operational'
     },
@@ -184,13 +205,6 @@ async function seed() {
       key: "datadog", 
       name: "Datadog", 
       statusUrl: "https://status.datadoghq.com", 
-      parser: "statuspage_json",
-      status: 'operational'
-    },
-    { 
-      key: "pagerduty", 
-      name: "PagerDuty", 
-      statusUrl: "https://status.pagerduty.com", 
       parser: "statuspage_json",
       status: 'operational'
     },
@@ -227,6 +241,35 @@ async function seed() {
       key: "linode", 
       name: "Linode", 
       statusUrl: "https://status.linode.com", 
+      parser: "statuspage_json",
+      status: 'operational'
+    },
+    // MSP Tools
+    { 
+      key: "kaseya", 
+      name: "Kaseya", 
+      statusUrl: "https://status.kaseya.com", 
+      parser: "statuspage_json",
+      status: 'operational'
+    },
+    { 
+      key: "connectwise", 
+      name: "ConnectWise", 
+      statusUrl: "https://status.connectwise.com", 
+      parser: "statuspage_json",
+      status: 'operational'
+    },
+    { 
+      key: "nable", 
+      name: "N-able", 
+      statusUrl: "https://status.n-able.com", 
+      parser: "statuspage_json",
+      status: 'operational'
+    },
+    { 
+      key: "syncro", 
+      name: "Syncro", 
+      statusUrl: "https://status.syncromsp.com", 
       parser: "statuspage_json",
       status: 'operational'
     },

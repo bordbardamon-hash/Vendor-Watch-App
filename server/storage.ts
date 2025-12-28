@@ -2387,23 +2387,15 @@ const DEFAULT_VENDORS: InsertVendor[] = [
   { key: "box", name: "Box", statusUrl: "https://status.box.com", parser: "statuspage_json", status: "operational" },
   // Remote Access & Support
   { key: "teamviewer", name: "TeamViewer", statusUrl: "https://status.teamviewer.com", parser: "statuspage_json", status: "operational" },
-  { key: "logmein", name: "LogMeIn", statusUrl: "https://status.logmeininc.com", parser: "generic_html", status: "operational" },
   // Backup & Disaster Recovery
-  { key: "veeam", name: "Veeam", statusUrl: "https://status.veeam.com", parser: "generic_html", status: "operational" },
-  { key: "veeam_datacloud", name: "Veeam Data Cloud", statusUrl: "https://vdcstatus.veeam.com/", parser: "statuspage_json", status: "operational" },
-  { key: "acronis", name: "Acronis", statusUrl: "https://status.acronis.com", parser: "generic_html", status: "operational" },
   { key: "datto", name: "Datto", statusUrl: "https://status.kaseya.com", parser: "statuspage_json", status: "operational" },
   { key: "carbonite", name: "Carbonite", statusUrl: "https://status.opentext.com", parser: "statuspage_json", status: "operational" },
   // Business Applications
   { key: "hubspot", name: "HubSpot", statusUrl: "https://status.hubspot.com/", parser: "statuspage_json", status: "operational" },
-  { key: "zendesk", name: "Zendesk", statusUrl: "https://status.zendesk.com", parser: "generic_html", status: "operational" },
-  { key: "servicenow", name: "ServiceNow", statusUrl: "https://status.servicenow.com", parser: "generic_html", status: "operational" },
-  { key: "freshworks", name: "Freshworks", statusUrl: "https://status.freshworks.com", parser: "generic_html", status: "operational" },
   { key: "netsuite", name: "Oracle NetSuite", statusUrl: "https://status.netsuite.com/", parser: "statuspage_json", status: "operational" },
   // DevOps & Monitoring
   { key: "github", name: "GitHub", statusUrl: "https://www.githubstatus.com", parser: "statuspage_json", status: "operational" },
   { key: "datadog", name: "Datadog", statusUrl: "https://status.datadoghq.com", parser: "statuspage_json", status: "operational" },
-  { key: "pagerduty", name: "PagerDuty", statusUrl: "https://status.pagerduty.com", parser: "generic_html", status: "operational" },
   { key: "newrelic", name: "New Relic", statusUrl: "https://status.newrelic.com", parser: "statuspage_json", status: "operational" },
   { key: "sentinelone", name: "SentinelOne", statusUrl: "https://status.sentinelone.com/", parser: "statuspage_json", status: "operational" },
   // MSP Tools

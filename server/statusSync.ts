@@ -57,7 +57,6 @@ const STATUSPAGE_API_URLS: Record<string, string> = {
   hubspot: "https://status.hubspot.com",
   akamai: "https://www.akamaistatus.com",
   pingidentity: "https://status.pingidentity.com",
-  veeam_datacloud: "https://vdcstatus.veeam.com",
   fireblocks: "https://status.fireblocks.com",
   quickbooks: "https://status.quickbooks.intuit.com",
   netsuite: "https://status.netsuite.com",
