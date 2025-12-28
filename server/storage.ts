@@ -3,7 +3,7 @@ import {
   blockchainChains, blockchainIncidents, blockchainIncidentArchive, userBlockchainSubscriptions, incidentAcknowledgements, maintenanceAcknowledgements,
   vendorMaintenances, blockchainMaintenances, userActivityEvents, vendorDailyMetrics, psaWebhooks,
   slaContracts, slaBreaches, syntheticProbes, syntheticProbeResults,
-  clients, clientVendorLinks, incidentPlaybooks, incidentPlaybookSteps,
+  clients, clientVendorLinks, incidentPlaybooks, incidentPlaybookSteps, userIntegrations,
   type User, type UpsertUser,
   type Vendor, type InsertVendor,
   type Incident, type InsertIncident,
@@ -32,6 +32,7 @@ import {
   type ClientVendorLink, type InsertClientVendorLink,
   type IncidentPlaybook, type InsertIncidentPlaybook,
   type IncidentPlaybookStep, type InsertIncidentPlaybookStep,
+  type UserIntegration, type InsertUserIntegration,
   SUBSCRIPTION_TIERS
 } from "@shared/schema";
 import { and, isNull, inArray, gte, lte, sql, count, ilike, or } from "drizzle-orm";
@@ -299,6 +300,29 @@ export interface IStorage {
     isResponseBreached: boolean;
     isResolutionBreached: boolean;
   }>>;
+  
+  // User Integrations (Slack, Teams, PSA, Webhooks, etc.)
+  getUserIntegrations(userId: string): Promise<Array<{
+    id: string;
+    userId: string;
+    integrationType: string;
+    name: string;
+    isActive: boolean;
+    isDefault: boolean | null;
+    lastTestedAt: Date | null;
+    lastTestSuccess: boolean | null;
+    createdAt: Date;
+    hasWebhook: boolean;
+    hasApiKey: boolean;
+    hasPhone: boolean;
+  }>>;
+  getUserIntegration(id: string): Promise<any>;
+  getUserIntegrationFull(id: string): Promise<any>;
+  createUserIntegration(data: any): Promise<any>;
+  updateUserIntegration(id: string, data: any): Promise<any>;
+  deleteUserIntegration(id: string): Promise<boolean>;
+  testUserIntegration(id: string, success: boolean): Promise<any>;
+  getDefaultIntegrationForType(userId: string, integrationType: string): Promise<any>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2232,6 +2256,99 @@ export class DatabaseStorage implements IStorage {
     }
     
     return timers;
+  }
+
+  // User Integrations (Slack, Teams, PSA, Webhooks, etc.)
+  async getUserIntegrations(userId: string): Promise<Array<{
+    id: string;
+    userId: string;
+    integrationType: string;
+    name: string;
+    isActive: boolean;
+    isDefault: boolean | null;
+    lastTestedAt: Date | null;
+    lastTestSuccess: boolean | null;
+    createdAt: Date;
+    hasWebhook: boolean;
+    hasApiKey: boolean;
+    hasPhone: boolean;
+  }>> {
+    const integrations = await db.select().from(userIntegrations)
+      .where(eq(userIntegrations.userId, userId))
+      .orderBy(desc(userIntegrations.createdAt));
+    
+    return integrations.map(i => ({
+      id: i.id,
+      userId: i.userId,
+      integrationType: i.integrationType,
+      name: i.name,
+      isActive: i.isActive,
+      isDefault: i.isDefault,
+      lastTestedAt: i.lastTestedAt,
+      lastTestSuccess: i.lastTestSuccess,
+      createdAt: i.createdAt,
+      hasWebhook: !!i.webhookUrl,
+      hasApiKey: !!i.apiKey,
+      hasPhone: !!i.phoneNumber,
+    }));
+  }
+
+  async getUserIntegration(id: string): Promise<any> {
+    const [integration] = await db.select({
+      id: userIntegrations.id,
+      userId: userIntegrations.userId,
+      integrationType: userIntegrations.integrationType,
+      name: userIntegrations.name,
+      isActive: userIntegrations.isActive,
+      isDefault: userIntegrations.isDefault,
+      lastTestedAt: userIntegrations.lastTestedAt,
+      lastTestSuccess: userIntegrations.lastTestSuccess,
+      createdAt: userIntegrations.createdAt,
+      updatedAt: userIntegrations.updatedAt,
+    }).from(userIntegrations).where(eq(userIntegrations.id, id));
+    return integration || undefined;
+  }
+
+  async getUserIntegrationFull(id: string): Promise<UserIntegration | undefined> {
+    const [integration] = await db.select().from(userIntegrations).where(eq(userIntegrations.id, id));
+    return integration || undefined;
+  }
+
+  async createUserIntegration(data: InsertUserIntegration): Promise<UserIntegration> {
+    const [created] = await db.insert(userIntegrations).values(data).returning();
+    return created;
+  }
+
+  async updateUserIntegration(id: string, data: Partial<InsertUserIntegration>): Promise<UserIntegration | undefined> {
+    const [updated] = await db.update(userIntegrations)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(userIntegrations.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteUserIntegration(id: string): Promise<boolean> {
+    const result = await db.delete(userIntegrations).where(eq(userIntegrations.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async testUserIntegration(id: string, success: boolean): Promise<UserIntegration | undefined> {
+    const [updated] = await db.update(userIntegrations)
+      .set({ lastTestedAt: new Date(), lastTestSuccess: success, updatedAt: new Date() })
+      .where(eq(userIntegrations.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async getDefaultIntegrationForType(userId: string, integrationType: string): Promise<UserIntegration | undefined> {
+    const [integration] = await db.select().from(userIntegrations)
+      .where(and(
+        eq(userIntegrations.userId, userId),
+        eq(userIntegrations.integrationType, integrationType),
+        eq(userIntegrations.isDefault, true),
+        eq(userIntegrations.isActive, true)
+      ));
+    return integration || undefined;
   }
 }
 

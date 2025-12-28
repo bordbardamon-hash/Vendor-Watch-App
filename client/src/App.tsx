@@ -24,6 +24,7 @@ import Clients from "@/pages/clients";
 import Playbooks from "@/pages/playbooks";
 import PlaybookCreate from "@/pages/playbook-create";
 import MobileStatus from "@/pages/mobile-status";
+import Integrations from "@/pages/integrations";
 import Signup from "@/pages/signup";
 import SignupSuccess from "@/pages/signup-success";
 import Verify2FA from "@/pages/verify-2fa";
@@ -84,6 +85,7 @@ function AuthenticatedRouter() {
         <Route path="/analytics" component={Analytics} />
         <Route path="/sla" component={SLA} />
         <Route path="/automation" component={Automation} />
+        <Route path="/integrations" component={Integrations} />
         <Route path="/clients" component={Clients} />
         <Route path="/playbooks" component={Playbooks} />
         <Route path="/mobile-status" component={MobileStatus} />

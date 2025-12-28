@@ -891,7 +891,29 @@ export const incidentPlaybookSteps = pgTable("incident_playbook_steps", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// User Integrations - webhook URLs and API configurations for automation actions
+export const userIntegrations = pgTable("user_integrations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: text("user_id").notNull(),
+  integrationType: text("integration_type").notNull(), // slack, teams, psa, webhook, escalation_phone
+  name: text("name").notNull(), // Display name for this integration
+  webhookUrl: text("webhook_url"), // For Slack, Teams, PSA, custom webhooks
+  apiKey: text("api_key"), // For PSA systems that require API keys
+  phoneNumber: text("phone_number"), // For escalation calls (Twilio)
+  additionalConfig: text("additional_config"), // JSON for extra settings
+  isActive: boolean("is_active").notNull().default(true),
+  isDefault: boolean("is_default").default(false), // Default for this integration type
+  lastTestedAt: timestamp("last_tested_at"),
+  lastTestSuccess: boolean("last_test_success"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // Insert schemas for new tables
+export const insertUserIntegrationSchema = createInsertSchema(userIntegrations).omit({ id: true, lastTestedAt: true, lastTestSuccess: true, createdAt: true, updatedAt: true });
+export type InsertUserIntegration = z.infer<typeof insertUserIntegrationSchema>;
+export type UserIntegration = typeof userIntegrations.$inferSelect;
+
 export const insertClientSchema = createInsertSchema(clients).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertClientVendorLinkSchema = createInsertSchema(clientVendorLinks).omit({ id: true, createdAt: true });
 export const insertIncidentPlaybookSchema = createInsertSchema(incidentPlaybooks).omit({ id: true, createdAt: true, updatedAt: true });

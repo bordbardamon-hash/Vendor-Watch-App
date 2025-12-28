@@ -22,7 +22,8 @@ import {
   Server,
   Users,
   BookOpen,
-  Smartphone
+  Smartphone,
+  Settings2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -60,6 +61,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { href: "/analytics", icon: BarChart3, label: "Analytics", adminOnly: false, ownerOnly: false, requiresGrowth: false },
     { href: "/sla", icon: Target, label: "SLA Dashboard", adminOnly: false, ownerOnly: false, requiresGrowth: false },
     { href: "/automation", icon: Bot, label: "Automation", adminOnly: false, ownerOnly: false, requiresGrowth: false },
+    { href: "/integrations", icon: Settings2, label: "Integrations", adminOnly: false, ownerOnly: false, requiresGrowth: true },
     { href: "/clients", icon: Users, label: "Clients", adminOnly: false, ownerOnly: false, requiresGrowth: true },
     { href: "/playbooks", icon: BookOpen, label: "Playbooks", adminOnly: false, ownerOnly: false, requiresGrowth: true },
     { href: "/mobile-status", icon: Smartphone, label: "Mobile Status", adminOnly: false, ownerOnly: false, requiresGrowth: true },

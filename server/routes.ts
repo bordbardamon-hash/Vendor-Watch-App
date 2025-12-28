@@ -4145,5 +4145,221 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
     }
   });
 
+  // User Integrations API (Slack, Teams, PSA, Webhooks, etc.) - Requires Growth or Enterprise tier
+  app.get("/api/integrations", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const tier = req.user?.subscriptionTier;
+      if (!tier || tier === 'essential') {
+        return res.status(403).json({ error: "Integrations require Growth or Enterprise subscription" });
+      }
+      
+      const integrations = await storage.getUserIntegrations(userId);
+      res.json(integrations);
+    } catch (error) {
+      console.error("Error fetching integrations:", error);
+      res.status(500).json({ error: "Failed to fetch integrations" });
+    }
+  });
+
+  app.get("/api/integrations/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const tier = req.user?.subscriptionTier;
+      if (!tier || tier === 'essential') {
+        return res.status(403).json({ error: "Integrations require Growth or Enterprise subscription" });
+      }
+      
+      const integration = await storage.getUserIntegration(req.params.id);
+      if (!integration) return res.status(404).json({ error: "Integration not found" });
+      if (integration.userId !== userId) return res.status(403).json({ error: "Forbidden" });
+      
+      res.json(integration);
+    } catch (error) {
+      console.error("Error fetching integration:", error);
+      res.status(500).json({ error: "Failed to fetch integration" });
+    }
+  });
+
+  app.post("/api/integrations", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const tier = req.user?.subscriptionTier;
+      if (!tier || tier === 'essential') {
+        return res.status(403).json({ error: "Integrations require Growth or Enterprise subscription" });
+      }
+      
+      const { integrationType, name, webhookUrl, apiKey, phoneNumber, additionalConfig, isDefault } = req.body;
+      
+      if (!integrationType || !name) {
+        return res.status(400).json({ error: "integrationType and name are required" });
+      }
+      
+      const integration = await storage.createUserIntegration({
+        userId,
+        integrationType,
+        name,
+        webhookUrl: webhookUrl || null,
+        apiKey: apiKey || null,
+        phoneNumber: phoneNumber || null,
+        additionalConfig: additionalConfig ? JSON.stringify(additionalConfig) : null,
+        isActive: true,
+        isDefault: isDefault || false,
+      });
+      
+      res.json(integration);
+    } catch (error) {
+      console.error("Error creating integration:", error);
+      res.status(500).json({ error: "Failed to create integration" });
+    }
+  });
+
+  app.put("/api/integrations/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const tier = req.user?.subscriptionTier;
+      if (!tier || tier === 'essential') {
+        return res.status(403).json({ error: "Integrations require Growth or Enterprise subscription" });
+      }
+      
+      const existing = await storage.getUserIntegrationFull(req.params.id);
+      if (!existing) return res.status(404).json({ error: "Integration not found" });
+      if (existing.userId !== userId) return res.status(403).json({ error: "Forbidden" });
+      
+      const { name, webhookUrl, apiKey, phoneNumber, additionalConfig, isActive, isDefault } = req.body;
+      
+      const updateData: any = {};
+      if (name !== undefined) updateData.name = name;
+      if (webhookUrl !== undefined) updateData.webhookUrl = webhookUrl || null;
+      if (apiKey !== undefined) updateData.apiKey = apiKey || null;
+      if (phoneNumber !== undefined) updateData.phoneNumber = phoneNumber || null;
+      if (additionalConfig !== undefined) updateData.additionalConfig = additionalConfig ? JSON.stringify(additionalConfig) : null;
+      if (isActive !== undefined) updateData.isActive = isActive;
+      if (isDefault !== undefined) updateData.isDefault = isDefault;
+      
+      const integration = await storage.updateUserIntegration(req.params.id, updateData);
+      res.json(integration);
+    } catch (error) {
+      console.error("Error updating integration:", error);
+      res.status(500).json({ error: "Failed to update integration" });
+    }
+  });
+
+  app.delete("/api/integrations/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const tier = req.user?.subscriptionTier;
+      if (!tier || tier === 'essential') {
+        return res.status(403).json({ error: "Integrations require Growth or Enterprise subscription" });
+      }
+      
+      const existing = await storage.getUserIntegrationFull(req.params.id);
+      if (!existing) return res.status(404).json({ error: "Integration not found" });
+      if (existing.userId !== userId) return res.status(403).json({ error: "Forbidden" });
+      
+      await storage.deleteUserIntegration(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting integration:", error);
+      res.status(500).json({ error: "Failed to delete integration" });
+    }
+  });
+
+  app.post("/api/integrations/:id/test", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const tier = req.user?.subscriptionTier;
+      if (!tier || tier === 'essential') {
+        return res.status(403).json({ error: "Integrations require Growth or Enterprise subscription" });
+      }
+      
+      const existing = await storage.getUserIntegrationFull(req.params.id);
+      if (!existing) return res.status(404).json({ error: "Integration not found" });
+      if (existing.userId !== userId) return res.status(403).json({ error: "Forbidden" });
+      
+      let success = false;
+      let message = "";
+      
+      if (existing.integrationType === 'slack' && existing.webhookUrl) {
+        try {
+          const response = await fetch(existing.webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: "Vendor Watch test message - connection successful!" }),
+          });
+          success = response.ok;
+          message = success ? "Slack message sent successfully!" : "Failed to send Slack message";
+        } catch (e) {
+          message = "Failed to connect to Slack webhook";
+        }
+      } else if (existing.integrationType === 'teams' && existing.webhookUrl) {
+        try {
+          const response = await fetch(existing.webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              "@type": "MessageCard",
+              "summary": "Vendor Watch Test",
+              "themeColor": "00BCB4",
+              "title": "Vendor Watch Test Message",
+              "text": "Connection successful!"
+            }),
+          });
+          success = response.ok;
+          message = success ? "Teams message sent successfully!" : "Failed to send Teams message";
+        } catch (e) {
+          message = "Failed to connect to Teams webhook";
+        }
+      } else if (existing.integrationType === 'webhook' && existing.webhookUrl) {
+        try {
+          const response = await fetch(existing.webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ event: "test", source: "vendor_watch", timestamp: new Date().toISOString() }),
+          });
+          success = response.ok;
+          message = success ? "Webhook call successful!" : "Webhook returned an error";
+        } catch (e) {
+          message = "Failed to connect to webhook";
+        }
+      } else if (existing.integrationType === 'psa' && existing.webhookUrl) {
+        try {
+          const response = await fetch(existing.webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ event: "test", source: "vendor_watch", timestamp: new Date().toISOString() }),
+          });
+          success = response.ok;
+          message = success ? "PSA connection successful!" : "PSA webhook returned an error";
+        } catch (e) {
+          message = "Failed to connect to PSA webhook";
+        }
+      } else if (existing.integrationType === 'escalation_phone' && existing.phoneNumber) {
+        success = true;
+        message = "Phone number saved. Escalation calls will use Twilio when triggered.";
+      } else {
+        message = "No testable configuration found for this integration type";
+      }
+      
+      await storage.testUserIntegration(req.params.id, success);
+      res.json({ success, message });
+    } catch (error) {
+      console.error("Error testing integration:", error);
+      res.status(500).json({ error: "Failed to test integration" });
+    }
+  });
+
   return httpServer;
 }
