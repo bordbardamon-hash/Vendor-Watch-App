@@ -91,6 +91,12 @@ const STATUSPAGE_API_URLS: Record<string, string> = {
   sendgrid: "https://status.sendgrid.com",
   // E-commerce
   shopify: "https://status.shopify.com",
+  // Collaboration
+  notion: "https://status.notion.so",
+  asana: "https://status.asana.com",
+  // Password Management
+  "1password": "https://status.1password.com",
+  lastpass: "https://status.lastpass.com",
 };
 
 function mapStatusIndicator(indicator: string): string {

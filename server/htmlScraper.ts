@@ -499,9 +499,6 @@ export async function scrapeVendorStatus(vendor: { key: string; statusUrl: strin
       return scrapeSalesforceStatus(vendor);
     case 'slack':
       return scrapeSlackStatus(vendor);
-    case 'okta':
-    case 'auth0':
-      return manualStatusVendor(vendor);
     case 'fastly':
       return scrapeFastlyStatus(vendor);
     case 'nable':
@@ -509,10 +506,8 @@ export async function scrapeVendorStatus(vendor: { key: string; statusUrl: strin
       return scrapeStatusIoPage(vendor);
     // Vendors without accessible public APIs - return operational by default
     // Visit their status pages directly for manual monitoring
-    case 'stripe':
     case 'paypal':
     case 'gcp':
-    case 'connectwise':
       return manualStatusVendor(vendor);
     default:
       return scrapeStatuspageHtml(vendor);
