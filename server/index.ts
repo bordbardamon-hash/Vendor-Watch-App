@@ -228,7 +228,7 @@ app.use((req, res, next) => {
       
       // Incident archival cleanup: runs every hour
       const ARCHIVE_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
-      const ARCHIVE_AFTER_DAYS = 3; // Archive resolved incidents after 3 days
+      const ARCHIVE_AFTER_DAYS = 1; // Archive resolved incidents after 1 day
       const PURGE_AFTER_DAYS = 365; // Purge archived incidents after 1 year
       
       setInterval(async () => {
