@@ -206,7 +206,7 @@ export default function AutomationPage() {
                       <SelectTrigger className="bg-gray-800 border-gray-600" data-testid="select-trigger">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="bg-gray-800 border-gray-600">
+                      <SelectContent className="bg-gray-800 border-gray-600 z-[9999]" position="popper" sideOffset={4}>
                         {TRIGGER_TYPES.map(t => (
                           <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                         ))}
@@ -223,7 +223,7 @@ export default function AutomationPage() {
                       <SelectTrigger className="bg-gray-800 border-gray-600" data-testid="select-action">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="bg-gray-800 border-gray-600">
+                      <SelectContent className="bg-gray-800 border-gray-600 z-[9999]" position="popper" sideOffset={4}>
                         {ACTION_TYPES.map(a => (
                           <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
                         ))}
@@ -513,7 +513,7 @@ export default function AutomationPage() {
                       <SelectTrigger className="bg-gray-800 border-gray-600" data-testid="select-edit-trigger">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="bg-gray-800 border-gray-600">
+                      <SelectContent className="bg-gray-800 border-gray-600 z-[9999]" position="popper" sideOffset={4}>
                         {TRIGGER_TYPES.map(t => (
                           <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                         ))}
@@ -530,7 +530,7 @@ export default function AutomationPage() {
                       <SelectTrigger className="bg-gray-800 border-gray-600" data-testid="select-edit-action">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="bg-gray-800 border-gray-600">
+                      <SelectContent className="bg-gray-800 border-gray-600 z-[9999]" position="popper" sideOffset={4}>
                         {ACTION_TYPES.map(a => (
                           <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
                         ))}
