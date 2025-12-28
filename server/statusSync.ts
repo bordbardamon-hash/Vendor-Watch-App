@@ -51,13 +51,6 @@ interface IncidentsResponse {
 const STATUSPAGE_API_URLS: Record<string, string> = {
   // Verified working - tested Dec 2024
   cloudflare: "https://www.cloudflarestatus.com",
-  // Authentication providers
-  okta: "https://status.okta.com",
-  auth0: "https://status.auth0.com",
-  // Payments
-  stripe: "https://status.stripe.com",
-  // MSP Tools
-  connectwise: "https://status.connectwise.com",
   zoom: "https://status.zoom.us",
   atlassian: "https://status.atlassian.com",
   sentinelone: "https://status.sentinelone.com",

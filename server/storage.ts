@@ -2374,12 +2374,12 @@ const DEFAULT_VENDORS: InsertVendor[] = [
   { key: "slack", name: "Slack", statusUrl: "https://status.slack.com/", parser: "statuspage_json", status: "operational" },
   { key: "salesforce", name: "Salesforce", statusUrl: "https://status.salesforce.com", parser: "generic_html", status: "operational" },
   // Authentication & Identity
-  { key: "okta", name: "Okta", statusUrl: "https://status.okta.com", parser: "statuspage_json", status: "operational" },
-  { key: "auth0", name: "Auth0", statusUrl: "https://status.auth0.com/", parser: "statuspage_json", status: "operational" },
+  { key: "okta", name: "Okta", statusUrl: "https://status.okta.com", parser: "generic_html", status: "operational" },
+  { key: "auth0", name: "Auth0", statusUrl: "https://status.auth0.com/", parser: "generic_html", status: "operational" },
   { key: "pingidentity", name: "Ping Identity", statusUrl: "https://status.pingidentity.com/", parser: "statuspage_json", status: "operational" },
   { key: "duo", name: "Duo Security", statusUrl: "https://status.duo.com", parser: "statuspage_json", status: "operational" },
   // Payments & Revenue
-  { key: "stripe", name: "Stripe", statusUrl: "https://status.stripe.com", parser: "statuspage_json", status: "operational" },
+  { key: "stripe", name: "Stripe", statusUrl: "https://status.stripe.com", parser: "generic_html", status: "operational" },
   { key: "paypal", name: "PayPal", statusUrl: "https://www.paypal-status.com", parser: "generic_html", status: "operational" },
   { key: "quickbooks", name: "QuickBooks Online", statusUrl: "https://status.quickbooks.intuit.com/", parser: "statuspage_json", status: "operational" },
   // File Storage & Collaboration
@@ -2399,7 +2399,7 @@ const DEFAULT_VENDORS: InsertVendor[] = [
   { key: "newrelic", name: "New Relic", statusUrl: "https://status.newrelic.com", parser: "statuspage_json", status: "operational" },
   { key: "sentinelone", name: "SentinelOne", statusUrl: "https://status.sentinelone.com/", parser: "statuspage_json", status: "operational" },
   // MSP Tools
-  { key: "connectwise", name: "ConnectWise", statusUrl: "https://status.connectwise.com/", parser: "statuspage_json", status: "operational" },
+  { key: "connectwise", name: "ConnectWise", statusUrl: "https://status.connectwise.com/", parser: "generic_html", status: "operational" },
   { key: "nable", name: "N-able", statusUrl: "https://status.n-able.com/", parser: "statuspage_json", status: "operational" },
   { key: "kaseya", name: "Kaseya", statusUrl: "https://status.kaseya.com/", parser: "statuspage_json", status: "operational" },
   { key: "syncro", name: "Syncro", statusUrl: "https://www.syncrostatus.com/", parser: "statuspage_json", status: "operational" },
