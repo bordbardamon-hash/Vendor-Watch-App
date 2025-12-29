@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, boolean, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -110,7 +110,10 @@ export const incidentAlerts = pgTable("incident_alerts", {
   statusSnapshot: text("status_snapshot").notNull(), // the incident status at time of alert
   destination: text("destination").notNull(), // phone number or email address
   sentAt: timestamp("sent_at").notNull().defaultNow(),
-});
+}, (t) => [
+  // Unique constraint to prevent duplicate notifications via atomic insert
+  unique('unique_alert').on(t.incidentId, t.userId, t.channel, t.eventType, t.statusSnapshot)
+]);
 
 // Custom Vendor Requests - for Growth users to request new vendors
 export const customVendorRequests = pgTable("custom_vendor_requests", {

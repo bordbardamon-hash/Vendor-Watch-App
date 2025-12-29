@@ -779,20 +779,21 @@ export async function dispatchBlockchainNotification(notification: BlockchainNot
     }
     
     if (user.notifySms && user.phone) {
-      const alreadySent = await storage.hasBlockchainAlertBeenSent(incident.incidentId, user.id, 'sms', eventType, incident.status);
-      if (!alreadySent) {
+      // Use atomic reserve to prevent race condition duplicates
+      const reserved = await storage.tryReserveBlockchainAlert({
+        incidentId: incident.incidentId,
+        userId: user.id,
+        channel: 'sms',
+        eventType,
+        statusSnapshot: incident.status,
+        destination: user.phone,
+      });
+      
+      if (reserved) {
         try {
           const message = formatBlockchainSms(notification);
           const success = await sendSMS(user.phone, message);
           if (success) {
-            await storage.recordBlockchainAlert({
-              incidentId: incident.incidentId,
-              userId: user.id,
-              channel: 'sms',
-              eventType,
-              statusSnapshot: incident.status,
-              destination: user.phone,
-            });
             smsSent++;
             console.log(`[notify] Blockchain SMS sent to ${user.phone} for ${eventType}`);
           } else {
@@ -805,21 +806,22 @@ export async function dispatchBlockchainNotification(notification: BlockchainNot
     }
     
     if (user.notifyEmail && user.email) {
-      const alreadySent = await storage.hasBlockchainAlertBeenSent(incident.incidentId, user.id, 'email', eventType, incident.status);
-      if (!alreadySent) {
+      // Use atomic reserve to prevent race condition duplicates
+      const reserved = await storage.tryReserveBlockchainAlert({
+        incidentId: incident.incidentId,
+        userId: user.id,
+        channel: 'email',
+        eventType,
+        statusSnapshot: incident.status,
+        destination: user.email,
+      });
+      
+      if (reserved) {
         try {
           const subject = formatBlockchainEmailSubject(notification);
           const html = formatBlockchainEmailHtml(notification, user.timezone || 'UTC');
           const success = await sendEmail(user.email, subject, html);
           if (success) {
-            await storage.recordBlockchainAlert({
-              incidentId: incident.incidentId,
-              userId: user.id,
-              channel: 'email',
-              eventType,
-              statusSnapshot: incident.status,
-              destination: user.email,
-            });
             emailSent++;
             console.log(`[notify] Blockchain email sent to ${user.email} for ${eventType}`);
           } else {

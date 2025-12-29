@@ -171,6 +171,7 @@ export interface IStorage {
   checkBlockchainLimit(userId: string): Promise<{ allowed: boolean; current: number; limit: number | null; tier: string | null }>;
   hasBlockchainAlertBeenSent(incidentId: string, userId: string, channel: string, eventType: string, statusSnapshot: string): Promise<boolean>;
   recordBlockchainAlert(alert: { incidentId: string; userId: string; channel: string; eventType: string; statusSnapshot: string; destination: string }): Promise<void>;
+  tryReserveBlockchainAlert(alert: { incidentId: string; userId: string; channel: string; eventType: string; statusSnapshot: string; destination: string }): Promise<boolean>;
   
   // Toggle individual vendor/blockchain subscription
   toggleVendorSubscription(userId: string, vendorKey: string): Promise<{ subscribed: boolean; current: number; limit: number | null }>;
@@ -1296,6 +1297,26 @@ export class DatabaseStorage implements IStorage {
       statusSnapshot: alert.statusSnapshot,
       destination: alert.destination,
     });
+  }
+
+  async tryReserveBlockchainAlert(alert: { incidentId: string; userId: string; channel: string; eventType: string; statusSnapshot: string; destination: string }): Promise<boolean> {
+    try {
+      await db.insert(incidentAlerts).values({
+        incidentId: `blockchain:${alert.incidentId}`,
+        userId: alert.userId,
+        channel: alert.channel,
+        eventType: alert.eventType,
+        statusSnapshot: alert.statusSnapshot,
+        destination: alert.destination,
+      });
+      return true; // Successfully reserved - caller should send notification
+    } catch (error: any) {
+      // Check if it's a unique constraint violation (code 23505 in PostgreSQL)
+      if (error?.code === '23505' || error?.message?.includes('unique constraint') || error?.message?.includes('duplicate key')) {
+        return false; // Already sent - skip notification
+      }
+      throw error; // Re-throw other errors
+    }
   }
 
   async setUserBlockchainSubscriptions(userId: string, chainKeys: string[]): Promise<void> {
