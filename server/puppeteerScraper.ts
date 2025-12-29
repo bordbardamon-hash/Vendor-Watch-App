@@ -81,8 +81,8 @@ async function getBrowser(): Promise<Browser> {
     browserInstance = await puppeteer.launch({
       headless: true,
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
-      timeout: 60000, // 60 second timeout for browser launch
-      protocolTimeout: 60000, // 60 second timeout for CDP protocol commands
+      timeout: 120000, // 120 second timeout for browser launch
+      protocolTimeout: 180000, // 180 second timeout for CDP protocol commands (3 minutes)
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -91,7 +91,14 @@ async function getBrowser(): Promise<Browser> {
         '--disable-gpu',
         '--single-process',
         '--no-zygote',
-        '--window-size=1280,720'
+        '--window-size=1280,720',
+        '--disable-extensions',
+        '--disable-background-networking',
+        '--disable-sync',
+        '--disable-translate',
+        '--disable-features=TranslateUI',
+        '--no-first-run',
+        '--safebrowsing-disable-auto-update'
       ]
     });
     
@@ -120,7 +127,7 @@ export async function closeBrowser(): Promise<void> {
   }
 }
 
-async function scrapeWithPuppeteer(
+async function scrapeWithPuppeteerInternal(
   url: string, 
   vendorKey: string,
   extractStatus: (page: Page) => Promise<{ status: 'operational' | 'degraded' | 'outage'; incidents: ScrapedStatus['incidents'] }>
@@ -177,6 +184,22 @@ async function scrapeWithPuppeteer(
       };
     }
     
+    // Force browser restart on protocol timeout errors
+    const isProtocolTimeout = errorMessage.includes('protocolTimeout') || 
+                               errorMessage.includes('Network.enable timed out') ||
+                               errorMessage.includes('Protocol error') ||
+                               errorMessage.includes('Target closed');
+    
+    if (isProtocolTimeout && browserInstance) {
+      console.log(`[puppeteer/${vendorKey}] Protocol timeout detected, forcing browser restart`);
+      try {
+        await browserInstance.close();
+      } catch (e) {
+        // Ignore close errors
+      }
+      browserInstance = null;
+    }
+    
     console.log(`[puppeteer/${vendorKey}] Scraping failed:`, errorMessage);
     await recordParseResult(vendorKey, { success: false, errorMessage });
     return { 
@@ -191,6 +214,29 @@ async function scrapeWithPuppeteer(
       await page.close().catch(() => {});
     }
   }
+}
+
+// Wrapper with retry logic for protocol timeout errors
+async function scrapeWithPuppeteer(
+  url: string, 
+  vendorKey: string,
+  extractStatus: (page: Page) => Promise<{ status: 'operational' | 'degraded' | 'outage'; incidents: ScrapedStatus['incidents'] }>
+): Promise<ScrapedStatus> {
+  const result = await scrapeWithPuppeteerInternal(url, vendorKey, extractStatus);
+  
+  // If protocol timeout, retry once after browser restart
+  if (!result.success && result.errorMessage && (
+    result.errorMessage.includes('protocolTimeout') ||
+    result.errorMessage.includes('Network.enable timed out') ||
+    result.errorMessage.includes('Protocol error') ||
+    result.errorMessage.includes('Target closed')
+  )) {
+    console.log(`[puppeteer/${vendorKey}] Retrying after protocol timeout...`);
+    await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
+    return scrapeWithPuppeteerInternal(url, vendorKey, extractStatus);
+  }
+  
+  return result;
 }
 
 export async function scrapeOktaWithPuppeteer(vendor: { key: string; statusUrl: string }): Promise<ScrapedStatus> {
