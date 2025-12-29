@@ -1720,22 +1720,35 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Analytics - Vendor Performance (calculated from actual incidents)
+  // For unresolved incidents older than 72 hours, we cap their downtime impact
+  // to prevent stale incidents from dragging SLA to 0%
   async getVendorPerformanceStats(vendorKey: string, days: number = 30): Promise<{ uptimePercent: number; incidentCount: number; avgResolutionMinutes: number | null }> {
     const now = new Date();
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - days);
     const cutoffStr = cutoff.toISOString();
     
+    // Maximum downtime for unresolved incidents (72 hours = 3 days)
+    const MAX_UNRESOLVED_DOWNTIME_MINUTES = 72 * 60;
+    
     const allVendorIncidents = await db.select()
       .from(incidents)
       .where(eq(incidents.vendorKey, vendorKey));
     
+    // Only count incidents that started within the lookback window
+    // OR resolved incidents that overlapped with the window
     const relevantIncidents = allVendorIncidents.filter(incident => {
       const start = new Date(incident.startedAt);
-      const end = incident.status === 'resolved' && incident.updatedAt 
-        ? new Date(incident.updatedAt) 
-        : now;
-      return start < now && end > cutoff;
+      
+      // For resolved incidents, check if they overlap with window
+      if (incident.status === 'resolved' && incident.updatedAt) {
+        const end = new Date(incident.updatedAt);
+        return start < now && end > cutoff;
+      }
+      
+      // For unresolved incidents, only count if started within the window
+      // This prevents very old stale incidents from affecting SLA
+      return start >= cutoff && start < now;
     });
     
     const incidentCount = relevantIncidents.length;
@@ -1749,17 +1762,23 @@ export class DatabaseStorage implements IStorage {
     
     for (const incident of relevantIncidents) {
       const incidentStart = new Date(incident.startedAt);
-      const incidentEnd = incident.status === 'resolved' && incident.updatedAt 
-        ? new Date(incident.updatedAt) 
-        : now;
-      const windowStart = incidentStart < cutoff ? cutoff : incidentStart;
-      const windowEnd = incidentEnd > now ? now : incidentEnd;
-      const durationMinutes = Math.max(0, (windowEnd.getTime() - windowStart.getTime()) / (1000 * 60));
-      totalDowntimeMinutes += durationMinutes;
       
       if (incident.status === 'resolved' && incident.updatedAt) {
+        // Resolved incident - calculate actual downtime within window
+        const incidentEnd = new Date(incident.updatedAt);
+        const windowStart = incidentStart < cutoff ? cutoff : incidentStart;
+        const windowEnd = incidentEnd > now ? now : incidentEnd;
+        const durationMinutes = Math.max(0, (windowEnd.getTime() - windowStart.getTime()) / (1000 * 60));
+        totalDowntimeMinutes += durationMinutes;
+        
         const fullDuration = (incidentEnd.getTime() - incidentStart.getTime()) / (1000 * 60);
         resolutionTimes.push(fullDuration);
+      } else {
+        // Unresolved incident - cap downtime at 72 hours to prevent stale incidents
+        // from causing 0% uptime
+        const windowStart = incidentStart < cutoff ? cutoff : incidentStart;
+        const durationMinutes = Math.max(0, (now.getTime() - windowStart.getTime()) / (1000 * 60));
+        totalDowntimeMinutes += Math.min(durationMinutes, MAX_UNRESOLVED_DOWNTIME_MINUTES);
       }
     }
     
@@ -1794,21 +1813,31 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Analytics - Blockchain Performance (calculated from actual incidents)
+  // Same logic as vendor performance - caps unresolved incident impact at 72 hours
   async getBlockchainPerformanceStats(chainKey: string, days: number = 30): Promise<{ uptimePercent: number; incidentCount: number; avgResolutionMinutes: number | null }> {
     const now = new Date();
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - days);
     
+    // Maximum downtime for unresolved incidents (72 hours = 3 days)
+    const MAX_UNRESOLVED_DOWNTIME_MINUTES = 72 * 60;
+    
     const allChainIncidents = await db.select()
       .from(blockchainIncidents)
       .where(eq(blockchainIncidents.chainKey, chainKey));
     
+    // Only count incidents that started within the lookback window
+    // OR resolved incidents that overlapped with the window
     const relevantIncidents = allChainIncidents.filter(incident => {
       const start = new Date(incident.startedAt);
-      const end = incident.status === 'resolved' && incident.updatedAt 
-        ? new Date(incident.updatedAt) 
-        : now;
-      return start < now && end > cutoff;
+      
+      if (incident.status === 'resolved' && incident.updatedAt) {
+        const end = new Date(incident.updatedAt);
+        return start < now && end > cutoff;
+      }
+      
+      // For unresolved incidents, only count if started within the window
+      return start >= cutoff && start < now;
     });
     
     const incidentCount = relevantIncidents.length;
@@ -1822,17 +1851,21 @@ export class DatabaseStorage implements IStorage {
     
     for (const incident of relevantIncidents) {
       const incidentStart = new Date(incident.startedAt);
-      const incidentEnd = incident.status === 'resolved' && incident.updatedAt 
-        ? new Date(incident.updatedAt) 
-        : now;
-      const windowStart = incidentStart < cutoff ? cutoff : incidentStart;
-      const windowEnd = incidentEnd > now ? now : incidentEnd;
-      const durationMinutes = Math.max(0, (windowEnd.getTime() - windowStart.getTime()) / (1000 * 60));
-      totalDowntimeMinutes += durationMinutes;
       
       if (incident.status === 'resolved' && incident.updatedAt) {
+        const incidentEnd = new Date(incident.updatedAt);
+        const windowStart = incidentStart < cutoff ? cutoff : incidentStart;
+        const windowEnd = incidentEnd > now ? now : incidentEnd;
+        const durationMinutes = Math.max(0, (windowEnd.getTime() - windowStart.getTime()) / (1000 * 60));
+        totalDowntimeMinutes += durationMinutes;
+        
         const fullDuration = (incidentEnd.getTime() - incidentStart.getTime()) / (1000 * 60);
         resolutionTimes.push(fullDuration);
+      } else {
+        // Unresolved incident - cap downtime at 72 hours
+        const windowStart = incidentStart < cutoff ? cutoff : incidentStart;
+        const durationMinutes = Math.max(0, (now.getTime() - windowStart.getTime()) / (1000 * 60));
+        totalDowntimeMinutes += Math.min(durationMinutes, MAX_UNRESOLVED_DOWNTIME_MINUTES);
       }
     }
     
