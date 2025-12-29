@@ -81,6 +81,8 @@ async function getBrowser(): Promise<Browser> {
     browserInstance = await puppeteer.launch({
       headless: true,
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
+      timeout: 60000, // 60 second timeout for browser launch
+      protocolTimeout: 60000, // 60 second timeout for CDP protocol commands
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
