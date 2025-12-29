@@ -4,6 +4,11 @@ import {
   vendorMaintenances, blockchainMaintenances, userActivityEvents, vendorDailyMetrics, psaWebhooks,
   slaContracts, slaBreaches, syntheticProbes, syntheticProbeResults,
   clients, clientVendorLinks, incidentPlaybooks, incidentPlaybookSteps, userIntegrations,
+  organizations, organizationMembers, organizationInvitations,
+  type Organization, type InsertOrganization,
+  type OrganizationMember, type InsertOrganizationMember,
+  type OrganizationInvitation, type InsertOrganizationInvitation,
+  type MemberRole,
   type User, type UpsertUser,
   type Vendor, type InsertVendor,
   type Incident, type InsertIncident,
@@ -326,6 +331,30 @@ export interface IStorage {
   deleteUserIntegration(id: string): Promise<boolean>;
   testUserIntegration(id: string, success: boolean): Promise<any>;
   getDefaultIntegrationForType(userId: string, integrationType: string): Promise<any>;
+  
+  // Organizations
+  getOrganization(id: string): Promise<Organization | undefined>;
+  getOrganizationByDomain(domain: string): Promise<Organization | undefined>;
+  createOrganization(org: InsertOrganization): Promise<Organization>;
+  updateOrganization(id: string, data: Partial<InsertOrganization>): Promise<Organization | undefined>;
+  getUserOrganization(userId: string): Promise<Organization | undefined>;
+  
+  // Organization Members
+  getOrganizationMembers(orgId: string): Promise<Array<OrganizationMember & { user: User }>>;
+  getOrganizationMember(orgId: string, userId: string): Promise<OrganizationMember | undefined>;
+  getMasterAdminCount(orgId: string): Promise<number>;
+  addOrganizationMember(member: InsertOrganizationMember): Promise<OrganizationMember>;
+  updateOrganizationMemberRole(orgId: string, userId: string, role: MemberRole): Promise<OrganizationMember | undefined>;
+  removeOrganizationMember(orgId: string, userId: string): Promise<boolean>;
+  getUserRole(userId: string): Promise<{ organizationId: string; role: MemberRole } | undefined>;
+  
+  // Organization Invitations
+  getOrganizationInvitations(orgId: string): Promise<OrganizationInvitation[]>;
+  getInvitationByToken(token: string): Promise<OrganizationInvitation | undefined>;
+  getInvitationByEmail(orgId: string, email: string): Promise<OrganizationInvitation | undefined>;
+  createOrganizationInvitation(invitation: InsertOrganizationInvitation): Promise<OrganizationInvitation>;
+  updateInvitationStatus(id: string, status: string): Promise<OrganizationInvitation | undefined>;
+  deleteOrganizationInvitation(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2428,6 +2457,165 @@ export class DatabaseStorage implements IStorage {
         eq(userIntegrations.isActive, true)
       ));
     return integration || undefined;
+  }
+
+  // Organizations
+  async getOrganization(id: string): Promise<Organization | undefined> {
+    const [org] = await db.select().from(organizations).where(eq(organizations.id, id));
+    return org || undefined;
+  }
+
+  async getOrganizationByDomain(domain: string): Promise<Organization | undefined> {
+    const [org] = await db.select().from(organizations).where(eq(organizations.primaryDomain, domain.toLowerCase()));
+    return org || undefined;
+  }
+
+  async createOrganization(org: InsertOrganization): Promise<Organization> {
+    const [created] = await db.insert(organizations).values({
+      ...org,
+      primaryDomain: org.primaryDomain.toLowerCase()
+    }).returning();
+    return created;
+  }
+
+  async updateOrganization(id: string, data: Partial<InsertOrganization>): Promise<Organization | undefined> {
+    const updateData = { ...data, updatedAt: new Date() };
+    if (updateData.primaryDomain) {
+      updateData.primaryDomain = updateData.primaryDomain.toLowerCase();
+    }
+    const [updated] = await db.update(organizations)
+      .set(updateData)
+      .where(eq(organizations.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async getUserOrganization(userId: string): Promise<Organization | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, userId));
+    if (!user?.organizationId) return undefined;
+    return this.getOrganization(user.organizationId);
+  }
+
+  // Organization Members
+  async getOrganizationMembers(orgId: string): Promise<Array<OrganizationMember & { user: User }>> {
+    const members = await db.select()
+      .from(organizationMembers)
+      .innerJoin(users, eq(organizationMembers.userId, users.id))
+      .where(eq(organizationMembers.organizationId, orgId));
+    
+    return members.map(row => ({
+      ...row.organization_members,
+      user: row.users
+    }));
+  }
+
+  async getOrganizationMember(orgId: string, userId: string): Promise<OrganizationMember | undefined> {
+    const [member] = await db.select().from(organizationMembers)
+      .where(and(
+        eq(organizationMembers.organizationId, orgId),
+        eq(organizationMembers.userId, userId)
+      ));
+    return member || undefined;
+  }
+
+  async getMasterAdminCount(orgId: string): Promise<number> {
+    const result = await db.select({ count: count() })
+      .from(organizationMembers)
+      .where(and(
+        eq(organizationMembers.organizationId, orgId),
+        eq(organizationMembers.role, 'master_admin')
+      ));
+    return result[0]?.count || 0;
+  }
+
+  async addOrganizationMember(member: InsertOrganizationMember): Promise<OrganizationMember> {
+    const [created] = await db.insert(organizationMembers).values(member).returning();
+    await db.update(users)
+      .set({ organizationId: member.organizationId })
+      .where(eq(users.id, member.userId));
+    return created;
+  }
+
+  async updateOrganizationMemberRole(orgId: string, userId: string, role: MemberRole): Promise<OrganizationMember | undefined> {
+    const [updated] = await db.update(organizationMembers)
+      .set({ role })
+      .where(and(
+        eq(organizationMembers.organizationId, orgId),
+        eq(organizationMembers.userId, userId)
+      ))
+      .returning();
+    return updated || undefined;
+  }
+
+  async removeOrganizationMember(orgId: string, userId: string): Promise<boolean> {
+    const result = await db.delete(organizationMembers)
+      .where(and(
+        eq(organizationMembers.organizationId, orgId),
+        eq(organizationMembers.userId, userId)
+      ))
+      .returning();
+    if (result.length > 0) {
+      await db.update(users)
+        .set({ organizationId: null })
+        .where(eq(users.id, userId));
+    }
+    return result.length > 0;
+  }
+
+  async getUserRole(userId: string): Promise<{ organizationId: string; role: MemberRole } | undefined> {
+    const [member] = await db.select().from(organizationMembers)
+      .where(eq(organizationMembers.userId, userId));
+    if (!member) return undefined;
+    return { organizationId: member.organizationId, role: member.role as MemberRole };
+  }
+
+  // Organization Invitations
+  async getOrganizationInvitations(orgId: string): Promise<OrganizationInvitation[]> {
+    return db.select().from(organizationInvitations)
+      .where(and(
+        eq(organizationInvitations.organizationId, orgId),
+        eq(organizationInvitations.status, 'pending')
+      ))
+      .orderBy(desc(organizationInvitations.createdAt));
+  }
+
+  async getInvitationByToken(token: string): Promise<OrganizationInvitation | undefined> {
+    const [invitation] = await db.select().from(organizationInvitations)
+      .where(eq(organizationInvitations.token, token));
+    return invitation || undefined;
+  }
+
+  async getInvitationByEmail(orgId: string, email: string): Promise<OrganizationInvitation | undefined> {
+    const [invitation] = await db.select().from(organizationInvitations)
+      .where(and(
+        eq(organizationInvitations.organizationId, orgId),
+        eq(organizationInvitations.email, email.toLowerCase()),
+        eq(organizationInvitations.status, 'pending')
+      ));
+    return invitation || undefined;
+  }
+
+  async createOrganizationInvitation(invitation: InsertOrganizationInvitation): Promise<OrganizationInvitation> {
+    const [created] = await db.insert(organizationInvitations).values({
+      ...invitation,
+      email: invitation.email.toLowerCase()
+    }).returning();
+    return created;
+  }
+
+  async updateInvitationStatus(id: string, status: string): Promise<OrganizationInvitation | undefined> {
+    const [updated] = await db.update(organizationInvitations)
+      .set({ status })
+      .where(eq(organizationInvitations.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteOrganizationInvitation(id: string): Promise<boolean> {
+    const result = await db.delete(organizationInvitations)
+      .where(eq(organizationInvitations.id, id))
+      .returning();
+    return result.length > 0;
   }
 }
 
