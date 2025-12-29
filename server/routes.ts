@@ -4795,6 +4795,33 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
         status: 'pending',
       });
       
+      // Send invitation email
+      try {
+        const { sendEmail } = await import('./emailClient');
+        const inviteUrl = `${process.env.REPLIT_DEV_DOMAIN ? 'https://' + process.env.REPLIT_DEV_DOMAIN : 'http://localhost:5000'}/accept-invite/${token}`;
+        const roleName = role === 'master_admin' ? 'Master Admin' : role === 'member_rw' ? 'Read/Write Member' : 'Read-Only Member';
+        
+        const emailHtml = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #1e293b;">You've been invited to join ${org.name}</h2>
+            <p>You've been invited to join <strong>${org.name}</strong> on Vendor Watch as a <strong>${roleName}</strong>.</p>
+            <p>Click the button below to accept the invitation:</p>
+            <p style="margin: 24px 0;">
+              <a href="${inviteUrl}" style="background-color: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                Accept Invitation
+              </a>
+            </p>
+            <p style="color: #64748b; font-size: 14px;">This invitation expires in 7 days.</p>
+            <p style="color: #64748b; font-size: 14px;">If you didn't expect this invitation, you can ignore this email.</p>
+          </div>
+        `;
+        
+        await sendEmail(email, `You've been invited to join ${org.name} on Vendor Watch`, emailHtml);
+      } catch (emailError) {
+        console.error("Failed to send invitation email:", emailError);
+        // Don't fail the request if email fails - invitation was still created
+      }
+      
       res.json({ invitation: { id: invitation.id, email: invitation.email, role: invitation.role } });
     } catch (error) {
       console.error("Error inviting member:", error);
