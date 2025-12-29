@@ -1,7 +1,7 @@
 import { APP_NAME } from "@/lib/labels";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Activity, Bell, Zap, CheckCircle2, AlertTriangle, Cloud, Database, Globe, Server, Boxes, Check, X, Shield, Bot, Timer, Gauge, Radio, UserPlus, Settings, BellRing, Mail, Phone, MapPin, Twitter, Linkedin, Github } from "lucide-react";
+import { Activity, Bell, Zap, CheckCircle2, AlertTriangle, Cloud, Database, Globe, Server, Boxes, Check, X, Shield, Bot, Timer, Gauge, Radio, UserPlus, Settings, BellRing, Mail, Phone, MapPin, Twitter, Linkedin, Github, ArrowRight } from "lucide-react";
 import { Link } from "wouter";
 import vendorWatchLogo from "@assets/generated_images/radar_eye_logo_dark_background.png";
 
@@ -404,6 +404,12 @@ export default function Landing() {
               </CardContent>
             </Card>
           </div>
+          
+          <div className="text-center mt-8">
+            <Link href="/pricing" className="text-primary hover:underline inline-flex items-center gap-1" data-testid="link-full-pricing">
+              See full feature comparison <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
         </section>
       </main>
 
@@ -437,7 +443,7 @@ export default function Landing() {
               <h4 className="font-semibold mb-4">Product</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li><Link href="/signup" className="hover:text-foreground transition-colors">Get Started</Link></li>
-                <li><a href="#pricing" className="hover:text-foreground transition-colors">Pricing</a></li>
+                <li><Link href="/pricing" className="hover:text-foreground transition-colors">Pricing</Link></li>
                 <li><a href="#features" className="hover:text-foreground transition-colors">Features</a></li>
                 <li><a href="#blockchain" className="hover:text-foreground transition-colors">Blockchain Monitoring</a></li>
               </ul>
@@ -480,8 +486,8 @@ export default function Landing() {
               &copy; {new Date().getFullYear()} {APP_NAME}. All rights reserved.
             </p>
             <div className="flex items-center gap-6 text-sm text-muted-foreground">
-              <a href="#privacy" className="hover:text-foreground transition-colors">Privacy Policy</a>
-              <a href="#terms" className="hover:text-foreground transition-colors">Terms of Service</a>
+              <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
+              <Link href="/terms" className="hover:text-foreground transition-colors">Terms of Service</Link>
               <a href="#sla" className="hover:text-foreground transition-colors">SLA</a>
             </div>
           </div>
