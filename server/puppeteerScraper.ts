@@ -81,8 +81,6 @@ async function getBrowser(): Promise<Browser> {
     browserInstance = await puppeteer.launch({
       headless: true,
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
-      protocolTimeout: 120000,
-      timeout: 60000,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -136,7 +134,7 @@ async function scrapeWithPuppeteer(
     
     await page.goto(url, { 
       waitUntil: 'networkidle2',
-      timeout: 60000 
+      timeout: 30000 
     });
     
     await new Promise(resolve => setTimeout(resolve, 3000));
