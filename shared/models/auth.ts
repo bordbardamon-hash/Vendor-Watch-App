@@ -1,5 +1,11 @@
 import { sql } from "drizzle-orm";
-import { index, jsonb, pgTable, timestamp, varchar, boolean } from "drizzle-orm/pg-core";
+import { index, jsonb, pgTable, timestamp, varchar, boolean, integer } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
+
+// Organization member roles
+export const MEMBER_ROLES = ['master_admin', 'member_rw', 'member_ro'] as const;
+export type MemberRole = typeof MEMBER_ROLES[number];
 
 // Session storage table.
 // (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
@@ -25,6 +31,7 @@ export const users = pgTable("users", {
   lastName: varchar("last_name"),
   companyName: varchar("company_name"),
   phone: varchar("phone"),
+  organizationId: varchar("organization_id"), // links user to their organization
   notificationEmail: varchar("notification_email"), // separate from auth email, for receiving alerts
   profileImageUrl: varchar("profile_image_url"),
   stripeCustomerId: varchar("stripe_customer_id"),
@@ -49,3 +56,54 @@ export const users = pgTable("users", {
 
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
+
+// Organizations table - groups users under a shared subscription
+export const organizations = pgTable("organizations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  primaryDomain: varchar("primary_domain").notNull(), // e.g., "company.com" - only users with matching email domain can join
+  stripeCustomerId: varchar("stripe_customer_id"),
+  stripeSubscriptionId: varchar("stripe_subscription_id"),
+  subscriptionTier: varchar("subscription_tier"), // 'essential', 'growth', 'enterprise'
+  createdBy: varchar("created_by").notNull(), // user ID who created the org
+  maxMasterAdmins: integer("max_master_admins").default(3),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertOrganizationSchema = createInsertSchema(organizations).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertOrganization = z.infer<typeof insertOrganizationSchema>;
+export type Organization = typeof organizations.$inferSelect;
+
+// Organization members - links users to organizations with roles
+export const organizationMembers = pgTable("organization_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  role: varchar("role").notNull().default('member_ro'), // 'master_admin', 'member_rw', 'member_ro'
+  invitedBy: varchar("invited_by"), // user ID who invited this member
+  invitedAt: timestamp("invited_at").defaultNow(),
+  acceptedAt: timestamp("accepted_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertOrganizationMemberSchema = createInsertSchema(organizationMembers).omit({ id: true, createdAt: true });
+export type InsertOrganizationMember = z.infer<typeof insertOrganizationMemberSchema>;
+export type OrganizationMember = typeof organizationMembers.$inferSelect;
+
+// Organization invitations - pending invites that haven't been accepted yet
+export const organizationInvitations = pgTable("organization_invitations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull(),
+  email: varchar("email").notNull(),
+  role: varchar("role").notNull().default('member_ro'), // 'master_admin', 'member_rw', 'member_ro'
+  invitedBy: varchar("invited_by").notNull(), // user ID who sent the invite
+  token: varchar("token").notNull().unique(), // secure token for accepting
+  expiresAt: timestamp("expires_at").notNull(),
+  status: varchar("status").notNull().default('pending'), // 'pending', 'accepted', 'expired', 'cancelled'
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertOrganizationInvitationSchema = createInsertSchema(organizationInvitations).omit({ id: true, createdAt: true });
+export type InsertOrganizationInvitation = z.infer<typeof insertOrganizationInvitationSchema>;
+export type OrganizationInvitation = typeof organizationInvitations.$inferSelect;
