@@ -28,6 +28,7 @@ Preferred communication style: Simple, everyday language.
 - **Session Storage**: PostgreSQL-backed sessions
 - **Access Control**: `isAuthenticated` middleware for all API endpoints.
 - **Two-Factor Authentication (2FA)**: TOTP-based 2FA with recovery codes.
+- **Password Reset**: Email-based password reset flow via Resend. Users request reset at `/forgot-password`, receive email with secure token link, and set new password at `/reset-password`. Tokens expire after 1 hour.
 
 ### Data Model
 Key entities include Users, Sessions, Vendors, Incidents, Jobs, and Configuration. Dedicated tables for Blockchain Chains, Incidents, and User Subscriptions, as well as Notification Consents, Incident Alerts, Vendor Reliability Stats, Custom Vendor Requests, and User Vendor Orders.
