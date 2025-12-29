@@ -1,3 +1,4 @@
+import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Check, X, Crown, Star, Shield, Zap, ArrowRight, HelpCircle } from "lucide-react";
@@ -223,8 +224,8 @@ export default function Pricing() {
                 </thead>
                 <tbody>
                   {featureCategories.map((category, catIndex) => (
-                    <>
-                      <tr key={`cat-${catIndex}`} className="bg-sidebar/30">
+                    <React.Fragment key={`cat-${catIndex}`}>
+                      <tr className="bg-sidebar/30" data-testid={`row-category-${catIndex}`}>
                         <td
                           colSpan={4}
                           className="py-3 px-4 font-semibold text-sm uppercase tracking-wide"
@@ -236,6 +237,7 @@ export default function Pricing() {
                         <tr
                           key={`feat-${catIndex}-${featIndex}`}
                           className="border-b border-sidebar-border/50 hover:bg-sidebar/20"
+                          data-testid={`row-feature-${catIndex}-${featIndex}`}
                         >
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-1.5">
@@ -263,7 +265,7 @@ export default function Pricing() {
                           </td>
                         </tr>
                       ))}
-                    </>
+                    </React.Fragment>
                   ))}
                 </tbody>
               </table>
