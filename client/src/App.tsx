@@ -32,6 +32,8 @@ import Verify2FA from "@/pages/verify-2fa";
 import Login from "@/pages/login";
 import Register from "@/pages/register";
 import SetPassword from "@/pages/set-password";
+import ForgotPassword from "@/pages/forgot-password";
+import ResetPassword from "@/pages/reset-password";
 import SmsConsent from "@/pages/sms-consent";
 import Terms from "@/pages/terms";
 import Privacy from "@/pages/privacy";
@@ -123,6 +125,8 @@ function Router() {
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
       <Route path="/set-password" component={SetPassword} />
+      <Route path="/forgot-password" component={ForgotPassword} />
+      <Route path="/reset-password" component={ResetPassword} />
       <Route path="/sms-consent" component={SmsConsent} />
       <Route path="/terms" component={Terms} />
       <Route path="/privacy" component={Privacy} />
