@@ -67,6 +67,59 @@ const isOwner = async (req: any, res: any, next: any) => {
   }
 };
 
+// Role hierarchy: master_admin > member_rw > member_ro
+const ROLE_HIERARCHY = {
+  'master_admin': 3,
+  'member_rw': 2,
+  'member_ro': 1,
+} as const;
+
+type OrgRole = keyof typeof ROLE_HIERARCHY;
+
+// Organization role-based middleware - requires isAuthenticated to run first
+// Checks if user has at least the specified role in their organization
+const requireOrgRole = (minimumRole: OrgRole) => async (req: any, res: any, next: any) => {
+  try {
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    
+    const userRole = await storage.getUserRole(user.id);
+    if (!userRole) {
+      // User is not in an organization - allow access if they have a subscription directly
+      // This maintains backward compatibility for users who haven't migrated to org structure
+      if (user.subscriptionTier) {
+        req.userOrgRole = null;
+        return next();
+      }
+      return res.status(403).json({ error: "Organization membership required" });
+    }
+    
+    const userRoleLevel = ROLE_HIERARCHY[userRole.role as OrgRole] || 0;
+    const requiredRoleLevel = ROLE_HIERARCHY[minimumRole];
+    
+    if (userRoleLevel < requiredRoleLevel) {
+      return res.status(403).json({ error: `Requires at least ${minimumRole} role` });
+    }
+    
+    req.userOrgRole = userRole;
+    next();
+  } catch (error) {
+    console.error("Role check error:", error);
+    res.status(500).json({ error: "Failed to verify role" });
+  }
+};
+
+// Middleware to check if user is master admin of their org
+const isMasterAdmin = requireOrgRole('master_admin');
+
+// Middleware to check if user has at least read-write access
+const canWrite = requireOrgRole('member_rw');
+
+// Middleware to check if user has at least read-only access
+const canRead = requireOrgRole('member_ro');
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
