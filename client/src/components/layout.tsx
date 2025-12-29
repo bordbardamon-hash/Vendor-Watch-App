@@ -70,6 +70,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { href: "/consents", icon: FileCheck, label: "Consents", adminOnly: true, ownerOnly: false, requiresGrowth: false },
     { href: "/feedback", icon: MessageSquare, label: "Feedback", adminOnly: true, ownerOnly: false, requiresGrowth: false },
     { href: "/parser-health", icon: Server, label: "Parser Health", adminOnly: false, ownerOnly: true, requiresGrowth: false },
+    { href: "/users", icon: Users, label: "Users", adminOnly: false, ownerOnly: true, requiresGrowth: false },
     { href: "/settings", icon: Settings, label: UI_LABELS.nav.config, adminOnly: false, ownerOnly: false, requiresGrowth: false },
   ];
 

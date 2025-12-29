@@ -20,6 +20,7 @@ import Analytics from "@/pages/analytics";
 import SLA from "@/pages/sla";
 import Automation from "@/pages/automation";
 import ParserHealth from "@/pages/parser-health";
+import UsersAdmin from "@/pages/users";
 import Clients from "@/pages/clients";
 import Playbooks from "@/pages/playbooks";
 import PlaybookCreate from "@/pages/playbook-create";
@@ -96,6 +97,7 @@ function AuthenticatedRouter() {
         <Route path="/consents" component={Consents} />
         <Route path="/feedback" component={FeedbackAdmin} />
         <Route path="/parser-health" component={ParserHealth} />
+        <Route path="/users" component={UsersAdmin} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

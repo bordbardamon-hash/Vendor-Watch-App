@@ -47,6 +47,8 @@ export interface IStorage {
   upsertUser(user: UpsertUser): Promise<User>;
   updateUserStripeInfo(userId: string, stripeInfo: { stripeCustomerId?: string; stripeSubscriptionId?: string | null }): Promise<User | undefined>;
   updateUserAdmin(userId: string, isAdmin: boolean): Promise<User | undefined>;
+  deleteUser(userId: string): Promise<boolean>;
+  createUserManual(data: { email: string; firstName: string; lastName: string; companyName?: string; phone?: string; subscriptionTier?: 'essential' | 'growth' | 'enterprise' | null; isAdmin?: boolean }): Promise<User>;
   
   // Vendors
   getVendors(): Promise<Vendor[]>;
@@ -373,6 +375,29 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return user || undefined;
+  }
+
+  async deleteUser(userId: string): Promise<boolean> {
+    const result = await db.delete(users).where(eq(users.id, userId));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  async createUserManual(data: { email: string; firstName: string; lastName: string; companyName?: string; phone?: string; subscriptionTier?: 'essential' | 'growth' | 'enterprise' | null; isAdmin?: boolean }): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values({
+        email: data.email,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        companyName: data.companyName || null,
+        phone: data.phone || null,
+        subscriptionTier: data.subscriptionTier || null,
+        isAdmin: data.isAdmin || false,
+        notifyEmail: true,
+        notifySms: !!data.phone,
+      })
+      .returning();
+    return user;
   }
   
   // Vendors

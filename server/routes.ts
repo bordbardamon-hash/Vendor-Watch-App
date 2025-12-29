@@ -489,6 +489,186 @@ export async function registerRoutes(
     }
   });
   
+  // ============ USER MANAGEMENT (Owner Only) ============
+  
+  // Get all users (owner only)
+  app.get("/api/admin/users", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const allUsers = await storage.getAllUsers();
+      const safeUsers = allUsers.map(u => ({
+        id: u.id,
+        email: u.email,
+        firstName: u.firstName,
+        lastName: u.lastName,
+        companyName: u.companyName,
+        phone: u.phone,
+        subscriptionTier: u.subscriptionTier,
+        isAdmin: u.isAdmin,
+        isOwner: u.isOwner,
+        notifyEmail: u.notifyEmail,
+        notifySms: u.notifySms,
+        stripeCustomerId: u.stripeCustomerId,
+        stripeSubscriptionId: u.stripeSubscriptionId,
+        createdAt: u.createdAt,
+        updatedAt: u.updatedAt,
+      }));
+      res.json(safeUsers);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ error: "Failed to fetch users" });
+    }
+  });
+
+  // Update user subscription tier (owner only)
+  // WARNING: This bypasses Stripe and directly updates the database tier.
+  // Use this for manual overrides or complementary access only.
+  // For paid subscriptions, users should go through Stripe checkout flow.
+  const updateSubscriptionSchema = z.object({
+    subscriptionTier: z.enum(['essential', 'growth', 'enterprise']).nullable(),
+  });
+  
+  app.patch("/api/admin/users/:userId/subscription", isAuthenticated, isOwner, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      
+      const parsed = updateSubscriptionSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid subscription tier. Must be 'essential', 'growth', 'enterprise', or null." });
+      }
+      
+      const { subscriptionTier } = parsed.data;
+      
+      const user = await storage.updateUserSubscriptionTier(userId, subscriptionTier);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      console.log(`[admin] Owner manually set subscription tier for user ${userId} to ${subscriptionTier || 'none'} (bypasses Stripe)`);
+      res.json({ 
+        success: true, 
+        user: { id: user.id, subscriptionTier: user.subscriptionTier },
+        warning: "Manual tier change bypasses Stripe billing. User will have access but won't be billed." 
+      });
+    } catch (error) {
+      console.error("Error updating user subscription:", error);
+      res.status(500).json({ error: "Failed to update user subscription" });
+    }
+  });
+
+  // Update user admin status (owner only)
+  const updateAdminSchema = z.object({
+    isAdmin: z.boolean(),
+  });
+  
+  app.patch("/api/admin/users/:userId/admin", isAuthenticated, isOwner, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const currentUser = req.user;
+      
+      const parsed = updateAdminSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "isAdmin must be a boolean" });
+      }
+      
+      const { isAdmin } = parsed.data;
+      
+      // Prevent owner from changing their own admin status
+      if (userId === currentUser.id) {
+        return res.status(400).json({ error: "Cannot change your own admin status" });
+      }
+      
+      const user = await storage.updateUserAdmin(userId, isAdmin);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      res.json({ success: true, user: { id: user.id, isAdmin: user.isAdmin } });
+    } catch (error) {
+      console.error("Error updating user admin status:", error);
+      res.status(500).json({ error: "Failed to update user admin status" });
+    }
+  });
+
+  // Create a new user manually (owner only)
+  const createUserSchema = z.object({
+    email: z.string().email(),
+    firstName: z.string().min(1),
+    lastName: z.string().min(1),
+    companyName: z.string().optional(),
+    phone: z.string().optional(),
+    subscriptionTier: z.enum(['essential', 'growth', 'enterprise']).optional(),
+    isAdmin: z.boolean().optional(),
+  });
+  
+  app.post("/api/admin/users", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const parsed = createUserSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid user data. Required: email, firstName, lastName." });
+      }
+      
+      const { email, firstName, lastName, companyName, phone, subscriptionTier, isAdmin } = parsed.data;
+      
+      // Check if user already exists
+      const existing = await storage.getUserByEmail(email);
+      if (existing) {
+        return res.status(400).json({ error: "User with this email already exists" });
+      }
+      
+      const user = await storage.createUserManual({
+        email,
+        firstName,
+        lastName,
+        companyName,
+        phone,
+        subscriptionTier: subscriptionTier || null,
+        isAdmin: isAdmin || false,
+      });
+      
+      res.status(201).json({ 
+        success: true, 
+        user: { 
+          id: user.id, 
+          email: user.email, 
+          firstName: user.firstName, 
+          lastName: user.lastName,
+          subscriptionTier: user.subscriptionTier,
+          isAdmin: user.isAdmin 
+        } 
+      });
+    } catch (error) {
+      console.error("Error creating user:", error);
+      res.status(500).json({ error: "Failed to create user" });
+    }
+  });
+
+  // Delete a user (owner only)
+  app.delete("/api/admin/users/:userId", isAuthenticated, isOwner, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const currentUser = req.user;
+      
+      // Prevent owner from deleting themselves
+      if (userId === currentUser.id) {
+        return res.status(400).json({ error: "Cannot delete your own account" });
+      }
+      
+      // Prevent deleting other owners
+      const targetUser = await storage.getUser(userId);
+      if (targetUser?.isOwner) {
+        return res.status(400).json({ error: "Cannot delete owner accounts" });
+      }
+      
+      const success = await storage.deleteUser(userId);
+      if (!success) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      res.status(500).json({ error: "Failed to delete user" });
+    }
+  });
+
   // ============ JOBS (Admin Only) ============
   
   // Get all jobs (admin only)
