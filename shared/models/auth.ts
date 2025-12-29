@@ -40,6 +40,9 @@ export const users = pgTable("users", {
   twoFactorEnabled: boolean("two_factor_enabled").default(false),
   twoFactorSecret: varchar("two_factor_secret"), // encrypted TOTP secret
   twoFactorRecoveryCodes: varchar("two_factor_recovery_codes"), // comma-separated encrypted recovery codes
+  // Password reset fields
+  passwordResetToken: varchar("password_reset_token"),
+  passwordResetExpires: timestamp("password_reset_expires"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

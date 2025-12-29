@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import type { Express, RequestHandler } from 'express';
 import session from 'express-session';
 import connectPg from 'connect-pg-simple';
@@ -10,6 +11,7 @@ import { db } from './db';
 import { users } from '@shared/models/auth';
 import { eq } from 'drizzle-orm';
 import { storage } from './storage';
+import { sendEmail } from './emailClient';
 
 const SALT_ROUNDS = 10;
 
@@ -358,6 +360,158 @@ export async function setupEmailAuth(app: Express) {
     } catch (error) {
       console.error('[auth] Set password error:', error);
       res.status(500).json({ message: 'Failed to set password' });
+    }
+  });
+
+  // Request password reset endpoint
+  app.post('/api/auth/forgot-password', async (req, res) => {
+    try {
+      const { email } = req.body;
+
+      if (!email) {
+        return res.status(400).json({ message: 'Email is required' });
+      }
+
+      // Find user
+      const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+      
+      // Always return success to prevent email enumeration attacks
+      if (!user) {
+        console.log(`[auth] Password reset requested for non-existent email: ${email}`);
+        return res.json({ message: 'If an account exists with that email, a password reset link has been sent.' });
+      }
+
+      // Generate secure random token
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      const resetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
+
+      // Store token in database
+      await db.update(users).set({
+        passwordResetToken: resetToken,
+        passwordResetExpires: resetExpires,
+      }).where(eq(users.id, user.id));
+
+      // Generate reset URL
+      const baseUrl = process.env.REPLIT_DOMAINS 
+        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
+        : 'http://localhost:5000';
+      const resetUrl = `${baseUrl}/reset-password?token=${resetToken}`;
+
+      // Send email
+      const emailSent = await sendEmail(
+        email,
+        'Reset Your Vendor Watch Password',
+        `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #0f172a;">Reset Your Password</h2>
+          <p>Hello ${user.firstName || 'there'},</p>
+          <p>We received a request to reset your password for your Vendor Watch account.</p>
+          <p>Click the button below to reset your password. This link will expire in 1 hour.</p>
+          <p style="margin: 30px 0;">
+            <a href="${resetUrl}" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+              Reset Password
+            </a>
+          </p>
+          <p>Or copy and paste this link into your browser:</p>
+          <p style="word-break: break-all; color: #6b7280;">${resetUrl}</p>
+          <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">
+            If you didn't request this password reset, you can safely ignore this email.
+          </p>
+        </div>
+        `,
+        `Reset Your Password
+
+Hello ${user.firstName || 'there'},
+
+We received a request to reset your password for your Vendor Watch account.
+
+Click this link to reset your password (expires in 1 hour):
+${resetUrl}
+
+If you didn't request this password reset, you can safely ignore this email.`
+      );
+
+      if (emailSent) {
+        console.log(`[auth] Password reset email sent to: ${email}`);
+      } else {
+        console.log(`[auth] Failed to send password reset email to: ${email}`);
+      }
+
+      res.json({ message: 'If an account exists with that email, a password reset link has been sent.' });
+    } catch (error) {
+      console.error('[auth] Forgot password error:', error);
+      res.status(500).json({ message: 'Failed to process password reset request' });
+    }
+  });
+
+  // Reset password with token endpoint
+  app.post('/api/auth/reset-password', async (req, res) => {
+    try {
+      const { token, password } = req.body;
+
+      if (!token || !password) {
+        return res.status(400).json({ message: 'Token and new password are required' });
+      }
+
+      if (password.length < 8) {
+        return res.status(400).json({ message: 'Password must be at least 8 characters' });
+      }
+
+      // Find user with valid token
+      const [user] = await db.select().from(users)
+        .where(eq(users.passwordResetToken, token))
+        .limit(1);
+
+      if (!user) {
+        return res.status(400).json({ message: 'Invalid or expired reset link' });
+      }
+
+      // Check if token is expired
+      if (!user.passwordResetExpires || new Date(user.passwordResetExpires) < new Date()) {
+        return res.status(400).json({ message: 'Reset link has expired. Please request a new one.' });
+      }
+
+      // Hash and set new password, clear reset token
+      const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+      await db.update(users).set({
+        password: hashedPassword,
+        passwordResetToken: null,
+        passwordResetExpires: null,
+      }).where(eq(users.id, user.id));
+
+      console.log(`[auth] Password reset completed for: ${user.email}`);
+      res.json({ message: 'Password has been reset successfully. You can now log in with your new password.' });
+    } catch (error) {
+      console.error('[auth] Reset password error:', error);
+      res.status(500).json({ message: 'Failed to reset password' });
+    }
+  });
+
+  // Verify reset token endpoint (for UI validation)
+  app.get('/api/auth/verify-reset-token', async (req, res) => {
+    try {
+      const { token } = req.query;
+
+      if (!token || typeof token !== 'string') {
+        return res.status(400).json({ valid: false, message: 'Token is required' });
+      }
+
+      const [user] = await db.select().from(users)
+        .where(eq(users.passwordResetToken, token))
+        .limit(1);
+
+      if (!user) {
+        return res.json({ valid: false, message: 'Invalid or expired reset link' });
+      }
+
+      if (!user.passwordResetExpires || new Date(user.passwordResetExpires) < new Date()) {
+        return res.json({ valid: false, message: 'Reset link has expired. Please request a new one.' });
+      }
+
+      res.json({ valid: true, email: user.email });
+    } catch (error) {
+      console.error('[auth] Verify reset token error:', error);
+      res.status(500).json({ valid: false, message: 'Failed to verify token' });
     }
   });
 
