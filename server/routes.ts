@@ -4594,5 +4594,411 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
     }
   });
 
+  // ============ ORGANIZATION & TEAM MANAGEMENT ============
+  
+  // Get current user's organization
+  app.get("/api/org", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const org = await storage.getUserOrganization(userId);
+      if (!org) {
+        return res.json({ organization: null });
+      }
+      
+      const userRole = await storage.getUserRole(userId);
+      const masterAdminCount = await storage.getMasterAdminCount(org.id);
+      
+      res.json({
+        organization: org,
+        userRole: userRole?.role || null,
+        masterAdminCount,
+        maxMasterAdmins: org.maxMasterAdmins || 3
+      });
+    } catch (error) {
+      console.error("Error fetching organization:", error);
+      res.status(500).json({ error: "Failed to fetch organization" });
+    }
+  });
+  
+  // Create organization (for users who don't have one yet)
+  app.post("/api/org", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const user = req.user;
+      if (!userId || !user) return res.status(401).json({ error: "Unauthorized" });
+      
+      // Check if user already has an organization
+      const existingOrg = await storage.getUserOrganization(userId);
+      if (existingOrg) {
+        return res.status(400).json({ error: "You already belong to an organization" });
+      }
+      
+      // Get domain from user's email
+      const email = user.email;
+      if (!email) {
+        return res.status(400).json({ error: "Email required to create organization" });
+      }
+      
+      const domain = email.split('@')[1];
+      if (!domain) {
+        return res.status(400).json({ error: "Invalid email domain" });
+      }
+      
+      // Create the organization
+      const orgName = req.body.name || user.companyName || `${domain} Organization`;
+      const org = await storage.createOrganization({
+        name: orgName,
+        primaryDomain: domain,
+        createdBy: userId,
+        stripeCustomerId: user.stripeCustomerId,
+        stripeSubscriptionId: user.stripeSubscriptionId,
+        subscriptionTier: user.subscriptionTier,
+      });
+      
+      // Add the creator as master admin
+      await storage.addOrganizationMember({
+        organizationId: org.id,
+        userId: userId,
+        role: 'master_admin',
+        acceptedAt: new Date(),
+      });
+      
+      res.json({ organization: org });
+    } catch (error) {
+      console.error("Error creating organization:", error);
+      res.status(500).json({ error: "Failed to create organization" });
+    }
+  });
+  
+  // Get organization members (requires master_admin or member_rw)
+  app.get("/api/org/members", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const org = await storage.getUserOrganization(userId);
+      if (!org) {
+        return res.status(404).json({ error: "No organization found" });
+      }
+      
+      const members = await storage.getOrganizationMembers(org.id);
+      const invitations = await storage.getOrganizationInvitations(org.id);
+      const userRole = await storage.getUserRole(userId);
+      
+      res.json({
+        members: members.map(m => ({
+          id: m.id,
+          userId: m.userId,
+          role: m.role,
+          invitedAt: m.invitedAt,
+          acceptedAt: m.acceptedAt,
+          user: {
+            id: m.user.id,
+            email: m.user.email,
+            firstName: m.user.firstName,
+            lastName: m.user.lastName,
+          }
+        })),
+        invitations: invitations.map(i => ({
+          id: i.id,
+          email: i.email,
+          role: i.role,
+          status: i.status,
+          expiresAt: i.expiresAt,
+          createdAt: i.createdAt,
+        })),
+        userRole: userRole?.role,
+      });
+    } catch (error) {
+      console.error("Error fetching members:", error);
+      res.status(500).json({ error: "Failed to fetch members" });
+    }
+  });
+  
+  // Invite a new member (requires master_admin)
+  const inviteMemberSchema = z.object({
+    email: z.string().email(),
+    role: z.enum(['master_admin', 'member_rw', 'member_ro']),
+  });
+  
+  app.post("/api/org/members", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      // Check if user is master admin
+      const userRole = await storage.getUserRole(userId);
+      if (!userRole || userRole.role !== 'master_admin') {
+        return res.status(403).json({ error: "Only master admins can invite members" });
+      }
+      
+      const parsed = inviteMemberSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request", details: parsed.error.errors });
+      }
+      
+      const { email, role } = parsed.data;
+      const org = await storage.getOrganization(userRole.organizationId);
+      if (!org) {
+        return res.status(404).json({ error: "Organization not found" });
+      }
+      
+      // Check domain restriction
+      const inviteDomain = email.split('@')[1]?.toLowerCase();
+      if (inviteDomain !== org.primaryDomain.toLowerCase()) {
+        return res.status(400).json({ 
+          error: `Only users with @${org.primaryDomain} email addresses can be invited` 
+        });
+      }
+      
+      // Check master admin limit
+      if (role === 'master_admin') {
+        const currentCount = await storage.getMasterAdminCount(org.id);
+        if (currentCount >= (org.maxMasterAdmins || 3)) {
+          return res.status(400).json({ 
+            error: `Maximum of ${org.maxMasterAdmins || 3} master admins allowed` 
+          });
+        }
+      }
+      
+      // Check if already a member
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        const existingMember = await storage.getOrganizationMember(org.id, existingUser.id);
+        if (existingMember) {
+          return res.status(400).json({ error: "User is already a member of this organization" });
+        }
+      }
+      
+      // Check if invitation already exists
+      const existingInvite = await storage.getInvitationByEmail(org.id, email);
+      if (existingInvite) {
+        return res.status(400).json({ error: "An invitation has already been sent to this email" });
+      }
+      
+      // Generate secure token
+      const crypto = await import('crypto');
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiry
+      
+      // Create invitation
+      const invitation = await storage.createOrganizationInvitation({
+        organizationId: org.id,
+        email,
+        role,
+        invitedBy: userId,
+        token,
+        expiresAt,
+        status: 'pending',
+      });
+      
+      res.json({ invitation: { id: invitation.id, email: invitation.email, role: invitation.role } });
+    } catch (error) {
+      console.error("Error inviting member:", error);
+      res.status(500).json({ error: "Failed to invite member" });
+    }
+  });
+  
+  // Update member role (requires master_admin)
+  const updateRoleSchema = z.object({
+    role: z.enum(['master_admin', 'member_rw', 'member_ro']),
+  });
+  
+  app.patch("/api/org/members/:memberId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const targetMemberId = req.params.memberId;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      // Check if user is master admin
+      const userRole = await storage.getUserRole(userId);
+      if (!userRole || userRole.role !== 'master_admin') {
+        return res.status(403).json({ error: "Only master admins can change member roles" });
+      }
+      
+      const parsed = updateRoleSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request" });
+      }
+      
+      const { role } = parsed.data;
+      const org = await storage.getOrganization(userRole.organizationId);
+      if (!org) {
+        return res.status(404).json({ error: "Organization not found" });
+      }
+      
+      // Check master admin limit if promoting to master_admin
+      if (role === 'master_admin') {
+        const currentCount = await storage.getMasterAdminCount(org.id);
+        const currentMember = await storage.getOrganizationMember(org.id, targetMemberId);
+        // Only count if they're not already a master admin
+        if (currentMember?.role !== 'master_admin' && currentCount >= (org.maxMasterAdmins || 3)) {
+          return res.status(400).json({ 
+            error: `Maximum of ${org.maxMasterAdmins || 3} master admins allowed` 
+          });
+        }
+      }
+      
+      const updated = await storage.updateOrganizationMemberRole(org.id, targetMemberId, role);
+      if (!updated) {
+        return res.status(404).json({ error: "Member not found" });
+      }
+      
+      res.json({ member: updated });
+    } catch (error) {
+      console.error("Error updating member role:", error);
+      res.status(500).json({ error: "Failed to update member role" });
+    }
+  });
+  
+  // Remove member (requires master_admin)
+  app.delete("/api/org/members/:memberId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const targetMemberId = req.params.memberId;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      // Check if user is master admin
+      const userRole = await storage.getUserRole(userId);
+      if (!userRole || userRole.role !== 'master_admin') {
+        return res.status(403).json({ error: "Only master admins can remove members" });
+      }
+      
+      // Can't remove yourself
+      if (targetMemberId === userId) {
+        return res.status(400).json({ error: "You cannot remove yourself from the organization" });
+      }
+      
+      const removed = await storage.removeOrganizationMember(userRole.organizationId, targetMemberId);
+      if (!removed) {
+        return res.status(404).json({ error: "Member not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error removing member:", error);
+      res.status(500).json({ error: "Failed to remove member" });
+    }
+  });
+  
+  // Cancel invitation (requires master_admin)
+  app.delete("/api/org/invitations/:invitationId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      // Check if user is master admin
+      const userRole = await storage.getUserRole(userId);
+      if (!userRole || userRole.role !== 'master_admin') {
+        return res.status(403).json({ error: "Only master admins can cancel invitations" });
+      }
+      
+      const deleted = await storage.deleteOrganizationInvitation(req.params.invitationId);
+      if (!deleted) {
+        return res.status(404).json({ error: "Invitation not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error cancelling invitation:", error);
+      res.status(500).json({ error: "Failed to cancel invitation" });
+    }
+  });
+  
+  // Get invitation details (public - used for accepting)
+  app.get("/api/org/invitations/accept/:token", async (req: any, res) => {
+    try {
+      const invitation = await storage.getInvitationByToken(req.params.token);
+      if (!invitation) {
+        return res.status(404).json({ error: "Invitation not found" });
+      }
+      
+      if (invitation.status !== 'pending') {
+        return res.status(400).json({ error: "Invitation has already been used or cancelled" });
+      }
+      
+      if (new Date() > new Date(invitation.expiresAt)) {
+        return res.status(400).json({ error: "Invitation has expired" });
+      }
+      
+      const org = await storage.getOrganization(invitation.organizationId);
+      
+      res.json({
+        invitation: {
+          email: invitation.email,
+          role: invitation.role,
+          organizationName: org?.name,
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching invitation:", error);
+      res.status(500).json({ error: "Failed to fetch invitation" });
+    }
+  });
+  
+  // Accept invitation
+  app.post("/api/org/invitations/accept/:token", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const user = req.user;
+      if (!userId || !user) return res.status(401).json({ error: "Unauthorized" });
+      
+      const invitation = await storage.getInvitationByToken(req.params.token);
+      if (!invitation) {
+        return res.status(404).json({ error: "Invitation not found" });
+      }
+      
+      if (invitation.status !== 'pending') {
+        return res.status(400).json({ error: "Invitation has already been used or cancelled" });
+      }
+      
+      if (new Date() > new Date(invitation.expiresAt)) {
+        return res.status(400).json({ error: "Invitation has expired" });
+      }
+      
+      // Verify email matches
+      if (user.email?.toLowerCase() !== invitation.email.toLowerCase()) {
+        return res.status(403).json({ 
+          error: `This invitation was sent to ${invitation.email}. Please sign in with that email.` 
+        });
+      }
+      
+      // Check if user already in an organization
+      const existingOrg = await storage.getUserOrganization(userId);
+      if (existingOrg) {
+        return res.status(400).json({ error: "You already belong to an organization" });
+      }
+      
+      // Check master admin limit if being added as master_admin
+      if (invitation.role === 'master_admin') {
+        const org = await storage.getOrganization(invitation.organizationId);
+        const currentCount = await storage.getMasterAdminCount(invitation.organizationId);
+        if (currentCount >= (org?.maxMasterAdmins || 3)) {
+          return res.status(400).json({ error: "Maximum master admins reached. Please contact the organization." });
+        }
+      }
+      
+      // Add user to organization
+      await storage.addOrganizationMember({
+        organizationId: invitation.organizationId,
+        userId: userId,
+        role: invitation.role,
+        invitedBy: invitation.invitedBy,
+        acceptedAt: new Date(),
+      });
+      
+      // Mark invitation as accepted
+      await storage.updateInvitationStatus(invitation.id, 'accepted');
+      
+      res.json({ success: true, message: "You have joined the organization" });
+    } catch (error) {
+      console.error("Error accepting invitation:", error);
+      res.status(500).json({ error: "Failed to accept invitation" });
+    }
+  });
+
   return httpServer;
 }
