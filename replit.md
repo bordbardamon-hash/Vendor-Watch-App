@@ -31,7 +31,7 @@ Preferred communication style: Simple, everyday language.
 - **Password Reset**: Email-based password reset flow via Resend. Users request reset at `/forgot-password`, receive email with secure token link, and set new password at `/reset-password`. Tokens expire after 1 hour.
 
 ### Data Model
-Key entities include Users, Sessions, Vendors, Incidents, Jobs, and Configuration. Dedicated tables for Blockchain Chains, Incidents, and User Subscriptions, as well as Notification Consents, Incident Alerts, Vendor Reliability Stats, Custom Vendor Requests, and User Vendor Orders.
+Key entities include Users, Sessions, Vendors, Incidents, Jobs, and Configuration. Dedicated tables for Blockchain Chains, Incidents, and User Subscriptions, as well as Notification Consents, Incident Alerts, Vendor Reliability Stats, Custom Vendor Requests, User Vendor Orders, Organizations, Organization Members, and Organization Invitations.
 
 ### Development & Production
 - **Development**: Vite dev server with HMR proxied through Express.
@@ -62,6 +62,12 @@ Key entities include Users, Sessions, Vendors, Incidents, Jobs, and Configuratio
     - **AI Communication Copilot**: Generates professional incident updates and root cause analysis for both vendor and blockchain incidents. Separate API routes for blockchain incidents with subscription-based authorization.
 - **Owner-Only Parser Alerts**: Health alerts for scraping failures are sent exclusively to the designated owner user.
 - **Analytics Dashboard**: In-app analytics page (`/analytics`) showing user activity patterns (logins, page views, acknowledgements) and vendor performance trends (uptime %, incident frequency). Activity logging tracks logins, incident/maintenance acknowledgements. Uses `userActivityEvents` and `vendorDailyMetrics` tables for storage.
+- **Multi-User Organizations**: Team management feature at `/team` allowing organizations to share a subscription across multiple users:
+    - **Role-Based Access Control (RBAC)**: Three roles - Master Admin (full access, can manage team), Read/Write Member (can modify settings/acknowledge incidents), Read-Only Member (view only)
+    - **Up to 3 Master Admins** per organization with full management capabilities
+    - **Domain Restriction**: Only users with matching email domain (@company.com) can be invited to an organization
+    - **Invitation System**: Email-based invitations with 7-day expiry, secure tokens, and acceptance flow at `/accept-invite/:token`
+    - **Backward Compatible**: Existing users without organizations can continue using their individual subscriptions
 
 ## External Dependencies
 

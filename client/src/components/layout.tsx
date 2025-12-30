@@ -21,6 +21,7 @@ import {
   Target,
   Server,
   Users,
+  UsersRound,
   BookOpen,
   Smartphone,
   Settings2
@@ -71,6 +72,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { href: "/feedback", icon: MessageSquare, label: "Feedback", adminOnly: true, ownerOnly: false, requiresGrowth: false },
     { href: "/parser-health", icon: Server, label: "Parser Health", adminOnly: false, ownerOnly: true, requiresGrowth: false },
     { href: "/users", icon: Users, label: "Users", adminOnly: false, ownerOnly: true, requiresGrowth: false },
+    { href: "/team", icon: UsersRound, label: "Team", adminOnly: false, ownerOnly: false, requiresGrowth: false },
     { href: "/settings", icon: Settings, label: UI_LABELS.nav.config, adminOnly: false, ownerOnly: false, requiresGrowth: false },
   ];
 

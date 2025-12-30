@@ -38,6 +38,8 @@ import SmsConsent from "@/pages/sms-consent";
 import Terms from "@/pages/terms";
 import Privacy from "@/pages/privacy";
 import Pricing from "@/pages/pricing";
+import Team from "@/pages/team";
+import AcceptInvite from "@/pages/accept-invite";
 import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
 
@@ -100,6 +102,7 @@ function AuthenticatedRouter() {
         <Route path="/feedback" component={FeedbackAdmin} />
         <Route path="/parser-health" component={ParserHealth} />
         <Route path="/users" component={UsersAdmin} />
+        <Route path="/team" component={Team} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
@@ -131,6 +134,7 @@ function Router() {
       <Route path="/terms" component={Terms} />
       <Route path="/privacy" component={Privacy} />
       <Route path="/pricing" component={Pricing} />
+      <Route path="/accept-invite/:token" component={AcceptInvite} />
       <Route>
         {user ? <AuthenticatedRouter /> : <Landing />}
       </Route>
