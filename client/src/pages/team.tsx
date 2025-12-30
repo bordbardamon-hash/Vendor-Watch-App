@@ -4,12 +4,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Users, Crown, Shield, Eye, UserPlus, Trash2, Mail, Clock, Building2 } from "lucide-react";
+import { Users, Crown, Shield, Eye, UserPlus, Trash2, Mail, Clock, Building2, Pencil, Settings } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 type MemberRole = 'master_admin' | 'member_rw' | 'member_ro';
 
@@ -79,10 +81,13 @@ export default function Team() {
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<MemberRole>('member_ro');
   const [isCreatingOrg, setIsCreatingOrg] = useState(false);
   const [orgName, setOrgName] = useState('');
+  const [isEditingOrg, setIsEditingOrg] = useState(false);
+  const [editOrgName, setEditOrgName] = useState('');
 
   const { data: orgData, isLoading: orgLoading } = useQuery<OrgData>({
     queryKey: ["/api/org"],
@@ -251,6 +256,67 @@ export default function Team() {
     },
   });
 
+  const updateOrgMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const res = await fetch("/api/org", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to update organization");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/org"] });
+      toast({
+        title: "Organization Updated",
+        description: "Organization name has been updated.",
+        className: "bg-emerald-500 border-emerald-500 text-white"
+      });
+      setIsEditingOrg(false);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
+      });
+    },
+  });
+
+  const deleteOrgMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/org", {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to delete organization");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/org"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/org/members"] });
+      toast({
+        title: "Organization Deleted",
+        description: "Your organization has been deleted.",
+        className: "bg-emerald-500 border-emerald-500 text-white"
+      });
+      setLocation("/dashboard");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
+      });
+    },
+  });
+
   const isMasterAdmin = orgData?.userRole === 'master_admin';
   const domain = user?.email?.split('@')[1] || '';
 
@@ -350,9 +416,91 @@ export default function Team() {
                 Domain: @{organization.primaryDomain}
               </CardDescription>
             </div>
-            <Badge variant="outline" className="text-sm">
-              {organization.subscriptionTier ? organization.subscriptionTier.charAt(0).toUpperCase() + organization.subscriptionTier.slice(1) : 'Free'}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-sm">
+                {organization.subscriptionTier ? organization.subscriptionTier.charAt(0).toUpperCase() + organization.subscriptionTier.slice(1) : 'Free'}
+              </Badge>
+              {isMasterAdmin && (
+                <div className="flex items-center gap-1">
+                  <Dialog open={isEditingOrg} onOpenChange={setIsEditingOrg}>
+                    <DialogTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => setEditOrgName(organization.name)}
+                        data-testid="button-edit-org"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Edit Organization</DialogTitle>
+                        <DialogDescription>
+                          Update your organization's name.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="edit-org-name">Organization Name</Label>
+                          <Input
+                            id="edit-org-name"
+                            value={editOrgName}
+                            onChange={(e) => setEditOrgName(e.target.value)}
+                            placeholder="Enter organization name"
+                            data-testid="input-edit-org-name"
+                          />
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsEditingOrg(false)}>
+                          Cancel
+                        </Button>
+                        <Button 
+                          onClick={() => updateOrgMutation.mutate(editOrgName)}
+                          disabled={!editOrgName.trim() || updateOrgMutation.isPending}
+                          data-testid="button-save-org"
+                        >
+                          {updateOrgMutation.isPending ? "Saving..." : "Save Changes"}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="text-destructive hover:text-destructive"
+                        data-testid="button-delete-org"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Organization?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone. This will permanently delete the organization 
+                          "{organization.name}" and remove all team members' access. 
+                          All pending invitations will also be cancelled.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction 
+                          onClick={() => deleteOrgMutation.mutate()}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          data-testid="button-confirm-delete-org"
+                        >
+                          {deleteOrgMutation.isPending ? "Deleting..." : "Delete Organization"}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent>

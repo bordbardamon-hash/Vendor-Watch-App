@@ -337,6 +337,7 @@ export interface IStorage {
   getOrganizationByDomain(domain: string): Promise<Organization | undefined>;
   createOrganization(org: InsertOrganization): Promise<Organization>;
   updateOrganization(id: string, data: Partial<InsertOrganization>): Promise<Organization | undefined>;
+  deleteOrganization(id: string): Promise<boolean>;
   getUserOrganization(userId: string): Promise<Organization | undefined>;
   
   // Organization Members
@@ -2488,6 +2489,23 @@ export class DatabaseStorage implements IStorage {
       .where(eq(organizations.id, id))
       .returning();
     return updated || undefined;
+  }
+
+  async deleteOrganization(id: string): Promise<boolean> {
+    return await db.transaction(async (tx) => {
+      await tx.delete(organizationInvitations).where(eq(organizationInvitations.organizationId, id));
+      const members = await tx.select({ userId: organizationMembers.userId })
+        .from(organizationMembers)
+        .where(eq(organizationMembers.organizationId, id));
+      await tx.delete(organizationMembers).where(eq(organizationMembers.organizationId, id));
+      for (const member of members) {
+        await tx.update(users)
+          .set({ organizationId: null })
+          .where(eq(users.id, member.userId));
+      }
+      const result = await tx.delete(organizations).where(eq(organizations.id, id)).returning();
+      return result.length > 0;
+    });
   }
 
   async getUserOrganization(userId: string): Promise<Organization | undefined> {

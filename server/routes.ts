@@ -4671,6 +4671,57 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
       res.status(500).json({ error: "Failed to create organization" });
     }
   });
+
+  app.patch("/api/org", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const userRole = await storage.getUserRole(userId);
+      if (!userRole || userRole.role !== 'master_admin') {
+        return res.status(403).json({ error: "Only master admins can update the organization" });
+      }
+      
+      const org = await storage.getOrganization(userRole.organizationId);
+      if (!org) {
+        return res.status(404).json({ error: "Organization not found" });
+      }
+      
+      const { name } = req.body;
+      if (!name || typeof name !== 'string' || name.trim().length === 0) {
+        return res.status(400).json({ error: "Organization name is required" });
+      }
+      
+      const updated = await storage.updateOrganization(org.id, { name: name.trim() });
+      res.json({ organization: updated });
+    } catch (error) {
+      console.error("Error updating organization:", error);
+      res.status(500).json({ error: "Failed to update organization" });
+    }
+  });
+
+  app.delete("/api/org", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const userRole = await storage.getUserRole(userId);
+      if (!userRole || userRole.role !== 'master_admin') {
+        return res.status(403).json({ error: "Only master admins can delete the organization" });
+      }
+      
+      const org = await storage.getOrganization(userRole.organizationId);
+      if (!org) {
+        return res.status(404).json({ error: "Organization not found" });
+      }
+      
+      await storage.deleteOrganization(org.id);
+      res.json({ success: true, message: "Organization deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting organization:", error);
+      res.status(500).json({ error: "Failed to delete organization" });
+    }
+  });
   
   // Get organization members (requires master_admin or member_rw)
   app.get("/api/org/members", isAuthenticated, async (req: any, res) => {
