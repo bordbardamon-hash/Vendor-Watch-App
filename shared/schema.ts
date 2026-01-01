@@ -47,6 +47,7 @@ export const incidents = pgTable("incidents", {
   startedAt: text("started_at").notNull(),
   updatedAt: text("updated_at").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  manuallyResolvedAt: timestamp("manually_resolved_at"), // Set when stale cleanup resolves - sync respects this
 });
 
 // Incident Archive - resolved incidents moved here after 3 days, searchable for 1 year
@@ -541,6 +542,7 @@ export const blockchainIncidents = pgTable("blockchain_incidents", {
   updatedAt: text("updated_at").notNull(),
   resolvedAt: timestamp("resolved_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  manuallyResolvedAt: timestamp("manually_resolved_at"), // Set when stale cleanup resolves - sync respects this
 });
 
 // Blockchain Incident Archive - resolved blockchain incidents moved here after 3 days
