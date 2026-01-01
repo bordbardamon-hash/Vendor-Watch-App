@@ -401,6 +401,7 @@ export async function syncSingleBlockchainChain(chainKey: string): Promise<{ suc
 export async function resolveStaleBlockchainIncidents(staleDays: number = 7): Promise<{ resolved: number }> {
   const staleThreshold = new Date();
   staleThreshold.setDate(staleThreshold.getDate() - staleDays);
+  const now = new Date();
   
   let resolved = 0;
   
@@ -411,7 +412,11 @@ export async function resolveStaleBlockchainIncidents(staleDays: number = 7): Pr
       if (incident.status !== 'resolved') {
         const updatedAt = new Date(incident.updatedAt);
         if (updatedAt < staleThreshold) {
-          await storage.updateBlockchainIncident(incident.id, { status: 'resolved' });
+          // Set manuallyResolvedAt to prevent sync from reopening
+          await storage.updateBlockchainIncident(incident.id, { 
+            status: 'resolved',
+            manuallyResolvedAt: now
+          });
           console.log(`[stale-cleanup] Auto-resolved blockchain: ${incident.title} (last updated ${updatedAt.toISOString()})`);
           resolved++;
         }

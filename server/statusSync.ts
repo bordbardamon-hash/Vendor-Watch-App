@@ -608,6 +608,7 @@ export async function getVendorStatuses(): Promise<Array<{ key: string; name: st
 export async function resolveStaleIncidents(staleDays: number = 7): Promise<{ resolved: number }> {
   const staleThreshold = new Date();
   staleThreshold.setDate(staleThreshold.getDate() - staleDays);
+  const now = new Date();
   
   let resolved = 0;
   
@@ -618,7 +619,11 @@ export async function resolveStaleIncidents(staleDays: number = 7): Promise<{ re
       if (incident.status !== 'resolved') {
         const updatedAt = new Date(incident.updatedAt);
         if (updatedAt < staleThreshold) {
-          await storage.updateIncident(incident.id, { status: 'resolved' });
+          // Set manuallyResolvedAt to prevent sync from reopening
+          await storage.updateIncident(incident.id, { 
+            status: 'resolved',
+            manuallyResolvedAt: now
+          });
           console.log(`[stale-cleanup] Auto-resolved: ${incident.title} (last updated ${updatedAt.toISOString()})`);
           resolved++;
         }
