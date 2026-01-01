@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Play, Pause, Trash2, Clock, Globe, AlertCircle, RotateCw, FlaskConical, CheckCircle2, History, Loader2 } from "lucide-react";
+import { Play, Pause, Trash2, Clock, Globe, AlertCircle, RotateCw, FlaskConical, CheckCircle2, History, Loader2, Eraser } from "lucide-react";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -68,6 +68,33 @@ export default function Jobs() {
       toast({
         title: "Job Deleted",
         description: "Successfully deleted job",
+      });
+    },
+  });
+
+  // Cleanup stale incidents mutation
+  const cleanupStaleMutation = useMutation({
+    mutationFn: async (staleDays: number = 7) => {
+      const res = await fetch("/api/admin/cleanup-stale", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ staleDays }),
+      });
+      if (!res.ok) throw new Error("Failed to cleanup stale incidents");
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Stale Incidents Cleaned",
+        description: `Resolved ${data.resolved.total} stale incidents (${data.resolved.vendor} vendor, ${data.resolved.blockchain} blockchain)`,
+        className: "bg-emerald-500 border-emerald-500 text-white"
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Cleanup Failed",
+        description: "Failed to cleanup stale incidents",
+        variant: "destructive"
       });
     },
   });
@@ -140,6 +167,21 @@ export default function Jobs() {
           </div>
         </div>
         <div className="flex gap-2">
+            <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => cleanupStaleMutation.mutate(7)}
+                disabled={cleanupStaleMutation.isPending}
+                className="bg-orange-500/10 text-orange-500 border-orange-500/20 hover:bg-orange-500/20"
+                data-testid="button-cleanup-stale"
+            >
+                {cleanupStaleMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Eraser className="w-4 h-4 mr-2" />
+                )}
+                Cleanup Stale
+            </Button>
             <Button 
                 variant="outline" 
                 size="sm"
