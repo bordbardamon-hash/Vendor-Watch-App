@@ -5,8 +5,8 @@ import { insertVendorSchema, insertIncidentSchema, insertJobSchema, insertConfig
 import { setupEmailAuth, isAuthenticated } from "./emailAuth";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
 import { sendSMS } from "./twilioClient";
-import { syncVendorStatus } from "./statusSync";
-import { syncAllBlockchainChains } from "./blockchainSync";
+import { syncVendorStatus, resolveStaleIncidents } from "./statusSync";
+import { syncAllBlockchainChains, resolveStaleBlockchainIncidents } from "./blockchainSync";
 import { setupTwoFactor, verifyTOTP, verifyRecoveryCode, generateRecoveryCodes } from "./twoFactor";
 import { z } from "zod";
 
@@ -786,6 +786,33 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting job:", error);
       res.status(500).json({ error: "Failed to delete job" });
+    }
+  });
+
+  // Cleanup stale incidents (admin only)
+  app.post("/api/admin/cleanup-stale", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const staleDays = req.body.staleDays || 7;
+      console.log(`[admin] Manual stale cleanup triggered (${staleDays} days threshold)`);
+      
+      const vendorResult = await resolveStaleIncidents(staleDays);
+      const blockchainResult = await resolveStaleBlockchainIncidents(staleDays);
+      
+      const totalResolved = vendorResult.resolved + blockchainResult.resolved;
+      console.log(`[admin] Stale cleanup complete: ${vendorResult.resolved} vendor + ${blockchainResult.resolved} blockchain incidents resolved`);
+      
+      res.json({
+        success: true,
+        resolved: {
+          vendor: vendorResult.resolved,
+          blockchain: blockchainResult.resolved,
+          total: totalResolved
+        },
+        message: `Resolved ${totalResolved} stale incidents`
+      });
+    } catch (error) {
+      console.error("Error cleaning up stale incidents:", error);
+      res.status(500).json({ error: "Failed to cleanup stale incidents" });
     }
   });
   
