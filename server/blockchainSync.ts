@@ -280,11 +280,23 @@ async function syncBlockchainChain(chainData: { key: string; name: string; sourc
     const existing = existingIncidents.find(i => i.incidentId === incident.id);
     
     if (existing) {
+      // Check if this incident was manually resolved - if so, only update if external source is newer
+      if (existing.manuallyResolvedAt && incident.status !== 'resolved') {
+        const externalUpdatedAt = new Date(incident.updated_at);
+        if (externalUpdatedAt <= existing.manuallyResolvedAt) {
+          console.log(`[blockchain:${chainData.key}] Skipping ${incident.name}: manually resolved, external update not newer`);
+          continue;
+        }
+        console.log(`[blockchain:${chainData.key}] Reopening ${incident.name}: external source has newer update`);
+      }
+      
       if (existing.status !== incident.status) {
         const previousStatus = existing.status;
         const updated = await storage.updateBlockchainIncident(existing.id, {
           status: incident.status,
           updatedAt: incident.updated_at,
+          // Clear manuallyResolvedAt if we're updating from external source
+          manuallyResolvedAt: null,
         });
         console.log(`[blockchain:${chainData.key}] Updated incident: ${incident.name}`);
         

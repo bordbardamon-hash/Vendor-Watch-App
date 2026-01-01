@@ -502,6 +502,17 @@ export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: nu
             const severityChanged = exists.severity !== normalizedSeverity;
             const updatedAtChanged = exists.updatedAt !== incident.updated_at;
             
+            // Check if this incident was manually resolved - if so, only update if external source is newer
+            if (exists.manuallyResolvedAt && normalizedStatus !== 'resolved') {
+              const externalUpdatedAt = new Date(incident.updated_at);
+              if (externalUpdatedAt <= exists.manuallyResolvedAt) {
+                console.log(`  ⊘ Skipping ${incident.name}: manually resolved, external update not newer`);
+                continue;
+              }
+              // External has a newer update - clear the manual flag and allow update
+              console.log(`  → Reopening ${incident.name}: external source has newer update`);
+            }
+            
             if (statusChanged || severityChanged || updatedAtChanged) {
               const previousStatus = exists.status;
               const previousSeverity = exists.severity;
@@ -511,6 +522,8 @@ export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: nu
                 severity: normalizedSeverity,
                 updatedAt: incident.updated_at,
                 impact: affectedComponents || incident.impact || exists.impact,
+                // Clear manuallyResolvedAt if we're updating from external source
+                manuallyResolvedAt: null,
               });
               
               const lifecycleEvent = determineLifecycleEvent(
