@@ -397,3 +397,27 @@ export async function syncSingleBlockchainChain(chainKey: string): Promise<{ suc
     return { success: false, message };
   }
 }
+
+export async function resolveStaleBlockchainIncidents(staleDays: number = 7): Promise<{ resolved: number }> {
+  const staleThreshold = new Date();
+  staleThreshold.setDate(staleThreshold.getDate() - staleDays);
+  
+  let resolved = 0;
+  
+  const chains = await storage.getBlockchainChains();
+  for (const chain of chains) {
+    const incidents = await storage.getBlockchainIncidentsByChain(chain.key);
+    for (const incident of incidents) {
+      if (incident.status !== 'resolved') {
+        const updatedAt = new Date(incident.updatedAt);
+        if (updatedAt < staleThreshold) {
+          await storage.updateBlockchainIncident(incident.id, { status: 'resolved' });
+          console.log(`[stale-cleanup] Auto-resolved blockchain: ${incident.title} (last updated ${updatedAt.toISOString()})`);
+          resolved++;
+        }
+      }
+    }
+  }
+  
+  return { resolved };
+}

@@ -604,3 +604,27 @@ export async function getVendorStatuses(): Promise<Array<{ key: string; name: st
     lastChecked: v.lastChecked
   }));
 }
+
+export async function resolveStaleIncidents(staleDays: number = 7): Promise<{ resolved: number }> {
+  const staleThreshold = new Date();
+  staleThreshold.setDate(staleThreshold.getDate() - staleDays);
+  
+  let resolved = 0;
+  
+  const vendors = await storage.getVendors();
+  for (const vendor of vendors) {
+    const incidents = await storage.getIncidentsByVendor(vendor.key);
+    for (const incident of incidents) {
+      if (incident.status !== 'resolved') {
+        const updatedAt = new Date(incident.updatedAt);
+        if (updatedAt < staleThreshold) {
+          await storage.updateIncident(incident.id, { status: 'resolved' });
+          console.log(`[stale-cleanup] Auto-resolved: ${incident.title} (last updated ${updatedAt.toISOString()})`);
+          resolved++;
+        }
+      }
+    }
+  }
+  
+  return { resolved };
+}

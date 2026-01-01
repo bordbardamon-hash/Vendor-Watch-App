@@ -6,8 +6,8 @@ import { runMigrations } from 'stripe-replit-sync';
 import { getStripeSync } from './stripeClient';
 import { WebhookHandlers } from './webhookHandlers';
 import { seedVendorsIfEmpty, seedBlockchainChainsIfEmpty, storage } from './storage';
-import { syncVendorStatus } from './statusSync';
-import { syncAllBlockchainChains } from './blockchainSync';
+import { syncVendorStatus, resolveStaleIncidents } from './statusSync';
+import { syncAllBlockchainChains, resolveStaleBlockchainIncidents } from './blockchainSync';
 
 // Global error handlers
 process.on('unhandledRejection', (reason, promise) => {
@@ -221,6 +221,17 @@ app.use((req, res, next) => {
           console.log('[sync] Scheduled blockchain sync complete');
         } catch (err) {
           console.error('[sync] Scheduled blockchain sync failed:', err);
+        }
+        
+        // Auto-resolve stale incidents (not updated in 7 days)
+        try {
+          const staleVendor = await resolveStaleIncidents(7);
+          const staleBlockchain = await resolveStaleBlockchainIncidents(7);
+          if (staleVendor.resolved > 0 || staleBlockchain.resolved > 0) {
+            console.log(`[sync] Auto-resolved ${staleVendor.resolved} vendor + ${staleBlockchain.resolved} blockchain stale incidents`);
+          }
+        } catch (err) {
+          console.error('[sync] Stale incident cleanup failed:', err);
         }
       }, SYNC_INTERVAL_MS);
       
