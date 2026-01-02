@@ -46,3 +46,10 @@ waitForPort = 5000
 [agent]
 mockupState = "FULLSTACK"
 integrations = ["javascript_database:1.0.0", "javascript_log_in_with_replit:2.0.0", "stripe:2.0.0", "twilio:1.0.0", "javascript_openai_ai_integrations:2.0.0"]
+
+[userenv]
+
+[userenv.shared]
+STRIPE_PRICE_ESSENTIAL = "price_1SgaJ67qLOdMTGqKWTLEYixp"
+STRIPE_PRICE_GROWTH = "price_1SkwI47qLOdMTGqKSpiIwgux"
+STRIPE_PRICE_ENTERPRISE = "price_1SgaLT7qLOdMTGqKMT8J02bw"
