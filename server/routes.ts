@@ -1212,10 +1212,16 @@ export async function registerRoutes(
       res.json({ url: session.url });
     } catch (error: any) {
       console.error("Error creating checkout session:", error);
+      console.error("Stripe error details:", {
+        type: error.type,
+        code: error.code,
+        message: error.message,
+        priceId: TIER_PRICE_IDS[req.body?.tier],
+      });
       if (error.name === 'ZodError') {
         return res.status(400).json({ error: "Invalid signup data", details: error.errors });
       }
-      res.status(500).json({ error: "Failed to create checkout session" });
+      res.status(500).json({ error: "Failed to create checkout session", details: error.message });
     }
   });
   
