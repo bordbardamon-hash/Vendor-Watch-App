@@ -2219,22 +2219,64 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
 
   // ============ MAINTENANCE TRACKING ============
 
-  // Get all vendor maintenances
+  // Get all vendor maintenances (includes incidents with "maintenance" in title)
   app.get("/api/maintenance/vendors", isAuthenticated, async (req, res) => {
     try {
       const maintenances = await storage.getVendorMaintenances();
-      res.json(maintenances);
+      const allIncidents = await storage.getIncidents();
+      const activeIncidents = allIncidents.filter(i => i.status !== 'resolved');
+      const maintenanceIncidents = activeIncidents
+        .filter(i => i.title.toLowerCase().includes('maintenance'))
+        .map(i => ({
+          id: `incident-${i.id}`,
+          vendorKey: i.vendorKey,
+          maintenanceId: i.incidentId,
+          title: i.title,
+          description: null,
+          status: i.status === 'resolved' ? 'completed' : 'in_progress',
+          impact: i.impact || 'maintenance',
+          url: i.url,
+          scheduledStartAt: i.startedAt,
+          scheduledEndAt: null,
+          createdAt: i.createdAt,
+          updatedAt: i.updatedAt,
+          affectedServices: null,
+          rawHash: null,
+          isFromIncident: true
+        }));
+      res.json([...maintenances, ...maintenanceIncidents]);
     } catch (error) {
       console.error("Error fetching vendor maintenances:", error);
       res.status(500).json({ error: "Failed to fetch vendor maintenances" });
     }
   });
 
-  // Get active vendor maintenances (in progress)
+  // Get active vendor maintenances (in progress, includes incidents with "maintenance" in title)
   app.get("/api/maintenance/vendors/active", isAuthenticated, async (req, res) => {
     try {
       const maintenances = await storage.getActiveVendorMaintenances();
-      res.json(maintenances);
+      const allIncidents = await storage.getIncidents();
+      const activeIncidents = allIncidents.filter(i => i.status !== 'resolved');
+      const maintenanceIncidents = activeIncidents
+        .filter(i => i.title.toLowerCase().includes('maintenance'))
+        .map(i => ({
+          id: `incident-${i.id}`,
+          vendorKey: i.vendorKey,
+          maintenanceId: i.incidentId,
+          title: i.title,
+          description: null,
+          status: 'in_progress',
+          impact: i.impact || 'maintenance',
+          url: i.url,
+          scheduledStartAt: i.startedAt,
+          scheduledEndAt: null,
+          createdAt: i.createdAt,
+          updatedAt: i.updatedAt,
+          affectedServices: null,
+          rawHash: null,
+          isFromIncident: true
+        }));
+      res.json([...maintenances, ...maintenanceIncidents]);
     } catch (error) {
       console.error("Error fetching active vendor maintenances:", error);
       res.status(500).json({ error: "Failed to fetch active vendor maintenances" });
@@ -2252,22 +2294,62 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
     }
   });
 
-  // Get all blockchain maintenances
+  // Get all blockchain maintenances (includes incidents with "maintenance" in title)
   app.get("/api/maintenance/blockchain", isAuthenticated, async (req, res) => {
     try {
       const maintenances = await storage.getBlockchainMaintenances();
-      res.json(maintenances);
+      const incidents = await storage.getActiveBlockchainIncidents();
+      const maintenanceIncidents = incidents
+        .filter(i => i.title.toLowerCase().includes('maintenance'))
+        .map(i => ({
+          id: `incident-${i.id}`,
+          chainKey: i.chainKey,
+          maintenanceId: i.incidentId,
+          title: i.title,
+          description: i.description,
+          status: i.status === 'resolved' ? 'completed' : 'in_progress',
+          impact: i.severity || 'maintenance',
+          url: i.url,
+          scheduledStartAt: i.startedAt,
+          scheduledEndAt: i.resolvedAt,
+          createdAt: i.createdAt,
+          updatedAt: i.updatedAt,
+          affectedServices: i.affectedServices,
+          rawHash: null,
+          isFromIncident: true
+        }));
+      res.json([...maintenances, ...maintenanceIncidents]);
     } catch (error) {
       console.error("Error fetching blockchain maintenances:", error);
       res.status(500).json({ error: "Failed to fetch blockchain maintenances" });
     }
   });
 
-  // Get active blockchain maintenances (in progress)
+  // Get active blockchain maintenances (in progress, includes incidents with "maintenance" in title)
   app.get("/api/maintenance/blockchain/active", isAuthenticated, async (req, res) => {
     try {
       const maintenances = await storage.getActiveBlockchainMaintenances();
-      res.json(maintenances);
+      const incidents = await storage.getActiveBlockchainIncidents();
+      const maintenanceIncidents = incidents
+        .filter(i => i.title.toLowerCase().includes('maintenance'))
+        .map(i => ({
+          id: `incident-${i.id}`,
+          chainKey: i.chainKey,
+          maintenanceId: i.incidentId,
+          title: i.title,
+          description: i.description,
+          status: 'in_progress',
+          impact: i.severity || 'maintenance',
+          url: i.url,
+          scheduledStartAt: i.startedAt,
+          scheduledEndAt: null,
+          createdAt: i.createdAt,
+          updatedAt: i.updatedAt,
+          affectedServices: i.affectedServices,
+          rawHash: null,
+          isFromIncident: true
+        }));
+      res.json([...maintenances, ...maintenanceIncidents]);
     } catch (error) {
       console.error("Error fetching active blockchain maintenances:", error);
       res.status(500).json({ error: "Failed to fetch active blockchain maintenances" });
@@ -2285,11 +2367,21 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
     }
   });
 
-  // Get maintenance statistics
+  // Get maintenance statistics (includes incidents with "maintenance" in title)
   app.get("/api/maintenance/stats", isAuthenticated, async (req, res) => {
     try {
       const stats = await storage.getMaintenanceStats();
-      res.json(stats);
+      const blockchainIncidents = await storage.getActiveBlockchainIncidents();
+      const allVendorIncidents = await storage.getIncidents();
+      const activeVendorIncidents = allVendorIncidents.filter(i => i.status !== 'resolved');
+      const blockchainMaintenanceIncidents = blockchainIncidents.filter(i => i.title.toLowerCase().includes('maintenance')).length;
+      const vendorMaintenanceIncidents = activeVendorIncidents.filter(i => i.title.toLowerCase().includes('maintenance')).length;
+      res.json({
+        ...stats,
+        blockchainActive: stats.blockchainActive + blockchainMaintenanceIncidents,
+        vendorActive: stats.vendorActive + vendorMaintenanceIncidents,
+        total: stats.total + blockchainMaintenanceIncidents + vendorMaintenanceIncidents,
+      });
     } catch (error) {
       console.error("Error fetching maintenance stats:", error);
       res.status(500).json({ error: "Failed to fetch maintenance stats" });
