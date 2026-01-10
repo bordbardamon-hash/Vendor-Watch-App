@@ -68,6 +68,25 @@ Key entities include Users, Sessions, Vendors, Incidents, Jobs, and Configuratio
     - **Domain Restriction**: Only users with matching email domain (@company.com) can be invited to an organization
     - **Invitation System**: Email-based invitations with 7-day expiry, secure tokens, and acceptance flow at `/accept-invite/:token`
     - **Backward Compatible**: Existing users without organizations can continue using their individual subscriptions
+- **White-Labeled Client Portals** (Growth+): Custom branded status pages for MSP clients at `/portals`:
+    - **Custom Branding**: Logo, primary/secondary/background colors, custom header/footer text
+    - **Slug-Based Public URLs**: Public access at `/status/:slug` without authentication
+    - **Vendor/Blockchain Selection**: Multi-select categorized checkboxes for choosing which resources to display
+    - **Privacy Controls**: Toggle between public and private (token-protected) portals
+    - **Email Subscriptions**: Optional subscriber notifications for portal updates
+    - **View Tracking**: Monitor portal visit counts
+- **PSA/Ticketing Integration** (Growth+): Auto-ticket creation with external PSA tools at `/psa-integrations`:
+    - **Supported Platforms**: ConnectWise, Autotask, Kaseya, Syncro, HaloPSA
+    - **Secure Credential Storage**: API keys and OAuth tokens stored with sensitive data sanitized in responses
+    - **Ticket Rules**: Configure automatic ticket creation based on incident severity and vendor
+    - **Connection Testing**: Verify PSA connectivity before enabling auto-ticketing
+    - **Ticket Linking**: Track tickets created for each incident
+- **Predictive Outage Detection** (Enterprise only): AI-powered forecasting at `/predictions`:
+    - **Telemetry Collection**: Track response time, error rate, availability metrics for vendors/chains
+    - **Pattern Analysis**: Identify recurring outage patterns (time-of-day, day-of-week correlations)
+    - **Confidence Scoring**: Predictions include confidence levels (low/medium/high/critical)
+    - **7-Day Forecast Calendar**: Visual calendar showing predicted risk windows
+    - **User Feedback**: Acknowledge predictions and provide accuracy feedback
 
 ## External Dependencies
 
