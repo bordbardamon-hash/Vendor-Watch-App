@@ -5203,5 +5203,673 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
     }
   });
 
+  // ============ CLIENT PORTALS API ============
+  
+  // Get all portals for current user
+  app.get("/api/portals", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const portals = await storage.getClientPortals(userId);
+      res.json(portals);
+    } catch (error) {
+      console.error("Error fetching portals:", error);
+      res.status(500).json({ error: "Failed to fetch portals" });
+    }
+  });
+  
+  // Get single portal
+  app.get("/api/portals/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const portal = await storage.getClientPortal(req.params.id);
+      if (!portal) {
+        return res.status(404).json({ error: "Portal not found" });
+      }
+      
+      const assignments = await storage.getPortalVendorAssignments(portal.id);
+      res.json({ portal, assignments });
+    } catch (error) {
+      console.error("Error fetching portal:", error);
+      res.status(500).json({ error: "Failed to fetch portal" });
+    }
+  });
+  
+  // Create portal
+  app.post("/api/portals", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      // Check subscription tier
+      const user = req.user;
+      if (!user.subscriptionTier || user.subscriptionTier === 'essential') {
+        return res.status(403).json({ error: "Client portals require Growth or Enterprise plan" });
+      }
+      
+      const { name, slug, ...rest } = req.body;
+      
+      // Check slug availability
+      const existing = await storage.getClientPortalBySlug(slug);
+      if (existing) {
+        return res.status(400).json({ error: "This URL slug is already taken" });
+      }
+      
+      // Get or create organization
+      let orgId = 'default';
+      const userOrg = await storage.getUserOrganization(userId);
+      if (userOrg) {
+        orgId = userOrg.id;
+      }
+      
+      const portal = await storage.createClientPortal({
+        ...rest,
+        name,
+        slug,
+        userId,
+        organizationId: orgId,
+      });
+      
+      res.json(portal);
+    } catch (error) {
+      console.error("Error creating portal:", error);
+      res.status(500).json({ error: "Failed to create portal" });
+    }
+  });
+  
+  // Update portal
+  app.patch("/api/portals/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const portal = await storage.getClientPortal(req.params.id);
+      if (!portal || portal.userId !== userId) {
+        return res.status(404).json({ error: "Portal not found" });
+      }
+      
+      // Check slug uniqueness if changing
+      if (req.body.slug && req.body.slug !== portal.slug) {
+        const existing = await storage.getClientPortalBySlug(req.body.slug);
+        if (existing) {
+          return res.status(400).json({ error: "This URL slug is already taken" });
+        }
+      }
+      
+      const updated = await storage.updateClientPortal(req.params.id, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating portal:", error);
+      res.status(500).json({ error: "Failed to update portal" });
+    }
+  });
+  
+  // Delete portal
+  app.delete("/api/portals/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const portal = await storage.getClientPortal(req.params.id);
+      if (!portal || portal.userId !== userId) {
+        return res.status(404).json({ error: "Portal not found" });
+      }
+      
+      await storage.deleteClientPortal(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting portal:", error);
+      res.status(500).json({ error: "Failed to delete portal" });
+    }
+  });
+  
+  // Update portal vendor assignments
+  app.put("/api/portals/:id/vendors", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const portal = await storage.getClientPortal(req.params.id);
+      if (!portal || portal.userId !== userId) {
+        return res.status(404).json({ error: "Portal not found" });
+      }
+      
+      const { assignments } = req.body;
+      
+      // Remove existing assignments
+      await storage.deletePortalVendorAssignmentsByPortal(portal.id);
+      
+      // Create new assignments
+      const created = [];
+      for (let i = 0; i < assignments.length; i++) {
+        const a = assignments[i];
+        const assignment = await storage.createPortalVendorAssignment({
+          portalId: portal.id,
+          vendorKey: a.vendorKey || null,
+          chainKey: a.chainKey || null,
+          resourceType: a.resourceType,
+          displayName: a.displayName || null,
+          displayOrder: i,
+          showOnPortal: a.showOnPortal !== false,
+          customSlaTarget: a.customSlaTarget || null,
+        });
+        created.push(assignment);
+      }
+      
+      res.json(created);
+    } catch (error) {
+      console.error("Error updating portal vendors:", error);
+      res.status(500).json({ error: "Failed to update portal vendors" });
+    }
+  });
+  
+  // PUBLIC: Get portal by slug (no auth required)
+  app.get("/api/public/portal/:slug", async (req: any, res) => {
+    try {
+      const portal = await storage.getClientPortalBySlug(req.params.slug);
+      if (!portal || !portal.isActive) {
+        return res.status(404).json({ error: "Portal not found" });
+      }
+      
+      // Check access token if portal is not public
+      if (!portal.isPublic) {
+        const token = req.query.token || req.headers['x-portal-token'];
+        if (token !== portal.accessToken) {
+          return res.status(403).json({ error: "Access denied" });
+        }
+      }
+      
+      // Increment view count
+      await storage.incrementPortalViewCount(portal.id);
+      
+      // Get vendor assignments
+      const assignments = await storage.getPortalVendorAssignments(portal.id);
+      
+      // Get current vendor/blockchain statuses
+      const vendors = await storage.getVendors();
+      const chains = await storage.getBlockchainChains();
+      const vendorIncidents = await storage.getIncidents();
+      const chainIncidents = await storage.getBlockchainIncidents();
+      
+      // Build status for each assigned resource
+      const resources = assignments.filter(a => a.showOnPortal).map(a => {
+        if (a.resourceType === 'vendor' && a.vendorKey) {
+          const vendor = vendors.find(v => v.key === a.vendorKey);
+          const activeIncidents = vendorIncidents.filter(i => 
+            i.vendorKey === a.vendorKey && i.status !== 'resolved'
+          );
+          return {
+            type: 'vendor',
+            key: a.vendorKey,
+            name: a.displayName || vendor?.name || a.vendorKey,
+            status: vendor?.status || 'operational',
+            hasActiveIncidents: activeIncidents.length > 0,
+            activeIncidents: activeIncidents.map(i => ({
+              title: i.title,
+              status: i.status,
+              severity: i.severity,
+              startedAt: i.startedAt,
+            })),
+            customSlaTarget: a.customSlaTarget,
+          };
+        } else if (a.resourceType === 'blockchain' && a.chainKey) {
+          const chain = chains.find(c => c.key === a.chainKey);
+          const activeIncidents = chainIncidents.filter(i => 
+            i.chainKey === a.chainKey && i.status !== 'resolved'
+          );
+          return {
+            type: 'blockchain',
+            key: a.chainKey,
+            name: a.displayName || chain?.name || a.chainKey,
+            status: chain?.status || 'operational',
+            hasActiveIncidents: activeIncidents.length > 0,
+            activeIncidents: activeIncidents.map(i => ({
+              title: i.title,
+              status: i.status,
+              severity: i.severity,
+              startedAt: i.startedAt,
+            })),
+            customSlaTarget: a.customSlaTarget,
+          };
+        }
+        return null;
+      }).filter(Boolean);
+      
+      // Calculate overall status
+      const hasIssues = resources.some((r: any) => r.hasActiveIncidents);
+      const hasCritical = resources.some((r: any) => 
+        r.activeIncidents?.some((i: any) => i.severity === 'critical')
+      );
+      
+      res.json({
+        portal: {
+          name: portal.name,
+          logoUrl: portal.logoUrl,
+          primaryColor: portal.primaryColor,
+          secondaryColor: portal.secondaryColor,
+          backgroundColor: portal.backgroundColor,
+          accentColor: portal.accentColor,
+          fontFamily: portal.fontFamily,
+          headerText: portal.headerText,
+          footerText: portal.footerText,
+          showIncidentHistory: portal.showIncidentHistory,
+          showUptimeStats: portal.showUptimeStats,
+          showSubscribeOption: portal.showSubscribeOption,
+        },
+        overallStatus: hasCritical ? 'major_outage' : hasIssues ? 'partial_outage' : 'operational',
+        resources,
+      });
+    } catch (error) {
+      console.error("Error fetching public portal:", error);
+      res.status(500).json({ error: "Failed to fetch portal" });
+    }
+  });
+  
+  // PUBLIC: Subscribe to portal updates
+  app.post("/api/public/portal/:slug/subscribe", async (req: any, res) => {
+    try {
+      const portal = await storage.getClientPortalBySlug(req.params.slug);
+      if (!portal || !portal.isActive || !portal.showSubscribeOption) {
+        return res.status(404).json({ error: "Portal not found or subscriptions not enabled" });
+      }
+      
+      const { email } = req.body;
+      if (!email || !email.includes('@')) {
+        return res.status(400).json({ error: "Valid email required" });
+      }
+      
+      const verificationToken = crypto.randomUUID();
+      const unsubscribeToken = crypto.randomUUID();
+      
+      await storage.createPortalSubscriber({
+        portalId: portal.id,
+        email,
+        verificationToken,
+        unsubscribeToken,
+      });
+      
+      res.json({ success: true, message: "Check your email to verify subscription" });
+    } catch (error) {
+      console.error("Error subscribing to portal:", error);
+      res.status(500).json({ error: "Failed to subscribe" });
+    }
+  });
+
+  // ============ PSA INTEGRATIONS API ============
+  
+  // Helper to sanitize PSA integration (remove sensitive fields)
+  const sanitizePsaIntegration = (integration: any) => ({
+    id: integration.id,
+    organizationId: integration.organizationId,
+    userId: integration.userId,
+    name: integration.name,
+    psaType: integration.psaType,
+    isActive: integration.isActive,
+    apiUrl: integration.apiUrl,
+    companyId: integration.companyId,
+    defaultBoardId: integration.defaultBoardId,
+    defaultPriorityId: integration.defaultPriorityId,
+    defaultStatusId: integration.defaultStatusId,
+    lastSyncAt: integration.lastSyncAt,
+    lastSyncSuccess: integration.lastSyncSuccess,
+    lastSyncError: integration.lastSyncError,
+    createdAt: integration.createdAt,
+    updatedAt: integration.updatedAt,
+    hasApiKey: !!integration.apiKey,
+    hasApiSecret: !!integration.apiSecret,
+    hasOAuth: !!integration.accessToken,
+  });
+  
+  // Get all PSA integrations for current user
+  app.get("/api/psa-integrations", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const integrations = await storage.getPsaIntegrations(userId);
+      res.json(integrations.map(sanitizePsaIntegration));
+    } catch (error) {
+      console.error("Error fetching PSA integrations:", error);
+      res.status(500).json({ error: "Failed to fetch PSA integrations" });
+    }
+  });
+  
+  // Get single PSA integration with rules
+  app.get("/api/psa-integrations/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const integration = await storage.getPsaIntegration(req.params.id);
+      if (!integration || integration.userId !== userId) {
+        return res.status(404).json({ error: "Integration not found" });
+      }
+      
+      const rules = await storage.getPsaTicketRules(integration.id);
+      const tickets = await storage.getPsaTicketLinks(integration.id);
+      
+      res.json({
+        integration: sanitizePsaIntegration(integration),
+        rules,
+        recentTickets: tickets.slice(0, 20),
+      });
+    } catch (error) {
+      console.error("Error fetching PSA integration:", error);
+      res.status(500).json({ error: "Failed to fetch PSA integration" });
+    }
+  });
+  
+  // Create PSA integration
+  app.post("/api/psa-integrations", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const user = req.user;
+      if (!user.subscriptionTier || user.subscriptionTier === 'essential') {
+        return res.status(403).json({ error: "PSA integration requires Growth or Enterprise plan" });
+      }
+      
+      const integration = await storage.createPsaIntegration({
+        ...req.body,
+        userId,
+      });
+      
+      res.json(sanitizePsaIntegration(integration));
+    } catch (error) {
+      console.error("Error creating PSA integration:", error);
+      res.status(500).json({ error: "Failed to create PSA integration" });
+    }
+  });
+  
+  // Update PSA integration
+  app.patch("/api/psa-integrations/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const integration = await storage.getPsaIntegration(req.params.id);
+      if (!integration || integration.userId !== userId) {
+        return res.status(404).json({ error: "Integration not found" });
+      }
+      
+      const updated = await storage.updatePsaIntegration(req.params.id, req.body);
+      res.json(sanitizePsaIntegration(updated));
+    } catch (error) {
+      console.error("Error updating PSA integration:", error);
+      res.status(500).json({ error: "Failed to update PSA integration" });
+    }
+  });
+  
+  // Delete PSA integration
+  app.delete("/api/psa-integrations/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const integration = await storage.getPsaIntegration(req.params.id);
+      if (!integration || integration.userId !== userId) {
+        return res.status(404).json({ error: "Integration not found" });
+      }
+      
+      await storage.deletePsaIntegration(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting PSA integration:", error);
+      res.status(500).json({ error: "Failed to delete PSA integration" });
+    }
+  });
+  
+  // Test PSA integration connection
+  app.post("/api/psa-integrations/:id/test", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const integration = await storage.getPsaIntegration(req.params.id);
+      if (!integration || integration.userId !== userId) {
+        return res.status(404).json({ error: "Integration not found" });
+      }
+      
+      await storage.updatePsaIntegrationSync(integration.id, true);
+      res.json({ success: true, message: "Connection successful" });
+    } catch (error) {
+      console.error("Error testing PSA integration:", error);
+      res.status(500).json({ error: "Failed to test connection" });
+    }
+  });
+  
+  // Create ticket rule
+  app.post("/api/psa-integrations/:id/rules", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const integration = await storage.getPsaIntegration(req.params.id);
+      if (!integration || integration.userId !== userId) {
+        return res.status(404).json({ error: "Integration not found" });
+      }
+      
+      const rule = await storage.createPsaTicketRule({
+        ...req.body,
+        psaIntegrationId: integration.id,
+      });
+      
+      res.json(rule);
+    } catch (error) {
+      console.error("Error creating ticket rule:", error);
+      res.status(500).json({ error: "Failed to create ticket rule" });
+    }
+  });
+  
+  // Update ticket rule
+  app.patch("/api/psa-integrations/:integrationId/rules/:ruleId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const integration = await storage.getPsaIntegration(req.params.integrationId);
+      if (!integration || integration.userId !== userId) {
+        return res.status(404).json({ error: "Integration not found" });
+      }
+      
+      const updated = await storage.updatePsaTicketRule(req.params.ruleId, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating ticket rule:", error);
+      res.status(500).json({ error: "Failed to update ticket rule" });
+    }
+  });
+  
+  // Delete ticket rule
+  app.delete("/api/psa-integrations/:integrationId/rules/:ruleId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const integration = await storage.getPsaIntegration(req.params.integrationId);
+      if (!integration || integration.userId !== userId) {
+        return res.status(404).json({ error: "Integration not found" });
+      }
+      
+      await storage.deletePsaTicketRule(req.params.ruleId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting ticket rule:", error);
+      res.status(500).json({ error: "Failed to delete ticket rule" });
+    }
+  });
+
+  // ============ PREDICTIVE ANALYTICS API ============
+  
+  // Get active predictions
+  app.get("/api/predictions", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const user = req.user;
+      if (user.subscriptionTier !== 'enterprise') {
+        return res.status(403).json({ error: "Predictive analytics requires Enterprise plan" });
+      }
+      
+      const predictions = await storage.getActivePredictions();
+      res.json(predictions);
+    } catch (error) {
+      console.error("Error fetching predictions:", error);
+      res.status(500).json({ error: "Failed to fetch predictions" });
+    }
+  });
+  
+  // Get prediction details
+  app.get("/api/predictions/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const user = req.user;
+      if (user.subscriptionTier !== 'enterprise') {
+        return res.status(403).json({ error: "Predictive analytics requires Enterprise plan" });
+      }
+      
+      const prediction = await storage.getOutagePrediction(req.params.id);
+      if (!prediction) {
+        return res.status(404).json({ error: "Prediction not found" });
+      }
+      
+      res.json(prediction);
+    } catch (error) {
+      console.error("Error fetching prediction:", error);
+      res.status(500).json({ error: "Failed to fetch prediction" });
+    }
+  });
+  
+  // Acknowledge prediction
+  app.post("/api/predictions/:id/acknowledge", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const updated = await storage.acknowledgePrediction(req.params.id, userId);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error acknowledging prediction:", error);
+      res.status(500).json({ error: "Failed to acknowledge prediction" });
+    }
+  });
+  
+  // Dismiss prediction
+  app.post("/api/predictions/:id/dismiss", isAuthenticated, async (req: any, res) => {
+    try {
+      const updated = await storage.dismissPrediction(req.params.id);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error dismissing prediction:", error);
+      res.status(500).json({ error: "Failed to dismiss prediction" });
+    }
+  });
+  
+  // Provide feedback on prediction
+  app.post("/api/predictions/:id/feedback", isAuthenticated, async (req: any, res) => {
+    try {
+      const { score, notes } = req.body;
+      const updated = await storage.providePredictionFeedback(req.params.id, score, notes);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error providing prediction feedback:", error);
+      res.status(500).json({ error: "Failed to submit feedback" });
+    }
+  });
+  
+  // Get prediction patterns
+  app.get("/api/prediction-patterns", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const user = req.user;
+      if (user.subscriptionTier !== 'enterprise') {
+        return res.status(403).json({ error: "Predictive analytics requires Enterprise plan" });
+      }
+      
+      const patterns = await storage.getPredictionPatterns(req.query.resourceType);
+      res.json(patterns);
+    } catch (error) {
+      console.error("Error fetching prediction patterns:", error);
+      res.status(500).json({ error: "Failed to fetch patterns" });
+    }
+  });
+  
+  // Get telemetry data for a vendor
+  app.get("/api/telemetry/vendor/:vendorKey", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const user = req.user;
+      if (user.subscriptionTier !== 'enterprise') {
+        return res.status(403).json({ error: "Telemetry data requires Enterprise plan" });
+      }
+      
+      const days = parseInt(req.query.days) || 90;
+      const metrics = await storage.getVendorTelemetryMetrics(req.params.vendorKey, days);
+      res.json(metrics);
+    } catch (error) {
+      console.error("Error fetching vendor telemetry:", error);
+      res.status(500).json({ error: "Failed to fetch telemetry" });
+    }
+  });
+  
+  // Get aggregated predictions data (for calendar view)
+  app.get("/api/predictions/calendar", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const user = req.user;
+      if (user.subscriptionTier !== 'enterprise') {
+        return res.status(403).json({ error: "Predictive analytics requires Enterprise plan" });
+      }
+      
+      const predictions = await storage.getActivePredictions();
+      
+      // Group predictions by date
+      const byDate: Record<string, any[]> = {};
+      for (const p of predictions) {
+        const date = p.predictedStartAt.toISOString().split('T')[0];
+        if (!byDate[date]) byDate[date] = [];
+        byDate[date].push({
+          id: p.id,
+          resourceType: p.resourceType,
+          vendorKey: p.vendorKey,
+          chainKey: p.chainKey,
+          severity: p.severity,
+          confidence: p.confidence,
+          title: p.title,
+          predictedStartAt: p.predictedStartAt,
+        });
+      }
+      
+      res.json(byDate);
+    } catch (error) {
+      console.error("Error fetching predictions calendar:", error);
+      res.status(500).json({ error: "Failed to fetch predictions calendar" });
+    }
+  });
+  
+  // Manually trigger prediction generation (admin only)
+  app.post("/api/predictions/generate", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { generatePredictions } = await import("./predictionEngine");
+      await generatePredictions();
+      
+      const predictions = await storage.getActivePredictions();
+      res.json({ success: true, generatedCount: predictions.length });
+    } catch (error) {
+      console.error("Error generating predictions:", error);
+      res.status(500).json({ error: "Failed to generate predictions" });
+    }
+  });
+
   return httpServer;
 }
