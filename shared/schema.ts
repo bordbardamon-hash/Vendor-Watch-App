@@ -975,3 +975,256 @@ export type SyntheticProbe = typeof syntheticProbes.$inferSelect;
 
 export type InsertSyntheticProbeResult = z.infer<typeof insertSyntheticProbeResultSchema>;
 export type SyntheticProbeResult = typeof syntheticProbeResults.$inferSelect;
+
+// ============ WHITE-LABELED CLIENT STATUS PORTALS ============
+
+// Client Portals - branded public status pages for MSP clients
+export const clientPortals = pgTable("client_portals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: text("organization_id").notNull(), // Owner organization
+  userId: text("user_id").notNull(), // Creator user
+  name: text("name").notNull(), // Portal display name
+  slug: text("slug").notNull().unique(), // URL slug (e.g., acme-corp)
+  customDomain: text("custom_domain"), // Optional custom domain
+  isActive: boolean("is_active").notNull().default(true),
+  isPublic: boolean("is_public").notNull().default(true), // Public access or require token
+  accessToken: text("access_token"), // Optional token for private portals
+  // Branding
+  logoUrl: text("logo_url"),
+  primaryColor: text("primary_color").default('#3b82f6'), // Blue default
+  secondaryColor: text("secondary_color").default('#1e293b'),
+  backgroundColor: text("background_color").default('#0f172a'),
+  accentColor: text("accent_color").default('#22c55e'),
+  fontFamily: text("font_family").default('Inter'),
+  headerText: text("header_text"), // Custom header text
+  footerText: text("footer_text"), // Custom footer text
+  // Settings
+  showIncidentHistory: boolean("show_incident_history").notNull().default(true),
+  showUptimeStats: boolean("show_uptime_stats").notNull().default(true),
+  showSubscribeOption: boolean("show_subscribe_option").notNull().default(false),
+  incidentHistoryDays: integer("incident_history_days").default(30),
+  // Metadata
+  lastAccessedAt: timestamp("last_accessed_at"),
+  viewCount: integer("view_count").default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Portal Vendor Assignments - which vendors appear on each portal
+export const portalVendorAssignments = pgTable("portal_vendor_assignments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  portalId: text("portal_id").notNull(),
+  vendorKey: text("vendor_key"), // For vendor monitoring
+  chainKey: text("chain_key"), // For blockchain monitoring
+  resourceType: text("resource_type").notNull(), // 'vendor' or 'blockchain'
+  displayName: text("display_name"), // Optional custom display name
+  displayOrder: integer("display_order").default(0),
+  showOnPortal: boolean("show_on_portal").notNull().default(true),
+  customSlaTarget: text("custom_sla_target"), // e.g., "99.9%"
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Portal Subscribers - users who want email updates from a portal
+export const portalSubscribers = pgTable("portal_subscribers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  portalId: text("portal_id").notNull(),
+  email: text("email").notNull(),
+  isVerified: boolean("is_verified").default(false),
+  verificationToken: text("verification_token"),
+  unsubscribeToken: text("unsubscribe_token"),
+  subscribedAt: timestamp("subscribed_at").notNull().defaultNow(),
+  unsubscribedAt: timestamp("unsubscribed_at"),
+});
+
+// ============ PSA/TICKETING INTEGRATION ============
+
+// PSA Integrations - organization-level PSA system connections
+export const psaIntegrations = pgTable("psa_integrations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: text("organization_id"), // Optional org scope
+  userId: text("user_id").notNull(), // Owner user
+  name: text("name").notNull(), // Display name
+  psaType: text("psa_type").notNull(), // 'connectwise', 'autotask', 'kaseya', 'servicenow', 'jira', 'custom'
+  isActive: boolean("is_active").notNull().default(true),
+  // Connection credentials (encrypted in practice)
+  apiUrl: text("api_url"), // Base API URL
+  apiKey: text("api_key"), // API key or token
+  apiSecret: text("api_secret"), // API secret if needed
+  companyId: text("company_id"), // ConnectWise company ID
+  clientId: text("client_id"), // OAuth client ID
+  clientSecret: text("client_secret"), // OAuth client secret
+  accessToken: text("access_token"), // OAuth access token
+  refreshToken: text("refresh_token"), // OAuth refresh token
+  tokenExpiresAt: timestamp("token_expires_at"),
+  // Configuration
+  defaultBoardId: text("default_board_id"), // Default ticket board/queue
+  defaultPriorityId: text("default_priority_id"),
+  defaultStatusId: text("default_status_id"),
+  additionalConfig: text("additional_config"), // JSON for extra settings
+  // Status tracking
+  lastSyncAt: timestamp("last_sync_at"),
+  lastSyncSuccess: boolean("last_sync_success"),
+  lastSyncError: text("last_sync_error"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// PSA Ticket Rules - per-vendor/incident rules for ticket creation
+export const psaTicketRules = pgTable("psa_ticket_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  psaIntegrationId: text("psa_integration_id").notNull(),
+  name: text("name").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  // Matching criteria
+  vendorKey: text("vendor_key"), // Specific vendor or null for all
+  chainKey: text("chain_key"), // Specific blockchain or null for all
+  severityFilter: text("severity_filter"), // 'critical', 'major', 'minor', 'any'
+  incidentTypeFilter: text("incident_type_filter"), // 'outage', 'degraded', 'maintenance', 'any'
+  // Ticket settings
+  boardId: text("board_id"), // Override default board
+  priorityId: text("priority_id"), // Override default priority
+  statusId: text("status_id"), // Override default status
+  ticketTypeId: text("ticket_type_id"),
+  companyId: text("company_id"), // Assign to specific company
+  contactId: text("contact_id"), // Assign to specific contact
+  assigneeId: text("assignee_id"), // Auto-assign to technician
+  titleTemplate: text("title_template"), // Template for ticket title
+  descriptionTemplate: text("description_template"), // Template for description
+  autoClose: boolean("auto_close").default(true), // Auto-close when incident resolves
+  addUpdates: boolean("add_updates").default(true), // Add ticket notes on updates
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// PSA Ticket Links - mapping between incidents and PSA tickets
+export const psaTicketLinks = pgTable("psa_ticket_links", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  psaIntegrationId: text("psa_integration_id").notNull(),
+  incidentId: text("incident_id"), // Internal incident ID
+  blockchainIncidentId: text("blockchain_incident_id"), // Or blockchain incident
+  psaTicketId: text("psa_ticket_id").notNull(), // External PSA ticket ID
+  psaTicketNumber: text("psa_ticket_number"), // Human-readable ticket number
+  psaTicketUrl: text("psa_ticket_url"), // Direct link to ticket
+  status: text("status").notNull(), // 'open', 'syncing', 'closed', 'error'
+  lastSyncAt: timestamp("last_sync_at"),
+  lastSyncError: text("last_sync_error"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// ============ PREDICTIVE OUTAGE DETECTION ============
+
+// Vendor Telemetry Metrics - aggregated historical data for predictions
+export const vendorTelemetryMetrics = pgTable("vendor_telemetry_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  vendorKey: text("vendor_key"),
+  chainKey: text("chain_key"),
+  resourceType: text("resource_type").notNull(), // 'vendor' or 'blockchain'
+  metricDate: timestamp("metric_date").notNull(), // Date of metrics
+  dayOfWeek: integer("day_of_week"), // 0-6
+  hourOfDay: integer("hour_of_day"), // 0-23
+  // Incident counts
+  incidentCount: integer("incident_count").default(0),
+  criticalCount: integer("critical_count").default(0),
+  majorCount: integer("major_count").default(0),
+  minorCount: integer("minor_count").default(0),
+  maintenanceCount: integer("maintenance_count").default(0),
+  // Duration metrics
+  totalDowntimeMinutes: integer("total_downtime_minutes").default(0),
+  avgResolutionMinutes: integer("avg_resolution_minutes"),
+  maxResolutionMinutes: integer("max_resolution_minutes"),
+  // Reliability
+  uptimePercent: text("uptime_percent"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Outage Predictions - AI-generated predictions of potential issues
+export const outagePredictions = pgTable("outage_predictions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  vendorKey: text("vendor_key"),
+  chainKey: text("chain_key"),
+  resourceType: text("resource_type").notNull(), // 'vendor' or 'blockchain'
+  predictionType: text("prediction_type").notNull(), // 'scheduled_risk', 'pattern_detected', 'anomaly', 'maintenance_window'
+  severity: text("severity").notNull(), // 'high', 'medium', 'low'
+  confidence: text("confidence").notNull(), // '0.0' to '1.0'
+  title: text("title").notNull(),
+  description: text("description"),
+  predictedStartAt: timestamp("predicted_start_at").notNull(),
+  predictedEndAt: timestamp("predicted_end_at"),
+  // Pattern data
+  patternBasis: text("pattern_basis"), // JSON: what triggered this prediction
+  historicalIncidents: text("historical_incidents"), // JSON: related past incidents
+  // Status
+  status: text("status").notNull().default('active'), // 'active', 'acknowledged', 'dismissed', 'occurred', 'false_positive'
+  acknowledgedBy: text("acknowledged_by"),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  actualIncidentId: text("actual_incident_id"), // If prediction came true
+  feedbackScore: integer("feedback_score"), // User rating -1, 0, 1
+  feedbackNotes: text("feedback_notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at"), // When prediction is no longer relevant
+});
+
+// Prediction Patterns - learned patterns for recurring issues
+export const predictionPatterns = pgTable("prediction_patterns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  vendorKey: text("vendor_key"),
+  chainKey: text("chain_key"),
+  resourceType: text("resource_type").notNull(),
+  patternType: text("pattern_type").notNull(), // 'time_based', 'event_correlation', 'seasonal', 'maintenance_cycle'
+  patternName: text("pattern_name").notNull(),
+  description: text("description"),
+  // Pattern details
+  dayOfWeek: integer("day_of_week"), // 0-6, null if not applicable
+  hourStart: integer("hour_start"), // 0-23
+  hourEnd: integer("hour_end"), // 0-23
+  occurrenceCount: integer("occurrence_count").default(0),
+  lastOccurrence: timestamp("last_occurrence"),
+  avgDurationMinutes: integer("avg_duration_minutes"),
+  // Confidence metrics
+  confidence: text("confidence"), // Pattern strength
+  accuracy: text("accuracy"), // Historical prediction accuracy
+  // Status
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Insert schemas for new tables
+export const insertClientPortalSchema = createInsertSchema(clientPortals).omit({ id: true, lastAccessedAt: true, viewCount: true, createdAt: true, updatedAt: true });
+export const insertPortalVendorAssignmentSchema = createInsertSchema(portalVendorAssignments).omit({ id: true, createdAt: true });
+export const insertPortalSubscriberSchema = createInsertSchema(portalSubscribers).omit({ id: true, subscribedAt: true, unsubscribedAt: true });
+export const insertPsaIntegrationSchema = createInsertSchema(psaIntegrations).omit({ id: true, lastSyncAt: true, lastSyncSuccess: true, lastSyncError: true, createdAt: true, updatedAt: true });
+export const insertPsaTicketRuleSchema = createInsertSchema(psaTicketRules).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertPsaTicketLinkSchema = createInsertSchema(psaTicketLinks).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertVendorTelemetryMetricSchema = createInsertSchema(vendorTelemetryMetrics).omit({ id: true, createdAt: true });
+export const insertOutagePredictionSchema = createInsertSchema(outagePredictions).omit({ id: true, acknowledgedBy: true, acknowledgedAt: true, actualIncidentId: true, feedbackScore: true, feedbackNotes: true, createdAt: true });
+export const insertPredictionPatternSchema = createInsertSchema(predictionPatterns).omit({ id: true, createdAt: true, updatedAt: true });
+
+// Types for new tables
+export type InsertClientPortal = z.infer<typeof insertClientPortalSchema>;
+export type ClientPortal = typeof clientPortals.$inferSelect;
+
+export type InsertPortalVendorAssignment = z.infer<typeof insertPortalVendorAssignmentSchema>;
+export type PortalVendorAssignment = typeof portalVendorAssignments.$inferSelect;
+
+export type InsertPortalSubscriber = z.infer<typeof insertPortalSubscriberSchema>;
+export type PortalSubscriber = typeof portalSubscribers.$inferSelect;
+
+export type InsertPsaIntegration = z.infer<typeof insertPsaIntegrationSchema>;
+export type PsaIntegration = typeof psaIntegrations.$inferSelect;
+
+export type InsertPsaTicketRule = z.infer<typeof insertPsaTicketRuleSchema>;
+export type PsaTicketRule = typeof psaTicketRules.$inferSelect;
+
+export type InsertPsaTicketLink = z.infer<typeof insertPsaTicketLinkSchema>;
+export type PsaTicketLink = typeof psaTicketLinks.$inferSelect;
+
+export type InsertVendorTelemetryMetric = z.infer<typeof insertVendorTelemetryMetricSchema>;
+export type VendorTelemetryMetric = typeof vendorTelemetryMetrics.$inferSelect;
+
+export type InsertOutagePrediction = z.infer<typeof insertOutagePredictionSchema>;
+export type OutagePrediction = typeof outagePredictions.$inferSelect;
+
+export type InsertPredictionPattern = z.infer<typeof insertPredictionPatternSchema>;
+export type PredictionPattern = typeof predictionPatterns.$inferSelect;
