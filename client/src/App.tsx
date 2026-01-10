@@ -40,6 +40,10 @@ import Privacy from "@/pages/privacy";
 import Pricing from "@/pages/pricing";
 import Team from "@/pages/team";
 import AcceptInvite from "@/pages/accept-invite";
+import Portals from "@/pages/portals";
+import PsaIntegrations from "@/pages/psa-integrations";
+import Predictions from "@/pages/predictions";
+import PublicPortal from "@/pages/public-portal";
 import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
 
@@ -103,6 +107,9 @@ function AuthenticatedRouter() {
         <Route path="/parser-health" component={ParserHealth} />
         <Route path="/users" component={UsersAdmin} />
         <Route path="/team" component={Team} />
+        <Route path="/portals" component={Portals} />
+        <Route path="/psa-integrations" component={PsaIntegrations} />
+        <Route path="/predictions" component={Predictions} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
@@ -135,6 +142,7 @@ function Router() {
       <Route path="/privacy" component={Privacy} />
       <Route path="/pricing" component={Pricing} />
       <Route path="/accept-invite/:token" component={AcceptInvite} />
+      <Route path="/status/:slug" component={PublicPortal} />
       <Route>
         {user ? <AuthenticatedRouter /> : <Landing />}
       </Route>
