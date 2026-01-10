@@ -24,7 +24,10 @@ import {
   UsersRound,
   BookOpen,
   Smartphone,
-  Settings2
+  Settings2,
+  Globe,
+  Ticket,
+  TrendingUp
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -53,8 +56,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   };
 
   const isGrowthOrHigher = user?.subscriptionTier === 'growth' || user?.subscriptionTier === 'enterprise';
+  const isEnterprise = user?.subscriptionTier === 'enterprise';
 
-  const navItems = [
+  const navItems: Array<{ href: string; icon: any; label: string; adminOnly: boolean; ownerOnly: boolean; requiresGrowth?: boolean; requiresEnterprise?: boolean }> = [
     { href: "/", icon: LayoutDashboard, label: UI_LABELS.nav.overview, adminOnly: false, ownerOnly: false, requiresGrowth: false },
     { href: "/vendors", icon: Shield, label: UI_LABELS.nav.vendorsIncidents, adminOnly: false, ownerOnly: false, requiresGrowth: false },
     { href: "/blockchain", icon: Boxes, label: "Blockchain", adminOnly: false, ownerOnly: false, requiresGrowth: false },
@@ -66,6 +70,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { href: "/clients", icon: Users, label: "Clients", adminOnly: false, ownerOnly: false, requiresGrowth: true },
     { href: "/playbooks", icon: BookOpen, label: "Playbooks", adminOnly: false, ownerOnly: false, requiresGrowth: true },
     { href: "/mobile-status", icon: Smartphone, label: "Mobile Status", adminOnly: false, ownerOnly: false, requiresGrowth: true },
+    { href: "/portals", icon: Globe, label: "Client Portals", adminOnly: false, ownerOnly: false, requiresGrowth: true },
+    { href: "/psa-integrations", icon: Ticket, label: "PSA Ticketing", adminOnly: false, ownerOnly: false, requiresGrowth: true },
+    { href: "/predictions", icon: TrendingUp, label: "Predictions", adminOnly: false, ownerOnly: false, requiresEnterprise: true },
     { href: "/jobs", icon: List, label: UI_LABELS.nav.scrapers, adminOnly: true, ownerOnly: false, requiresGrowth: false },
     { href: "/logs", icon: Terminal, label: UI_LABELS.nav.logs, adminOnly: true, ownerOnly: false, requiresGrowth: false },
     { href: "/consents", icon: FileCheck, label: "Consents", adminOnly: true, ownerOnly: false, requiresGrowth: false },
@@ -80,6 +87,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     if (item.ownerOnly && !user?.isOwner) return false;
     if (item.adminOnly && !user?.isAdmin) return false;
     if (item.requiresGrowth && !isGrowthOrHigher) return false;
+    if (item.requiresEnterprise && !isEnterprise) return false;
     return true;
   });
 
