@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,8 +8,10 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Globe, Plus, ExternalLink, Copy, Palette, Settings, Users, Eye, Trash2, Edit } from "lucide-react";
+import { Globe, Plus, ExternalLink, Copy, Settings, Users, Eye, Trash2, Server, Link2, CheckCircle } from "lucide-react";
 
 interface ClientPortal {
   id: string;
@@ -24,11 +26,39 @@ interface ClientPortal {
   createdAt: string;
 }
 
+interface Vendor {
+  id: number;
+  key: string;
+  name: string;
+  status: string;
+  category: string;
+}
+
+interface BlockchainChain {
+  id: number;
+  key: string;
+  name: string;
+  status: string;
+  category: string;
+  tier: string;
+}
+
+interface PortalAssignment {
+  id?: string;
+  vendorKey: string | null;
+  chainKey: string | null;
+  resourceType: 'vendor' | 'blockchain';
+  displayName: string | null;
+  showOnPortal: boolean;
+}
+
 export default function Portals() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editingPortal, setEditingPortal] = useState<ClientPortal | null>(null);
+  const [selectedVendors, setSelectedVendors] = useState<Set<string>>(new Set());
+  const [selectedChains, setSelectedChains] = useState<Set<string>>(new Set());
   const [formData, setFormData] = useState({
     name: "",
     slug: "",
@@ -47,6 +77,36 @@ export default function Portals() {
     queryKey: ["/api/portals"],
   });
 
+  const { data: vendors = [] } = useQuery<Vendor[]>({
+    queryKey: ["/api/vendors"],
+  });
+
+  const { data: chains = [] } = useQuery<BlockchainChain[]>({
+    queryKey: ["/api/blockchain"],
+  });
+
+  const { data: portalDetail } = useQuery<{ portal: ClientPortal; assignments: PortalAssignment[] }>({
+    queryKey: ["/api/portals", editingPortal?.id],
+    enabled: !!editingPortal,
+  });
+
+  useEffect(() => {
+    if (portalDetail?.assignments) {
+      const vendorKeys = new Set(
+        portalDetail.assignments
+          .filter(a => a.resourceType === 'vendor' && a.vendorKey)
+          .map(a => a.vendorKey!)
+      );
+      const chainKeys = new Set(
+        portalDetail.assignments
+          .filter(a => a.resourceType === 'blockchain' && a.chainKey)
+          .map(a => a.chainKey!)
+      );
+      setSelectedVendors(vendorKeys);
+      setSelectedChains(chainKeys);
+    }
+  }, [portalDetail]);
+
   const createMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
       const res = await fetch("/api/portals", {
@@ -60,7 +120,8 @@ export default function Portals() {
       }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: async (portal) => {
+      await saveAssignments(portal.id);
       queryClient.invalidateQueries({ queryKey: ["/api/portals"] });
       setCreateDialogOpen(false);
       resetForm();
@@ -68,6 +129,22 @@ export default function Portals() {
     },
     onError: (error: Error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const updateAssignmentsMutation = useMutation({
+    mutationFn: async ({ portalId, assignments }: { portalId: string; assignments: any[] }) => {
+      const res = await fetch(`/api/portals/${portalId}/vendors`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assignments }),
+      });
+      if (!res.ok) throw new Error("Failed to update vendors");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/portals"] });
+      toast({ title: "Vendors updated" });
     },
   });
 
@@ -83,6 +160,29 @@ export default function Portals() {
     },
   });
 
+  const saveAssignments = async (portalId: string) => {
+    const assignments: any[] = [];
+    selectedVendors.forEach(key => {
+      assignments.push({
+        vendorKey: key,
+        chainKey: null,
+        resourceType: 'vendor',
+        showOnPortal: true,
+      });
+    });
+    selectedChains.forEach(key => {
+      assignments.push({
+        vendorKey: null,
+        chainKey: key,
+        resourceType: 'blockchain',
+        showOnPortal: true,
+      });
+    });
+    if (assignments.length > 0) {
+      await updateAssignmentsMutation.mutateAsync({ portalId, assignments });
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       name: "",
@@ -97,6 +197,8 @@ export default function Portals() {
       showUptimeStats: true,
       showSubscribeOption: true,
     });
+    setSelectedVendors(new Set());
+    setSelectedChains(new Set());
   };
 
   const generateSlug = (name: string) => {
@@ -109,6 +211,39 @@ export default function Portals() {
     toast({ title: "URL copied to clipboard" });
   };
 
+  const toggleVendor = (key: string) => {
+    const newSet = new Set(selectedVendors);
+    if (newSet.has(key)) {
+      newSet.delete(key);
+    } else {
+      newSet.add(key);
+    }
+    setSelectedVendors(newSet);
+  };
+
+  const toggleChain = (key: string) => {
+    const newSet = new Set(selectedChains);
+    if (newSet.has(key)) {
+      newSet.delete(key);
+    } else {
+      newSet.add(key);
+    }
+    setSelectedChains(newSet);
+  };
+
+  const vendorsByCategory = vendors.reduce((acc, v) => {
+    if (!acc[v.category]) acc[v.category] = [];
+    acc[v.category].push(v);
+    return acc;
+  }, {} as Record<string, Vendor[]>);
+
+  const chainsByCategory = chains.reduce((acc, c) => {
+    const cat = c.category || 'Other';
+    if (!acc[cat]) acc[cat] = [];
+    acc[cat].push(c);
+    return acc;
+  }, {} as Record<string, BlockchainChain[]>);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -116,6 +251,73 @@ export default function Portals() {
       </div>
     );
   }
+
+  const VendorSelectionContent = () => (
+    <Tabs defaultValue="vendors" className="mt-4">
+      <TabsList className="grid w-full grid-cols-2">
+        <TabsTrigger value="vendors">Vendors ({selectedVendors.size})</TabsTrigger>
+        <TabsTrigger value="blockchain">Blockchain ({selectedChains.size})</TabsTrigger>
+      </TabsList>
+      <TabsContent value="vendors" className="mt-4">
+        <ScrollArea className="h-[300px] pr-4">
+          {Object.entries(vendorsByCategory).map(([category, categoryVendors]) => (
+            <div key={category} className="mb-4">
+              <h4 className="text-sm font-medium text-muted-foreground mb-2">{category}</h4>
+              <div className="grid grid-cols-2 gap-2">
+                {categoryVendors.map((vendor) => (
+                  <div
+                    key={vendor.key}
+                    className={`flex items-center gap-2 p-2 rounded-md border cursor-pointer transition-colors ${
+                      selectedVendors.has(vendor.key)
+                        ? "border-primary bg-primary/10"
+                        : "border-border hover:border-primary/50"
+                    }`}
+                    onClick={() => toggleVendor(vendor.key)}
+                    data-testid={`vendor-select-${vendor.key}`}
+                  >
+                    <Checkbox
+                      checked={selectedVendors.has(vendor.key)}
+                      className="pointer-events-none"
+                    />
+                    <span className="text-sm truncate">{vendor.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </ScrollArea>
+      </TabsContent>
+      <TabsContent value="blockchain" className="mt-4">
+        <ScrollArea className="h-[300px] pr-4">
+          {Object.entries(chainsByCategory).map(([category, categoryChains]) => (
+            <div key={category} className="mb-4">
+              <h4 className="text-sm font-medium text-muted-foreground mb-2">{category}</h4>
+              <div className="grid grid-cols-2 gap-2">
+                {categoryChains.map((chain) => (
+                  <div
+                    key={chain.key}
+                    className={`flex items-center gap-2 p-2 rounded-md border cursor-pointer transition-colors ${
+                      selectedChains.has(chain.key)
+                        ? "border-primary bg-primary/10"
+                        : "border-border hover:border-primary/50"
+                    }`}
+                    onClick={() => toggleChain(chain.key)}
+                    data-testid={`chain-select-${chain.key}`}
+                  >
+                    <Checkbox
+                      checked={selectedChains.has(chain.key)}
+                      className="pointer-events-none"
+                    />
+                    <span className="text-sm truncate">{chain.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </ScrollArea>
+      </TabsContent>
+    </Tabs>
+  );
 
   return (
     <div className="container py-6 max-w-6xl" data-testid="portals-page">
@@ -131,15 +333,16 @@ export default function Portals() {
               Create Portal
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create Client Portal</DialogTitle>
               <DialogDescription>Set up a branded status page for your client</DialogDescription>
             </DialogHeader>
             <Tabs defaultValue="basic" className="mt-4">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="basic">Basic Info</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="basic">Basic</TabsTrigger>
                 <TabsTrigger value="branding">Branding</TabsTrigger>
+                <TabsTrigger value="vendors">Vendors</TabsTrigger>
                 <TabsTrigger value="features">Features</TabsTrigger>
               </TabsList>
               <TabsContent value="basic" className="space-y-4 mt-4">
@@ -239,6 +442,15 @@ export default function Portals() {
                     onChange={(e) => setFormData({ ...formData, footerText: e.target.value })}
                   />
                 </div>
+              </TabsContent>
+              <TabsContent value="vendors" className="mt-4">
+                <div className="mb-4">
+                  <h4 className="font-medium mb-1">Select Vendors & Chains</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Choose which vendors and blockchain networks to display on this portal.
+                  </p>
+                </div>
+                <VendorSelectionContent />
               </TabsContent>
               <TabsContent value="features" className="space-y-4 mt-4">
                 <div className="flex items-center justify-between">
@@ -389,6 +601,37 @@ export default function Portals() {
             </Card>
           ))}
         </div>
+      )}
+
+      {editingPortal && (
+        <Dialog open={!!editingPortal} onOpenChange={() => setEditingPortal(null)}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Portal - {editingPortal.name}</DialogTitle>
+              <DialogDescription>Configure vendors and settings for this portal</DialogDescription>
+            </DialogHeader>
+            <div className="mb-4">
+              <h4 className="font-medium mb-1">Select Vendors & Chains</h4>
+              <p className="text-sm text-muted-foreground">
+                Choose which vendors and blockchain networks to display on this portal.
+              </p>
+            </div>
+            <VendorSelectionContent />
+            <DialogFooter className="mt-6">
+              <Button variant="outline" onClick={() => setEditingPortal(null)}>Cancel</Button>
+              <Button
+                onClick={() => {
+                  saveAssignments(editingPortal.id);
+                  setEditingPortal(null);
+                }}
+                disabled={updateAssignmentsMutation.isPending}
+                data-testid="save-vendors-btn"
+              >
+                {updateAssignmentsMutation.isPending ? "Saving..." : "Save Changes"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
