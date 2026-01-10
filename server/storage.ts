@@ -5,6 +5,9 @@ import {
   slaContracts, slaBreaches, syntheticProbes, syntheticProbeResults,
   clients, clientVendorLinks, incidentPlaybooks, incidentPlaybookSteps, userIntegrations,
   organizations, organizationMembers, organizationInvitations,
+  clientPortals, portalVendorAssignments, portalSubscribers,
+  psaIntegrations, psaTicketRules, psaTicketLinks,
+  vendorTelemetryMetrics, outagePredictions, predictionPatterns,
   type Organization, type InsertOrganization,
   type OrganizationMember, type InsertOrganizationMember,
   type OrganizationInvitation, type InsertOrganizationInvitation,
@@ -38,6 +41,15 @@ import {
   type IncidentPlaybook, type InsertIncidentPlaybook,
   type IncidentPlaybookStep, type InsertIncidentPlaybookStep,
   type UserIntegration, type InsertUserIntegration,
+  type ClientPortal, type InsertClientPortal,
+  type PortalVendorAssignment, type InsertPortalVendorAssignment,
+  type PortalSubscriber, type InsertPortalSubscriber,
+  type PsaIntegration, type InsertPsaIntegration,
+  type PsaTicketRule, type InsertPsaTicketRule,
+  type PsaTicketLink, type InsertPsaTicketLink,
+  type VendorTelemetryMetric, type InsertVendorTelemetryMetric,
+  type OutagePrediction, type InsertOutagePrediction,
+  type PredictionPattern, type InsertPredictionPattern,
   SUBSCRIPTION_TIERS
 } from "@shared/schema";
 import { and, isNull, inArray, gte, lte, sql, count, ilike, or } from "drizzle-orm";
@@ -356,6 +368,80 @@ export interface IStorage {
   createOrganizationInvitation(invitation: InsertOrganizationInvitation): Promise<OrganizationInvitation>;
   updateInvitationStatus(id: string, status: string): Promise<OrganizationInvitation | undefined>;
   deleteOrganizationInvitation(id: string): Promise<boolean>;
+  
+  // ============ CLIENT PORTALS ============
+  getClientPortals(userId: string): Promise<ClientPortal[]>;
+  getClientPortal(id: string): Promise<ClientPortal | undefined>;
+  getClientPortalBySlug(slug: string): Promise<ClientPortal | undefined>;
+  createClientPortal(portal: InsertClientPortal): Promise<ClientPortal>;
+  updateClientPortal(id: string, data: Partial<InsertClientPortal>): Promise<ClientPortal | undefined>;
+  deleteClientPortal(id: string): Promise<boolean>;
+  incrementPortalViewCount(id: string): Promise<void>;
+  
+  // Portal Vendor Assignments
+  getPortalVendorAssignments(portalId: string): Promise<PortalVendorAssignment[]>;
+  createPortalVendorAssignment(assignment: InsertPortalVendorAssignment): Promise<PortalVendorAssignment>;
+  updatePortalVendorAssignment(id: string, data: Partial<InsertPortalVendorAssignment>): Promise<PortalVendorAssignment | undefined>;
+  deletePortalVendorAssignment(id: string): Promise<boolean>;
+  deletePortalVendorAssignmentsByPortal(portalId: string): Promise<void>;
+  
+  // Portal Subscribers
+  getPortalSubscribers(portalId: string): Promise<PortalSubscriber[]>;
+  createPortalSubscriber(subscriber: InsertPortalSubscriber): Promise<PortalSubscriber>;
+  verifyPortalSubscriber(token: string): Promise<PortalSubscriber | undefined>;
+  unsubscribePortalSubscriber(token: string): Promise<PortalSubscriber | undefined>;
+  
+  // ============ PSA INTEGRATIONS ============
+  getPsaIntegrations(userId: string): Promise<PsaIntegration[]>;
+  getPsaIntegration(id: string): Promise<PsaIntegration | undefined>;
+  createPsaIntegration(integration: InsertPsaIntegration): Promise<PsaIntegration>;
+  updatePsaIntegration(id: string, data: Partial<InsertPsaIntegration>): Promise<PsaIntegration | undefined>;
+  deletePsaIntegration(id: string): Promise<boolean>;
+  updatePsaIntegrationSync(id: string, success: boolean, error?: string): Promise<void>;
+  
+  // PSA Ticket Rules
+  getPsaTicketRules(integrationId: string): Promise<PsaTicketRule[]>;
+  getPsaTicketRule(id: string): Promise<PsaTicketRule | undefined>;
+  createPsaTicketRule(rule: InsertPsaTicketRule): Promise<PsaTicketRule>;
+  updatePsaTicketRule(id: string, data: Partial<InsertPsaTicketRule>): Promise<PsaTicketRule | undefined>;
+  deletePsaTicketRule(id: string): Promise<boolean>;
+  getMatchingPsaTicketRules(vendorKey: string | null, chainKey: string | null, severity: string): Promise<PsaTicketRule[]>;
+  
+  // PSA Ticket Links
+  getPsaTicketLinks(integrationId: string): Promise<PsaTicketLink[]>;
+  getPsaTicketLink(incidentId: string): Promise<PsaTicketLink | undefined>;
+  createPsaTicketLink(link: InsertPsaTicketLink): Promise<PsaTicketLink>;
+  updatePsaTicketLink(id: string, data: Partial<InsertPsaTicketLink>): Promise<PsaTicketLink | undefined>;
+  
+  // ============ PREDICTIVE ANALYTICS ============
+  getVendorTelemetryMetrics(vendorKey: string, days?: number): Promise<VendorTelemetryMetric[]>;
+  getBlockchainTelemetryMetrics(chainKey: string, days?: number): Promise<VendorTelemetryMetric[]>;
+  createVendorTelemetryMetric(metric: InsertVendorTelemetryMetric): Promise<VendorTelemetryMetric>;
+  aggregateTelemetryForPredictions(resourceType: string): Promise<Array<{
+    resourceKey: string;
+    dayOfWeek: number;
+    hourOfDay: number;
+    avgIncidentCount: number;
+    totalIncidents: number;
+    occurrences: number;
+  }>>;
+  
+  // Outage Predictions
+  getOutagePredictions(userId: string): Promise<OutagePrediction[]>;
+  getActivePredictions(): Promise<OutagePrediction[]>;
+  getOutagePrediction(id: string): Promise<OutagePrediction | undefined>;
+  createOutagePrediction(prediction: InsertOutagePrediction): Promise<OutagePrediction>;
+  updateOutagePrediction(id: string, data: Partial<InsertOutagePrediction>): Promise<OutagePrediction | undefined>;
+  acknowledgePrediction(id: string, userId: string): Promise<OutagePrediction | undefined>;
+  dismissPrediction(id: string): Promise<OutagePrediction | undefined>;
+  providePredictionFeedback(id: string, score: number, notes?: string): Promise<OutagePrediction | undefined>;
+  
+  // Prediction Patterns
+  getPredictionPatterns(resourceType?: string): Promise<PredictionPattern[]>;
+  getPredictionPattern(id: string): Promise<PredictionPattern | undefined>;
+  createPredictionPattern(pattern: InsertPredictionPattern): Promise<PredictionPattern>;
+  updatePredictionPattern(id: string, data: Partial<InsertPredictionPattern>): Promise<PredictionPattern | undefined>;
+  deletePredictionPattern(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2632,6 +2718,410 @@ export class DatabaseStorage implements IStorage {
   async deleteOrganizationInvitation(id: string): Promise<boolean> {
     const result = await db.delete(organizationInvitations)
       .where(eq(organizationInvitations.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  // ============ CLIENT PORTALS ============
+  async getClientPortals(userId: string): Promise<ClientPortal[]> {
+    return await db.select().from(clientPortals)
+      .where(eq(clientPortals.userId, userId))
+      .orderBy(desc(clientPortals.createdAt));
+  }
+
+  async getClientPortal(id: string): Promise<ClientPortal | undefined> {
+    const [portal] = await db.select().from(clientPortals)
+      .where(eq(clientPortals.id, id));
+    return portal || undefined;
+  }
+
+  async getClientPortalBySlug(slug: string): Promise<ClientPortal | undefined> {
+    const [portal] = await db.select().from(clientPortals)
+      .where(eq(clientPortals.slug, slug));
+    return portal || undefined;
+  }
+
+  async createClientPortal(portal: InsertClientPortal): Promise<ClientPortal> {
+    const [created] = await db.insert(clientPortals).values(portal).returning();
+    return created;
+  }
+
+  async updateClientPortal(id: string, data: Partial<InsertClientPortal>): Promise<ClientPortal | undefined> {
+    const [updated] = await db.update(clientPortals)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(clientPortals.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteClientPortal(id: string): Promise<boolean> {
+    await db.delete(portalVendorAssignments).where(eq(portalVendorAssignments.portalId, id));
+    await db.delete(portalSubscribers).where(eq(portalSubscribers.portalId, id));
+    const result = await db.delete(clientPortals).where(eq(clientPortals.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async incrementPortalViewCount(id: string): Promise<void> {
+    await db.update(clientPortals)
+      .set({ 
+        viewCount: sql`COALESCE(${clientPortals.viewCount}, 0) + 1`,
+        lastAccessedAt: new Date()
+      })
+      .where(eq(clientPortals.id, id));
+  }
+
+  // Portal Vendor Assignments
+  async getPortalVendorAssignments(portalId: string): Promise<PortalVendorAssignment[]> {
+    return await db.select().from(portalVendorAssignments)
+      .where(eq(portalVendorAssignments.portalId, portalId))
+      .orderBy(portalVendorAssignments.displayOrder);
+  }
+
+  async createPortalVendorAssignment(assignment: InsertPortalVendorAssignment): Promise<PortalVendorAssignment> {
+    const [created] = await db.insert(portalVendorAssignments).values(assignment).returning();
+    return created;
+  }
+
+  async updatePortalVendorAssignment(id: string, data: Partial<InsertPortalVendorAssignment>): Promise<PortalVendorAssignment | undefined> {
+    const [updated] = await db.update(portalVendorAssignments)
+      .set(data)
+      .where(eq(portalVendorAssignments.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deletePortalVendorAssignment(id: string): Promise<boolean> {
+    const result = await db.delete(portalVendorAssignments)
+      .where(eq(portalVendorAssignments.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async deletePortalVendorAssignmentsByPortal(portalId: string): Promise<void> {
+    await db.delete(portalVendorAssignments)
+      .where(eq(portalVendorAssignments.portalId, portalId));
+  }
+
+  // Portal Subscribers
+  async getPortalSubscribers(portalId: string): Promise<PortalSubscriber[]> {
+    return await db.select().from(portalSubscribers)
+      .where(and(
+        eq(portalSubscribers.portalId, portalId),
+        isNull(portalSubscribers.unsubscribedAt)
+      ));
+  }
+
+  async createPortalSubscriber(subscriber: InsertPortalSubscriber): Promise<PortalSubscriber> {
+    const [created] = await db.insert(portalSubscribers).values(subscriber).returning();
+    return created;
+  }
+
+  async verifyPortalSubscriber(token: string): Promise<PortalSubscriber | undefined> {
+    const [updated] = await db.update(portalSubscribers)
+      .set({ isVerified: true, verificationToken: null })
+      .where(eq(portalSubscribers.verificationToken, token))
+      .returning();
+    return updated || undefined;
+  }
+
+  async unsubscribePortalSubscriber(token: string): Promise<PortalSubscriber | undefined> {
+    const [updated] = await db.update(portalSubscribers)
+      .set({ unsubscribedAt: new Date() })
+      .where(eq(portalSubscribers.unsubscribeToken, token))
+      .returning();
+    return updated || undefined;
+  }
+
+  // ============ PSA INTEGRATIONS ============
+  async getPsaIntegrations(userId: string): Promise<PsaIntegration[]> {
+    return await db.select().from(psaIntegrations)
+      .where(eq(psaIntegrations.userId, userId))
+      .orderBy(desc(psaIntegrations.createdAt));
+  }
+
+  async getPsaIntegration(id: string): Promise<PsaIntegration | undefined> {
+    const [integration] = await db.select().from(psaIntegrations)
+      .where(eq(psaIntegrations.id, id));
+    return integration || undefined;
+  }
+
+  async createPsaIntegration(integration: InsertPsaIntegration): Promise<PsaIntegration> {
+    const [created] = await db.insert(psaIntegrations).values(integration).returning();
+    return created;
+  }
+
+  async updatePsaIntegration(id: string, data: Partial<InsertPsaIntegration>): Promise<PsaIntegration | undefined> {
+    const [updated] = await db.update(psaIntegrations)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(psaIntegrations.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deletePsaIntegration(id: string): Promise<boolean> {
+    await db.delete(psaTicketRules).where(eq(psaTicketRules.psaIntegrationId, id));
+    await db.delete(psaTicketLinks).where(eq(psaTicketLinks.psaIntegrationId, id));
+    const result = await db.delete(psaIntegrations).where(eq(psaIntegrations.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async updatePsaIntegrationSync(id: string, success: boolean, error?: string): Promise<void> {
+    await db.update(psaIntegrations)
+      .set({ 
+        lastSyncAt: new Date(),
+        lastSyncSuccess: success,
+        lastSyncError: error || null,
+        updatedAt: new Date()
+      })
+      .where(eq(psaIntegrations.id, id));
+  }
+
+  // PSA Ticket Rules
+  async getPsaTicketRules(integrationId: string): Promise<PsaTicketRule[]> {
+    return await db.select().from(psaTicketRules)
+      .where(eq(psaTicketRules.psaIntegrationId, integrationId))
+      .orderBy(desc(psaTicketRules.createdAt));
+  }
+
+  async getPsaTicketRule(id: string): Promise<PsaTicketRule | undefined> {
+    const [rule] = await db.select().from(psaTicketRules)
+      .where(eq(psaTicketRules.id, id));
+    return rule || undefined;
+  }
+
+  async createPsaTicketRule(rule: InsertPsaTicketRule): Promise<PsaTicketRule> {
+    const [created] = await db.insert(psaTicketRules).values(rule).returning();
+    return created;
+  }
+
+  async updatePsaTicketRule(id: string, data: Partial<InsertPsaTicketRule>): Promise<PsaTicketRule | undefined> {
+    const [updated] = await db.update(psaTicketRules)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(psaTicketRules.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deletePsaTicketRule(id: string): Promise<boolean> {
+    const result = await db.delete(psaTicketRules)
+      .where(eq(psaTicketRules.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async getMatchingPsaTicketRules(vendorKey: string | null, chainKey: string | null, severity: string): Promise<PsaTicketRule[]> {
+    const allRules = await db.select().from(psaTicketRules)
+      .where(eq(psaTicketRules.isActive, true));
+    
+    return allRules.filter(rule => {
+      if (vendorKey && rule.vendorKey && rule.vendorKey !== vendorKey) return false;
+      if (chainKey && rule.chainKey && rule.chainKey !== chainKey) return false;
+      if (rule.severityFilter && rule.severityFilter !== 'any' && rule.severityFilter !== severity) return false;
+      return true;
+    });
+  }
+
+  // PSA Ticket Links
+  async getPsaTicketLinks(integrationId: string): Promise<PsaTicketLink[]> {
+    return await db.select().from(psaTicketLinks)
+      .where(eq(psaTicketLinks.psaIntegrationId, integrationId))
+      .orderBy(desc(psaTicketLinks.createdAt));
+  }
+
+  async getPsaTicketLink(incidentId: string): Promise<PsaTicketLink | undefined> {
+    const [link] = await db.select().from(psaTicketLinks)
+      .where(or(
+        eq(psaTicketLinks.incidentId, incidentId),
+        eq(psaTicketLinks.blockchainIncidentId, incidentId)
+      ));
+    return link || undefined;
+  }
+
+  async createPsaTicketLink(link: InsertPsaTicketLink): Promise<PsaTicketLink> {
+    const [created] = await db.insert(psaTicketLinks).values(link).returning();
+    return created;
+  }
+
+  async updatePsaTicketLink(id: string, data: Partial<InsertPsaTicketLink>): Promise<PsaTicketLink | undefined> {
+    const [updated] = await db.update(psaTicketLinks)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(psaTicketLinks.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  // ============ PREDICTIVE ANALYTICS ============
+  async getVendorTelemetryMetrics(vendorKey: string, days: number = 90): Promise<VendorTelemetryMetric[]> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+    
+    return await db.select().from(vendorTelemetryMetrics)
+      .where(and(
+        eq(vendorTelemetryMetrics.vendorKey, vendorKey),
+        eq(vendorTelemetryMetrics.resourceType, 'vendor'),
+        gte(vendorTelemetryMetrics.metricDate, cutoffDate)
+      ))
+      .orderBy(desc(vendorTelemetryMetrics.metricDate));
+  }
+
+  async getBlockchainTelemetryMetrics(chainKey: string, days: number = 90): Promise<VendorTelemetryMetric[]> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+    
+    return await db.select().from(vendorTelemetryMetrics)
+      .where(and(
+        eq(vendorTelemetryMetrics.chainKey, chainKey),
+        eq(vendorTelemetryMetrics.resourceType, 'blockchain'),
+        gte(vendorTelemetryMetrics.metricDate, cutoffDate)
+      ))
+      .orderBy(desc(vendorTelemetryMetrics.metricDate));
+  }
+
+  async createVendorTelemetryMetric(metric: InsertVendorTelemetryMetric): Promise<VendorTelemetryMetric> {
+    const [created] = await db.insert(vendorTelemetryMetrics).values(metric).returning();
+    return created;
+  }
+
+  async aggregateTelemetryForPredictions(resourceType: string): Promise<Array<{
+    resourceKey: string;
+    dayOfWeek: number;
+    hourOfDay: number;
+    avgIncidentCount: number;
+    totalIncidents: number;
+    occurrences: number;
+  }>> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - 90);
+    
+    const metrics = await db.select().from(vendorTelemetryMetrics)
+      .where(and(
+        eq(vendorTelemetryMetrics.resourceType, resourceType),
+        gte(vendorTelemetryMetrics.metricDate, cutoffDate)
+      ));
+    
+    const aggregated = new Map<string, { totalIncidents: number; occurrences: number; resourceKey: string; dayOfWeek: number; hourOfDay: number }>();
+    
+    for (const m of metrics) {
+      const resourceKey = resourceType === 'vendor' ? m.vendorKey : m.chainKey;
+      if (!resourceKey || m.dayOfWeek === null || m.hourOfDay === null) continue;
+      
+      const key = `${resourceKey}-${m.dayOfWeek}-${m.hourOfDay}`;
+      const existing = aggregated.get(key) || { totalIncidents: 0, occurrences: 0, resourceKey, dayOfWeek: m.dayOfWeek, hourOfDay: m.hourOfDay };
+      existing.totalIncidents += m.incidentCount || 0;
+      existing.occurrences += 1;
+      aggregated.set(key, existing);
+    }
+    
+    return Array.from(aggregated.values()).map(a => ({
+      ...a,
+      avgIncidentCount: a.occurrences > 0 ? a.totalIncidents / a.occurrences : 0
+    }));
+  }
+
+  // Outage Predictions
+  async getOutagePredictions(userId: string): Promise<OutagePrediction[]> {
+    return await db.select().from(outagePredictions)
+      .where(eq(outagePredictions.status, 'active'))
+      .orderBy(outagePredictions.predictedStartAt);
+  }
+
+  async getActivePredictions(): Promise<OutagePrediction[]> {
+    const now = new Date();
+    return await db.select().from(outagePredictions)
+      .where(and(
+        eq(outagePredictions.status, 'active'),
+        gte(outagePredictions.predictedStartAt, now)
+      ))
+      .orderBy(outagePredictions.predictedStartAt);
+  }
+
+  async getOutagePrediction(id: string): Promise<OutagePrediction | undefined> {
+    const [prediction] = await db.select().from(outagePredictions)
+      .where(eq(outagePredictions.id, id));
+    return prediction || undefined;
+  }
+
+  async createOutagePrediction(prediction: InsertOutagePrediction): Promise<OutagePrediction> {
+    const [created] = await db.insert(outagePredictions).values(prediction).returning();
+    return created;
+  }
+
+  async updateOutagePrediction(id: string, data: Partial<InsertOutagePrediction>): Promise<OutagePrediction | undefined> {
+    const [updated] = await db.update(outagePredictions)
+      .set(data)
+      .where(eq(outagePredictions.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async acknowledgePrediction(id: string, userId: string): Promise<OutagePrediction | undefined> {
+    const [updated] = await db.update(outagePredictions)
+      .set({ 
+        status: 'acknowledged',
+        acknowledgedBy: userId,
+        acknowledgedAt: new Date()
+      })
+      .where(eq(outagePredictions.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async dismissPrediction(id: string): Promise<OutagePrediction | undefined> {
+    const [updated] = await db.update(outagePredictions)
+      .set({ status: 'dismissed' })
+      .where(eq(outagePredictions.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async providePredictionFeedback(id: string, score: number, notes?: string): Promise<OutagePrediction | undefined> {
+    const [updated] = await db.update(outagePredictions)
+      .set({ 
+        feedbackScore: score,
+        feedbackNotes: notes || null
+      })
+      .where(eq(outagePredictions.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  // Prediction Patterns
+  async getPredictionPatterns(resourceType?: string): Promise<PredictionPattern[]> {
+    if (resourceType) {
+      return await db.select().from(predictionPatterns)
+        .where(and(
+          eq(predictionPatterns.resourceType, resourceType),
+          eq(predictionPatterns.isActive, true)
+        ))
+        .orderBy(desc(predictionPatterns.occurrenceCount));
+    }
+    return await db.select().from(predictionPatterns)
+      .where(eq(predictionPatterns.isActive, true))
+      .orderBy(desc(predictionPatterns.occurrenceCount));
+  }
+
+  async getPredictionPattern(id: string): Promise<PredictionPattern | undefined> {
+    const [pattern] = await db.select().from(predictionPatterns)
+      .where(eq(predictionPatterns.id, id));
+    return pattern || undefined;
+  }
+
+  async createPredictionPattern(pattern: InsertPredictionPattern): Promise<PredictionPattern> {
+    const [created] = await db.insert(predictionPatterns).values(pattern).returning();
+    return created;
+  }
+
+  async updatePredictionPattern(id: string, data: Partial<InsertPredictionPattern>): Promise<PredictionPattern | undefined> {
+    const [updated] = await db.update(predictionPatterns)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(predictionPatterns.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deletePredictionPattern(id: string): Promise<boolean> {
+    const result = await db.delete(predictionPatterns)
+      .where(eq(predictionPatterns.id, id))
       .returning();
     return result.length > 0;
   }
