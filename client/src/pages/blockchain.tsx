@@ -618,7 +618,7 @@ export default function Blockchain() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {activeIncidents.slice(0, 5).map((incident) => {
+                {activeIncidents.map((incident) => {
                   const chain = chains.find(c => c.key === incident.chainKey);
                   const statusUrl = incident.url || chain?.statusUrl;
                   return (
