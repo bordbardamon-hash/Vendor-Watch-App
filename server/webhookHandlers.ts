@@ -21,12 +21,19 @@ export class WebhookHandlers {
     }
 
     const stripe = await getUncachableStripeClient();
-    const webhookSecret = await sync.getManagedWebhookSecret();
+    
+    // Try managed webhook secret first, then fall back to environment variable
+    let webhookSecret = await sync.getManagedWebhookSecret();
+    if (!webhookSecret) {
+      webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || null;
+    }
     
     if (!webhookSecret) {
       console.log('[stripe] No webhook secret configured, skipping event processing');
       return;
     }
+    
+    console.log('[stripe] Using webhook secret:', webhookSecret.substring(0, 10) + '...');
 
     let event;
     try {
