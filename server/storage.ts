@@ -56,6 +56,17 @@ import { and, isNull, inArray, gte, lte, sql, count, ilike, or } from "drizzle-o
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
 
+// Helper to normalize subscription tier (handle legacy 'platinum' tier)
+function normalizeTier(tier: string | null): 'essential' | 'growth' | 'enterprise' | null {
+  if (!tier) return null;
+  // Map 'platinum' to 'enterprise' for backwards compatibility
+  if (tier === 'platinum') return 'enterprise';
+  if (tier === 'essential' || tier === 'growth' || tier === 'enterprise') {
+    return tier;
+  }
+  return null;
+}
+
 export interface IStorage {
   // Users
   getUser(id: string): Promise<User | undefined>;
@@ -1223,7 +1234,7 @@ export class DatabaseStorage implements IStorage {
       return { allowed: false, current: 0, limit: 0, tier: null };
     }
     
-    const tier = user.subscriptionTier as 'essential' | 'growth' | 'enterprise' | null;
+    const tier = normalizeTier(user.subscriptionTier);
     if (!tier) {
       return { allowed: false, current: 0, limit: 0, tier: null };
     }
@@ -1484,7 +1495,7 @@ export class DatabaseStorage implements IStorage {
       return { allowed: false, current: 0, limit: 0, tier: null };
     }
     
-    const tier = user.subscriptionTier as 'essential' | 'growth' | 'enterprise' | null;
+    const tier = normalizeTier(user.subscriptionTier);
     if (!tier) {
       return { allowed: false, current: 0, limit: 0, tier: null };
     }
@@ -1512,7 +1523,7 @@ export class DatabaseStorage implements IStorage {
       throw new Error('User not found');
     }
     
-    const tier = user.subscriptionTier as 'essential' | 'growth' | 'enterprise' | null;
+    const tier = normalizeTier(user.subscriptionTier);
     if (!tier) {
       throw new Error('No active subscription');
     }
@@ -1549,7 +1560,7 @@ export class DatabaseStorage implements IStorage {
       throw new Error('User not found');
     }
     
-    const tier = user.subscriptionTier as 'essential' | 'growth' | 'enterprise' | null;
+    const tier = normalizeTier(user.subscriptionTier);
     if (!tier) {
       throw new Error('No active subscription');
     }

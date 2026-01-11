@@ -170,16 +170,13 @@ export async function dispatchIncidentNotification(notification: IncidentNotific
     if (userSubscriptions.length > 0) {
       // User has specific subscriptions - only notify for those vendors
       isSubscribed = userSubscriptions.includes(vendor.key);
-    } else if (hasSetSubscriptions) {
-      // User explicitly cleared all vendors - don't notify
-      isSubscribed = false;
     } else {
-      // New user with no preferences yet - default to all vendors
-      isSubscribed = true;
+      // No subscriptions = no notifications (opt-in only)
+      isSubscribed = false;
     }
     
     if (!isSubscribed) {
-      console.log(`[notify] Skipping ${user.email} - not subscribed to ${vendor.key}`);
+      console.log(`[notify] Skipping ${user.email} - not subscribed to vendor ${vendor.key}`);
       continue;
     }
     
@@ -458,16 +455,13 @@ export async function dispatchLifecycleNotification(notification: LifecycleNotif
     if (userSubscriptions.length > 0) {
       // User has specific subscriptions - only notify for those vendors
       isSubscribed = userSubscriptions.includes(vendor.key);
-    } else if (hasSetSubscriptions) {
-      // User explicitly cleared all vendors - don't notify
-      isSubscribed = false;
     } else {
-      // New user with no preferences yet - default to all vendors
-      isSubscribed = true;
+      // No subscriptions = no notifications (opt-in only)
+      isSubscribed = false;
     }
     
     if (!isSubscribed) {
-      console.log(`[notify] Skipping ${user.email} - not subscribed to ${vendor.key}`);
+      console.log(`[notify] Skipping ${user.email} - not subscribed to vendor ${vendor.key}`);
       continue;
     }
     
@@ -774,12 +768,9 @@ export async function dispatchBlockchainNotification(notification: BlockchainNot
     if (userSubscriptions.length > 0) {
       // User has specific blockchain subscriptions - only notify for those chains
       isSubscribed = userSubscriptions.includes(chain.key);
-    } else if (hasSetSubscriptions) {
-      // User explicitly cleared all chains - don't notify for blockchain
-      isSubscribed = false;
     } else {
-      // New user with no preferences yet - default to all chains
-      isSubscribed = true;
+      // No subscriptions = no notifications (opt-in only)
+      isSubscribed = false;
     }
     
     if (!isSubscribed) {
