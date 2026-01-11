@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Globe, Plus, ExternalLink, Copy, Settings, Users, Eye, Trash2, Server, Link2, CheckCircle } from "lucide-react";
+import { Globe, Plus, ExternalLink, Copy, Settings, Users, Eye, Trash2, Server, Link2, CheckCircle, Upload, X, ImageIcon } from "lucide-react";
 
 interface ClientPortal {
   id: string;
@@ -63,6 +63,7 @@ export default function Portals() {
     name: "",
     slug: "",
     isPublic: true,
+    logoUrl: "",
     primaryColor: "#3b82f6",
     secondaryColor: "#1e293b",
     backgroundColor: "#0f172a",
@@ -72,6 +73,35 @@ export default function Portals() {
     showUptimeStats: true,
     showSubscribeOption: true,
   });
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Logo must be less than 2MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload an image file",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setFormData({ ...formData, logoUrl: event.target?.result as string });
+    };
+    reader.readAsDataURL(file);
+  };
 
   const { data: portals = [], isLoading } = useQuery<ClientPortal[]>({
     queryKey: ["/api/portals"],
@@ -188,6 +218,7 @@ export default function Portals() {
       name: "",
       slug: "",
       isPublic: true,
+      logoUrl: "",
       primaryColor: "#3b82f6",
       secondaryColor: "#1e293b",
       backgroundColor: "#0f172a",
@@ -388,6 +419,47 @@ export default function Portals() {
                 </div>
               </TabsContent>
               <TabsContent value="branding" className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <Label>Logo</Label>
+                  <div className="flex items-center gap-4">
+                    {formData.logoUrl ? (
+                      <div className="relative">
+                        <img 
+                          src={formData.logoUrl} 
+                          alt="Portal logo" 
+                          className="w-16 h-16 object-contain rounded-lg border border-sidebar-border bg-sidebar/50"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, logoUrl: "" })}
+                          className="absolute -top-2 -right-2 p-1 rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/80"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="w-16 h-16 rounded-lg border border-dashed border-sidebar-border bg-sidebar/50 flex items-center justify-center">
+                        <ImageIcon className="w-6 h-6 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <label className="cursor-pointer">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleLogoUpload}
+                          className="hidden"
+                          data-testid="logo-upload-input"
+                        />
+                        <div className="flex items-center gap-2 px-4 py-2 rounded-md border border-sidebar-border bg-sidebar hover:bg-sidebar/80 transition-colors text-sm">
+                          <Upload className="w-4 h-4" />
+                          {formData.logoUrl ? "Change Logo" : "Upload Logo"}
+                        </div>
+                      </label>
+                      <p className="text-xs text-muted-foreground mt-1">PNG, JPG or SVG. Max 2MB.</p>
+                    </div>
+                  </div>
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="primaryColor">Primary Color</Label>
