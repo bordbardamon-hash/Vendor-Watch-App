@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bell, Database, Mail, Save, Server, Shield, Clock, Code, Copy, Check, CheckCircle2, Smartphone, MessageSquare, GripVertical, AlertTriangle, AlertCircle, Info, Users, Crown, ShieldCheck } from "lucide-react";
+import { Bell, Database, Mail, Save, Server, Shield, Clock, Code, Copy, Check, CheckCircle2, Smartphone, MessageSquare, GripVertical, AlertTriangle, AlertCircle, Info, Users, Crown, ShieldCheck, Link2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
@@ -85,6 +85,32 @@ export default function Settings() {
   const [vendorsInitialized, setVendorsInitialized] = useState(false);
   const [orderedVendors, setOrderedVendors] = useState<Vendor[]>([]);
   const [vendorImpacts, setVendorImpacts] = useState<Record<string, string>>({});
+  
+  // Toggle between vendors and blockchain
+  const [subscriptionMode, setSubscriptionMode] = useState<'vendors' | 'blockchain'>('vendors');
+  
+  // Fetch all blockchain chains for subscription selection
+  const { data: allChains = [] } = useQuery<any[]>({
+    queryKey: ["/api/blockchain/chains"],
+    queryFn: async () => {
+      const res = await fetch("/api/blockchain/chains");
+      if (!res.ok) throw new Error("Failed to fetch chains");
+      return res.json();
+    },
+  });
+  
+  // Fetch user's blockchain subscriptions
+  const { data: blockchainSubscriptions, refetch: refetchBlockchainSubs } = useQuery<{ chainKeys: string[]; hasSetSubscriptions: boolean }>({
+    queryKey: ["/api/blockchain-subscriptions"],
+    queryFn: async () => {
+      const res = await fetch("/api/blockchain-subscriptions");
+      if (!res.ok) throw new Error("Failed to fetch blockchain subscriptions");
+      return res.json();
+    },
+  });
+  
+  const [selectedChains, setSelectedChains] = useState<string[]>([]);
+  const [chainsInitialized, setChainsInitialized] = useState(false);
   
   // Fetch vendor order
   const { data: vendorOrder } = useQuery<{ vendorKeys: string[] }>({
@@ -279,6 +305,73 @@ export default function Settings() {
       toast({
         title: "Reset Failed",
         description: "Could not reset vendor subscriptions.",
+        variant: "destructive"
+      });
+    },
+  });
+
+  // Sync blockchain subscriptions from API
+  useEffect(() => {
+    if (blockchainSubscriptions && allChains.length > 0 && !chainsInitialized) {
+      if (blockchainSubscriptions.hasSetSubscriptions) {
+        setSelectedChains(blockchainSubscriptions.chainKeys);
+      } else {
+        setSelectedChains(allChains.map((c: any) => c.key));
+      }
+      setChainsInitialized(true);
+    }
+  }, [blockchainSubscriptions, chainsInitialized, allChains]);
+
+  const saveBlockchainSubscriptions = useMutation({
+    mutationFn: async (chainKeys: string[]) => {
+      const res = await fetch("/api/blockchain-subscriptions", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chainKeys }),
+      });
+      if (!res.ok) throw new Error("Failed to save blockchain subscriptions");
+      return res.json();
+    },
+    onSuccess: () => {
+      refetchBlockchainSubs();
+      queryClient.invalidateQueries({ queryKey: ["/api/blockchain/chains"] });
+      toast({
+        title: "Blockchain Subscriptions Saved",
+        description: "Your blockchain monitoring preferences have been updated.",
+        className: "bg-emerald-500 border-emerald-500 text-white"
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Save Failed",
+        description: "Could not save blockchain subscriptions.",
+        variant: "destructive"
+      });
+    },
+  });
+
+  const resetBlockchainSubscriptions = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/blockchain-subscriptions", {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to reset blockchain subscriptions");
+      return res.json();
+    },
+    onSuccess: () => {
+      refetchBlockchainSubs();
+      setChainsInitialized(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/blockchain/chains"] });
+      toast({
+        title: "Reset to Monitor All",
+        description: "You will now receive notifications for all blockchain networks, including new ones.",
+        className: "bg-emerald-500 border-emerald-500 text-white"
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Reset Failed",
+        description: "Could not reset blockchain subscriptions.",
         variant: "destructive"
       });
     },
@@ -922,112 +1015,263 @@ CONFIG = AppConfig(
 
           <Card className="border-sidebar-border bg-sidebar/30 backdrop-blur-sm hover-lift">
             <CardHeader>
-              <div className="flex items-center gap-2">
-                <Shield className="w-5 h-5 text-primary" />
-                <CardTitle>Vendor Subscriptions</CardTitle>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-primary" />
+                  <CardTitle>Subscriptions</CardTitle>
+                </div>
+                <div className="flex rounded-lg bg-sidebar border border-sidebar-border p-1">
+                  <button
+                    onClick={() => setSubscriptionMode('vendors')}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                      subscriptionMode === 'vendors' 
+                        ? 'bg-primary text-primary-foreground' 
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                    data-testid="toggle-vendors"
+                  >
+                    <Server className="w-4 h-4 inline mr-1.5" />
+                    Vendors
+                  </button>
+                  <button
+                    onClick={() => setSubscriptionMode('blockchain')}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                      subscriptionMode === 'blockchain' 
+                        ? 'bg-primary text-primary-foreground' 
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                    data-testid="toggle-blockchain"
+                  >
+                    <Link2 className="w-4 h-4 inline mr-1.5" />
+                    Blockchain
+                  </button>
+                </div>
               </div>
               <CardDescription>
-                Choose which vendors you want to monitor and receive notifications for.
-                {!vendorSubscriptions?.hasSetSubscriptions && (
-                  <span className="block mt-1 text-primary">You haven't set preferences yet - monitoring all vendors by default.</span>
-                )}
-                {vendorSubscriptions?.hasSetSubscriptions && selectedVendors.length === 0 && (
-                  <span className="block mt-1 text-amber-500">No vendors selected - you won't receive any notifications.</span>
+                {subscriptionMode === 'vendors' ? (
+                  <>
+                    Choose which vendors you want to monitor and receive notifications for.
+                    {!vendorSubscriptions?.hasSetSubscriptions && (
+                      <span className="block mt-1 text-primary">You haven't set preferences yet - monitoring all vendors by default.</span>
+                    )}
+                    {vendorSubscriptions?.hasSetSubscriptions && selectedVendors.length === 0 && (
+                      <span className="block mt-1 text-amber-500">No vendors selected - you won't receive any notifications.</span>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    Choose which blockchain networks you want to monitor and receive notifications for.
+                    {!blockchainSubscriptions?.hasSetSubscriptions && (
+                      <span className="block mt-1 text-primary">You haven't set preferences yet - monitoring all chains by default.</span>
+                    )}
+                    {blockchainSubscriptions?.hasSetSubscriptions && selectedChains.length === 0 && (
+                      <span className="block mt-1 text-amber-500">No chains selected - you won't receive any notifications.</span>
+                    )}
+                  </>
                 )}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-xs text-muted-foreground flex items-center gap-2">
-                <GripVertical className="w-3 h-3" /> Drag to reorder vendors. Order is saved automatically.
-              </p>
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
-              >
-                <SortableContext
-                  items={orderedVendors.map(v => v.key)}
-                  strategy={verticalListSortingStrategy}
-                >
+              {subscriptionMode === 'vendors' ? (
+                <>
+                  <p className="text-xs text-muted-foreground flex items-center gap-2">
+                    <GripVertical className="w-3 h-3" /> Drag to reorder vendors. Order is saved automatically.
+                  </p>
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                  >
+                    <SortableContext
+                      items={orderedVendors.map(v => v.key)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {orderedVendors.map((vendor) => (
+                          <SortableVendorItem
+                            key={vendor.key}
+                            vendor={vendor}
+                            isSelected={selectedVendors.includes(vendor.key)}
+                            onToggle={(checked) => {
+                              if (checked) {
+                                setSelectedVendors(prev => [...prev, vendor.key]);
+                              } else {
+                                setSelectedVendors(prev => prev.filter(k => k !== vendor.key));
+                              }
+                            }}
+                            customerImpact={vendorImpacts[vendor.key] || 'medium'}
+                            onImpactChange={(impact) => updateVendorImpact.mutate({ vendorKey: vendor.key, customerImpact: impact })}
+                          />
+                        ))}
+                      </div>
+                    </SortableContext>
+                  </DndContext>
+                  
+                  <div className="flex flex-col gap-4 pt-4 border-t border-sidebar-border">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-muted-foreground">
+                        {!vendorSubscriptions?.hasSetSubscriptions 
+                          ? "Monitoring all vendors (default)" 
+                          : selectedVendors.length === 0 
+                          ? "No vendors selected" 
+                          : `${selectedVendors.length} of ${allVendors.length} vendors selected`}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setSelectedVendors(allVendors.map(v => v.key))}
+                          data-testid="button-select-all-vendors"
+                        >
+                          Select All
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setSelectedVendors([])}
+                          data-testid="button-clear-vendors"
+                        >
+                          Clear All
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-muted-foreground max-w-md">
+                        {vendorSubscriptions?.hasSetSubscriptions 
+                          ? "You have customized your vendor list. New vendors won't be added automatically."
+                          : "Monitoring all vendors includes any new vendors added in the future."}
+                      </p>
+                      <div className="flex gap-2">
+                        {vendorSubscriptions?.hasSetSubscriptions && (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => resetSubscriptions.mutate()}
+                            disabled={resetSubscriptions.isPending}
+                            data-testid="button-reset-vendors"
+                          >
+                            Reset to Monitor All
+                          </Button>
+                        )}
+                        <Button 
+                          size="sm"
+                          onClick={() => saveVendorSubscriptions.mutate(selectedVendors)}
+                          disabled={saveVendorSubscriptions.isPending}
+                          data-testid="button-save-vendors"
+                        >
+                          <Save className="w-4 h-4 mr-2" />
+                          Save Custom Selection
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs text-muted-foreground">
+                    Select blockchain networks to monitor for incidents and status changes.
+                  </p>
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {orderedVendors.map((vendor) => (
-                      <SortableVendorItem
-                        key={vendor.key}
-                        vendor={vendor}
-                        isSelected={selectedVendors.includes(vendor.key)}
-                        onToggle={(checked) => {
-                          if (checked) {
-                            setSelectedVendors(prev => [...prev, vendor.key]);
-                          } else {
-                            setSelectedVendors(prev => prev.filter(k => k !== vendor.key));
-                          }
-                        }}
-                        customerImpact={vendorImpacts[vendor.key] || 'medium'}
-                        onImpactChange={(impact) => updateVendorImpact.mutate({ vendorKey: vendor.key, customerImpact: impact })}
-                      />
+                    {allChains.map((chain: any) => (
+                      <div
+                        key={chain.key}
+                        className="flex items-center gap-3 p-3 rounded-lg border border-sidebar-border bg-sidebar/50 hover:bg-sidebar/80 transition-colors"
+                      >
+                        <Checkbox
+                          id={`chain-${chain.key}`}
+                          checked={selectedChains.includes(chain.key)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedChains(prev => [...prev, chain.key]);
+                            } else {
+                              setSelectedChains(prev => prev.filter(k => k !== chain.key));
+                            }
+                          }}
+                          data-testid={`checkbox-chain-${chain.key}`}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <label 
+                            htmlFor={`chain-${chain.key}`}
+                            className="font-medium text-sm cursor-pointer block truncate"
+                          >
+                            {chain.name}
+                          </label>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span className={`inline-flex items-center gap-1 ${
+                              chain.status === 'operational' ? 'text-emerald-500' : 
+                              chain.status === 'degraded' ? 'text-amber-500' : 'text-red-500'
+                            }`}>
+                              <CheckCircle2 className="w-3 h-3" />
+                              {chain.status || 'Unknown'}
+                            </span>
+                            <span className="text-muted-foreground/60">•</span>
+                            <span className="capitalize">{chain.category}</span>
+                          </div>
+                        </div>
+                      </div>
                     ))}
                   </div>
-                </SortableContext>
-              </DndContext>
-              
-              <div className="flex flex-col gap-4 pt-4 border-t border-sidebar-border">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm text-muted-foreground">
-                    {!vendorSubscriptions?.hasSetSubscriptions 
-                      ? "Monitoring all vendors (default)" 
-                      : selectedVendors.length === 0 
-                      ? "No vendors selected" 
-                      : `${selectedVendors.length} of ${allVendors.length} vendors selected`}
+                  
+                  <div className="flex flex-col gap-4 pt-4 border-t border-sidebar-border">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-muted-foreground">
+                        {!blockchainSubscriptions?.hasSetSubscriptions 
+                          ? "Monitoring all chains (default)" 
+                          : selectedChains.length === 0 
+                          ? "No chains selected" 
+                          : `${selectedChains.length} of ${allChains.length} chains selected`}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setSelectedChains(allChains.map((c: any) => c.key))}
+                          data-testid="button-select-all-chains"
+                        >
+                          Select All
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setSelectedChains([])}
+                          data-testid="button-clear-chains"
+                        >
+                          Clear All
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-muted-foreground max-w-md">
+                        {blockchainSubscriptions?.hasSetSubscriptions 
+                          ? "You have customized your chain list. New chains won't be added automatically."
+                          : "Monitoring all chains includes any new chains added in the future."}
+                      </p>
+                      <div className="flex gap-2">
+                        {blockchainSubscriptions?.hasSetSubscriptions && (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => resetBlockchainSubscriptions.mutate()}
+                            disabled={resetBlockchainSubscriptions.isPending}
+                            data-testid="button-reset-chains"
+                          >
+                            Reset to Monitor All
+                          </Button>
+                        )}
+                        <Button 
+                          size="sm"
+                          onClick={() => saveBlockchainSubscriptions.mutate(selectedChains)}
+                          disabled={saveBlockchainSubscriptions.isPending}
+                          data-testid="button-save-chains"
+                        >
+                          <Save className="w-4 h-4 mr-2" />
+                          Save Custom Selection
+                        </Button>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => setSelectedVendors(allVendors.map(v => v.key))}
-                      data-testid="button-select-all-vendors"
-                    >
-                      Select All
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => setSelectedVendors([])}
-                      data-testid="button-clear-vendors"
-                    >
-                      Clear All
-                    </Button>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-muted-foreground max-w-md">
-                    {vendorSubscriptions?.hasSetSubscriptions 
-                      ? "You have customized your vendor list. New vendors won't be added automatically."
-                      : "Monitoring all vendors includes any new vendors added in the future."}
-                  </p>
-                  <div className="flex gap-2">
-                    {vendorSubscriptions?.hasSetSubscriptions && (
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => resetSubscriptions.mutate()}
-                        disabled={resetSubscriptions.isPending}
-                        data-testid="button-reset-vendors"
-                      >
-                        Reset to Monitor All
-                      </Button>
-                    )}
-                    <Button 
-                      size="sm"
-                      onClick={() => saveVendorSubscriptions.mutate(selectedVendors)}
-                      disabled={saveVendorSubscriptions.isPending}
-                      data-testid="button-save-vendors"
-                    >
-                      <Save className="w-4 h-4 mr-2" />
-                      Save Custom Selection
-                    </Button>
-                  </div>
-                </div>
-              </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

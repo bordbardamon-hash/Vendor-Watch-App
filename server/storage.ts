@@ -187,6 +187,7 @@ export interface IStorage {
   getUserBlockchainSubscriptions(userId: string): Promise<string[]>;
   setUserBlockchainSubscriptions(userId: string, chainKeys: string[]): Promise<void>;
   hasUserSetBlockchainSubscriptions(userId: string): Promise<boolean>;
+  resetUserBlockchainSubscriptions(userId: string): Promise<void>;
   checkBlockchainLimit(userId: string): Promise<{ allowed: boolean; current: number; limit: number | null; tier: string | null }>;
   hasBlockchainAlertBeenSent(incidentId: string, userId: string, channel: string, eventType: string, statusSnapshot: string): Promise<boolean>;
   recordBlockchainAlert(alert: { incidentId: string; userId: string; channel: string; eventType: string; statusSnapshot: string; destination: string }): Promise<void>;
@@ -1470,6 +1471,11 @@ export class DatabaseStorage implements IStorage {
     }
     
     await this.setConfig(`blockchain_subscriptions_set:${userId}`, 'true');
+  }
+
+  async resetUserBlockchainSubscriptions(userId: string): Promise<void> {
+    await db.delete(userBlockchainSubscriptions).where(eq(userBlockchainSubscriptions.userId, userId));
+    await db.delete(config).where(eq(config.key, `blockchain_subscriptions_set:${userId}`));
   }
 
   async checkBlockchainLimit(userId: string): Promise<{ allowed: boolean; current: number; limit: number | null; tier: string | null }> {

@@ -957,6 +957,47 @@ export async function registerRoutes(
     }
   });
 
+  // Blockchain subscriptions
+  app.get("/api/blockchain-subscriptions", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const subscriptions = await storage.getUserBlockchainSubscriptions(userId);
+      const hasSetSubscriptions = await storage.hasUserSetBlockchainSubscriptions(userId);
+      res.json({ chainKeys: subscriptions, hasSetSubscriptions });
+    } catch (error) {
+      console.error("Error fetching blockchain subscriptions:", error);
+      res.status(500).json({ error: "Failed to fetch blockchain subscriptions" });
+    }
+  });
+
+  app.put("/api/blockchain-subscriptions", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { chainKeys } = req.body;
+      
+      if (!Array.isArray(chainKeys)) {
+        return res.status(400).json({ error: "chainKeys must be an array" });
+      }
+      
+      await storage.setUserBlockchainSubscriptions(userId, chainKeys);
+      res.json({ success: true, chainKeys });
+    } catch (error) {
+      console.error("Error updating blockchain subscriptions:", error);
+      res.status(500).json({ error: "Failed to update blockchain subscriptions" });
+    }
+  });
+
+  app.delete("/api/blockchain-subscriptions", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      await storage.resetUserBlockchainSubscriptions(userId);
+      res.json({ success: true, message: "Reset to monitor all blockchain networks" });
+    } catch (error) {
+      console.error("Error resetting blockchain subscriptions:", error);
+      res.status(500).json({ error: "Failed to reset blockchain subscriptions" });
+    }
+  });
+
   app.get("/api/my-vendors", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
