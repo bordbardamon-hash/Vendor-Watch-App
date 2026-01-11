@@ -1087,7 +1087,7 @@ CONFIG = AppConfig(
                       strategy={verticalListSortingStrategy}
                     >
                       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                        {orderedVendors.map((vendor) => (
+                        {[...orderedVendors].sort((a, b) => a.name.localeCompare(b.name)).map((vendor) => (
                           <SortableVendorItem
                             key={vendor.key}
                             vendor={vendor}
@@ -1172,7 +1172,7 @@ CONFIG = AppConfig(
                     Select blockchain networks to monitor for incidents and status changes.
                   </p>
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {allChains.map((chain: any) => (
+                    {[...allChains].sort((a: any, b: any) => a.name.localeCompare(b.name)).map((chain: any) => (
                       <div
                         key={chain.key}
                         className="flex items-center gap-3 p-3 rounded-lg border border-sidebar-border bg-sidebar/50 hover:bg-sidebar/80 transition-colors"
