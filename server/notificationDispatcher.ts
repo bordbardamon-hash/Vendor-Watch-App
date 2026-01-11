@@ -167,15 +167,19 @@ export async function dispatchIncidentNotification(notification: IncidentNotific
     const userSubscriptions = await storage.getUserVendorSubscriptions(user.id);
     
     let isSubscribed: boolean;
-    if (!hasSetSubscriptions) {
-      isSubscribed = true;
-    } else if (userSubscriptions.length === 0) {
+    if (userSubscriptions.length > 0) {
+      // User has specific subscriptions - only notify for those vendors
+      isSubscribed = userSubscriptions.includes(vendor.key);
+    } else if (hasSetSubscriptions) {
+      // User explicitly cleared all vendors - don't notify
       isSubscribed = false;
     } else {
-      isSubscribed = userSubscriptions.includes(vendor.key);
+      // New user with no preferences yet - default to all vendors
+      isSubscribed = true;
     }
     
     if (!isSubscribed) {
+      console.log(`[notify] Skipping ${user.email} - not subscribed to ${vendor.key}`);
       continue;
     }
     
@@ -451,15 +455,21 @@ export async function dispatchLifecycleNotification(notification: LifecycleNotif
     const userSubscriptions = await storage.getUserVendorSubscriptions(user.id);
     
     let isSubscribed: boolean;
-    if (!hasSetSubscriptions) {
-      isSubscribed = true;
-    } else if (userSubscriptions.length === 0) {
+    if (userSubscriptions.length > 0) {
+      // User has specific subscriptions - only notify for those vendors
+      isSubscribed = userSubscriptions.includes(vendor.key);
+    } else if (hasSetSubscriptions) {
+      // User explicitly cleared all vendors - don't notify
       isSubscribed = false;
     } else {
-      isSubscribed = userSubscriptions.includes(vendor.key);
+      // New user with no preferences yet - default to all vendors
+      isSubscribed = true;
     }
     
-    if (!isSubscribed) continue;
+    if (!isSubscribed) {
+      console.log(`[notify] Skipping ${user.email} - not subscribed to ${vendor.key}`);
+      continue;
+    }
     
     const canSend = await shouldSendAlert(
       incident.incidentId,
@@ -761,15 +771,21 @@ export async function dispatchBlockchainNotification(notification: BlockchainNot
     const userSubscriptions = await storage.getUserBlockchainSubscriptions(user.id);
     
     let isSubscribed: boolean;
-    if (!hasSetSubscriptions) {
-      isSubscribed = true;
-    } else if (userSubscriptions.length === 0) {
+    if (userSubscriptions.length > 0) {
+      // User has specific blockchain subscriptions - only notify for those chains
+      isSubscribed = userSubscriptions.includes(chain.key);
+    } else if (hasSetSubscriptions) {
+      // User explicitly cleared all chains - don't notify for blockchain
       isSubscribed = false;
     } else {
-      isSubscribed = userSubscriptions.includes(chain.key);
+      // New user with no preferences yet - default to all chains
+      isSubscribed = true;
     }
     
-    if (!isSubscribed) continue;
+    if (!isSubscribed) {
+      console.log(`[notify] Skipping ${user.email} - not subscribed to blockchain ${chain.key}`);
+      continue;
+    }
     
     // Check if user has acknowledged this blockchain incident - skip notifications if so
     const isAcknowledged = await storage.isIncidentAcknowledged(user.id, incident.id);
