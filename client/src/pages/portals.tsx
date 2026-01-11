@@ -82,7 +82,7 @@ export default function Portals() {
   });
 
   const { data: chains = [] } = useQuery<BlockchainChain[]>({
-    queryKey: ["/api/blockchain"],
+    queryKey: ["/api/blockchain/chains"],
   });
 
   const { data: portalDetail } = useQuery<{ portal: ClientPortal; assignments: PortalAssignment[] }>({
