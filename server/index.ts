@@ -68,9 +68,11 @@ app.post(
   '/api/stripe/webhook',
   express.raw({ type: 'application/json' }),
   async (req, res) => {
+    console.log('[stripe] Webhook request received');
     const signature = req.headers['stripe-signature'];
 
     if (!signature) {
+      console.error('[stripe] Missing stripe-signature header');
       return res.status(400).json({ error: 'Missing stripe-signature' });
     }
 
@@ -78,14 +80,17 @@ app.post(
       const sig = Array.isArray(signature) ? signature[0] : signature;
 
       if (!Buffer.isBuffer(req.body)) {
-        console.error('[stripe] WEBHOOK ERROR: req.body is not a Buffer');
+        console.error('[stripe] WEBHOOK ERROR: req.body is not a Buffer, got:', typeof req.body);
         return res.status(500).json({ error: 'Webhook processing error' });
       }
 
+      console.log('[stripe] Processing webhook with signature:', sig.substring(0, 20) + '...');
       await WebhookHandlers.processWebhook(req.body as Buffer, sig);
+      console.log('[stripe] Webhook processed successfully');
       res.status(200).json({ received: true });
     } catch (error: any) {
       console.error('[stripe] Webhook error:', error.message);
+      console.error('[stripe] Webhook error stack:', error.stack);
       res.status(400).json({ error: 'Webhook processing error' });
     }
   }
