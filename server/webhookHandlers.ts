@@ -22,10 +22,10 @@ export class WebhookHandlers {
 
     const stripe = await getUncachableStripeClient();
     
-    // Try managed webhook secret first, then fall back to environment variable
-    let webhookSecret = await sync.getManagedWebhookSecret();
+    // Prioritize environment variable, then fall back to managed webhook secret
+    let webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || null;
     if (!webhookSecret) {
-      webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || null;
+      webhookSecret = await sync.getManagedWebhookSecret();
     }
     
     if (!webhookSecret) {
