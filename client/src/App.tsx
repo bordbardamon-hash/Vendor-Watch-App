@@ -72,7 +72,8 @@ function AuthenticatedRouter() {
 
   useEffect(() => {
     // Redirect to onboarding if profile or billing not completed
-    const needsOnboarding = user && (user.profileCompleted === false || user.billingCompleted === false);
+    // Use negation (!==true) to catch false, null, and undefined values
+    const needsOnboarding = user && (user.profileCompleted !== true || user.billingCompleted !== true);
     const isOnboardingRoute = location === "/onboarding" || location.startsWith("/onboarding/");
     
     if (needsOnboarding && !isOnboardingRoute) {
@@ -93,7 +94,8 @@ function AuthenticatedRouter() {
   }
 
   // Must complete both profile AND billing before accessing dashboard
-  if (user?.profileCompleted === false || user?.billingCompleted === false) {
+  // Use negation (!==true) to catch false, null, and undefined values
+  if (user?.profileCompleted !== true || user?.billingCompleted !== true) {
     return <Onboarding />;
   }
 

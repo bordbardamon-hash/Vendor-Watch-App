@@ -41,6 +41,7 @@ class AuthStorage implements IAuthStorage {
         .values({
           ...userData,
           profileCompleted: false,
+          billingCompleted: false,
           trialEndsAt: trialEndsAt,
           subscriptionTier: null, // No tier until they complete onboarding
         })
