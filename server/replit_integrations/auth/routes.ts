@@ -1,10 +1,35 @@
-import type { Express } from "express";
+import type { Express, RequestHandler } from "express";
 import { authStorage } from "./storage";
-import { isAuthenticated } from "./replitAuth";
 import { z } from "zod";
 import { db } from "../../db";
 import { users } from "@shared/models/auth";
 import { eq } from "drizzle-orm";
+
+// Unified auth middleware that works with both email auth and Replit OAuth
+// It checks session.userId first (email auth), then falls back to passport user (Replit OAuth)
+const isAuthenticated: RequestHandler = async (req: any, res, next) => {
+  // Check for email auth session
+  const emailAuthUserId = req.session?.userId;
+  if (emailAuthUserId) {
+    try {
+      const [user] = await db.select().from(users).where(eq(users.id, emailAuthUserId)).limit(1);
+      if (user) {
+        req.user = user;
+        req.user.claims = { sub: user.id }; // Add claims for compatibility
+        return next();
+      }
+    } catch (error) {
+      console.error('[auth] Email auth check failed:', error);
+    }
+  }
+  
+  // Check for Replit OAuth session (passport)
+  if (req.isAuthenticated && req.isAuthenticated() && req.user?.claims?.sub) {
+    return next();
+  }
+  
+  return res.status(401).json({ message: "Unauthorized" });
+};
 
 // Onboarding schema - all fields required to complete profile
 const onboardingSchema = z.object({
@@ -12,8 +37,11 @@ const onboardingSchema = z.object({
   lastName: z.string().min(1, "Last name is required"),
   companyName: z.string().min(1, "Company name is required"),
   phone: z.string().min(1, "Phone number is required"),
-  notificationEmail: z.string().email("Valid email is required").optional(),
-});
+  notificationEmail: z.string().email("Valid email is required").optional().or(z.literal("")),
+}).transform((data) => ({
+  ...data,
+  notificationEmail: data.notificationEmail === "" ? undefined : data.notificationEmail,
+}));
 
 // Register auth-specific routes
 export function registerAuthRoutes(app: Express): void {
@@ -22,6 +50,7 @@ export function registerAuthRoutes(app: Express): void {
     try {
       const userId = req.user.claims.sub;
       const user = await authStorage.getUser(userId);
+      console.log(`[auth] Returning user ${userId}: profileCompleted=${user?.profileCompleted}, type=${typeof user?.profileCompleted}`);
       res.json(user);
     } catch (error) {
       console.error("Error fetching user:", error);

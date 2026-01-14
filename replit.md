@@ -29,6 +29,12 @@ Preferred communication style: Simple, everyday language.
 - **Access Control**: `isAuthenticated` middleware for all API endpoints.
 - **Two-Factor Authentication (2FA)**: TOTP-based 2FA with recovery codes.
 - **Password Reset**: Email-based password reset flow via Resend. Users request reset at `/forgot-password`, receive email with secure token link, and set new password at `/reset-password`. Tokens expire after 1 hour.
+- **Mandatory Onboarding**: All Replit Auth users must complete onboarding at `/onboarding` before accessing the app:
+  - New users get a 7-day free trial (`trialEndsAt` field)
+  - Must provide required info: firstName, lastName, companyName, phone
+  - `profileCompleted` field tracks completion status
+  - Route guards redirect incomplete profiles to onboarding
+  - API: `POST /api/onboarding/complete` to save profile, `GET /api/onboarding/status` to check status
 
 ### Data Model
 Key entities include Users, Sessions, Vendors, Incidents, Jobs, and Configuration. Dedicated tables for Blockchain Chains, Incidents, and User Subscriptions, as well as Notification Consents, Incident Alerts, Vendor Reliability Stats, Custom Vendor Requests, User Vendor Orders, Organizations, Organization Members, and Organization Invitations.

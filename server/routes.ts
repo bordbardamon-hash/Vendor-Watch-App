@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertVendorSchema, insertIncidentSchema, insertJobSchema, insertConfigSchema, insertFeedbackSchema, insertNotificationConsentSchema, insertCustomVendorRequestSchema, SUBSCRIPTION_TIERS } from "@shared/schema";
 import { setupEmailAuth, isAuthenticated } from "./emailAuth";
+import { registerAuthRoutes } from "./replit_integrations/auth";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
 import { sendSMS } from "./twilioClient";
 import { syncVendorStatus, resolveStaleIncidents } from "./statusSync";
@@ -128,6 +129,8 @@ export async function registerRoutes(
   // Setup authentication BEFORE other routes
   try {
     await setupEmailAuth(app);
+    // Register additional auth routes (onboarding, etc.)
+    registerAuthRoutes(app);
   } catch (error) {
     console.error("[auth] Failed to setup authentication:", error);
   }
