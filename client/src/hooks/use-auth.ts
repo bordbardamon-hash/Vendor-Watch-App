@@ -32,7 +32,8 @@ export function useAuth() {
     queryKey: ["/api/auth/user"],
     queryFn: fetchUser,
     retry: false,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 0, // Always refetch to ensure fresh data, especially for new logins
+    gcTime: 0, // Don't cache to avoid stale user data across sessions
   });
 
   const logoutMutation = useMutation({

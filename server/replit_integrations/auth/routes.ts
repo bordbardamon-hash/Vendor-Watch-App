@@ -57,8 +57,22 @@ export function registerAuthRoutes(app: Express): void {
   app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const user = await authStorage.getUser(userId);
-      console.log(`[auth] Returning user ${userId}: profileCompleted=${user?.profileCompleted}, type=${typeof user?.profileCompleted}`);
+      let user = await authStorage.getUser(userId);
+      
+      // If user doesn't exist in database (new Replit OAuth user), create them
+      // This ensures the user record exists with proper onboarding flags
+      if (!user && req.user.claims) {
+        console.log(`[auth] Creating new user record for ${req.user.claims.email}`);
+        user = await authStorage.upsertUser({
+          id: userId,
+          email: req.user.claims.email,
+          firstName: req.user.claims.first_name,
+          lastName: req.user.claims.last_name,
+          profileImageUrl: req.user.claims.profile_image_url,
+        });
+      }
+      
+      console.log(`[auth] Returning user ${userId}: profileCompleted=${user?.profileCompleted}, billingCompleted=${user?.billingCompleted}`);
       res.json(user);
     } catch (error) {
       console.error("Error fetching user:", error);
