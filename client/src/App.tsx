@@ -44,11 +44,13 @@ import Portals from "@/pages/portals";
 import PsaIntegrations from "@/pages/psa-integrations";
 import Predictions from "@/pages/predictions";
 import PublicPortal from "@/pages/public-portal";
+import Onboarding from "@/pages/onboarding";
 import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
 
 function AuthenticatedRouter() {
   const [location, setLocation] = useLocation();
+  const { user } = useAuth();
   
   const { data: twoFASession, isLoading: checking2FA } = useQuery<{ requires2FA: boolean; verified: boolean }>({
     queryKey: ["/api/2fa/session-status"],
@@ -67,6 +69,12 @@ function AuthenticatedRouter() {
     }
   }, [checking2FA, twoFASession, location, setLocation]);
 
+  useEffect(() => {
+    if (user && user.profileCompleted === false && location !== "/onboarding") {
+      setLocation("/onboarding");
+    }
+  }, [user, location, setLocation]);
+
   if (checking2FA) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -77,6 +85,10 @@ function AuthenticatedRouter() {
 
   if (twoFASession?.requires2FA && !twoFASession?.verified) {
     return <Verify2FA />;
+  }
+
+  if (user?.profileCompleted === false) {
+    return <Onboarding />;
   }
 
   // Handle full-screen routes outside Layout (for mobile Safari compatibility)
@@ -143,6 +155,9 @@ function Router() {
       <Route path="/pricing" component={Pricing} />
       <Route path="/accept-invite/:token" component={AcceptInvite} />
       <Route path="/status/:slug" component={PublicPortal} />
+      <Route path="/onboarding">
+        {user ? <Onboarding /> : <Landing />}
+      </Route>
       <Route>
         {user ? <AuthenticatedRouter /> : <Landing />}
       </Route>
