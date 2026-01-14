@@ -16,18 +16,39 @@ class AuthStorage implements IAuthStorage {
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values(userData)
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
-          ...userData,
+    // Check if user already exists
+    const existingUser = await this.getUser(userData.id!);
+    
+    if (existingUser) {
+      // Existing user - only update basic profile info from Replit, preserve everything else
+      const [user] = await db
+        .update(users)
+        .set({
+          email: userData.email,
+          profileImageUrl: userData.profileImageUrl,
           updatedAt: new Date(),
-        },
-      })
-      .returning();
-    return user;
+        })
+        .where(eq(users.id, userData.id!))
+        .returning();
+      return user;
+    } else {
+      // New user - set 7-day trial and mark profile as incomplete
+      const trialEndsAt = new Date();
+      trialEndsAt.setDate(trialEndsAt.getDate() + 7);
+      
+      const [user] = await db
+        .insert(users)
+        .values({
+          ...userData,
+          profileCompleted: false,
+          trialEndsAt: trialEndsAt,
+          subscriptionTier: null, // No tier until they complete onboarding
+        })
+        .returning();
+      
+      console.log(`[auth] New user created with 7-day trial ending ${trialEndsAt.toISOString()}`);
+      return user;
+    }
   }
 }
 
