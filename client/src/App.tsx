@@ -45,6 +45,7 @@ import PsaIntegrations from "@/pages/psa-integrations";
 import Predictions from "@/pages/predictions";
 import PublicPortal from "@/pages/public-portal";
 import Onboarding from "@/pages/onboarding";
+import BillingSuccess from "@/pages/billing-success";
 import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
 
@@ -70,7 +71,11 @@ function AuthenticatedRouter() {
   }, [checking2FA, twoFASession, location, setLocation]);
 
   useEffect(() => {
-    if (user && user.profileCompleted === false && location !== "/onboarding") {
+    // Redirect to onboarding if profile or billing not completed
+    const needsOnboarding = user && (user.profileCompleted === false || user.billingCompleted === false);
+    const isOnboardingRoute = location === "/onboarding" || location.startsWith("/onboarding/");
+    
+    if (needsOnboarding && !isOnboardingRoute) {
       setLocation("/onboarding");
     }
   }, [user, location, setLocation]);
@@ -87,7 +92,8 @@ function AuthenticatedRouter() {
     return <Verify2FA />;
   }
 
-  if (user?.profileCompleted === false) {
+  // Must complete both profile AND billing before accessing dashboard
+  if (user?.profileCompleted === false || user?.billingCompleted === false) {
     return <Onboarding />;
   }
 
@@ -157,6 +163,12 @@ function Router() {
       <Route path="/status/:slug" component={PublicPortal} />
       <Route path="/onboarding">
         {user ? <Onboarding /> : <Landing />}
+      </Route>
+      <Route path="/onboarding/billing">
+        {user ? <Onboarding /> : <Landing />}
+      </Route>
+      <Route path="/onboarding/billing/success">
+        {user ? <BillingSuccess /> : <Landing />}
       </Route>
       <Route>
         {user ? <AuthenticatedRouter /> : <Landing />}
