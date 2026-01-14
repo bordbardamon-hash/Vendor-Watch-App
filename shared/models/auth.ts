@@ -52,6 +52,8 @@ export const users = pgTable("users", {
   passwordResetExpires: timestamp("password_reset_expires"),
   // Onboarding and trial fields
   profileCompleted: boolean("profile_completed").default(false),
+  billingCompleted: boolean("billing_completed").default(false), // True when Stripe checkout is done
+  billingStatus: varchar("billing_status"), // 'trialing', 'active', 'past_due', 'canceled', 'incomplete'
   trialEndsAt: timestamp("trial_ends_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

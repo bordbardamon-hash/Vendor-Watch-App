@@ -4,6 +4,14 @@ import { z } from "zod";
 import { db } from "../../db";
 import { users } from "@shared/models/auth";
 import { eq } from "drizzle-orm";
+import { getUncachableStripeClient } from "../../stripeClient";
+
+// Stripe price IDs for subscription tiers
+const TIER_PRICE_IDS = {
+  essential: process.env.STRIPE_PRICE_ESSENTIAL || "price_essential_placeholder",
+  growth: process.env.STRIPE_PRICE_GROWTH || "price_growth_placeholder",
+  enterprise: process.env.STRIPE_PRICE_ENTERPRISE || "price_enterprise_placeholder",
+} as const;
 
 // Unified auth middleware that works with both email auth and Replit OAuth
 // It checks session.userId first (email auth), then falls back to passport user (Replit OAuth)
@@ -117,6 +125,8 @@ export function registerAuthRoutes(app: Express): void {
 
       res.json({
         profileCompleted: user.profileCompleted ?? false,
+        billingCompleted: user.billingCompleted ?? false,
+        billingStatus: user.billingStatus,
         trialEndsAt: user.trialEndsAt,
         hasSubscription: !!user.subscriptionTier,
         subscriptionTier: user.subscriptionTier,
@@ -124,6 +134,129 @@ export function registerAuthRoutes(app: Express): void {
     } catch (error) {
       console.error("Error checking onboarding status:", error);
       res.status(500).json({ error: "Failed to check onboarding status" });
+    }
+  });
+
+  // Create Stripe checkout session for billing setup during onboarding
+  app.post("/api/onboarding/billing/checkout", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await authStorage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      if (!user.profileCompleted) {
+        return res.status(400).json({ error: "Profile must be completed first" });
+      }
+
+      // Validate tier selection
+      const tierSchema = z.object({
+        tier: z.enum(['essential', 'growth', 'enterprise']).default('essential'),
+      });
+      const { tier } = tierSchema.parse(req.body);
+      const priceId = TIER_PRICE_IDS[tier];
+
+      const stripe = await getUncachableStripeClient();
+
+      // Create or get Stripe customer
+      let customerId = user.stripeCustomerId;
+      if (!customerId) {
+        const customer = await stripe.customers.create({
+          email: user.email || undefined,
+          name: `${user.firstName} ${user.lastName}`,
+          phone: user.phone || undefined,
+          metadata: {
+            userId: userId,
+            companyName: user.companyName || '',
+          },
+        });
+        customerId = customer.id;
+        
+        // Save Stripe customer ID
+        await db.update(users)
+          .set({ stripeCustomerId: customerId, updatedAt: new Date() })
+          .where(eq(users.id, userId));
+      }
+
+      // Create checkout session with 7-day trial
+      const session = await stripe.checkout.sessions.create({
+        customer: customerId,
+        payment_method_types: ['card'],
+        line_items: [{ price: priceId, quantity: 1 }],
+        mode: 'subscription',
+        success_url: `${req.protocol}://${req.get('host')}/onboarding/billing/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${req.protocol}://${req.get('host')}/onboarding/billing`,
+        subscription_data: {
+          trial_period_days: 7,
+          metadata: {
+            userId: userId,
+            subscriptionTier: tier,
+          },
+        },
+      });
+
+      console.log(`[billing] Created checkout session for user ${userId}, tier: ${tier}`);
+      res.json({ url: session.url, sessionId: session.id });
+    } catch (error: any) {
+      console.error("Error creating billing checkout:", error);
+      res.status(500).json({ error: "Failed to create checkout session", details: error.message });
+    }
+  });
+
+  // Confirm billing after Stripe checkout success
+  app.post("/api/onboarding/billing/confirm", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { sessionId } = req.body;
+
+      if (!sessionId) {
+        return res.status(400).json({ error: "Session ID required" });
+      }
+
+      const stripe = await getUncachableStripeClient();
+      const session = await stripe.checkout.sessions.retrieve(sessionId, {
+        expand: ['subscription'],
+      });
+
+      if (session.payment_status !== 'paid' && session.payment_status !== 'no_payment_required') {
+        return res.status(400).json({ error: "Payment not completed" });
+      }
+
+      const subscription = session.subscription as any;
+      if (!subscription) {
+        return res.status(400).json({ error: "No subscription found" });
+      }
+
+      // Determine tier from subscription metadata or price
+      const tier = subscription.metadata?.subscriptionTier || 'essential';
+      const trialEnd = subscription.trial_end ? new Date(subscription.trial_end * 1000) : null;
+
+      // Update user with subscription info
+      const [updatedUser] = await db.update(users)
+        .set({
+          stripeSubscriptionId: subscription.id,
+          subscriptionTier: tier,
+          billingCompleted: true,
+          billingStatus: subscription.status, // 'trialing', 'active', etc.
+          trialEndsAt: trialEnd,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId))
+        .returning();
+
+      console.log(`[billing] User ${userId} completed billing setup, tier: ${tier}, status: ${subscription.status}`);
+      res.json({
+        success: true,
+        user: updatedUser,
+        subscriptionTier: tier,
+        billingStatus: subscription.status,
+        trialEndsAt: trialEnd,
+      });
+    } catch (error: any) {
+      console.error("Error confirming billing:", error);
+      res.status(500).json({ error: "Failed to confirm billing", details: error.message });
     }
   });
 }
