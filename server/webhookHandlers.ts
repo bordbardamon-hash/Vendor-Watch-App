@@ -73,10 +73,22 @@ export class WebhookHandlers {
             if (customer && !customer.deleted && customer.email) {
               const user = await storage.getUserByEmail(customer.email);
               if (user) {
+                // Update subscription info including billing status
+                const isCanceled = subscription.status === 'canceled';
+                const isActive = ['active', 'trialing'].includes(subscription.status);
+                
                 await storage.updateUserStripeInfo(user.id, {
-                  stripeSubscriptionId: subscription.status === 'canceled' ? null : subscription.id,
+                  stripeSubscriptionId: isCanceled ? null : subscription.id,
+                  billingStatus: subscription.status,
+                  billingCompleted: isActive,
                 });
-                console.log(`[stripe] Updated subscription status for user ${user.id}`);
+                
+                // Update trial end date if available
+                if (subscription.trial_end) {
+                  await storage.updateUserTrialEnd(user.id, new Date(subscription.trial_end * 1000));
+                }
+                
+                console.log(`[stripe] Updated subscription status for user ${user.id}: ${subscription.status}`);
               }
             }
           }

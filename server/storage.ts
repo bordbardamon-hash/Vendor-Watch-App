@@ -73,7 +73,8 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   getAllUsers(): Promise<User[]>;
   upsertUser(user: UpsertUser): Promise<User>;
-  updateUserStripeInfo(userId: string, stripeInfo: { stripeCustomerId?: string; stripeSubscriptionId?: string | null }): Promise<User | undefined>;
+  updateUserStripeInfo(userId: string, stripeInfo: { stripeCustomerId?: string; stripeSubscriptionId?: string | null; billingStatus?: string; billingCompleted?: boolean }): Promise<User | undefined>;
+  updateUserTrialEnd(userId: string, trialEndsAt: Date): Promise<User | undefined>;
   updateUserAdmin(userId: string, isAdmin: boolean): Promise<User | undefined>;
   deleteUser(userId: string): Promise<boolean>;
   createUserManual(data: { email: string; firstName: string; lastName: string; companyName?: string; phone?: string; subscriptionTier?: 'essential' | 'growth' | 'enterprise' | null; isAdmin?: boolean }): Promise<User>;
@@ -483,10 +484,19 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async updateUserStripeInfo(userId: string, stripeInfo: { stripeCustomerId?: string; stripeSubscriptionId?: string | null }): Promise<User | undefined> {
+  async updateUserStripeInfo(userId: string, stripeInfo: { stripeCustomerId?: string; stripeSubscriptionId?: string | null; billingStatus?: string; billingCompleted?: boolean }): Promise<User | undefined> {
     const [user] = await db
       .update(users)
       .set({ ...stripeInfo, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return user || undefined;
+  }
+
+  async updateUserTrialEnd(userId: string, trialEndsAt: Date): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set({ trialEndsAt, updatedAt: new Date() })
       .where(eq(users.id, userId))
       .returning();
     return user || undefined;
