@@ -50,6 +50,9 @@ export const users = pgTable("users", {
   // Password reset fields
   passwordResetToken: varchar("password_reset_token"),
   passwordResetExpires: timestamp("password_reset_expires"),
+  // Onboarding and trial fields
+  profileCompleted: boolean("profile_completed").default(false),
+  trialEndsAt: timestamp("trial_ends_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
