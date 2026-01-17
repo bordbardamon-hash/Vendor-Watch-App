@@ -165,6 +165,31 @@ export async function registerRoutes(
     });
   });
   
+  // Test endpoint that mimics EXACTLY what /api/auth/user returns
+  app.get("/api/test-auth-response/:token", isAuthenticated, async (req: any, res) => {
+    if (req.params.token !== FIX_TOKEN) {
+      return res.status(403).json({ error: "Invalid token" });
+    }
+    
+    // This is exactly what the frontend receives from /api/auth/user
+    const userResponse = { ...req.user };
+    delete userResponse.claims;
+    
+    // Show what the frontend check would evaluate to
+    const frontendCheck = {
+      profileCompleted: userResponse.profileCompleted,
+      billingCompleted: userResponse.billingCompleted,
+      profileCompletedType: typeof userResponse.profileCompleted,
+      billingCompletedType: typeof userResponse.billingCompleted,
+      needsOnboarding: userResponse.profileCompleted !== true || userResponse.billingCompleted !== true,
+    };
+    
+    res.json({
+      frontendCheck,
+      userResponse,
+    });
+  });
+  
   // Debug endpoint to test what /api/auth/user would return
   app.get("/api/debug-auth-user/:token", isAuthenticated, async (req: any, res) => {
     try {
