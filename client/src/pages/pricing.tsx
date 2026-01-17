@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Check, X, Crown, Star, Shield, Zap, ArrowRight, HelpCircle } from "lucide-react";
 import { Link } from "wouter";
-import vendorWatchLogo from "@assets/generated_images/radar_eye_logo_dark_background.png";
+import { VendorWatchLogo } from "@/components/ui/vendor-watch-logo";
 import { APP_NAME } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 import {
@@ -137,7 +137,7 @@ export default function Pricing() {
         <div className="container mx-auto px-4 py-12 max-w-7xl">
           <div className="text-center space-y-4 mb-12">
             <Link href="/" className="inline-flex items-center gap-2 hover:opacity-80 transition">
-              <img src={vendorWatchLogo} alt="Vendor Watch" className="h-10 w-10" />
+              <VendorWatchLogo size={40} />
               <span className="text-2xl font-bold">{APP_NAME}</span>
             </Link>
             <h1 className="text-4xl md:text-5xl font-bold" data-testid="text-pricing-title">

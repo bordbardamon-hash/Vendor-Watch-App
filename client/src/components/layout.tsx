@@ -37,7 +37,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { FeedbackDialog } from "@/components/feedback-dialog";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import vendorWatchLogo from "@assets/generated_images/radar_eye_logo_dark_background.png";
+import { VendorWatchLogo } from "@/components/ui/vendor-watch-logo";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -198,7 +198,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-sidebar border-b border-sidebar-border">
         <div className="flex items-center justify-between p-3">
           <div className="flex items-center gap-2">
-            <img src={vendorWatchLogo} alt="Vendor Watch" className="h-8 w-8 rounded shrink-0" />
+            <VendorWatchLogo size={32} />
             <span className="font-bold text-lg tracking-tight">Vendor Watch</span>
           </div>
           <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
@@ -209,7 +209,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </SheetTrigger>
             <SheetContent side="left" className="w-72 p-0 bg-sidebar border-sidebar-border">
               <div className="p-4 flex items-center gap-3 border-b border-sidebar-border">
-                <img src={vendorWatchLogo} alt="Vendor Watch" className="h-8 w-8 rounded shrink-0" />
+                <VendorWatchLogo size={32} />
                 <span className="font-bold text-lg tracking-tight">Vendor Watch</span>
               </div>
               <div className="flex flex-col h-[calc(100vh-65px)]">
@@ -226,7 +226,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         sidebarOpen ? "w-64" : "w-16"
       )}>
         <div className="p-4 flex items-center gap-3 border-b border-sidebar-border">
-          <img src={vendorWatchLogo} alt="Vendor Watch" className="h-8 w-8 rounded shrink-0" />
+          <VendorWatchLogo size={32} />
           {sidebarOpen && (
             <span className="font-bold text-lg tracking-tight">Vendor Watch</span>
           )}

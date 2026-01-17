@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Activity, Bell, Zap, CheckCircle2, AlertTriangle, Cloud, Database, Globe, Server, Boxes, Check, X, Shield, Bot, Timer, Gauge, Radio, UserPlus, Settings, BellRing, Mail, Phone, MapPin, Twitter, Linkedin, Github, ArrowRight } from "lucide-react";
 import { Link } from "wouter";
-import vendorWatchLogo from "@assets/generated_images/radar_eye_logo_dark_background.png";
+import { VendorWatchLogo } from "@/components/ui/vendor-watch-logo";
 
 function DashboardPreview() {
   const vendors = [
@@ -113,7 +113,7 @@ export default function Landing() {
       <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <img src={vendorWatchLogo} alt="Vendor Watch" className="h-8 w-8 rounded" />
+            <VendorWatchLogo size={32} />
             <span className="text-xl font-bold tracking-tight">{APP_NAME}</span>
           </div>
           <div className="flex items-center gap-3">
@@ -419,7 +419,7 @@ export default function Landing() {
             {/* Brand */}
             <div className="md:col-span-1">
               <div className="flex items-center gap-2 mb-4">
-                <img src={vendorWatchLogo} alt="Vendor Watch" className="h-8 w-8 rounded" />
+                <VendorWatchLogo size={32} />
                 <span className="text-lg font-bold">{APP_NAME}</span>
               </div>
               <p className="text-sm text-muted-foreground mb-4">

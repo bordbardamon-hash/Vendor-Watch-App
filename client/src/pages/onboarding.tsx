@@ -7,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { Rocket, CheckCircle, CreditCard, Building, Zap, Crown, ArrowRight, Loader2 } from "lucide-react";
-import vendorWatchLogo from "@assets/generated_images/radar_eye_logo_dark_background.png";
+import { VendorWatchLogo } from "@/components/ui/vendor-watch-logo";
 import { APP_NAME } from "@/lib/labels";
 
 type OnboardingStep = "profile" | "billing";
@@ -165,7 +165,7 @@ export default function Onboarding() {
       <div className="w-full max-w-2xl space-y-6">
         <div className="text-center space-y-2">
           <div className="flex items-center justify-center gap-2">
-            <img src={vendorWatchLogo} alt="Vendor Watch" className="h-12 w-12" />
+            <VendorWatchLogo size={48} />
             <h1 className="text-3xl font-bold">{APP_NAME}</h1>
           </div>
           <p className="text-muted-foreground">
