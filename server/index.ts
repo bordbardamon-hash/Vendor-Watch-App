@@ -1,4 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
+import cors from "cors";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
@@ -20,6 +21,34 @@ process.on('uncaughtException', (error) => {
 
 const app = express();
 const httpServer = createServer(app);
+
+// CORS configuration to allow requests from various origins
+const allowedOrigins = [
+  'https://vendorwatch.app',
+  'http://localhost:8081',
+  'http://localhost:5000',
+];
+
+app.use(cors({
+  origin: function(origin, callback) {
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin) return callback(null, true);
+    
+    // Check against allowed origins and Replit dev domains
+    const isAllowed = allowedOrigins.includes(origin) ||
+      /\.replit\.dev$/.test(origin) ||
+      /\.janeway\.replit\.dev$/.test(origin) ||
+      /\.repl\.co$/.test(origin);
+    
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      console.log(`[cors] Blocked request from origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true
+}));
 
 async function initStripe() {
   const databaseUrl = process.env.DATABASE_URL;
