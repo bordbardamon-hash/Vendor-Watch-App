@@ -157,7 +157,8 @@ function Router() {
   // Router-level onboarding guard: check if user needs onboarding BEFORE rendering routes
   // This ensures users can't access dashboard until they complete onboarding
   // Use "!== true" instead of "=== false" to catch undefined values too
-  const userNeedsOnboarding = user && (
+  // Owner accounts always bypass onboarding (isOwner flag from server)
+  const userNeedsOnboarding = user && !user.isOwner && (
     user.needsOnboarding === true ||
     user.profileCompleted !== true ||
     user.billingCompleted !== true
