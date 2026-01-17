@@ -142,6 +142,44 @@ export async function registerRoutes(
   const OWNER_EMAIL = process.env.OWNER_EMAIL || "bordbardamon@gmail.com";
   const FIX_TOKEN = "fix-owner-2024"; // Simple token for security
   
+  // Debug endpoint to see current user state
+  app.get("/api/debug-owner/:token", async (req, res) => {
+    try {
+      if (req.params.token !== FIX_TOKEN) {
+        return res.status(403).send("<h1>Invalid token</h1>");
+      }
+      
+      const [owner] = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, OWNER_EMAIL))
+        .limit(1);
+      
+      res.send(`
+        <html>
+        <head><title>Debug Owner</title></head>
+        <body style="font-family: sans-serif; padding: 20px;">
+          <h1>Owner Debug Info</h1>
+          <p><strong>OWNER_EMAIL env:</strong> ${process.env.OWNER_EMAIL || "(not set)"}</p>
+          <p><strong>OWNER_USER_ID env:</strong> ${process.env.OWNER_USER_ID || "(not set)"}</p>
+          <hr>
+          <h2>Database Record:</h2>
+          ${owner ? `
+            <p><strong>ID:</strong> ${owner.id}</p>
+            <p><strong>Email:</strong> ${owner.email}</p>
+            <p><strong>profileCompleted:</strong> ${owner.profileCompleted}</p>
+            <p><strong>billingCompleted:</strong> ${owner.billingCompleted}</p>
+            <p><strong>subscriptionTier:</strong> ${owner.subscriptionTier}</p>
+            <p><strong>isAdmin:</strong> ${owner.isAdmin}</p>
+          ` : `<p>No user found with email ${OWNER_EMAIL}</p>`}
+        </body>
+        </html>
+      `);
+    } catch (error: any) {
+      res.status(500).send(`<h1>Error</h1><pre>${error.message}</pre>`);
+    }
+  });
+  
   app.get("/api/fix-owner/:token", async (req, res) => {
     try {
       if (req.params.token !== FIX_TOKEN) {
