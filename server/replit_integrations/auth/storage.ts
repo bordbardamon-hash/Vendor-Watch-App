@@ -3,8 +3,10 @@ import { db } from "../../db";
 import { eq } from "drizzle-orm";
 
 // Owner email that bypasses onboarding and has full enterprise + admin access
-// Stored in environment variable for security
-const OWNER_EMAIL = process.env.OWNER_EMAIL || "";
+// Read dynamically to ensure it's always current
+function getOwnerEmail(): string {
+  return process.env.OWNER_EMAIL || "";
+}
 
 // Interface for auth storage operations
 // (IMPORTANT) These user operations are mandatory for Replit Auth.
@@ -21,15 +23,19 @@ class AuthStorage implements IAuthStorage {
 
   async upsertUser(userData: UpsertUser): Promise<User> {
     // Check if this is the owner email - they get full access automatically
-    const isOwner = userData.email?.toLowerCase() === OWNER_EMAIL.toLowerCase();
+    const ownerEmail = getOwnerEmail();
+    const userEmail = userData.email?.toLowerCase() || "";
+    const isOwner = ownerEmail && userEmail === ownerEmail.toLowerCase();
+    
+    console.log(`[auth] upsertUser: email=${userEmail}, ownerEmail=${ownerEmail}, isOwner=${isOwner}`);
     
     // Check if user already exists
     const existingUser = await this.getUser(userData.id!);
     
     if (existingUser) {
-      // For owner, ensure they always have full access
-      if (isOwner && (!existingUser.profileCompleted || !existingUser.billingCompleted || !existingUser.isAdmin)) {
-        console.log(`[auth] Updating owner account with full enterprise access`);
+      // For owner, ALWAYS ensure they have full access (update every login)
+      if (isOwner) {
+        console.log(`[auth] Updating owner account with full enterprise access for ${userEmail}`);
         const [user] = await db
           .update(users)
           .set({
@@ -44,6 +50,7 @@ class AuthStorage implements IAuthStorage {
           })
           .where(eq(users.id, userData.id!))
           .returning();
+        console.log(`[auth] Owner updated: profileCompleted=${user.profileCompleted}, billingCompleted=${user.billingCompleted}`);
         return user;
       }
       
