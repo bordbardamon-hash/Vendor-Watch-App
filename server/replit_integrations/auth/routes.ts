@@ -52,7 +52,49 @@ const onboardingSchema = z.object({
 }));
 
 // Register auth-specific routes
+// Owner email/ID for bypass
+const OWNER_EMAIL = process.env.OWNER_EMAIL || "";
+const OWNER_USER_ID = process.env.OWNER_USER_ID || "";
+
 export function registerAuthRoutes(app: Express): void {
+  // Special endpoint to fix owner account - call this once to update production DB
+  app.post("/api/auth/fix-owner", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims?.sub;
+      const userEmail = req.user.claims?.email?.toLowerCase().trim() || "";
+      
+      console.log(`[auth] fix-owner called by userId=${userId}, email=${userEmail}`);
+      console.log(`[auth] OWNER_EMAIL=${OWNER_EMAIL}, OWNER_USER_ID=${OWNER_USER_ID}`);
+      
+      const isOwnerByEmail = OWNER_EMAIL && userEmail === OWNER_EMAIL.toLowerCase().trim();
+      const isOwnerById = OWNER_USER_ID && userId === OWNER_USER_ID;
+      
+      if (!isOwnerByEmail && !isOwnerById) {
+        return res.status(403).json({ error: "Not authorized - you are not the owner" });
+      }
+      
+      // Update the owner account directly
+      const [updatedUser] = await db
+        .update(users)
+        .set({
+          profileCompleted: true,
+          billingCompleted: true,
+          billingStatus: 'active',
+          subscriptionTier: 'enterprise',
+          isAdmin: true,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId))
+        .returning();
+      
+      console.log(`[auth] Owner account fixed: ${updatedUser?.email}`);
+      res.json({ success: true, user: updatedUser });
+    } catch (error) {
+      console.error("Error fixing owner account:", error);
+      res.status(500).json({ error: "Failed to fix owner account" });
+    }
+  });
+
   // Get current authenticated user
   app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {
     try {
