@@ -2,10 +2,14 @@ import { users, type User, type UpsertUser } from "@shared/models/auth";
 import { db } from "../../db";
 import { eq } from "drizzle-orm";
 
-// Owner email that bypasses onboarding and has full enterprise + admin access
+// Owner email/ID that bypasses onboarding and has full enterprise + admin access
 // Read dynamically to ensure it's always current
 function getOwnerEmail(): string {
   return process.env.OWNER_EMAIL || "";
+}
+
+function getOwnerUserId(): string {
+  return process.env.OWNER_USER_ID || "";
 }
 
 // Interface for auth storage operations
@@ -22,12 +26,25 @@ class AuthStorage implements IAuthStorage {
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
-    // Check if this is the owner email - they get full access automatically
+    // Check if this is the owner - they get full access automatically
+    // Match by email OR by user ID for flexibility
     const ownerEmail = getOwnerEmail();
-    const userEmail = userData.email?.toLowerCase() || "";
-    const isOwner = ownerEmail && userEmail === ownerEmail.toLowerCase();
+    const ownerUserId = getOwnerUserId();
+    const userEmail = userData.email?.toLowerCase().trim() || "";
+    const userId = userData.id || "";
+    const ownerEmailLower = ownerEmail?.toLowerCase().trim() || "";
     
-    console.log(`[auth] upsertUser: email=${userEmail}, ownerEmail=${ownerEmail}, isOwner=${isOwner}`);
+    const isOwnerByEmail = ownerEmailLower.length > 0 && userEmail === ownerEmailLower;
+    const isOwnerById = ownerUserId.length > 0 && userId === ownerUserId;
+    const isOwner = isOwnerByEmail || isOwnerById;
+    
+    console.log(`[auth] upsertUser called:`);
+    console.log(`[auth]   - userData.id: "${userId}"`);
+    console.log(`[auth]   - userData.email: "${userData.email}"`);
+    console.log(`[auth]   - userEmail (normalized): "${userEmail}"`);
+    console.log(`[auth]   - OWNER_EMAIL env: "${ownerEmail}"`);
+    console.log(`[auth]   - OWNER_USER_ID env: "${ownerUserId}"`);
+    console.log(`[auth]   - isOwnerByEmail: ${isOwnerByEmail}, isOwnerById: ${isOwnerById}, isOwner: ${isOwner}`);
     
     // Check if user already exists
     const existingUser = await this.getUser(userData.id!);
