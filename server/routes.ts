@@ -142,6 +142,40 @@ export async function registerRoutes(
   const OWNER_EMAIL = process.env.OWNER_EMAIL || "bordbardamon@gmail.com";
   const FIX_TOKEN = "fix-owner-2024"; // Simple token for security
   
+  // Debug endpoint to test what /api/auth/user would return
+  app.get("/api/debug-auth-user/:token", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.params.token !== FIX_TOKEN) {
+        return res.status(403).send("<h1>Invalid token</h1>");
+      }
+      
+      const userId = req.user?.id || req.user?.claims?.sub;
+      const userEmail = req.user?.email || req.user?.claims?.email || "";
+      
+      res.send(`
+        <html>
+        <head><title>Auth User Debug</title></head>
+        <body style="font-family: sans-serif; padding: 20px;">
+          <h1>What /api/auth/user sees:</h1>
+          <p><strong>userId:</strong> ${userId}</p>
+          <p><strong>userEmail:</strong> ${userEmail}</p>
+          <hr>
+          <h2>req.user object:</h2>
+          <pre>${JSON.stringify(req.user, null, 2)}</pre>
+          <hr>
+          <h2>Key fields:</h2>
+          <p><strong>profileCompleted:</strong> ${req.user?.profileCompleted} (type: ${typeof req.user?.profileCompleted})</p>
+          <p><strong>billingCompleted:</strong> ${req.user?.billingCompleted} (type: ${typeof req.user?.billingCompleted})</p>
+          <p><strong>subscriptionTier:</strong> ${req.user?.subscriptionTier}</p>
+          <p><strong>isAdmin:</strong> ${req.user?.isAdmin}</p>
+        </body>
+        </html>
+      `);
+    } catch (error: any) {
+      res.status(500).send(`<h1>Error</h1><pre>${error.message}</pre>`);
+    }
+  });
+  
   // Debug endpoint to see what the session returns
   app.get("/api/debug-session/:token", async (req: any, res) => {
     try {
