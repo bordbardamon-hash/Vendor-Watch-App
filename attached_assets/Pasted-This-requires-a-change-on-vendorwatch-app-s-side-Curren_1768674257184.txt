@@ -1,0 +1,101 @@
+This requires a change on vendorwatch.app's side. Currently the API creates the account first, then directs to payment. Here's how to change it so the account is only created after payment:
+
+Update vendorwatch.app's /api/auth/mobile-signup endpoint:
+// POST /api/auth/mobile-signup - Updated to NOT create account until payment
+app.post('/api/auth/mobile-signup', async (req, res) => {
+  try {
+    const { email, password, displayName, firstName, lastName, companyName, phone, tier, success_url, cancel_url } = req.body;
+    
+    // 1. Check if user already exists
+    const existingUser = await findUserByEmail(email);
+    if (existingUser) {
+      return res.status(400).json({ error: 'Email already registered' });
+    }
+    
+    // 2. Create Stripe checkout session with user data in metadata
+    // Account will be created by webhook after payment succeeds
+    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+    const priceId = {
+      essential: 'price_xxx', // Your Stripe price IDs
+      growth: 'price_xxx',
+      enterprise: 'price_xxx',
+    }[tier];
+    
+    const session = await stripe.checkout.sessions.create({
+      customer_email: email,
+      mode: 'subscription',
+      line_items: [{ price: priceId, quantity: 1 }],
+      subscription_data: {
+        trial_period_days: 7,
+      },
+      // Store signup data in metadata - account created after payment
+      metadata: {
+        signup_email: email,
+        signup_password: password, // Hash this in production!
+        signup_displayName: displayName,
+        signup_firstName: firstName,
+        signup_lastName: lastName,
+        signup_companyName: companyName,
+        signup_phone: phone,
+        signup_tier: tier,
+        platform: 'mobile',
+      },
+      success_url: success_url || 'https://vendorwatch.app/signup/success',
+      cancel_url: cancel_url || 'https://vendorwatch.app/signup',
+    });
+    
+    // 3. Return ONLY the checkout URL - no account created yet
+    res.json({
+      success: true,
+      checkoutUrl: session.url,
+    });
+  } catch (error) {
+    console.error('Mobile signup error:', error);
+    res.status(500).json({ error: 'Failed to start checkout' });
+  }
+});
+Add Stripe webhook handler:
+// POST /api/webhooks/stripe
+app.post('/api/webhooks/stripe', express.raw({type: 'application/json'}), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+  
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+  } catch (err) {
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object;
+    const metadata = session.metadata;
+    
+    // Only process mobile signups
+    if (metadata.platform === 'mobile') {
+      // Create the user account NOW (after payment succeeded)
+      const user = await createUser({
+        email: metadata.signup_email,
+        password: metadata.signup_password, // Should be hashed
+        displayName: metadata.signup_displayName,
+        firstName: metadata.signup_firstName,
+        lastName: metadata.signup_lastName,
+        companyName: metadata.signup_companyName,
+        phone: metadata.signup_phone,
+        subscriptionTier: metadata.signup_tier,
+        subscriptionStatus: 'trialing',
+        stripeCustomerId: session.customer,
+        stripeSubscriptionId: session.subscription,
+      });
+      
+      console.log('Created user after payment:', user.email);
+    }
+  }
+  res.json({ received: true });
+});
+This way:
+
+User enters info → goes to Stripe
+No account created yet
+User completes payment → Stripe webhook fires
+Account is created by webhook
+User returns to app and logs in with their new account

@@ -142,3 +142,26 @@ export const mobileAuthCodes = pgTable("mobile_auth_codes", {
 });
 
 export type MobileAuthCode = typeof mobileAuthCodes.$inferSelect;
+export type InsertMobileAuthCode = typeof mobileAuthCodes.$inferInsert;
+
+// Pending signups table - stores signup data until Stripe payment completes
+// Account is only created after webhook confirms payment success
+export const pendingSignups = pgTable("pending_signups", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  signupToken: varchar("signup_token").notNull().unique(), // Token for mobile to retrieve auth after payment
+  email: varchar("email").notNull(),
+  passwordHash: varchar("password_hash").notNull(), // bcrypt hashed password
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  companyName: varchar("company_name"),
+  phone: varchar("phone"),
+  tier: varchar("tier").notNull(), // 'essential', 'growth', 'enterprise'
+  stripeCheckoutSessionId: varchar("stripe_checkout_session_id"), // Links to Stripe session
+  completedAt: timestamp("completed_at"), // Set when user created after payment
+  createdUserId: varchar("created_user_id"), // Links to created user after payment
+  expiresAt: timestamp("expires_at").notNull(), // Expires after 24 hours if not completed
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type PendingSignup = typeof pendingSignups.$inferSelect;
+export type InsertPendingSignup = typeof pendingSignups.$inferInsert;
