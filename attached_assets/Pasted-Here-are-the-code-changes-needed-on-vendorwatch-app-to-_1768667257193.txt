@@ -1,0 +1,80 @@
+Here are the code changes needed on vendorwatch.app to support Replit OAuth for the mobile app:
+
+1. Update Login Page (Frontend)
+On your vendorwatch.app login page, detect the mobile_redirect parameter and store it:
+
+// When the login page loads, check for mobile redirect
+const urlParams = new URLSearchParams(window.location.search);
+const mobileRedirect = urlParams.get('mobile_redirect');
+const authMethod = urlParams.get('auth_method');
+// Store it in sessionStorage so it persists through the OAuth flow
+if (mobileRedirect) {
+  sessionStorage.setItem('mobile_redirect', mobileRedirect);
+}
+// If auth_method is 'replit', auto-trigger Replit login
+if (authMethod === 'replit' && mobileRedirect) {
+  // Trigger your existing Replit OAuth flow
+  window.location.href = '/api/auth/replit/start';
+}
+2. Update Replit OAuth Callback (Backend)
+After Replit OAuth completes and you have the user data, check for mobile redirect:
+
+// In your Replit OAuth callback handler (e.g., /api/auth/replit/callback)
+app.get('/api/auth/replit/callback', async (req, res) => {
+  // ... your existing code to exchange code for tokens and get user data ...
+  
+  // After successful authentication:
+  const user = await authenticateWithReplit(req.query.code);
+  const sessionToken = generateSessionToken(user);
+  
+  // Check if this was a mobile login
+  const mobileRedirect = req.session.mobileRedirect || req.cookies.mobileRedirect;
+  
+  if (mobileRedirect && mobileRedirect.startsWith('vendorwatch://')) {
+    // Redirect back to mobile app with token and user data
+    const userData = encodeURIComponent(JSON.stringify({
+      id: user.id,
+      email: user.email,
+      displayName: user.displayName,
+      avatarUrl: user.avatarUrl,
+      subscription: user.subscription,
+    }));
+    
+    const redirectUrl = `${mobileRedirect}?token=${sessionToken}&user=${userData}`;
+    
+    // Clear the mobile redirect from session
+    delete req.session.mobileRedirect;
+    
+    return res.redirect(redirectUrl);
+  }
+  
+  // Normal web redirect
+  res.redirect('/dashboard');
+});
+3. Store Mobile Redirect Before OAuth Start
+// In your Replit OAuth start handler (e.g., /api/auth/replit/start)
+app.get('/api/auth/replit/start', (req, res) => {
+  // Check for mobile redirect in query or from referring page
+  const mobileRedirect = req.query.mobile_redirect;
+  
+  if (mobileRedirect) {
+    // Store in session for after OAuth completes
+    req.session.mobileRedirect = mobileRedirect;
+  }
+  
+  // Redirect to Replit OIDC
+  const replitAuthUrl = `https://replit.com/oidc-consent/QTNETLqCI7mYk0jB-DSE4?redirect_uri=${encodeURIComponent('https://vendorwatch.app/api/auth/replit/callback')}`;
+  
+  res.redirect(replitAuthUrl);
+});
+Summary
+The flow becomes:
+
+Mobile app opens: vendorwatch.app/login?mobile_redirect=vendorwatch://auth/replit/callback&auth_method=replit
+vendorwatch.app stores the mobile redirect and starts Replit OAuth
+User authorizes on Replit
+Replit redirects to vendorwatch.app/api/auth/replit/callback
+vendorwatch.app gets user data, creates session token
+vendorwatch.app redirects to: vendorwatch://auth/replit/callback?token=xxx&user=xxx
+Mobile app receives token and logs user in
+Once you implement these changes on vendorwatch.app, the mobile Replit login will work seamlessly!

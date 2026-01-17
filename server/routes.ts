@@ -1,8 +1,8 @@
-import type { Express } from "express";
+import type { Express, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertVendorSchema, insertIncidentSchema, insertJobSchema, insertConfigSchema, insertFeedbackSchema, insertNotificationConsentSchema, insertCustomVendorRequestSchema, SUBSCRIPTION_TIERS } from "@shared/schema";
-import { setupEmailAuth, isAuthenticated } from "./emailAuth";
+import { setupEmailAuth, isAuthenticated as emailIsAuthenticated } from "./emailAuth";
 import { registerAuthRoutes } from "./replit_integrations/auth";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
 import { sendSMS } from "./twilioClient";
@@ -11,8 +11,74 @@ import { syncAllBlockchainChains, resolveStaleBlockchainIncidents } from "./bloc
 import { setupTwoFactor, verifyTOTP, verifyRecoveryCode, generateRecoveryCodes } from "./twoFactor";
 import { z } from "zod";
 import { db } from "./db";
-import { users } from "@shared/models/auth";
-import { eq } from "drizzle-orm";
+import { users, mobileAuthTokens } from "@shared/models/auth";
+import { eq, and, isNull } from "drizzle-orm";
+
+// Unified isAuthenticated middleware that works with session, Replit OAuth, AND mobile bearer tokens
+const isAuthenticated: RequestHandler = async (req: any, res, next) => {
+  // Check for email auth session
+  const emailAuthUserId = req.session?.userId;
+  if (emailAuthUserId) {
+    try {
+      const [user] = await db.select().from(users).where(eq(users.id, emailAuthUserId)).limit(1);
+      if (user) {
+        req.user = user;
+        req.user.claims = { sub: user.id };
+        return next();
+      }
+    } catch (error) {
+      console.error('[auth] Email auth check failed:', error);
+    }
+  }
+  
+  // Check for Replit OAuth session (passport)
+  if (req.isAuthenticated && req.isAuthenticated() && req.user?.claims?.sub) {
+    return next();
+  }
+  
+  // Check for mobile Bearer token in Authorization header
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7);
+    
+    try {
+      // Look up the token in the database
+      const [tokenData] = await db.select()
+        .from(mobileAuthTokens)
+        .where(and(
+          eq(mobileAuthTokens.token, token),
+          isNull(mobileAuthTokens.revokedAt)
+        ))
+        .limit(1);
+      
+      if (tokenData && tokenData.expiresAt > new Date()) {
+        // Valid token - get the user
+        const [user] = await db.select()
+          .from(users)
+          .where(eq(users.id, tokenData.userId))
+          .limit(1);
+        
+        if (user) {
+          // Update last used timestamp (async, don't await)
+          db.update(mobileAuthTokens)
+            .set({ lastUsedAt: new Date() })
+            .where(eq(mobileAuthTokens.id, tokenData.id))
+            .catch(err => console.error('[auth] Token update error:', err));
+          
+          // Set user on request
+          req.user = user;
+          req.user.claims = { sub: user.id };
+          req.isMobileAuth = true;
+          return next();
+        }
+      }
+    } catch (error) {
+      console.error('[auth] Mobile token validation error:', error);
+    }
+  }
+  
+  return res.status(401).json({ message: "Unauthorized" });
+};
 
 // Stripe price IDs for each subscription tier
 const TIER_PRICE_IDS = {

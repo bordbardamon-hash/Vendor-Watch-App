@@ -112,3 +112,33 @@ export const organizationInvitations = pgTable("organization_invitations", {
 export const insertOrganizationInvitationSchema = createInsertSchema(organizationInvitations).omit({ id: true, createdAt: true });
 export type InsertOrganizationInvitation = z.infer<typeof insertOrganizationInvitationSchema>;
 export type OrganizationInvitation = typeof organizationInvitations.$inferSelect;
+
+// Mobile auth tokens table - for native mobile app authentication
+export const mobileAuthTokens = pgTable("mobile_auth_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  token: varchar("token").notNull().unique(), // The bearer token
+  deviceInfo: varchar("device_info"), // Optional device identifier
+  lastUsedAt: timestamp("last_used_at"),
+  expiresAt: timestamp("expires_at").notNull(), // Token expiration
+  revokedAt: timestamp("revoked_at"), // Null if active, timestamp if revoked
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type MobileAuthToken = typeof mobileAuthTokens.$inferSelect;
+export type InsertMobileAuthToken = typeof mobileAuthTokens.$inferInsert;
+
+// Mobile auth codes table - temporary codes exchanged for tokens
+export const mobileAuthCodes = pgTable("mobile_auth_codes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: varchar("code").notNull().unique(),
+  userId: varchar("user_id").notNull(),
+  email: varchar("email"),
+  displayName: varchar("display_name"),
+  avatarUrl: varchar("avatar_url"),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"), // Null if unused, timestamp when exchanged
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type MobileAuthCode = typeof mobileAuthCodes.$inferSelect;

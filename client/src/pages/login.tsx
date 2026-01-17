@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { APP_NAME } from "@/lib/labels";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,23 @@ export default function Login() {
     email: "",
     password: "",
   });
+
+  // Handle mobile app OAuth flow
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const mobileRedirect = urlParams.get('mobile_redirect');
+    const authMethod = urlParams.get('auth_method');
+    
+    // Store mobile redirect in sessionStorage so it persists through OAuth flow
+    if (mobileRedirect) {
+      sessionStorage.setItem('mobile_redirect', mobileRedirect);
+    }
+    
+    // If auth_method is 'replit' and mobile redirect is set, auto-trigger Replit login
+    if (authMethod === 'replit' && mobileRedirect) {
+      window.location.href = `/api/login?mobile_redirect=${encodeURIComponent(mobileRedirect)}`;
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
