@@ -217,3 +217,57 @@
   opacity: 0;
   animation: glow-pulse 2s ease-in-out infinite;
 }
+
+/* Mobile responsiveness */
+@media (max-width: 480px) {
+  body {
+    overflow-x: hidden;
+  }
+  
+  .container, .main-content, .page-content {
+    padding-left: 16px;
+    padding-right: 16px;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+  
+  /* Page header adjustments */
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .page-header h1 {
+    font-size: 24px;
+  }
+  
+  .header-actions {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  /* Card adjustments */
+  .user-card, .card {
+    padding: 12px;
+  }
+  
+  /* Prevent horizontal overflow */
+  * {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  
+  /* Table responsiveness */
+  table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  
+  /* Button groups */
+  .button-group {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
