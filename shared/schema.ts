@@ -26,6 +26,7 @@ export const vendors = pgTable("vendors", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   key: text("key").notNull().unique(),
   name: text("name").notNull(),
+  logoUrl: text("logo_url"),                    // URL to vendor logo image
   statusUrl: text("status_url").notNull(),
   parser: text("parser").notNull(),
   status: text("status").notNull().default('operational'),
@@ -511,6 +512,7 @@ export const blockchainChains = pgTable("blockchain_chains", {
   key: text("key").notNull().unique(),
   name: text("name").notNull(),
   symbol: text("symbol"),                    // e.g., BTC, ETH, SOL
+  logoUrl: text("logo_url"),                 // URL to blockchain/wallet logo image
   tier: text("tier").notNull(),              // tier1, tier2, tier3, tier4
   category: text("category").notNull(),      // chain, l2, rpc_provider, indexer, bridge, explorer
   statusUrl: text("status_url"),             // Official status page URL
