@@ -223,18 +223,18 @@ export default function UsersPage() {
   });
 
   return (
-    <div className="p-8 space-y-8 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between">
+    <div className="p-4 sm:p-8 space-y-6 sm:space-y-8 max-w-7xl mx-auto">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-            <Users className="w-8 h-8 text-primary" />
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-3">
+            <Users className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
             User Management
           </h1>
-          <p className="text-muted-foreground mt-1">
+          <p className="text-muted-foreground mt-1 text-sm sm:text-base">
             Manage users, subscriptions, and admin access
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 w-full sm:w-auto">
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2" data-testid="button-add-user">
@@ -336,18 +336,18 @@ export default function UsersPage() {
         </div>
       </div>
 
-      <div className="flex items-center gap-4 flex-wrap">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4 sm:flex-wrap">
         <Input
           placeholder="Search by name, email, or company..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="max-w-sm"
+          className="w-full sm:max-w-sm"
           data-testid="input-search"
         />
         <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Filter by tier:</span>
+          <span className="text-sm text-muted-foreground whitespace-nowrap">Filter by tier:</span>
           <Select value={tierFilter} onValueChange={setTierFilter}>
-            <SelectTrigger className="w-[150px]" data-testid="select-tier-filter">
+            <SelectTrigger className="w-full sm:w-[150px]" data-testid="select-tier-filter">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -359,7 +359,7 @@ export default function UsersPage() {
             </SelectContent>
           </Select>
         </div>
-        <Badge variant="secondary" className="text-sm">
+        <Badge variant="secondary" className="text-sm self-start sm:self-auto">
           {filteredUsers.length} of {users.length} users
         </Badge>
       </div>
@@ -385,13 +385,13 @@ export default function UsersPage() {
               {filteredUsers.map((user) => (
                 <div
                   key={user.id}
-                  className="p-4 rounded-lg border border-sidebar-border bg-sidebar/20 animate-fade-in"
+                  className="p-3 sm:p-4 rounded-lg border border-sidebar-border bg-sidebar/20 animate-fade-in"
                   data-testid={`user-row-${user.id}`}
                 >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 space-y-2">
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <span className="font-medium text-lg">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="flex-1 space-y-2 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium text-base sm:text-lg truncate max-w-[200px] sm:max-w-none">
                           {user.firstName} {user.lastName}
                         </span>
                         {user.isOwner && (
@@ -417,21 +417,21 @@ export default function UsersPage() {
                         )}
                       </div>
 
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div className="flex items-center gap-2">
-                          <Mail className="w-4 h-4 text-muted-foreground" />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 text-sm">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Mail className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                           <span className="font-mono text-xs truncate">{user.email}</span>
                         </div>
                         {user.phone && (
                           <div className="flex items-center gap-2">
-                            <Phone className="w-4 h-4 text-muted-foreground" />
+                            <Phone className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                             <span className="font-mono text-xs">{user.phone}</span>
                           </div>
                         )}
                         {user.companyName && (
-                          <div className="flex items-center gap-2">
-                            <Building className="w-4 h-4 text-muted-foreground" />
-                            <span>{user.companyName}</span>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Building className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                            <span className="truncate">{user.companyName}</span>
                           </div>
                         )}
                         <div className="text-muted-foreground text-xs">
@@ -440,7 +440,7 @@ export default function UsersPage() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto">
                       <Select
                         value={user.subscriptionTier || "none"}
                         onValueChange={(value) => {
@@ -449,7 +449,7 @@ export default function UsersPage() {
                         }}
                         disabled={updateSubscriptionMutation.isPending}
                       >
-                        <SelectTrigger className="w-[140px]" data-testid={`select-tier-${user.id}`}>
+                        <SelectTrigger className="w-full sm:w-[140px]" data-testid={`select-tier-${user.id}`}>
                           <SelectValue placeholder="Set tier" />
                         </SelectTrigger>
                         <SelectContent>
