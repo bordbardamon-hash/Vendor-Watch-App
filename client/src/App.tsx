@@ -70,15 +70,23 @@ function AuthenticatedRouter() {
     }
   }, [checking2FA, twoFASession, location, setLocation]);
 
+  // Check if user needs onboarding - this is computed by the server
+  // Check profileCompleted and billingCompleted directly as backup
+  const needsOnboarding = user?.needsOnboarding === true || 
+    (user && (user.profileCompleted === false || user.billingCompleted === false));
+
   useEffect(() => {
-    // Use server-computed needsOnboarding flag for reliable routing
-    // This prevents race conditions with stale cached data
     const isOnboardingRoute = location === "/onboarding" || location.startsWith("/onboarding/");
     
-    if (user?.needsOnboarding === true && !isOnboardingRoute) {
+    if (needsOnboarding && !isOnboardingRoute) {
+      console.log('[routing] Redirecting to onboarding:', { 
+        needsOnboarding, 
+        profileCompleted: user?.profileCompleted, 
+        billingCompleted: user?.billingCompleted 
+      });
       setLocation("/onboarding");
     }
-  }, [user, location, setLocation]);
+  }, [needsOnboarding, location, setLocation, user]);
 
   if (checking2FA) {
     return (
@@ -92,9 +100,9 @@ function AuthenticatedRouter() {
     return <Verify2FA />;
   }
 
-  // Use server-computed needsOnboarding flag for reliable routing
-  // This prevents race conditions with stale cached data
-  if (user?.needsOnboarding === true) {
+  // Server-side guard: redirect to onboarding if profile/billing not complete
+  // Check both needsOnboarding flag AND the individual flags for robustness
+  if (needsOnboarding) {
     return <Onboarding />;
   }
 
@@ -146,6 +154,15 @@ function Router() {
     );
   }
 
+  // Router-level onboarding guard: check if user needs onboarding BEFORE rendering routes
+  // This ensures users can't access dashboard until they complete onboarding
+  // Use "!== true" instead of "=== false" to catch undefined values too
+  const userNeedsOnboarding = user && (
+    user.needsOnboarding === true ||
+    user.profileCompleted !== true ||
+    user.billingCompleted !== true
+  );
+
   return (
     <Switch>
       <Route path="/signup" component={Signup} />
@@ -172,7 +189,8 @@ function Router() {
         {user ? <BillingSuccess /> : <Landing />}
       </Route>
       <Route>
-        {user ? <AuthenticatedRouter /> : <Landing />}
+        {/* Router-level guard: if user needs onboarding, show Onboarding instead of dashboard */}
+        {user ? (userNeedsOnboarding ? <Onboarding /> : <AuthenticatedRouter />) : <Landing />}
       </Route>
     </Switch>
   );

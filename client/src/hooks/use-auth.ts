@@ -38,9 +38,9 @@ export function useAuth() {
     queryKey: ["/api/auth/user"],
     queryFn: fetchUser,
     retry: false,
-    staleTime: Infinity, // Never consider data stale - we control when to refetch
+    staleTime: 5000, // Consider data stale after 5 seconds to ensure fresh data on navigation
     gcTime: 0, // Don't keep old data in cache when unmounted
-    refetchOnMount: true, // Refetch when component mounts
+    refetchOnMount: 'always', // Always refetch when component mounts to get fresh onboarding status
     refetchOnWindowFocus: false, // Don't refetch on window focus to avoid race conditions
   });
 

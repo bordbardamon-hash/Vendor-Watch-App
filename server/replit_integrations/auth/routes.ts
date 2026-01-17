@@ -39,6 +39,48 @@ const isAuthenticated: RequestHandler = async (req: any, res, next) => {
   return res.status(401).json({ message: "Unauthorized" });
 };
 
+// Middleware to require completed onboarding for dashboard access
+// This is a server-side guard to prevent bypassing frontend routing
+const requireOnboardingComplete: RequestHandler = async (req: any, res, next) => {
+  try {
+    const userId = req.user?.id || req.user?.claims?.sub;
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    
+    // Check if this is the owner (they bypass onboarding)
+    const ownerEmail = OWNER_EMAIL.toLowerCase().trim();
+    const userEmail = (req.user?.email || req.user?.claims?.email || "").toLowerCase().trim();
+    const isOwnerByEmail = ownerEmail && userEmail === ownerEmail;
+    const isOwnerById = OWNER_USER_ID && String(userId) === OWNER_USER_ID;
+    
+    if (isOwnerByEmail || isOwnerById) {
+      return next(); // Owner bypasses onboarding check
+    }
+    
+    // Get user from DB to check onboarding status
+    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
+    
+    if (!user.profileCompleted || !user.billingCompleted) {
+      return res.status(403).json({ 
+        message: "Onboarding required", 
+        needsOnboarding: true,
+        profileCompleted: user.profileCompleted,
+        billingCompleted: user.billingCompleted
+      });
+    }
+    
+    return next();
+  } catch (error) {
+    console.error('[auth] Onboarding check failed:', error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 // Onboarding schema - all fields required to complete profile
 const onboardingSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -165,7 +207,8 @@ export function registerAuthRoutes(app: Express): void {
           
           if (fixedUser) {
             console.log(`[auth] Owner fixed, returning updated user`);
-            return res.json(fixedUser);
+            // Always include needsOnboarding and isOwner flags
+            return res.json({ ...fixedUser, needsOnboarding: false, isOwner: true });
           }
         }
         
