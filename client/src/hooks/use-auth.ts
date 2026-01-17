@@ -28,12 +28,14 @@ async function logout(): Promise<void> {
 
 export function useAuth() {
   const queryClient = useQueryClient();
-  const { data: user, isLoading, refetch } = useQuery<User | null>({
+  const { data: user, isLoading, isFetching, refetch } = useQuery<User | null>({
     queryKey: ["/api/auth/user"],
     queryFn: fetchUser,
     retry: false,
     staleTime: 0, // Always refetch to ensure fresh data, especially for new logins
     gcTime: 0, // Don't cache to avoid stale user data across sessions
+    refetchOnMount: 'always', // Always refetch when component mounts
+    refetchOnWindowFocus: true, // Refetch when window gains focus
   });
 
   const logoutMutation = useMutation({
@@ -45,7 +47,7 @@ export function useAuth() {
 
   return {
     user,
-    isLoading,
+    isLoading: isLoading || isFetching, // Include isFetching so we wait for refetch to complete
     isAuthenticated: !!user,
     logout: logoutMutation.mutate,
     isLoggingOut: logoutMutation.isPending,
