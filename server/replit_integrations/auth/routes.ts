@@ -125,13 +125,24 @@ export function registerAuthRoutes(app: Express): void {
   // Get current authenticated user
   app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.claims?.sub || req.user?.id;
+      const userEmail = (req.user.claims?.email || req.user?.email || "").toLowerCase().trim();
+      
+      console.log(`[auth] /api/auth/user called: userId=${userId}, email=${userEmail}`);
+      
       let user = await authStorage.getUser(userId);
       
+      // Check if this is the owner - direct check here for reliability
+      const ownerEmail = OWNER_EMAIL.toLowerCase().trim();
+      const isOwnerByEmail = ownerEmail && userEmail === ownerEmail;
+      const isOwnerById = OWNER_USER_ID && userId === OWNER_USER_ID;
+      const isOwner = isOwnerByEmail || isOwnerById;
+      
+      console.log(`[auth] Owner check: isOwnerByEmail=${isOwnerByEmail}, isOwnerById=${isOwnerById}, isOwner=${isOwner}`);
+      
       // If user doesn't exist in database (new Replit OAuth user), create them
-      // This ensures the user record exists with proper onboarding flags
       if (!user && req.user.claims) {
-        console.log(`[auth] Creating new user record for ${req.user.claims.email}`);
+        console.log(`[auth] Creating new user record for ${userEmail}`);
         user = await authStorage.upsertUser({
           id: userId,
           email: req.user.claims.email,
@@ -139,16 +150,28 @@ export function registerAuthRoutes(app: Express): void {
           lastName: req.user.claims.last_name,
           profileImageUrl: req.user.claims.profile_image_url,
         });
-      } else if (user && req.user.claims) {
-        // For existing users, call upsert to ensure owner gets proper access
-        // This handles the case where owner account exists but needs updating
-        user = await authStorage.upsertUser({
-          id: userId,
-          email: req.user.claims.email,
-          firstName: req.user.claims.first_name,
-          lastName: req.user.claims.last_name,
-          profileImageUrl: req.user.claims.profile_image_url,
-        });
+      }
+      
+      // ALWAYS fix owner account directly here - no reliance on upsertUser
+      if (isOwner && user) {
+        // Check if owner needs fixing
+        if (!user.profileCompleted || !user.billingCompleted || user.subscriptionTier !== 'enterprise') {
+          console.log(`[auth] Fixing owner account directly in /api/auth/user`);
+          const [fixedUser] = await db
+            .update(users)
+            .set({
+              profileCompleted: true,
+              billingCompleted: true,
+              billingStatus: 'active',
+              subscriptionTier: 'enterprise',
+              isAdmin: true,
+              updatedAt: new Date(),
+            })
+            .where(eq(users.id, userId))
+            .returning();
+          user = fixedUser;
+          console.log(`[auth] Owner fixed: profileCompleted=${user?.profileCompleted}, billingCompleted=${user?.billingCompleted}`);
+        }
       }
       
       console.log(`[auth] Returning user ${userId}: profileCompleted=${user?.profileCompleted}, billingCompleted=${user?.billingCompleted}`);
