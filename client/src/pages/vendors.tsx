@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { LogoAvatar } from "@/components/ui/logo-avatar";
 import { 
   Shield, 
   AlertTriangle, 
@@ -65,6 +66,7 @@ interface Vendor {
   id: string;
   key: string;
   name: string;
+  logoUrl?: string | null;
   statusUrl: string;
   parser: string;
   status: string;
@@ -771,7 +773,7 @@ export default function Vendors() {
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
-                        <Shield className="w-4 h-4 text-muted-foreground" />
+                        <LogoAvatar src={vendor.logoUrl} name={vendor.name} size="sm" />
                         <span className="font-semibold" data-testid={`text-vendor-name-${vendor.key}`}>{vendor.name}</span>
                         {isMonitored(vendor.key) && (
                           <Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-primary/10 text-primary border-primary/30">

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { LogoAvatar } from "@/components/ui/logo-avatar";
 import { 
   CheckCircle2, 
   AlertTriangle, 
@@ -35,6 +36,7 @@ interface BlockchainChain {
   key: string;
   name: string;
   symbol?: string;
+  logoUrl?: string | null;
   tier: string;
   category: string;
   status: string;
@@ -352,9 +354,10 @@ export default function Blockchain() {
       <CardContent className="p-4">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
-            {getStatusIcon(chain.status)}
+            <LogoAvatar src={chain.logoUrl} name={chain.name} size="md" />
             <div>
               <div className="flex items-center gap-2">
+                {getStatusIcon(chain.status)}
                 <h3 className="font-semibold">{chain.name}</h3>
                 {chain.symbol && (
                   <span className="text-xs text-muted-foreground font-mono">{chain.symbol}</span>
