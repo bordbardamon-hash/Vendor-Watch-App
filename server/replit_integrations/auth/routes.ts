@@ -57,8 +57,8 @@ const OWNER_EMAIL = process.env.OWNER_EMAIL || "";
 const OWNER_USER_ID = process.env.OWNER_USER_ID || "";
 
 export function registerAuthRoutes(app: Express): void {
-  // Special endpoint to fix owner account - call this once to update production DB
-  app.post("/api/auth/fix-owner", isAuthenticated, async (req: any, res) => {
+  // Special page to fix owner account - visit this URL once to update production DB
+  app.get("/api/auth/fix-owner", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims?.sub;
       const userEmail = req.user.claims?.email?.toLowerCase().trim() || "";
@@ -70,7 +70,16 @@ export function registerAuthRoutes(app: Express): void {
       const isOwnerById = OWNER_USER_ID && userId === OWNER_USER_ID;
       
       if (!isOwnerByEmail && !isOwnerById) {
-        return res.status(403).json({ error: "Not authorized - you are not the owner" });
+        return res.status(403).send(`
+          <html>
+          <head><title>Not Authorized</title></head>
+          <body style="font-family: sans-serif; padding: 40px; text-align: center;">
+            <h1 style="color: red;">Not Authorized</h1>
+            <p>This endpoint is only for the owner account.</p>
+            <p><a href="/">Go Back</a></p>
+          </body>
+          </html>
+        `);
       }
       
       // Update the owner account directly
@@ -88,10 +97,28 @@ export function registerAuthRoutes(app: Express): void {
         .returning();
       
       console.log(`[auth] Owner account fixed: ${updatedUser?.email}`);
-      res.json({ success: true, user: updatedUser });
+      res.send(`
+        <html>
+        <head><title>Account Fixed</title></head>
+        <body style="font-family: sans-serif; padding: 40px; text-align: center;">
+          <h1 style="color: green;">✓ Account Fixed!</h1>
+          <p>Your owner account has been updated with enterprise access.</p>
+          <p><a href="/" style="color: blue;">Go to Dashboard</a></p>
+        </body>
+        </html>
+      `);
     } catch (error) {
       console.error("Error fixing owner account:", error);
-      res.status(500).json({ error: "Failed to fix owner account" });
+      res.status(500).send(`
+        <html>
+        <head><title>Error</title></head>
+        <body style="font-family: sans-serif; padding: 40px; text-align: center;">
+          <h1 style="color: red;">Error</h1>
+          <p>Failed to fix owner account. Please try again.</p>
+          <p><a href="/api/auth/fix-owner">Retry</a></p>
+        </body>
+        </html>
+      `);
     }
   });
 
