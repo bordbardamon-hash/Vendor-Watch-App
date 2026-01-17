@@ -125,20 +125,39 @@ export function registerAuthRoutes(app: Express): void {
   // Get current authenticated user
   app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims?.sub || req.user?.id;
-      const userEmail = (req.user.claims?.email || req.user?.email || "").toLowerCase().trim();
+      // For email auth: isAuthenticated middleware already loads full user from DB into req.user
+      // For Replit OAuth: req.user.claims contains the OAuth claims
+      
+      // Get user ID from the appropriate source
+      const userId = req.user?.id || req.user?.claims?.sub;
+      const userEmail = (req.user?.email || req.user?.claims?.email || "").toLowerCase().trim();
       
       console.log(`[auth] /api/auth/user called: userId=${userId}, email=${userEmail}`);
+      console.log(`[auth] req.user has id=${!!req.user?.id}, has claims.sub=${!!req.user?.claims?.sub}`);
       
+      // For email auth, req.user is already the full user object from DB
+      // Just return it directly - it already has the correct profileCompleted, billingCompleted, etc.
+      if (req.user?.id && req.user?.email) {
+        console.log(`[auth] Email auth user - returning req.user directly`);
+        console.log(`[auth] profileCompleted=${req.user.profileCompleted}, billingCompleted=${req.user.billingCompleted}`);
+        
+        // Remove the claims property we added for compatibility before sending
+        const userResponse = { ...req.user };
+        delete userResponse.claims;
+        
+        return res.json(userResponse);
+      }
+      
+      // For Replit OAuth, need to fetch/create user from database
       let user = await authStorage.getUser(userId);
       
-      // Check if this is the owner - direct check here for reliability
+      // Check if this is the owner
       const ownerEmail = OWNER_EMAIL.toLowerCase().trim();
       const isOwnerByEmail = ownerEmail && userEmail === ownerEmail;
       const isOwnerById = OWNER_USER_ID && userId === OWNER_USER_ID;
       const isOwner = isOwnerByEmail || isOwnerById;
       
-      console.log(`[auth] Owner check: isOwnerByEmail=${isOwnerByEmail}, isOwnerById=${isOwnerById}, isOwner=${isOwner}`);
+      console.log(`[auth] Replit OAuth user - owner check: isOwner=${isOwner}`);
       
       // If user doesn't exist in database (new Replit OAuth user), create them
       if (!user && req.user.claims) {
@@ -152,11 +171,10 @@ export function registerAuthRoutes(app: Express): void {
         });
       }
       
-      // ALWAYS fix owner account directly here - no reliance on upsertUser
+      // Fix owner account if needed
       if (isOwner && user) {
-        // Check if owner needs fixing
         if (!user.profileCompleted || !user.billingCompleted || user.subscriptionTier !== 'enterprise') {
-          console.log(`[auth] Fixing owner account directly in /api/auth/user`);
+          console.log(`[auth] Fixing owner account`);
           const [fixedUser] = await db
             .update(users)
             .set({
@@ -170,11 +188,10 @@ export function registerAuthRoutes(app: Express): void {
             .where(eq(users.id, userId))
             .returning();
           user = fixedUser;
-          console.log(`[auth] Owner fixed: profileCompleted=${user?.profileCompleted}, billingCompleted=${user?.billingCompleted}`);
         }
       }
       
-      console.log(`[auth] Returning user ${userId}: profileCompleted=${user?.profileCompleted}, billingCompleted=${user?.billingCompleted}`);
+      console.log(`[auth] Returning user: profileCompleted=${user?.profileCompleted}, billingCompleted=${user?.billingCompleted}`);
       res.json(user);
     } catch (error) {
       console.error("Error fetching user:", error);
