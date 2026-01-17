@@ -142,6 +142,42 @@ export async function registerRoutes(
   const OWNER_EMAIL = process.env.OWNER_EMAIL || "bordbardamon@gmail.com";
   const FIX_TOKEN = "fix-owner-2024"; // Simple token for security
   
+  // Debug endpoint to see what the session returns
+  app.get("/api/debug-session/:token", async (req: any, res) => {
+    try {
+      if (req.params.token !== FIX_TOKEN) {
+        return res.status(403).send("<h1>Invalid token</h1>");
+      }
+      
+      // Check both session types
+      const emailAuthUserId = req.session?.userId;
+      const replitAuthUser = req.user;
+      const isAuthenticated = req.isAuthenticated?.();
+      
+      res.send(`
+        <html>
+        <head><title>Debug Session</title></head>
+        <body style="font-family: sans-serif; padding: 20px;">
+          <h1>Session Debug Info</h1>
+          <h2>Email Auth:</h2>
+          <p><strong>session.userId:</strong> ${emailAuthUserId || "(not set)"}</p>
+          <hr>
+          <h2>Replit OAuth:</h2>
+          <p><strong>isAuthenticated():</strong> ${isAuthenticated}</p>
+          <p><strong>req.user:</strong></p>
+          <pre>${JSON.stringify(replitAuthUser, null, 2) || "(not set)"}</pre>
+          <hr>
+          <h2>Environment:</h2>
+          <p><strong>OWNER_EMAIL:</strong> ${process.env.OWNER_EMAIL || "(not set)"}</p>
+          <p><strong>OWNER_USER_ID:</strong> ${process.env.OWNER_USER_ID || "(not set)"}</p>
+        </body>
+        </html>
+      `);
+    } catch (error: any) {
+      res.status(500).send(`<h1>Error</h1><pre>${error.message}</pre>`);
+    }
+  });
+  
   // Debug endpoint to see current user state
   app.get("/api/debug-owner/:token", async (req, res) => {
     try {
