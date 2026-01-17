@@ -10,6 +10,9 @@ import { syncVendorStatus, resolveStaleIncidents } from "./statusSync";
 import { syncAllBlockchainChains, resolveStaleBlockchainIncidents } from "./blockchainSync";
 import { setupTwoFactor, verifyTOTP, verifyRecoveryCode, generateRecoveryCodes } from "./twoFactor";
 import { z } from "zod";
+import { db } from "./db";
+import { users } from "@shared/models/auth";
+import { eq } from "drizzle-orm";
 
 // Stripe price IDs for each subscription tier
 const TIER_PRICE_IDS = {
@@ -135,6 +138,61 @@ export async function registerRoutes(
     console.error("[auth] Failed to setup authentication:", error);
   }
   
+  // ============ OWNER FIX (no auth required, uses secret token) ============
+  const OWNER_EMAIL = process.env.OWNER_EMAIL || "bordbardamon@gmail.com";
+  const FIX_TOKEN = "fix-owner-2024"; // Simple token for security
+  
+  app.get("/api/fix-owner/:token", async (req, res) => {
+    try {
+      if (req.params.token !== FIX_TOKEN) {
+        return res.status(403).send("<h1>Invalid token</h1>");
+      }
+      
+      // Find and update the owner by email
+      const [owner] = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, OWNER_EMAIL))
+        .limit(1);
+      
+      if (!owner) {
+        return res.send(`<h1>Owner not found</h1><p>Email: ${OWNER_EMAIL}</p><p>Please log in first to create your account.</p>`);
+      }
+      
+      // Update owner account
+      const [updated] = await db
+        .update(users)
+        .set({
+          profileCompleted: true,
+          billingCompleted: true,
+          billingStatus: 'active',
+          subscriptionTier: 'enterprise',
+          isAdmin: true,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, owner.id))
+        .returning();
+      
+      console.log(`[fix-owner] Updated owner: ${updated?.email}`);
+      res.send(`
+        <html>
+        <head><title>Account Fixed</title></head>
+        <body style="font-family: sans-serif; padding: 40px; text-align: center;">
+          <h1 style="color: green;">✓ Account Fixed!</h1>
+          <p>Email: ${updated?.email}</p>
+          <p>Tier: ${updated?.subscriptionTier}</p>
+          <p>Profile Complete: ${updated?.profileCompleted}</p>
+          <p>Billing Complete: ${updated?.billingCompleted}</p>
+          <p><a href="/" style="color: blue; font-size: 18px;">Go to Dashboard</a></p>
+        </body>
+        </html>
+      `);
+    } catch (error: any) {
+      console.error("[fix-owner] Error:", error);
+      res.status(500).send(`<h1>Error</h1><pre>${error.message}</pre>`);
+    }
+  });
+
   // ============ STRIPE CONNECTION TEST ============
   app.get("/api/stripe/test", async (req, res) => {
     try {
