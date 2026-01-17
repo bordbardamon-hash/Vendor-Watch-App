@@ -1,5 +1,8 @@
 import { getStripeSync, getUncachableStripeClient } from './stripeClient';
 import { storage } from './storage';
+import { db } from './db';
+import { users, pendingSignups } from '@shared/models/auth';
+import { eq, and, isNull, gt } from 'drizzle-orm';
 
 export class WebhookHandlers {
   static async processWebhook(payload: Buffer, signature: string): Promise<void> {
@@ -49,7 +52,52 @@ export class WebhookHandlers {
       switch (event.type) {
         case 'checkout.session.completed': {
           const session = event.data.object as any;
-          if (session.customer && session.subscription) {
+          const metadata = session.metadata || {};
+          
+          // Handle mobile signup flow - create user from pending signup
+          if (metadata.pendingSignupToken && metadata.platform === 'mobile') {
+            // Atomically claim the pending signup to prevent duplicate user creation on retries
+            const now = new Date();
+            const [claimed] = await db.update(pendingSignups)
+              .set({ completedAt: now })
+              .where(and(
+                eq(pendingSignups.signupToken, metadata.pendingSignupToken),
+                isNull(pendingSignups.completedAt),
+                gt(pendingSignups.expiresAt, now) // Enforce expiration
+              ))
+              .returning();
+            
+            if (claimed) {
+              // Create the user account now that payment succeeded and claim was successful
+              const trialEndsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+              
+              const [newUser] = await db.insert(users).values({
+                email: claimed.email,
+                password: claimed.passwordHash,
+                firstName: claimed.firstName,
+                lastName: claimed.lastName,
+                companyName: claimed.companyName,
+                phone: claimed.phone,
+                subscriptionTier: claimed.tier,
+                stripeCustomerId: session.customer as string,
+                stripeSubscriptionId: session.subscription as string,
+                profileCompleted: true,
+                billingCompleted: true,
+                billingStatus: 'trialing',
+                trialEndsAt,
+              }).returning();
+              
+              // Update pending signup with created user ID
+              await db.update(pendingSignups)
+                .set({ createdUserId: newUser.id })
+                .where(eq(pendingSignups.id, claimed.id));
+              
+              console.log(`[stripe] Mobile signup complete: Created user ${newUser.id} (${newUser.email}) after payment`);
+            } else {
+              console.log(`[stripe] Pending signup not found, already processed, or expired for token: ${metadata.pendingSignupToken}`);
+            }
+          } else if (session.customer && session.subscription) {
+            // Standard flow - link subscription to existing user
             const customer = await stripe.customers.retrieve(session.customer as string);
             if (customer && !customer.deleted && customer.email) {
               const user = await storage.getUserByEmail(customer.email);

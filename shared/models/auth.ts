@@ -159,6 +159,7 @@ export const pendingSignups = pgTable("pending_signups", {
   stripeCheckoutSessionId: varchar("stripe_checkout_session_id"), // Links to Stripe session
   completedAt: timestamp("completed_at"), // Set when user created after payment
   createdUserId: varchar("created_user_id"), // Links to created user after payment
+  tokenExchangedAt: timestamp("token_exchanged_at"), // Set when token exchanged for auth - prevents reuse
   expiresAt: timestamp("expires_at").notNull(), // Expires after 24 hours if not completed
   createdAt: timestamp("created_at").defaultNow(),
 });

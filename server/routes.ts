@@ -13,8 +13,8 @@ import { z } from "zod";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { db } from "./db";
-import { users, mobileAuthTokens } from "@shared/models/auth";
-import { eq, and, isNull } from "drizzle-orm";
+import { users, mobileAuthTokens, pendingSignups } from "@shared/models/auth";
+import { eq, and, isNull, gt } from "drizzle-orm";
 
 const SALT_ROUNDS = 10;
 
@@ -1613,111 +1613,84 @@ export async function registerRoutes(
     cancel_url: z.string().url().optional(),
   });
 
-  // Mobile signup endpoint - creates user, starts trial, and returns Stripe checkout URL
+  // Mobile signup endpoint - stores pending signup and returns Stripe checkout URL
+  // User account is ONLY created after payment succeeds via webhook
   app.post("/api/auth/mobile-signup", async (req, res) => {
     try {
       const validatedData = mobileSignupSchema.parse(req.body);
+      const email = validatedData.email.toLowerCase();
       
       // 1. Check if user already exists
       const [existingUser] = await db.select()
         .from(users)
-        .where(eq(users.email, validatedData.email.toLowerCase()))
+        .where(eq(users.email, email))
         .limit(1);
       
       if (existingUser) {
         return res.status(400).json({ error: 'Email already registered' });
       }
       
-      // 2. Hash password
-      const hashedPassword = await bcrypt.hash(validatedData.password, SALT_ROUNDS);
+      // 2. Check for existing pending signup with same email
+      const [existingPending] = await db.select()
+        .from(pendingSignups)
+        .where(and(
+          eq(pendingSignups.email, email),
+          isNull(pendingSignups.completedAt),
+          gt(pendingSignups.expiresAt, new Date())
+        ))
+        .limit(1);
       
-      // 3. Create user with trial status
-      const trialEndsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-      const [newUser] = await db.insert(users).values({
-        email: validatedData.email.toLowerCase(),
-        password: hashedPassword,
+      if (existingPending) {
+        return res.status(400).json({ error: 'Signup already in progress. Please complete payment or try again later.' });
+      }
+      
+      // 3. Hash password and generate signup token (stored server-side for security)
+      const hashedPassword = await bcrypt.hash(validatedData.password, SALT_ROUNDS);
+      const signupToken = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+      
+      // 4. Create Stripe checkout session first
+      const stripe = await getUncachableStripeClient();
+      const priceId = TIER_PRICE_IDS[validatedData.tier];
+      
+      const session = await stripe.checkout.sessions.create({
+        customer_email: email,
+        payment_method_types: ['card'],
+        line_items: [{ price: priceId, quantity: 1 }],
+        mode: 'subscription',
+        success_url: validatedData.success_url || `https://vendorwatch.app/signup/success?pending=${signupToken}`,
+        cancel_url: validatedData.cancel_url || `https://vendorwatch.app/signup`,
+        subscription_data: {
+          trial_period_days: 7,
+        },
+        metadata: {
+          pendingSignupToken: signupToken,
+          platform: 'mobile',
+        },
+      });
+      
+      // 5. Store pending signup in database (password stored securely server-side)
+      await db.insert(pendingSignups).values({
+        signupToken,
+        email,
+        passwordHash: hashedPassword,
         firstName: validatedData.firstName,
         lastName: validatedData.lastName,
         companyName: validatedData.companyName,
         phone: validatedData.phone,
-        subscriptionTier: validatedData.tier,
-        subscriptionStatus: 'trialing',
-        trialEndsAt,
-        profileCompleted: true, // User provided all info in signup
-        billingCompleted: false, // Will be true after Stripe checkout
-      }).returning();
-      
-      console.log(`[auth] Mobile signup: Created user ${newUser.id} (${newUser.email})`);
-      
-      // 4. Create Stripe customer and checkout session
-      const stripe = await getUncachableStripeClient();
-      const priceId = TIER_PRICE_IDS[validatedData.tier];
-      
-      const customer = await stripe.customers.create({
-        email: validatedData.email,
-        name: `${validatedData.firstName} ${validatedData.lastName}`,
-        phone: validatedData.phone,
-        metadata: {
-          companyName: validatedData.companyName,
-          firstName: validatedData.firstName,
-          lastName: validatedData.lastName,
-          subscriptionTier: validatedData.tier,
-          userId: String(newUser.id),
-        },
+        tier: validatedData.tier,
+        stripeCheckoutSessionId: session.id,
+        expiresAt,
       });
       
-      // Update user with Stripe customer ID
-      await db.update(users)
-        .set({ stripeCustomerId: customer.id })
-        .where(eq(users.id, newUser.id));
+      console.log(`[auth] Mobile signup: Created pending signup for ${email}, checkout session: ${session.id}`);
       
-      const session = await stripe.checkout.sessions.create({
-        customer: customer.id,
-        payment_method_types: ['card'],
-        line_items: [{ price: priceId, quantity: 1 }],
-        mode: 'subscription',
-        success_url: validatedData.success_url || `https://vendorwatch.app/signup/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: validatedData.cancel_url || `https://vendorwatch.app/signup`,
-        subscription_data: {
-          trial_period_days: 7,
-          metadata: {
-            subscriptionTier: validatedData.tier,
-            userId: String(newUser.id),
-          },
-        },
-      });
-      
-      // 5. Generate mobile auth token
-      const apiToken = crypto.randomBytes(48).toString('hex');
-      const tokenExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
-      
-      await db.insert(mobileAuthTokens).values({
-        userId: newUser.id,
-        token: apiToken,
-        deviceInfo: 'mobile-signup',
-        expiresAt: tokenExpiresAt,
-      });
-      
-      console.log(`[auth] Mobile signup complete: User ${newUser.id}, checkout URL generated`);
-      
-      // 6. Return checkout URL, token, and user data
+      // 6. Return checkout URL and signup token (for mobile to poll/exchange after payment)
       res.json({
         success: true,
         checkoutUrl: session.url,
-        token: apiToken,
-        tokenExpiresAt: tokenExpiresAt.toISOString(),
-        user: {
-          id: newUser.id,
-          email: newUser.email,
-          firstName: newUser.firstName,
-          lastName: newUser.lastName,
-          displayName: `${newUser.firstName} ${newUser.lastName}`,
-          subscription: {
-            tier: validatedData.tier,
-            status: 'trialing',
-            trialEndsAt: trialEndsAt.toISOString(),
-          },
-        },
+        signupToken, // Mobile app uses this to get auth token after payment completes
+        expiresAt: expiresAt.toISOString(),
       });
     } catch (error: any) {
       console.error('[auth] Mobile signup error:', error);
@@ -1729,7 +1702,6 @@ export async function registerRoutes(
         });
       }
       
-      // Handle Stripe errors more gracefully
       if (error.type === 'StripeInvalidRequestError') {
         return res.status(400).json({ 
           error: 'Payment setup failed',
@@ -1738,7 +1710,104 @@ export async function registerRoutes(
         });
       }
       
-      res.status(500).json({ error: 'Failed to create account' });
+      res.status(500).json({ error: 'Failed to start signup' });
+    }
+  });
+  
+  // Mobile auth complete endpoint - exchanges signupToken for auth token after payment
+  // Single-use: token can only be exchanged once
+  app.post("/api/mobile/auth/complete", async (req, res) => {
+    try {
+      const { signupToken } = req.body;
+      
+      if (!signupToken || typeof signupToken !== 'string') {
+        return res.status(400).json({ error: 'Missing signup token' });
+      }
+      
+      // Find the pending signup
+      const [pending] = await db.select()
+        .from(pendingSignups)
+        .where(eq(pendingSignups.signupToken, signupToken))
+        .limit(1);
+      
+      if (!pending) {
+        return res.status(404).json({ error: 'Invalid signup token' });
+      }
+      
+      // Check if expired
+      if (pending.expiresAt < new Date()) {
+        return res.status(410).json({ error: 'Signup token expired' });
+      }
+      
+      // Check if token was already exchanged (single-use enforcement)
+      if (pending.tokenExchangedAt) {
+        return res.status(403).json({ error: 'Token already used. Please log in with your credentials.' });
+      }
+      
+      // Check if payment is complete (user was created by webhook)
+      if (!pending.completedAt || !pending.createdUserId) {
+        return res.status(202).json({ 
+          status: 'pending',
+          message: 'Payment not yet confirmed. Please complete payment and try again.',
+        });
+      }
+      
+      // Atomically mark token as exchanged to prevent race conditions
+      const [exchanged] = await db.update(pendingSignups)
+        .set({ tokenExchangedAt: new Date() })
+        .where(and(
+          eq(pendingSignups.id, pending.id),
+          isNull(pendingSignups.tokenExchangedAt)
+        ))
+        .returning();
+      
+      if (!exchanged) {
+        return res.status(403).json({ error: 'Token already used. Please log in with your credentials.' });
+      }
+      
+      // Get the created user
+      const [user] = await db.select()
+        .from(users)
+        .where(eq(users.id, pending.createdUserId))
+        .limit(1);
+      
+      if (!user) {
+        return res.status(500).json({ error: 'User account not found' });
+      }
+      
+      // Generate mobile auth token
+      const apiToken = crypto.randomBytes(48).toString('hex');
+      const tokenExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+      
+      await db.insert(mobileAuthTokens).values({
+        userId: user.id,
+        token: apiToken,
+        deviceInfo: 'mobile-signup-complete',
+        expiresAt: tokenExpiresAt,
+      });
+      
+      console.log(`[auth] Mobile signup complete: User ${user.id} exchanged signupToken for auth token`);
+      
+      res.json({
+        success: true,
+        token: apiToken,
+        tokenExpiresAt: tokenExpiresAt.toISOString(),
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          displayName: `${user.firstName} ${user.lastName}`,
+          subscription: {
+            tier: user.subscriptionTier,
+            status: user.billingStatus || 'trialing',
+            trialEndsAt: user.trialEndsAt?.toISOString(),
+          },
+        },
+      });
+    } catch (error: any) {
+      console.error('[auth] Mobile auth complete error:', error);
+      res.status(500).json({ error: 'Failed to complete authentication' });
     }
   });
   
