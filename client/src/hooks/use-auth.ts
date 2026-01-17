@@ -1,5 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import type { User } from "@shared/models/auth";
+import type { User as DbUser } from "@shared/models/auth";
+
+// Extended User type with server-computed fields
+export type User = DbUser & {
+  needsOnboarding?: boolean;
+  isOwner?: boolean;
+};
 
 async function fetchUser(): Promise<User | null> {
   const response = await fetch("/api/auth/user", {

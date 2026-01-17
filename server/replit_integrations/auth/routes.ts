@@ -175,6 +175,11 @@ export function registerAuthRoutes(app: Express): void {
         const userResponse = { ...req.user };
         delete userResponse.claims;
         
+        // Add computed needsOnboarding flag for frontend routing
+        const needsOnboarding = !userResponse.profileCompleted || !userResponse.billingCompleted;
+        userResponse.needsOnboarding = needsOnboarding;
+        userResponse.isOwner = isOwner;
+        
         return res.json(userResponse);
       }
       
@@ -216,7 +221,12 @@ export function registerAuthRoutes(app: Express): void {
       }
       
       console.log(`[auth] Returning user: profileCompleted=${user?.profileCompleted}, billingCompleted=${user?.billingCompleted}`);
-      res.json(user);
+      
+      // Add computed needsOnboarding flag for frontend routing
+      const needsOnboarding = !user?.profileCompleted || !user?.billingCompleted;
+      const userResponse = { ...user, needsOnboarding, isOwner };
+      
+      res.json(userResponse);
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });

@@ -71,12 +71,11 @@ function AuthenticatedRouter() {
   }, [checking2FA, twoFASession, location, setLocation]);
 
   useEffect(() => {
-    // Redirect to onboarding if profile or billing not completed
-    // Use negation (!==true) to catch false, null, and undefined values
-    const needsOnboarding = user && (user.profileCompleted !== true || user.billingCompleted !== true);
+    // Use server-computed needsOnboarding flag for reliable routing
+    // This prevents race conditions with stale cached data
     const isOnboardingRoute = location === "/onboarding" || location.startsWith("/onboarding/");
     
-    if (needsOnboarding && !isOnboardingRoute) {
+    if (user?.needsOnboarding === true && !isOnboardingRoute) {
       setLocation("/onboarding");
     }
   }, [user, location, setLocation]);
@@ -93,9 +92,9 @@ function AuthenticatedRouter() {
     return <Verify2FA />;
   }
 
-  // Must complete both profile AND billing before accessing dashboard
-  // Use negation (!==true) to catch false, null, and undefined values
-  if (user?.profileCompleted !== true || user?.billingCompleted !== true) {
+  // Use server-computed needsOnboarding flag for reliable routing
+  // This prevents race conditions with stale cached data
+  if (user?.needsOnboarding === true) {
     return <Onboarding />;
   }
 
