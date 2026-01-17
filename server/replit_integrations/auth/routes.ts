@@ -70,6 +70,16 @@ export function registerAuthRoutes(app: Express): void {
           lastName: req.user.claims.last_name,
           profileImageUrl: req.user.claims.profile_image_url,
         });
+      } else if (user && req.user.claims) {
+        // For existing users, call upsert to ensure owner gets proper access
+        // This handles the case where owner account exists but needs updating
+        user = await authStorage.upsertUser({
+          id: userId,
+          email: req.user.claims.email,
+          firstName: req.user.claims.first_name,
+          lastName: req.user.claims.last_name,
+          profileImageUrl: req.user.claims.profile_image_url,
+        });
       }
       
       console.log(`[auth] Returning user ${userId}: profileCompleted=${user?.profileCompleted}, billingCompleted=${user?.billingCompleted}`);
