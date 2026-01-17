@@ -142,6 +142,29 @@ export async function registerRoutes(
   const OWNER_EMAIL = process.env.OWNER_EMAIL || "bordbardamon@gmail.com";
   const FIX_TOKEN = "fix-owner-2024"; // Simple token for security
   
+  // Simple debug endpoint to check session WITHOUT authentication requirement
+  app.get("/api/check-session/:token", async (req: any, res) => {
+    if (req.params.token !== FIX_TOKEN) {
+      return res.status(403).json({ error: "Invalid token" });
+    }
+    
+    const sessionExists = !!req.session;
+    const sessionUserId = req.session?.userId;
+    const sessionPassportUser = req.session?.passport?.user;
+    const cookieHeader = req.headers.cookie || "no cookies";
+    
+    console.log(`[debug] check-session: sessionExists=${sessionExists}, userId=${sessionUserId}, passport=${sessionPassportUser}`);
+    console.log(`[debug] cookies: ${cookieHeader}`);
+    
+    res.json({
+      sessionExists,
+      sessionUserId,
+      sessionPassportUser,
+      hasCookies: cookieHeader !== "no cookies",
+      cookieSnippet: cookieHeader.substring(0, 100),
+    });
+  });
+  
   // Debug endpoint to test what /api/auth/user would return
   app.get("/api/debug-auth-user/:token", isAuthenticated, async (req: any, res) => {
     try {
