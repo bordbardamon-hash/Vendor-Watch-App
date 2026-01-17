@@ -5,18 +5,16 @@ let connectionSettings: any;
 async function getCredentials() {
   const isProduction = process.env.REPLIT_DEPLOYMENT === '1';
   
-  // In production, check for manual environment variables first
-  if (isProduction) {
-    const manualPublishable = process.env.STRIPE_PUBLISHABLE_KEY || process.env['Stripe Publick Key API'];
-    const manualSecret = process.env.STRIPE_SECRET_KEY || process.env['Stripe live secret'];
-    
-    if (manualPublishable && manualSecret) {
-      console.log('[stripe] Using manual Stripe keys from environment variables');
-      return {
-        publishableKey: manualPublishable,
-        secretKey: manualSecret,
-      };
-    }
+  // Always check for manual environment variables first (both dev and production)
+  const manualPublishable = process.env.STRIPE_PUBLISHABLE_KEY || process.env['Stripe Publick Key API'];
+  const manualSecret = process.env.STRIPE_SECRET_KEY || process.env['Stripe live secret'];
+  
+  if (manualPublishable && manualSecret) {
+    console.log('[stripe] Using manual Stripe keys from environment variables');
+    return {
+      publishableKey: manualPublishable,
+      secretKey: manualSecret,
+    };
   }
   
   // Fall back to Replit connector
