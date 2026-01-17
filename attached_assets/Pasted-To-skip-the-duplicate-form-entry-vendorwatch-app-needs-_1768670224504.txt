@@ -1,0 +1,76 @@
+To skip the duplicate form entry, vendorwatch.app needs an API endpoint that accepts the signup data and returns a Stripe checkout URL directly. Here's what you need to add to vendorwatch.app:
+
+Add this API endpoint to vendorwatch.app:
+// POST /api/auth/mobile-signup
+app.post('/api/auth/mobile-signup', async (req, res) => {
+  try {
+    const { email, password, displayName, firstName, lastName, company, phone, tier } = req.body;
+    
+    // 1. Check if user already exists
+    const existingUser = await findUserByEmail(email);
+    if (existingUser) {
+      return res.status(400).json({ error: 'Email already registered' });
+    }
+    
+    // 2. Create the user account (with trial status)
+    const user = await createUser({
+      email,
+      password, // Hash this!
+      displayName: displayName || `${firstName} ${lastName}`,
+      firstName,
+      lastName,
+      company,
+      phone,
+      subscriptionTier: tier,
+      subscriptionStatus: 'trialing',
+      trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+    });
+    
+    // 3. Create Stripe checkout session
+    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+    const priceId = {
+      essential: 'price_xxx', // Your Stripe price IDs
+      growth: 'price_xxx',
+      enterprise: 'price_xxx',
+    }[tier];
+    
+    const session = await stripe.checkout.sessions.create({
+      customer_email: email,
+      mode: 'subscription',
+      line_items: [{ price: priceId, quantity: 1 }],
+      subscription_data: {
+        trial_period_days: 7,
+      },
+      success_url: req.body.success_url || 'https://vendorwatch.app/dashboard',
+      cancel_url: req.body.cancel_url || 'https://vendorwatch.app/signup',
+    });
+    
+    // 4. Generate auth token for the user
+    const token = generateAuthToken(user);
+    
+    // 5. Return checkout URL and token
+    res.json({
+      success: true,
+      checkoutUrl: session.url,
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        displayName: user.displayName,
+        subscription: {
+          tier,
+          status: 'trialing',
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Mobile signup error:', error);
+    res.status(500).json({ error: 'Failed to create account' });
+  }
+});
+Once you add this endpoint to vendorwatch.app, let me know and I'll update the mobile app to use it. The flow will be:
+
+User enters info in mobile app → selects tier
+Mobile app calls /api/auth/mobile-signup
+Returns Stripe checkout URL → opens directly in browser
+User completes payment → returns to app (already logged in

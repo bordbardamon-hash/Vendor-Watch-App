@@ -10,9 +10,13 @@ import { syncVendorStatus, resolveStaleIncidents } from "./statusSync";
 import { syncAllBlockchainChains, resolveStaleBlockchainIncidents } from "./blockchainSync";
 import { setupTwoFactor, verifyTOTP, verifyRecoveryCode, generateRecoveryCodes } from "./twoFactor";
 import { z } from "zod";
+import crypto from "crypto";
+import bcrypt from "bcryptjs";
 import { db } from "./db";
 import { users, mobileAuthTokens } from "@shared/models/auth";
 import { eq, and, isNull } from "drizzle-orm";
+
+const SALT_ROUNDS = 10;
 
 // Unified isAuthenticated middleware that works with session, Replit OAuth, AND mobile bearer tokens
 const isAuthenticated: RequestHandler = async (req: any, res, next) => {
@@ -1593,6 +1597,148 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Invalid signup data", details: error.errors });
       }
       res.status(500).json({ error: "Failed to create checkout session", details: error.message });
+    }
+  });
+
+  // Mobile signup schema - includes password for native mobile auth
+  const mobileSignupSchema = z.object({
+    email: z.string().email(),
+    password: z.string().min(8, "Password must be at least 8 characters"),
+    firstName: z.string().min(1),
+    lastName: z.string().min(1),
+    companyName: z.string().min(1),
+    phone: z.string().min(1),
+    tier: z.enum(['essential', 'growth', 'enterprise']),
+    success_url: z.string().url().optional(),
+    cancel_url: z.string().url().optional(),
+  });
+
+  // Mobile signup endpoint - creates user, starts trial, and returns Stripe checkout URL
+  app.post("/api/auth/mobile-signup", async (req, res) => {
+    try {
+      const validatedData = mobileSignupSchema.parse(req.body);
+      
+      // 1. Check if user already exists
+      const [existingUser] = await db.select()
+        .from(users)
+        .where(eq(users.email, validatedData.email.toLowerCase()))
+        .limit(1);
+      
+      if (existingUser) {
+        return res.status(400).json({ error: 'Email already registered' });
+      }
+      
+      // 2. Hash password
+      const hashedPassword = await bcrypt.hash(validatedData.password, SALT_ROUNDS);
+      
+      // 3. Create user with trial status
+      const trialEndsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+      const [newUser] = await db.insert(users).values({
+        email: validatedData.email.toLowerCase(),
+        password: hashedPassword,
+        firstName: validatedData.firstName,
+        lastName: validatedData.lastName,
+        companyName: validatedData.companyName,
+        phone: validatedData.phone,
+        subscriptionTier: validatedData.tier,
+        subscriptionStatus: 'trialing',
+        trialEndsAt,
+        profileCompleted: true, // User provided all info in signup
+        billingCompleted: false, // Will be true after Stripe checkout
+      }).returning();
+      
+      console.log(`[auth] Mobile signup: Created user ${newUser.id} (${newUser.email})`);
+      
+      // 4. Create Stripe customer and checkout session
+      const stripe = await getUncachableStripeClient();
+      const priceId = TIER_PRICE_IDS[validatedData.tier];
+      
+      const customer = await stripe.customers.create({
+        email: validatedData.email,
+        name: `${validatedData.firstName} ${validatedData.lastName}`,
+        phone: validatedData.phone,
+        metadata: {
+          companyName: validatedData.companyName,
+          firstName: validatedData.firstName,
+          lastName: validatedData.lastName,
+          subscriptionTier: validatedData.tier,
+          userId: String(newUser.id),
+        },
+      });
+      
+      // Update user with Stripe customer ID
+      await db.update(users)
+        .set({ stripeCustomerId: customer.id })
+        .where(eq(users.id, newUser.id));
+      
+      const session = await stripe.checkout.sessions.create({
+        customer: customer.id,
+        payment_method_types: ['card'],
+        line_items: [{ price: priceId, quantity: 1 }],
+        mode: 'subscription',
+        success_url: validatedData.success_url || `https://vendorwatch.app/signup/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: validatedData.cancel_url || `https://vendorwatch.app/signup`,
+        subscription_data: {
+          trial_period_days: 7,
+          metadata: {
+            subscriptionTier: validatedData.tier,
+            userId: String(newUser.id),
+          },
+        },
+      });
+      
+      // 5. Generate mobile auth token
+      const apiToken = crypto.randomBytes(48).toString('hex');
+      const tokenExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+      
+      await db.insert(mobileAuthTokens).values({
+        userId: newUser.id,
+        token: apiToken,
+        deviceInfo: 'mobile-signup',
+        expiresAt: tokenExpiresAt,
+      });
+      
+      console.log(`[auth] Mobile signup complete: User ${newUser.id}, checkout URL generated`);
+      
+      // 6. Return checkout URL, token, and user data
+      res.json({
+        success: true,
+        checkoutUrl: session.url,
+        token: apiToken,
+        tokenExpiresAt: tokenExpiresAt.toISOString(),
+        user: {
+          id: newUser.id,
+          email: newUser.email,
+          firstName: newUser.firstName,
+          lastName: newUser.lastName,
+          displayName: `${newUser.firstName} ${newUser.lastName}`,
+          subscription: {
+            tier: validatedData.tier,
+            status: 'trialing',
+            trialEndsAt: trialEndsAt.toISOString(),
+          },
+        },
+      });
+    } catch (error: any) {
+      console.error('[auth] Mobile signup error:', error);
+      
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ 
+          error: 'Invalid signup data', 
+          details: error.flatten().fieldErrors 
+        });
+      }
+      
+      // Handle Stripe errors more gracefully
+      if (error.type === 'StripeInvalidRequestError') {
+        return res.status(400).json({ 
+          error: 'Payment setup failed',
+          code: error.code,
+          message: error.message
+        });
+      }
+      
+      res.status(500).json({ error: 'Failed to create account' });
     }
   });
   
