@@ -67,6 +67,21 @@ async function createPredictionFromPattern(pattern: IncidentPattern): Promise<vo
     return;
   }
   
+  // Check if a similar prediction already exists to prevent duplicates
+  const existingPredictions = await storage.getActivePredictions();
+  const isDuplicate = existingPredictions.some(p => {
+    const matchesResource = pattern.resourceType === 'vendor' 
+      ? p.vendorKey === pattern.resourceKey 
+      : p.chainKey === pattern.resourceKey;
+    const sameDate = p.predictedStartAt && 
+      new Date(p.predictedStartAt).toDateString() === predictedDate.toDateString();
+    return matchesResource && sameDate;
+  });
+  
+  if (isDuplicate) {
+    return;
+  }
+  
   const confidence = Math.min(0.95, 0.5 + (pattern.incidentCount * 0.05));
   const severity = pattern.avgSeverity === 'major' ? 'high' : 'medium';
   
