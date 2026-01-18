@@ -316,7 +316,7 @@ export default function Predictions() {
 
       {selectedPrediction && (
         <Dialog open={!!selectedPrediction} onOpenChange={() => setSelectedPrediction(null)}>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-xl w-[95vw] sm:w-full">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <div className={`h-3 w-3 rounded-full ${SEVERITY_COLORS[selectedPrediction.severity]}`} />
@@ -361,10 +361,11 @@ export default function Predictions() {
                 </div>
               )}
             </div>
-            <DialogFooter className="flex-col sm:flex-row gap-2">
+            <DialogFooter className="flex-wrap gap-2">
               {!selectedPrediction.acknowledgedAt && (
                 <Button
                   variant="outline"
+                  size="sm"
                   onClick={() => acknowledgeMutation.mutate(selectedPrediction.id)}
                   disabled={acknowledgeMutation.isPending}
                 >
@@ -374,6 +375,7 @@ export default function Predictions() {
               )}
               <Button
                 variant="outline"
+                size="sm"
                 onClick={() => dismissMutation.mutate(selectedPrediction.id)}
                 disabled={dismissMutation.isPending}
               >
@@ -384,6 +386,7 @@ export default function Predictions() {
                 <>
                   <Button
                     variant="outline"
+                    size="sm"
                     onClick={() => feedbackMutation.mutate({
                       id: selectedPrediction.id,
                       score: 1,
@@ -396,6 +399,7 @@ export default function Predictions() {
                   </Button>
                   <Button
                     variant="outline"
+                    size="sm"
                     onClick={() => feedbackMutation.mutate({
                       id: selectedPrediction.id,
                       score: -1,
