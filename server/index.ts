@@ -28,6 +28,7 @@ const allowedOrigins = [
   'https://vendorwatch.app',
   'http://localhost:8081',
   'http://localhost:5000',
+  'http://127.0.0.1:5000',
 ];
 
 app.use(cors({
