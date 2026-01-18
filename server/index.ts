@@ -9,6 +9,7 @@ import { WebhookHandlers } from './webhookHandlers';
 import { seedVendorsIfEmpty, seedBlockchainChainsIfEmpty, storage } from './storage';
 import { syncVendorStatus, resolveStaleIncidents } from './statusSync';
 import { syncAllBlockchainChains, resolveStaleBlockchainIncidents } from './blockchainSync';
+import { collectTelemetryMetrics, generatePredictions } from './predictionEngine';
 
 // Global error handlers
 process.on('unhandledRejection', (reason, promise) => {
@@ -306,6 +307,56 @@ app.use((req, res, next) => {
       }, ARCHIVE_INTERVAL_MS);
       
       console.log(`[archive] Automatic archival configured: resolved incidents archived after ${ARCHIVE_AFTER_DAYS} days, purged after ${PURGE_AFTER_DAYS} days`);
+      
+      // Predictive Analytics: Telemetry collection and prediction generation
+      const TELEMETRY_INTERVAL_MS = 60 * 60 * 1000; // Collect telemetry every hour
+      const PREDICTION_INTERVAL_MS = 6 * 60 * 60 * 1000; // Generate predictions every 6 hours
+      
+      // Initial telemetry collection after server stabilizes
+      setTimeout(async () => {
+        console.log('[predictions] Starting initial telemetry collection...');
+        try {
+          await collectTelemetryMetrics();
+          console.log('[predictions] Initial telemetry collection complete');
+        } catch (err) {
+          console.error('[predictions] Initial telemetry collection failed:', err);
+        }
+      }, 10000); // 10 seconds after startup
+      
+      // Hourly telemetry collection
+      setInterval(async () => {
+        console.log('[predictions] Collecting hourly telemetry...');
+        try {
+          await collectTelemetryMetrics();
+          console.log('[predictions] Hourly telemetry collection complete');
+        } catch (err) {
+          console.error('[predictions] Hourly telemetry collection failed:', err);
+        }
+      }, TELEMETRY_INTERVAL_MS);
+      
+      // Generate predictions every 6 hours
+      setInterval(async () => {
+        console.log('[predictions] Generating predictions from patterns...');
+        try {
+          await generatePredictions();
+          console.log('[predictions] Prediction generation complete');
+        } catch (err) {
+          console.error('[predictions] Prediction generation failed:', err);
+        }
+      }, PREDICTION_INTERVAL_MS);
+      
+      // Initial prediction generation after 30 seconds (allow telemetry to build up)
+      setTimeout(async () => {
+        console.log('[predictions] Running initial prediction generation...');
+        try {
+          await generatePredictions();
+          console.log('[predictions] Initial prediction generation complete');
+        } catch (err) {
+          console.error('[predictions] Initial prediction generation failed:', err);
+        }
+      }, 30000);
+      
+      console.log(`[predictions] Predictive analytics configured: telemetry every ${TELEMETRY_INTERVAL_MS / 60000} minutes, predictions every ${PREDICTION_INTERVAL_MS / 3600000} hours`);
     },
   );
 })();
