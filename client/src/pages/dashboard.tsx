@@ -67,9 +67,16 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/my-incidents"] });
       queryClient.invalidateQueries({ queryKey: ["/api/vendors"] });
       queryClient.invalidateQueries({ queryKey: ["/api/incidents"] });
-      if (data.synced > 0) {
-        console.log(`[sync] ${data.message}`);
+      if (data.background) {
+        // Sync is running in background, refetch after delay
+        setTimeout(() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/my-vendors"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/my-incidents"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/vendors"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/incidents"] });
+        }, 5000);
       }
+      console.log(`[sync] ${data.message}`);
     },
     onError: (error) => {
       console.log("[sync] Status sync failed:", error);

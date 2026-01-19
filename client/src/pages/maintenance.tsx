@@ -317,7 +317,21 @@ export default function Maintenance() {
       queryClient.invalidateQueries({ queryKey: ["maintenance-blockchain-active"] });
       queryClient.invalidateQueries({ queryKey: ["maintenance-blockchain-upcoming"] });
       
-      if (data.vendorOk && data.blockchainOk) {
+      // Check if syncs are running in background
+      const vendorBackground = data.vendor?.background;
+      const blockchainBackground = data.blockchain?.background;
+      
+      if (vendorBackground || blockchainBackground) {
+        toast({ title: "Sync Started", description: "Refreshing data in background..." });
+        // Refetch after delay for background syncs
+        setTimeout(() => {
+          queryClient.invalidateQueries({ queryKey: ["maintenance-stats"] });
+          queryClient.invalidateQueries({ queryKey: ["maintenance-vendors-active"] });
+          queryClient.invalidateQueries({ queryKey: ["maintenance-vendors-upcoming"] });
+          queryClient.invalidateQueries({ queryKey: ["maintenance-blockchain-active"] });
+          queryClient.invalidateQueries({ queryKey: ["maintenance-blockchain-upcoming"] });
+        }, 5000);
+      } else if (data.vendorOk && data.blockchainOk) {
         toast({ title: "Refresh Complete", description: "Maintenance data has been updated." });
       } else {
         toast({ 

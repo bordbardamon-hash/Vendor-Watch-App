@@ -280,12 +280,24 @@ export default function Vendors() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["vendors"] });
       queryClient.invalidateQueries({ queryKey: ["incidents"] });
-      toast({
-        title: "Status Synced",
-        description: data.skipped > 0 
-          ? `Updated ${data.synced} vendor(s). ${data.skipped} vendor(s) have no API.`
-          : `Updated ${data.synced} vendor(s) with latest status`,
-      });
+      if (data.background) {
+        toast({
+          title: "Sync Started",
+          description: "Refreshing vendor statuses in background...",
+        });
+        // Refetch after a delay to get updated data
+        setTimeout(() => {
+          queryClient.invalidateQueries({ queryKey: ["vendors"] });
+          queryClient.invalidateQueries({ queryKey: ["incidents"] });
+        }, 5000);
+      } else {
+        toast({
+          title: "Status Synced",
+          description: data.skipped > 0 
+            ? `Updated ${data.synced} vendor(s). ${data.skipped} vendor(s) have no API.`
+            : `Updated ${data.synced} vendor(s) with latest status`,
+        });
+      }
     },
     onError: () => {
       toast({

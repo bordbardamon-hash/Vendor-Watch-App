@@ -669,17 +669,39 @@ export async function registerRoutes(
   });
   
   // Sync vendor statuses from real status pages (protected)
+  // Returns immediately and runs sync in background to avoid timeout
   app.post("/api/vendors/sync", isAuthenticated, async (req, res) => {
     try {
       const vendorKey = req.body?.vendorKey;
-      console.log(`[sync] Starting status sync${vendorKey ? ` for ${vendorKey}` : ' for all vendors'}...`);
-      const result = await syncVendorStatus(vendorKey);
+      console.log(`[sync] Manual sync requested${vendorKey ? ` for ${vendorKey}` : ' for all vendors'}...`);
+      
+      // For single vendor sync, do it synchronously (fast)
+      if (vendorKey) {
+        const result = await syncVendorStatus(vendorKey);
+        return res.json({ 
+          success: true, 
+          synced: result.synced, 
+          skipped: result.skipped,
+          errors: result.errors,
+          message: `Synced ${result.synced} vendor(s), skipped ${result.skipped} (no API)`
+        });
+      }
+      
+      // For full sync, respond immediately and run in background to avoid timeout
       res.json({ 
         success: true, 
-        synced: result.synced, 
-        skipped: result.skipped,
-        errors: result.errors,
-        message: `Synced ${result.synced} vendor(s), skipped ${result.skipped} (no API)`
+        synced: 0, 
+        skipped: 0,
+        errors: [],
+        message: "Sync started in background. Vendors will update shortly.",
+        background: true
+      });
+      
+      // Run full sync in background (don't await)
+      syncVendorStatus().then(result => {
+        console.log(`[sync] Background sync complete: ${result.synced} synced, ${result.skipped} skipped`);
+      }).catch(error => {
+        console.error("[sync] Background sync failed:", error);
       });
     } catch (error) {
       console.error("Error syncing vendor statuses:", error);
