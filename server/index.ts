@@ -9,7 +9,7 @@ import { WebhookHandlers } from './webhookHandlers';
 import { seedVendorsIfEmpty, seedBlockchainChainsIfEmpty, storage } from './storage';
 import { syncVendorStatus, resolveStaleIncidents } from './statusSync';
 import { syncAllBlockchainChains, resolveStaleBlockchainIncidents } from './blockchainSync';
-import { collectTelemetryMetrics, generatePredictions } from './predictionEngine';
+import { collectTelemetryMetrics, generatePredictions, maintainPredictions, updatePredictionConfidence } from './predictionEngine';
 
 // Global error handlers
 process.on('unhandledRejection', (reason, promise) => {
@@ -357,7 +357,37 @@ app.use((req, res, next) => {
         }
       }, 30000);
       
-      console.log(`[predictions] Predictive analytics configured: telemetry every ${TELEMETRY_INTERVAL_MS / 60000} minutes, predictions every ${PREDICTION_INTERVAL_MS / 3600000} hours`);
+      // Prediction maintenance every hour (clean up expired, validate against actual incidents)
+      const MAINTENANCE_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
+      setInterval(async () => {
+        console.log('[predictions] Running prediction maintenance...');
+        try {
+          const result = await maintainPredictions();
+          console.log(`[predictions] Maintenance complete: expired=${result.expired}, validated=${result.validated}, invalidated=${result.invalidated}`);
+          
+          // Also update confidence levels based on new telemetry
+          const confidenceUpdates = await updatePredictionConfidence();
+          if (confidenceUpdates > 0) {
+            console.log(`[predictions] Updated confidence for ${confidenceUpdates} predictions`);
+          }
+        } catch (err) {
+          console.error('[predictions] Prediction maintenance failed:', err);
+        }
+      }, MAINTENANCE_INTERVAL_MS);
+      
+      // Run initial maintenance after 2 minutes (after initial predictions are created)
+      setTimeout(async () => {
+        console.log('[predictions] Running initial prediction maintenance...');
+        try {
+          await maintainPredictions();
+          await updatePredictionConfidence();
+          console.log('[predictions] Initial maintenance complete');
+        } catch (err) {
+          console.error('[predictions] Initial maintenance failed:', err);
+        }
+      }, 120000);
+      
+      console.log(`[predictions] Predictive analytics configured: telemetry every ${TELEMETRY_INTERVAL_MS / 60000} minutes, predictions every ${PREDICTION_INTERVAL_MS / 3600000} hours, maintenance hourly`);
     },
   );
 })();

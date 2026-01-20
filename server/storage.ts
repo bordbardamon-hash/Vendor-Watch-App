@@ -444,10 +444,12 @@ export interface IStorage {
   getActivePredictions(): Promise<OutagePrediction[]>;
   getOutagePrediction(id: string): Promise<OutagePrediction | undefined>;
   createOutagePrediction(prediction: InsertOutagePrediction): Promise<OutagePrediction>;
-  updateOutagePrediction(id: string, data: Partial<InsertOutagePrediction>): Promise<OutagePrediction | undefined>;
+  updateOutagePrediction(id: string, data: Partial<InsertOutagePrediction> & { actualIncidentId?: string | null }): Promise<OutagePrediction | undefined>;
+  getAllOutagePredictions(): Promise<OutagePrediction[]>;
   acknowledgePrediction(id: string, userId: string): Promise<OutagePrediction | undefined>;
   dismissPrediction(id: string): Promise<OutagePrediction | undefined>;
   providePredictionFeedback(id: string, score: number, notes?: string): Promise<OutagePrediction | undefined>;
+  deletePrediction(id: string): Promise<boolean>;
   
   // Prediction Patterns
   getPredictionPatterns(resourceType?: string): Promise<PredictionPattern[]>;
@@ -3062,6 +3064,11 @@ export class DatabaseStorage implements IStorage {
       .orderBy(outagePredictions.predictedStartAt);
   }
 
+  async getAllOutagePredictions(): Promise<OutagePrediction[]> {
+    return await db.select().from(outagePredictions)
+      .orderBy(desc(outagePredictions.createdAt));
+  }
+
   async getOutagePrediction(id: string): Promise<OutagePrediction | undefined> {
     const [prediction] = await db.select().from(outagePredictions)
       .where(eq(outagePredictions.id, id));
@@ -3073,7 +3080,7 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async updateOutagePrediction(id: string, data: Partial<InsertOutagePrediction>): Promise<OutagePrediction | undefined> {
+  async updateOutagePrediction(id: string, data: Partial<InsertOutagePrediction> & { actualIncidentId?: string | null }): Promise<OutagePrediction | undefined> {
     const [updated] = await db.update(outagePredictions)
       .set(data)
       .where(eq(outagePredictions.id, id))
@@ -3110,6 +3117,13 @@ export class DatabaseStorage implements IStorage {
       .where(eq(outagePredictions.id, id))
       .returning();
     return updated || undefined;
+  }
+
+  async deletePrediction(id: string): Promise<boolean> {
+    const result = await db.delete(outagePredictions)
+      .where(eq(outagePredictions.id, id))
+      .returning();
+    return result.length > 0;
   }
 
   // Prediction Patterns
