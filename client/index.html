@@ -101,6 +101,70 @@
             "@type": "Answer",
             "text": "Vendor Watch offers three subscription tiers: Essential at $89/month (10 vendors, email alerts), Growth at $129/month (25 vendors, SMS + email, blockchain monitoring), and Enterprise at $189/month (unlimited vendors, full automation, AI Copilot)."
           }
+        },
+        {
+          "@type": "Question",
+          "name": "How often does Vendor Watch check vendor status?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Vendor Watch automatically checks all monitored vendors every 5 minutes, ensuring you're among the first to know about any service disruptions or outages."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I create white-label status pages for my clients?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes! Growth and Enterprise subscribers can create branded client portals with custom logos, colors, and selected vendors. Each portal gets a unique public URL that your clients can bookmark."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does Vendor Watch integrate with ConnectWise and other PSA tools?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes! Vendor Watch integrates with ConnectWise, Autotask, Kaseya, Syncro, and HaloPSA. When incidents occur, tickets are automatically created in your PSA system with all relevant details."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What is predictive outage detection?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Enterprise subscribers get AI-powered predictive analytics that analyze historical patterns to forecast potential outages. A 7-day forecast calendar shows predicted risk windows so you can prepare in advance."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can multiple team members use one Vendor Watch account?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes! Vendor Watch supports multi-user organizations with role-based access control. You can invite team members as Master Admins, Read/Write Members, or Read-Only Members, all sharing one subscription."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What blockchain networks does Vendor Watch monitor?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Vendor Watch monitors 60 blockchain networks including Ethereum, Solana, Polygon, Arbitrum, Base, and popular wallets like MetaMask, Ledger, and Coinbase Wallet. We also track staking platforms and RPC providers."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How do incident playbooks work?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Incident playbooks are step-by-step response guides you create for different incident types and severities. When an incident matches a playbook, your team has immediate access to documented procedures."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is there a free trial?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes! All new users get a 7-day free trial with full access to features. No credit card required to start exploring Vendor Watch."
+          }
         }
       ]
     }
@@ -117,6 +181,95 @@
       "sameAs": [
         "https://twitter.com/vendorwatch"
       ]
+    }
+    </script>
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "Vendor Watch",
+      "url": "https://vendorwatch.app",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://vendorwatch.app/vendors?search={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "HowTo",
+      "name": "How to Monitor Vendor Status with Vendor Watch",
+      "description": "Learn how to set up real-time monitoring for your third-party vendors and receive instant alerts when outages occur.",
+      "step": [
+        {
+          "@type": "HowToStep",
+          "name": "Sign up for Vendor Watch",
+          "text": "Create an account at vendorwatch.app and choose a subscription plan that fits your needs (Essential, Growth, or Enterprise).",
+          "position": 1
+        },
+        {
+          "@type": "HowToStep",
+          "name": "Select vendors to monitor",
+          "text": "Browse the list of 50+ supported vendors including AWS, Microsoft 365, Salesforce, and more. Subscribe to the ones your business relies on.",
+          "position": 2
+        },
+        {
+          "@type": "HowToStep",
+          "name": "Configure notification preferences",
+          "text": "Set up your preferred notification channels (email and SMS) and customize alert settings for different severity levels.",
+          "position": 3
+        },
+        {
+          "@type": "HowToStep",
+          "name": "Receive instant alerts",
+          "text": "When an outage or incident is detected, you'll receive real-time notifications with details about the affected services and current status.",
+          "position": 4
+        }
+      ],
+      "totalTime": "PT5M"
+    }
+    </script>
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "HowTo",
+      "name": "How to Set Up PSA Ticketing Integration",
+      "description": "Connect Vendor Watch to your PSA tool (ConnectWise, Autotask, Syncro, Kaseya, or HaloPSA) for automatic ticket creation when incidents occur.",
+      "step": [
+        {
+          "@type": "HowToStep",
+          "name": "Navigate to PSA Integrations",
+          "text": "Go to the PSA Integrations page in your Vendor Watch dashboard.",
+          "position": 1
+        },
+        {
+          "@type": "HowToStep",
+          "name": "Select your PSA platform",
+          "text": "Choose from ConnectWise, Autotask, Kaseya, Syncro, or HaloPSA.",
+          "position": 2
+        },
+        {
+          "@type": "HowToStep",
+          "name": "Enter API credentials",
+          "text": "Provide your PSA API key and connection details. Vendor Watch securely stores your credentials.",
+          "position": 3
+        },
+        {
+          "@type": "HowToStep",
+          "name": "Configure ticket rules",
+          "text": "Set up rules for automatic ticket creation based on incident severity and affected vendors.",
+          "position": 4
+        }
+      ],
+      "totalTime": "PT10M"
     }
     </script>
 
