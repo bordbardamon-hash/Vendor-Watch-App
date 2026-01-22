@@ -92,17 +92,19 @@ const TIER_PRICE_IDS = {
 } as const;
 
 // Stripe price IDs for additional seats
-const SEAT_PRICE_IDS = {
+const SEAT_PRICE_IDS: Record<string, string> = {
   growth: process.env.STRIPE_PRICE_GROWTH_SEAT || "price_growth_seat_placeholder", // $20/seat
   enterprise: process.env.STRIPE_PRICE_ENTERPRISE_SEAT || "price_enterprise_seat_placeholder", // $25/seat
-} as const;
+  platinum: process.env.STRIPE_PRICE_ENTERPRISE_SEAT || "price_enterprise_seat_placeholder", // Legacy tier, same as enterprise
+};
 
-// Included seats per tier
-const INCLUDED_SEATS = {
+// Included seats per tier (platinum is legacy name for enterprise)
+const INCLUDED_SEATS: Record<string, number> = {
   essential: 1,
   growth: 3,
   enterprise: 5,
-} as const;
+  platinum: 5, // Legacy tier, same as enterprise
+};
 
 // Data retention limits by tier (in days)
 // Currently telemetry/predictions are Enterprise-only features
@@ -5867,9 +5869,9 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
       const members = await storage.getOrganizationMembers(org.id);
       const usedSeats = members.length;
       
-      // Get seat pricing
-      const seatPrice = tier === 'enterprise' ? 25 : tier === 'growth' ? 20 : 0;
-      const supportsSeats = tier === 'growth' || tier === 'enterprise';
+      // Get seat pricing (platinum is legacy name for enterprise)
+      const seatPrice = (tier === 'enterprise' || tier === 'platinum') ? 25 : tier === 'growth' ? 20 : 0;
+      const supportsSeats = tier === 'growth' || tier === 'enterprise' || tier === 'platinum';
       
       res.json({
         includedSeats,
@@ -5909,8 +5911,8 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
         return res.status(404).json({ error: "Organization not found" });
       }
       
-      const tier = org.subscriptionTier as 'growth' | 'enterprise' | null;
-      if (!tier || (tier !== 'growth' && tier !== 'enterprise')) {
+      const tier = org.subscriptionTier as 'growth' | 'enterprise' | 'platinum' | null;
+      if (!tier || (tier !== 'growth' && tier !== 'enterprise' && tier !== 'platinum')) {
         return res.status(400).json({ error: "Additional seats are only available on Growth and Enterprise plans" });
       }
       
