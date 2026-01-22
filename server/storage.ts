@@ -52,7 +52,7 @@ import {
   type PredictionPattern, type InsertPredictionPattern,
   SUBSCRIPTION_TIERS
 } from "@shared/schema";
-import { and, isNull, inArray, gte, lte, sql, count, ilike, or } from "drizzle-orm";
+import { and, isNull, inArray, gte, lte, lt, sql, count, ilike, or } from "drizzle-orm";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
 
@@ -457,6 +457,11 @@ export interface IStorage {
   createPredictionPattern(pattern: InsertPredictionPattern): Promise<PredictionPattern>;
   updatePredictionPattern(id: string, data: Partial<InsertPredictionPattern>): Promise<PredictionPattern | undefined>;
   deletePredictionPattern(id: string): Promise<boolean>;
+  
+  // Data Retention / Purge
+  purgeOldTelemetry(olderThanDays: number): Promise<number>;
+  purgeOldPredictions(olderThanDays: number): Promise<number>;
+  purgeOldActivityEvents(olderThanDays: number): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3165,6 +3170,36 @@ export class DatabaseStorage implements IStorage {
       .where(eq(predictionPatterns.id, id))
       .returning();
     return result.length > 0;
+  }
+  
+  async purgeOldTelemetry(olderThanDays: number): Promise<number> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
+    
+    const result = await db.delete(vendorTelemetryMetrics)
+      .where(lt(vendorTelemetryMetrics.metricDate, cutoffDate))
+      .returning();
+    return result.length;
+  }
+  
+  async purgeOldPredictions(olderThanDays: number): Promise<number> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
+    
+    const result = await db.delete(outagePredictions)
+      .where(lt(outagePredictions.createdAt, cutoffDate))
+      .returning();
+    return result.length;
+  }
+  
+  async purgeOldActivityEvents(olderThanDays: number): Promise<number> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
+    
+    const result = await db.delete(userActivityEvents)
+      .where(lt(userActivityEvents.createdAt, cutoffDate))
+      .returning();
+    return result.length;
   }
 }
 

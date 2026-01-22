@@ -388,6 +388,34 @@ app.use((req, res, next) => {
       }, 120000);
       
       console.log(`[predictions] Predictive analytics configured: telemetry every ${TELEMETRY_INTERVAL_MS / 60000} minutes, predictions every ${PREDICTION_INTERVAL_MS / 3600000} hours, maintenance hourly`);
+      
+      // Data retention - run daily at startup and then every 24 hours
+      // Uses the LONGEST retention period to ensure data availability for all tiers
+      // Tier-based access restrictions are enforced at the API level, not storage level
+      const DATA_RETENTION_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
+      const TELEMETRY_RETENTION_DAYS = 90;  // Enterprise tier (longest)
+      const PREDICTION_RETENTION_DAYS = 30; // Enterprise tier (longest)
+      const ACTIVITY_RETENTION_DAYS = 90;   // Same for all tiers
+      
+      const runDataRetention = async () => {
+        console.log('[retention] Running data retention cleanup...');
+        try {
+          const telemetryPurged = await storage.purgeOldTelemetry(TELEMETRY_RETENTION_DAYS);
+          const predictionsPurged = await storage.purgeOldPredictions(PREDICTION_RETENTION_DAYS);
+          const activityPurged = await storage.purgeOldActivityEvents(ACTIVITY_RETENTION_DAYS);
+          console.log(`[retention] Cleanup complete: telemetry=${telemetryPurged}, predictions=${predictionsPurged}, activity=${activityPurged}`);
+        } catch (err) {
+          console.error('[retention] Data retention cleanup failed:', err);
+        }
+      };
+      
+      // Run initial cleanup after 5 minutes
+      setTimeout(runDataRetention, 5 * 60 * 1000);
+      
+      // Then run daily
+      setInterval(runDataRetention, DATA_RETENTION_INTERVAL_MS);
+      
+      console.log(`[retention] Data retention configured: telemetry ${TELEMETRY_RETENTION_DAYS} days, predictions ${PREDICTION_RETENTION_DAYS} days, activity ${ACTIVITY_RETENTION_DAYS} days (runs daily)`);
     },
   );
 })();

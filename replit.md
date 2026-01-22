@@ -94,6 +94,11 @@ Key entities include Users, Sessions, Vendors, Incidents, Jobs, and Configuratio
     - **Confidence Scoring**: Predictions include confidence levels (low/medium/high/critical)
     - **7-Day Forecast Calendar**: Visual calendar showing predicted risk windows
     - **User Feedback**: Acknowledge predictions and provide accuracy feedback
+- **Data Retention**: Auto-purge old telemetry to manage storage costs:
+    - **Telemetry Metrics**: 90 days retention (Enterprise-only feature)
+    - **Predictions**: 30 days retention past creation date (Enterprise-only feature)
+    - **Activity Events**: 90 days for all tiers (security audit purposes)
+    - **Automatic Cleanup**: Daily scheduled job purges data older than retention limits
 
 ## External Dependencies
 

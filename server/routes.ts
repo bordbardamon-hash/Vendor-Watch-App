@@ -104,6 +104,27 @@ const INCLUDED_SEATS = {
   enterprise: 5,
 } as const;
 
+// Data retention limits by tier (in days)
+// Currently telemetry/predictions are Enterprise-only features
+// Config ready for future tier expansion if these features are added to lower tiers
+const DATA_RETENTION = {
+  telemetry: {
+    essential: 7,    // Reserved for future use
+    growth: 30,      // Reserved for future use
+    enterprise: 90,  // Enterprise-only: 90 days max
+  },
+  predictions: {
+    essential: 0,    // No predictions for Essential
+    growth: 14,      // Reserved for future use
+    enterprise: 30,  // Enterprise-only: 30 days max
+  },
+  activityEvents: {
+    essential: 90,   // 90 days for security audits
+    growth: 90,
+    enterprise: 90,
+  },
+} as const;
+
 // Map price IDs to tiers for webhook processing
 const PRICE_ID_TO_TIER: Record<string, 'essential' | 'growth' | 'enterprise'> = {
   [TIER_PRICE_IDS.essential]: 'essential',
@@ -6560,18 +6581,23 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
     }
   });
   
-  // Get telemetry data for a vendor
+  // Get telemetry data for a vendor (Enterprise only, enforces tier-based retention)
   app.get("/api/telemetry/vendor/:vendorKey", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user?.id;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
       
       const user = req.user;
-      if (user.subscriptionTier !== 'enterprise') {
+      const tier = user.subscriptionTier as keyof typeof DATA_RETENTION.telemetry;
+      if (tier !== 'enterprise') {
         return res.status(403).json({ error: "Telemetry data requires Enterprise plan" });
       }
       
-      const days = parseInt(req.query.days) || 90;
+      // Enforce tier-based retention limits
+      const maxDays = DATA_RETENTION.telemetry[tier] || 7;
+      const requestedDays = parseInt(req.query.days) || maxDays;
+      const days = Math.min(requestedDays, maxDays);
+      
       const metrics = await storage.getVendorTelemetryMetrics(req.params.vendorKey, days);
       res.json(metrics);
     } catch (error) {
