@@ -72,6 +72,10 @@ export const organizations = pgTable("organizations", {
   subscriptionTier: varchar("subscription_tier"), // 'essential', 'growth', 'enterprise'
   createdBy: varchar("created_by").notNull(), // user ID who created the org
   maxMasterAdmins: integer("max_master_admins").default(3),
+  // Per-seat pricing fields
+  includedSeats: integer("included_seats").default(1), // Seats included in base plan (Essential=1, Growth=3, Enterprise=5)
+  additionalSeats: integer("additional_seats").default(0), // Paid extra seats beyond included
+  seatSubscriptionItemId: varchar("seat_subscription_item_id"), // Stripe subscription item ID for seat add-on
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

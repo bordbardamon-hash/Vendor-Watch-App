@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Users, Crown, Shield, Eye, UserPlus, Trash2, Mail, Clock, Building2, Pencil, Settings } from "lucide-react";
+import { Users, Crown, Shield, Eye, UserPlus, Trash2, Mail, Clock, Building2, Pencil, Settings, Plus, Minus, Armchair } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
@@ -51,6 +51,17 @@ interface OrgData {
   userRole: MemberRole | null;
   masterAdminCount: number;
   maxMasterAdmins: number;
+}
+
+interface SeatData {
+  includedSeats: number;
+  additionalSeats: number;
+  totalSeats: number;
+  usedSeats: number;
+  availableSeats: number;
+  seatPrice: number;
+  supportsSeats: boolean;
+  subscriptionTier: string | null;
 }
 
 interface MembersData {
@@ -106,6 +117,49 @@ export default function Team() {
       return res.json();
     },
     enabled: !!orgData?.organization,
+  });
+
+  const { data: seatData } = useQuery<SeatData>({
+    queryKey: ["/api/org/seats"],
+    queryFn: async () => {
+      const res = await fetch("/api/org/seats");
+      if (!res.ok) throw new Error("Failed to fetch seats");
+      return res.json();
+    },
+    enabled: !!orgData?.organization,
+  });
+
+  const [pendingSeats, setPendingSeats] = useState<number | null>(null);
+  
+  const updateSeatsMutation = useMutation({
+    mutationFn: async (additionalSeats: number) => {
+      const res = await fetch("/api/org/seats", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ additionalSeats }),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to update seats");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/org/seats"] });
+      setPendingSeats(null);
+      toast({
+        title: "Seats Updated",
+        description: "Your seat count has been updated successfully.",
+        className: "bg-emerald-500 border-emerald-500 text-white"
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
+      });
+    },
   });
 
   const createOrgMutation = useMutation({
@@ -516,6 +570,109 @@ export default function Team() {
           </div>
         </CardContent>
       </Card>
+
+      {seatData?.supportsSeats && isMasterAdmin && (
+        <Card className="bg-card border-border mb-6">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Armchair className="h-5 w-5" />
+              Seat Management
+            </CardTitle>
+            <CardDescription>
+              Your {seatData.subscriptionTier?.charAt(0).toUpperCase()}{seatData.subscriptionTier?.slice(1)} plan includes {seatData.includedSeats} seat{seatData.includedSeats > 1 ? 's' : ''}. 
+              Additional seats are ${seatData.seatPrice}/month each.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="p-3 rounded-lg bg-muted/50 border border-border text-center">
+                  <div className="text-2xl font-bold text-foreground">{seatData.includedSeats}</div>
+                  <div className="text-xs text-muted-foreground">Included</div>
+                </div>
+                <div className="p-3 rounded-lg bg-muted/50 border border-border text-center">
+                  <div className="text-2xl font-bold text-primary">{seatData.additionalSeats}</div>
+                  <div className="text-xs text-muted-foreground">Additional</div>
+                </div>
+                <div className="p-3 rounded-lg bg-muted/50 border border-border text-center">
+                  <div className="text-2xl font-bold text-foreground">{seatData.totalSeats}</div>
+                  <div className="text-xs text-muted-foreground">Total Seats</div>
+                </div>
+                <div className="p-3 rounded-lg bg-muted/50 border border-border text-center">
+                  <div className="text-2xl font-bold text-emerald-500">{seatData.usedSeats}</div>
+                  <div className="text-xs text-muted-foreground">In Use</div>
+                </div>
+              </div>
+              
+              <div className="flex items-center justify-between p-4 rounded-lg bg-muted/30 border border-border">
+                <div>
+                  <div className="font-medium">Additional Seats</div>
+                  <div className="text-sm text-muted-foreground">
+                    {seatData.additionalSeats > 0 ? 
+                      `$${seatData.additionalSeats * seatData.seatPrice}/month` : 
+                      'No additional seats'
+                    }
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    disabled={
+                      updateSeatsMutation.isPending || 
+                      (pendingSeats ?? seatData.additionalSeats) <= 0 ||
+                      (seatData.includedSeats + (pendingSeats ?? seatData.additionalSeats) - 1) < seatData.usedSeats
+                    }
+                    onClick={() => setPendingSeats(prev => Math.max(0, (prev ?? seatData.additionalSeats) - 1))}
+                    data-testid="button-decrease-seats"
+                  >
+                    <Minus className="h-4 w-4" />
+                  </Button>
+                  <span className="text-xl font-bold w-12 text-center" data-testid="text-additional-seats">
+                    {pendingSeats ?? seatData.additionalSeats}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    disabled={updateSeatsMutation.isPending}
+                    onClick={() => setPendingSeats(prev => (prev ?? seatData.additionalSeats) + 1)}
+                    data-testid="button-increase-seats"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                  {pendingSeats !== null && pendingSeats !== seatData.additionalSeats && (
+                    <Button
+                      onClick={() => updateSeatsMutation.mutate(pendingSeats)}
+                      disabled={updateSeatsMutation.isPending}
+                      className="ml-2"
+                      data-testid="button-save-seats"
+                    >
+                      {updateSeatsMutation.isPending ? "Updating..." : "Save"}
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {pendingSeats !== null && pendingSeats !== seatData.additionalSeats && (
+                <div className="p-3 rounded-lg bg-primary/10 border border-primary/30">
+                  <div className="text-sm text-foreground">
+                    {pendingSeats > seatData.additionalSeats ? (
+                      <span>
+                        Adding {pendingSeats - seatData.additionalSeats} seat{pendingSeats - seatData.additionalSeats > 1 ? 's' : ''} will cost an additional ${(pendingSeats - seatData.additionalSeats) * seatData.seatPrice}/month 
+                        (prorated for this billing cycle).
+                      </span>
+                    ) : (
+                      <span>
+                        Removing {seatData.additionalSeats - pendingSeats} seat{seatData.additionalSeats - pendingSeats > 1 ? 's' : ''} will reduce your bill by ${(seatData.additionalSeats - pendingSeats) * seatData.seatPrice}/month.
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {isMasterAdmin && (
         <Card className="bg-card border-border mb-6">

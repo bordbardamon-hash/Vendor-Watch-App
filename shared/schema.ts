@@ -441,7 +441,7 @@ export type VendorMaintenance = typeof vendorMaintenances.$inferSelect;
 export type InsertBlockchainMaintenance = z.infer<typeof insertBlockchainMaintenanceSchema>;
 export type BlockchainMaintenance = typeof blockchainMaintenances.$inferSelect;
 
-// Subscription tier constants
+// Subscription tier constants with per-seat pricing
 export const SUBSCRIPTION_TIERS = {
   essential: { 
     name: 'Essential', 
@@ -453,6 +453,9 @@ export const SUBSCRIPTION_TIERS = {
     automationEnabled: false,
     aiCopilotEnabled: false,
     stakingEnabled: false,
+    includedSeats: 1,
+    seatPrice: 0, // No additional seats for Essential
+    supportsSeats: false,
   },
   growth: { 
     name: 'Growth', 
@@ -464,6 +467,9 @@ export const SUBSCRIPTION_TIERS = {
     automationEnabled: true,
     aiCopilotEnabled: false,
     stakingEnabled: false,
+    includedSeats: 3,
+    seatPrice: 20, // $20/mo per additional seat
+    supportsSeats: true,
   },
   enterprise: { 
     name: 'Enterprise', 
@@ -475,6 +481,9 @@ export const SUBSCRIPTION_TIERS = {
     automationEnabled: true,
     aiCopilotEnabled: true,
     stakingEnabled: true,
+    includedSeats: 5,
+    seatPrice: 25, // $25/mo per additional seat
+    supportsSeats: true,
   },
 } as const;
 

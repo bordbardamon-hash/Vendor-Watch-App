@@ -345,6 +345,7 @@ export default function Landing() {
               <CardHeader>
                 <CardTitle className="text-xl">Essential</CardTitle>
                 <div className="text-3xl font-bold">$89<span className="text-sm font-normal text-muted-foreground">/mo</span></div>
+                <p className="text-xs text-muted-foreground mt-1">1 user included</p>
               </CardHeader>
               <CardContent>
                 <ul className="space-y-3 text-sm">
@@ -353,7 +354,7 @@ export default function Landing() {
                   <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Weekly digest emails</li>
                   <li className="flex items-center gap-2 text-muted-foreground"><X className="h-4 w-4 text-red-500" /> No SMS alerts</li>
                   <li className="flex items-center gap-2 text-muted-foreground"><X className="h-4 w-4 text-red-500" /> No blockchain monitoring</li>
-                  <li className="flex items-center gap-2 text-muted-foreground"><X className="h-4 w-4 text-red-500" /> No automation rules</li>
+                  <li className="flex items-center gap-2 text-muted-foreground"><X className="h-4 w-4 text-red-500" /> No team seats</li>
                 </ul>
                 <Link href="/signup?tier=essential">
                   <Button className="w-full mt-6" variant="outline" data-testid="button-signup-essential">Get Started</Button>
@@ -368,15 +369,16 @@ export default function Landing() {
               <CardHeader>
                 <CardTitle className="text-xl">Growth</CardTitle>
                 <div className="text-3xl font-bold">$129<span className="text-sm font-normal text-muted-foreground">/mo</span></div>
+                <p className="text-xs text-muted-foreground mt-1">3 users included, +$20/seat</p>
               </CardHeader>
               <CardContent>
                 <ul className="space-y-3 text-sm">
                   <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Up to 25 vendors</li>
                   <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Email & SMS alerts</li>
-                  <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Weekly digest emails</li>
+                  <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> 3 team seats included</li>
                   <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Up to 10 blockchain networks</li>
                   <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Basic automation rules</li>
-                  <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> 3 custom vendor requests</li>
+                  <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Client portals & PSA integration</li>
                 </ul>
                 <Link href="/signup?tier=growth">
                   <Button className="w-full mt-6" data-testid="button-signup-growth">Get Started</Button>
@@ -388,14 +390,15 @@ export default function Landing() {
               <CardHeader>
                 <CardTitle className="text-xl">Enterprise</CardTitle>
                 <div className="text-3xl font-bold">$189<span className="text-sm font-normal text-muted-foreground">/mo</span></div>
+                <p className="text-xs text-muted-foreground mt-1">5 users included, +$25/seat</p>
               </CardHeader>
               <CardContent>
                 <ul className="space-y-3 text-sm">
                   <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Unlimited vendors</li>
-                  <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Email & SMS alerts</li>
+                  <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> 5 team seats included</li>
                   <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Unlimited blockchain & staking</li>
                   <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Full automation + AI Copilot</li>
-                  <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Direct vendor addition</li>
+                  <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Predictive outage detection</li>
                   <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Priority support</li>
                 </ul>
                 <Link href="/signup?tier=enterprise">

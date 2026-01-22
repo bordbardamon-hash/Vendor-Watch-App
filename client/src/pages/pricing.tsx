@@ -76,6 +76,15 @@ const featureCategories: FeatureCategory[] = [
     ],
   },
   {
+    name: "Team & Organization",
+    features: [
+      { name: "Included team seats", tooltip: "Number of users included in base price", essential: "1 user", growth: "3 users", enterprise: "5 users" },
+      { name: "Additional seats", tooltip: "Price per additional team member", essential: false, growth: "$20/seat", enterprise: "$25/seat" },
+      { name: "Role-based access", tooltip: "Master Admin, Read/Write, and Read-Only roles", essential: false, growth: true, enterprise: true },
+      { name: "Organization management", essential: false, growth: true, enterprise: true },
+    ],
+  },
+  {
     name: "Support & Security",
     features: [
       { name: "Two-factor authentication", essential: true, growth: true, enterprise: true },
@@ -95,7 +104,9 @@ const plans = [
     color: "text-blue-500",
     borderColor: "border-blue-500",
     bgColor: "bg-blue-500/10",
-    description: "Perfect for small teams getting started with vendor monitoring",
+    description: "Perfect for individuals getting started with vendor monitoring",
+    includedSeats: 1,
+    seatPrice: null,
   },
   {
     id: "growth",
@@ -107,6 +118,8 @@ const plans = [
     bgColor: "bg-yellow-500/10",
     description: "Ideal for growing MSPs managing multiple clients",
     popular: true,
+    includedSeats: 3,
+    seatPrice: 20,
   },
   {
     id: "enterprise",
@@ -117,6 +130,8 @@ const plans = [
     borderColor: "border-purple-500",
     bgColor: "bg-purple-500/10",
     description: "Full power for enterprise MSPs with advanced needs",
+    includedSeats: 5,
+    seatPrice: 25,
   },
 ];
 
@@ -176,6 +191,10 @@ export default function Pricing() {
                     <div className="pt-4">
                       <span className="text-5xl font-bold">${plan.price}</span>
                       <span className="text-muted-foreground">/month</span>
+                    </div>
+                    <div className="text-sm text-muted-foreground mt-2">
+                      {plan.includedSeats} user{plan.includedSeats > 1 ? 's' : ''} included
+                      {plan.seatPrice && `, +$${plan.seatPrice}/seat`}
                     </div>
                   </CardHeader>
                   <CardContent className="pt-0">

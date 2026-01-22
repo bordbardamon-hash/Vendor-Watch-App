@@ -47,10 +47,11 @@ Key entities include Users, Sessions, Vendors, Incidents, Jobs, and Configuratio
 - **Vendor Monitoring**: Automated monitoring of 50 vendor status pages every 5 minutes, supporting Statuspage.io JSON API, custom JSON APIs, and HTML scraping.
 - **Blockchain Monitoring**: Dedicated `/blockchain` page for monitoring various blockchain networks across different tiers and categories, integrating with Statuspage.io APIs.
 - **Notification System**: Dispatches alerts for incident creation, updates, and resolution via email (Resend) and SMS (Twilio), with consent tracking and deduplication.
-- **Subscription Management**: Supports Essential ($89/mo), Growth ($129/mo), and Enterprise ($189/mo) tiers with tiered feature access:
-  - **Essential**: 10 vendors, email alerts only, no blockchain/automation/SMS
-  - **Growth**: 25 vendors, email + SMS alerts, 10 blockchain networks, basic automation, 3 custom vendor requests
-  - **Enterprise**: Unlimited vendors/blockchain/staking, full automation, AI Copilot, direct vendor addition
+- **Subscription Management**: Supports Essential ($89/mo), Growth ($129/mo), and Enterprise ($189/mo) tiers with per-seat pricing:
+  - **Essential**: 1 user, 10 vendors, email alerts only, no blockchain/automation/SMS, no additional seats
+  - **Growth**: 3 users included + $20/seat, 25 vendors, email + SMS alerts, 10 blockchain networks, basic automation, 3 custom vendor requests
+  - **Enterprise**: 5 users included + $25/seat, unlimited vendors/blockchain/staking, full automation, AI Copilot, direct vendor addition, predictive analytics
+  - **Seat Management**: Master admins can purchase additional seats via the Team page. Stripe subscription items handle seat billing with automatic proration.
 - **User Preferences**: Allows users to manage notification preferences (email, SMS toggles, timezone), subscribe to specific vendors, and reorder vendor display. Timezone setting affects all date displays in emails, SMS alerts, and dashboard views.
 - **Admin Features**: `isAdmin` flag controls access to administrative pages and API routes (e.g., Jobs, Logs, Consents management).
 - **MSP-Focused Features**:

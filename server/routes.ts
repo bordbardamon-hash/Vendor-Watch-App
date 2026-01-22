@@ -91,6 +91,19 @@ const TIER_PRICE_IDS = {
   enterprise: process.env.STRIPE_PRICE_ENTERPRISE || "price_enterprise_placeholder", // $189
 } as const;
 
+// Stripe price IDs for additional seats
+const SEAT_PRICE_IDS = {
+  growth: process.env.STRIPE_PRICE_GROWTH_SEAT || "price_growth_seat_placeholder", // $20/seat
+  enterprise: process.env.STRIPE_PRICE_ENTERPRISE_SEAT || "price_enterprise_seat_placeholder", // $25/seat
+} as const;
+
+// Included seats per tier
+const INCLUDED_SEATS = {
+  essential: 1,
+  growth: 3,
+  enterprise: 5,
+} as const;
+
 // Map price IDs to tiers for webhook processing
 const PRICE_ID_TO_TIER: Record<string, 'essential' | 'growth' | 'enterprise'> = {
   [TIER_PRICE_IDS.essential]: 'essential',
@@ -5808,6 +5821,145 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
     } catch (error) {
       console.error("Error accepting invitation:", error);
       res.status(500).json({ error: "Failed to accept invitation" });
+    }
+  });
+
+  // ============ SEAT MANAGEMENT API ============
+  
+  // Get seat information for the organization
+  app.get("/api/org/seats", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const org = await storage.getUserOrganization(userId);
+      if (!org) {
+        return res.status(404).json({ error: "No organization found" });
+      }
+      
+      const tier = org.subscriptionTier as keyof typeof INCLUDED_SEATS | null;
+      const includedSeats = tier ? (INCLUDED_SEATS[tier] || 1) : 1;
+      const additionalSeats = org.additionalSeats || 0;
+      const totalSeats = includedSeats + additionalSeats;
+      
+      // Count active members
+      const members = await storage.getOrganizationMembers(org.id);
+      const usedSeats = members.length;
+      
+      // Get seat pricing
+      const seatPrice = tier === 'enterprise' ? 25 : tier === 'growth' ? 20 : 0;
+      const supportsSeats = tier === 'growth' || tier === 'enterprise';
+      
+      res.json({
+        includedSeats,
+        additionalSeats,
+        totalSeats,
+        usedSeats,
+        availableSeats: totalSeats - usedSeats,
+        seatPrice,
+        supportsSeats,
+        subscriptionTier: tier,
+        seatSubscriptionItemId: org.seatSubscriptionItemId,
+      });
+    } catch (error) {
+      console.error("Error fetching seat info:", error);
+      res.status(500).json({ error: "Failed to fetch seat information" });
+    }
+  });
+  
+  // Update additional seats (purchase more or reduce)
+  const updateSeatsSchema = z.object({
+    additionalSeats: z.number().min(0).max(500),
+  });
+  
+  app.post("/api/org/seats", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      // Check if user is master admin
+      const userRole = await storage.getUserRole(userId);
+      if (!userRole || userRole.role !== 'master_admin') {
+        return res.status(403).json({ error: "Only master admins can manage seats" });
+      }
+      
+      const org = await storage.getOrganization(userRole.organizationId);
+      if (!org) {
+        return res.status(404).json({ error: "Organization not found" });
+      }
+      
+      const tier = org.subscriptionTier as 'growth' | 'enterprise' | null;
+      if (!tier || (tier !== 'growth' && tier !== 'enterprise')) {
+        return res.status(400).json({ error: "Additional seats are only available on Growth and Enterprise plans" });
+      }
+      
+      const parsed = updateSeatsSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request", details: parsed.error.errors });
+      }
+      
+      const { additionalSeats } = parsed.data;
+      
+      // Check we have enough seats for current members
+      const members = await storage.getOrganizationMembers(org.id);
+      const includedSeats = INCLUDED_SEATS[tier];
+      const totalSeats = includedSeats + additionalSeats;
+      
+      if (members.length > totalSeats) {
+        return res.status(400).json({ 
+          error: `Cannot reduce seats below current member count. You have ${members.length} members but would have ${totalSeats} seats.` 
+        });
+      }
+      
+      // Update Stripe subscription
+      if (org.stripeSubscriptionId) {
+        const stripe = await getUncachableStripeClient();
+        const seatPriceId = SEAT_PRICE_IDS[tier];
+        
+        if (org.seatSubscriptionItemId) {
+          // Update existing seat subscription item
+          if (additionalSeats === 0) {
+            // Remove the seat add-on entirely
+            await stripe.subscriptionItems.del(org.seatSubscriptionItemId);
+            await storage.updateOrganization(org.id, { 
+              additionalSeats: 0, 
+              seatSubscriptionItemId: null 
+            });
+          } else {
+            // Update quantity
+            await stripe.subscriptionItems.update(org.seatSubscriptionItemId, {
+              quantity: additionalSeats,
+              proration_behavior: 'create_prorations',
+            });
+            await storage.updateOrganization(org.id, { additionalSeats });
+          }
+        } else if (additionalSeats > 0) {
+          // Add new seat subscription item
+          const subscription = await stripe.subscriptions.retrieve(org.stripeSubscriptionId);
+          const newItem = await stripe.subscriptionItems.create({
+            subscription: org.stripeSubscriptionId,
+            price: seatPriceId,
+            quantity: additionalSeats,
+            proration_behavior: 'create_prorations',
+          });
+          await storage.updateOrganization(org.id, { 
+            additionalSeats, 
+            seatSubscriptionItemId: newItem.id 
+          });
+        }
+      } else {
+        // No Stripe subscription yet, just update the database
+        await storage.updateOrganization(org.id, { additionalSeats });
+      }
+      
+      res.json({ 
+        success: true, 
+        additionalSeats,
+        message: `Successfully updated to ${additionalSeats} additional seat(s)` 
+      });
+    } catch (error: any) {
+      console.error("Error updating seats:", error);
+      res.status(500).json({ error: error.message || "Failed to update seats" });
     }
   });
 
