@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Users, Crown, Shield, Eye, UserPlus, Trash2, Mail, Clock, Building2, Pencil, Settings, Plus, Minus, Armchair } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
+import { normalizeTierDisplay } from "@/lib/utils";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
@@ -472,7 +473,7 @@ export default function Team() {
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="text-sm">
-                {organization.subscriptionTier ? organization.subscriptionTier.charAt(0).toUpperCase() + organization.subscriptionTier.slice(1) : 'Free'}
+                {normalizeTierDisplay(organization.subscriptionTier)}
               </Badge>
               {isMasterAdmin && (
                 <div className="flex items-center gap-1">
@@ -579,7 +580,7 @@ export default function Team() {
               Seat Management
             </CardTitle>
             <CardDescription>
-              Your {seatData.subscriptionTier?.charAt(0).toUpperCase()}{seatData.subscriptionTier?.slice(1)} plan includes {seatData.includedSeats} seat{seatData.includedSeats > 1 ? 's' : ''}. 
+              Your {normalizeTierDisplay(seatData.subscriptionTier)} plan includes {seatData.includedSeats} seat{seatData.includedSeats > 1 ? 's' : ''}. 
               Additional seats are ${seatData.seatPrice}/month each.
             </CardDescription>
           </CardHeader>

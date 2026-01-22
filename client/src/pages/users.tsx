@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Users, RefreshCw, Trash2, UserPlus, Crown, Shield, Mail, Phone, Building } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { normalizeTierDisplay } from "@/lib/utils";
 import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -407,8 +408,8 @@ export default function UsersPage() {
                           </Badge>
                         )}
                         {user.subscriptionTier ? (
-                          <Badge className={TIER_COLORS[user.subscriptionTier]}>
-                            {user.subscriptionTier.charAt(0).toUpperCase() + user.subscriptionTier.slice(1)} {TIER_PRICES[user.subscriptionTier]}
+                          <Badge className={TIER_COLORS[user.subscriptionTier] || TIER_COLORS['enterprise']}>
+                            {normalizeTierDisplay(user.subscriptionTier)} {TIER_PRICES[user.subscriptionTier] || TIER_PRICES['enterprise']}
                           </Badge>
                         ) : (
                           <Badge variant="outline" className="text-muted-foreground">

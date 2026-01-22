@@ -5,6 +5,13 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+// Normalize legacy tier names for display (platinum -> Enterprise)
+export function normalizeTierDisplay(tier: string | null | undefined): string {
+  if (!tier) return 'Free';
+  if (tier.toLowerCase() === 'platinum') return 'Enterprise';
+  return tier.charAt(0).toUpperCase() + tier.slice(1);
+}
+
 export function formatDateInTimezone(date: Date | string, timezone: string = 'UTC'): string {
   const d = typeof date === 'string' ? new Date(date) : date;
   try {
