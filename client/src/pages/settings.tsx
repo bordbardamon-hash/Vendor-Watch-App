@@ -594,30 +594,32 @@ CONFIG = AppConfig(
 )`;
 
   return (
-    <div className="p-8 space-y-8 max-w-5xl mx-auto">
+    <div className="p-4 md:p-8 space-y-6 md:space-y-8 max-w-5xl mx-auto">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Configuration</h1>
-        <p className="text-muted-foreground mt-1">Manage system variables and environment settings</p>
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Configuration</h1>
+        <p className="text-muted-foreground mt-1 text-sm md:text-base">Manage system variables and environment settings</p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className={`grid w-full ${user?.isAdmin ? 'grid-cols-5 lg:w-[600px]' : 'grid-cols-2 lg:w-[300px]'} bg-sidebar border border-sidebar-border`}>
-          <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          {user?.isAdmin && (
-            <TabsTrigger value="database">System</TabsTrigger>
-          )}
-          {user?.isAdmin && (
-            <TabsTrigger value="code" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
-              <Code className="w-4 h-4 mr-2" /> Code
-            </TabsTrigger>
-          )}
-          {user?.isAdmin && (
-            <TabsTrigger value="users" className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-500">
-              <Users className="w-4 h-4 mr-2" /> Users
-            </TabsTrigger>
-          )}
-        </TabsList>
+        <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+          <TabsList className={`flex w-max md:grid md:w-full ${user?.isAdmin ? 'md:grid-cols-5 lg:w-[600px]' : 'md:grid-cols-2 lg:w-[300px]'} bg-sidebar border border-sidebar-border`}>
+            <TabsTrigger value="general" className="whitespace-nowrap">General</TabsTrigger>
+            <TabsTrigger value="notifications" className="whitespace-nowrap">Notifications</TabsTrigger>
+            {user?.isAdmin && (
+              <TabsTrigger value="database" className="whitespace-nowrap">System</TabsTrigger>
+            )}
+            {user?.isAdmin && (
+              <TabsTrigger value="code" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary whitespace-nowrap">
+                <Code className="w-4 h-4 mr-1 md:mr-2" /> Code
+              </TabsTrigger>
+            )}
+            {user?.isAdmin && (
+              <TabsTrigger value="users" className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-500 whitespace-nowrap">
+                <Users className="w-4 h-4 mr-1 md:mr-2" /> Users
+              </TabsTrigger>
+            )}
+          </TabsList>
+        </div>
 
         <TabsContent value="general" className="space-y-6 animate-fade-in">
           <Card className="border-sidebar-border bg-sidebar/30 backdrop-blur-sm hover-lift">
@@ -1108,7 +1110,7 @@ CONFIG = AppConfig(
                   </DndContext>
                   
                   <div className="flex flex-col gap-4 pt-4 border-t border-sidebar-border">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div className="text-sm text-muted-foreground">
                         {!vendorSubscriptions?.hasSetSubscriptions 
                           ? "Monitoring all vendors (default)" 
@@ -1135,13 +1137,13 @@ CONFIG = AppConfig(
                         </Button>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs text-muted-foreground max-w-md">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <p className="text-xs text-muted-foreground sm:max-w-md">
                         {vendorSubscriptions?.hasSetSubscriptions 
                           ? "You have customized your vendor list. New vendors won't be added automatically."
                           : "Monitoring all vendors includes any new vendors added in the future."}
                       </p>
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
                         {vendorSubscriptions?.hasSetSubscriptions && (
                           <Button 
                             variant="outline" 
@@ -1213,7 +1215,7 @@ CONFIG = AppConfig(
                   </div>
                   
                   <div className="flex flex-col gap-4 pt-4 border-t border-sidebar-border">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div className="text-sm text-muted-foreground">
                         {!blockchainSubscriptions?.hasSetSubscriptions 
                           ? "Monitoring all chains (default)" 
@@ -1240,13 +1242,13 @@ CONFIG = AppConfig(
                         </Button>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs text-muted-foreground max-w-md">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <p className="text-xs text-muted-foreground sm:max-w-md">
                         {blockchainSubscriptions?.hasSetSubscriptions 
                           ? "You have customized your chain list. New chains won't be added automatically."
                           : "Monitoring all chains includes any new chains added in the future."}
                       </p>
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
                         {blockchainSubscriptions?.hasSetSubscriptions && (
                           <Button 
                             variant="outline" 
@@ -1811,28 +1813,28 @@ function UsersManagementTab() {
             {allUsers.map((u: any) => (
               <div
                 key={u.id}
-                className="flex items-center justify-between p-4 rounded-lg border border-sidebar-border bg-background/50 hover:bg-background/80 transition-colors"
+                className="flex flex-col md:flex-row md:items-center justify-between p-3 md:p-4 rounded-lg border border-sidebar-border bg-background/50 hover:bg-background/80 transition-colors gap-3"
                 data-testid={`user-row-${u.id}`}
               >
-                <div className="flex items-center gap-3">
-                  <div className="flex flex-col">
-                    <span className="font-medium flex items-center gap-2">
-                      {u.email || u.firstName || "Unknown User"}
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex flex-col min-w-0">
+                    <span className="font-medium flex flex-wrap items-center gap-2 text-sm md:text-base">
+                      <span className="truncate">{u.email || u.firstName || "Unknown User"}</span>
                       {u.isAdmin && (
-                        <Badge variant="outline" className="text-amber-500 border-amber-500/50 text-xs">
-                          <ShieldCheck className="w-3 h-3 mr-1" /> Admin
+                        <Badge variant="outline" className="text-amber-500 border-amber-500/50 text-xs shrink-0">
+                          Admin
                         </Badge>
                       )}
                     </span>
-                    <span className="text-xs text-muted-foreground">
-                      ID: {u.id}
+                    <span className="text-xs text-muted-foreground truncate">
+                      ID: {u.id.substring(0, 20)}...
                     </span>
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3 md:gap-4 pl-0 md:pl-0">
                   <div className="flex items-center gap-2">
-                    <Label className="text-xs text-muted-foreground">Tier:</Label>
+                    <Label className="text-xs text-muted-foreground hidden md:inline">Tier:</Label>
                     <Select
                       value={u.subscriptionTier || "none"}
                       onValueChange={(tier) => updateTierMutation.mutate({ 
@@ -1840,7 +1842,7 @@ function UsersManagementTab() {
                         tier: tier === "none" ? null : tier 
                       })}
                     >
-                      <SelectTrigger className="w-[120px] h-8" data-testid={`tier-select-${u.id}`}>
+                      <SelectTrigger className="w-[100px] md:w-[120px] h-8" data-testid={`tier-select-${u.id}`}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -1861,7 +1863,7 @@ function UsersManagementTab() {
                   </div>
                   
                   <div className="flex items-center gap-2">
-                    <Label className="text-xs text-muted-foreground">Admin:</Label>
+                    <Label className="text-xs text-muted-foreground hidden md:inline">Admin:</Label>
                     <Switch
                       checked={u.isAdmin || false}
                       onCheckedChange={(checked) => updateAdminMutation.mutate({ 

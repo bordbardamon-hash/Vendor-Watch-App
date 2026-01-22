@@ -204,46 +204,46 @@ export default function Jobs() {
             style={{ animationDelay: `${index * 60}ms` }}
             data-testid={`card-job-${job.id}`}
           >
-            <CardContent className="p-6 flex items-center justify-between">
-              <div className="flex items-center gap-6">
-                <div className={`p-3 rounded-full ${job.status === 'running' ? 'bg-primary/20 text-primary animate-pulse' : 'bg-secondary text-muted-foreground'}`}>
-                  <RotateCw size={24} className={job.status === 'running' ? 'animate-spin' : ''} />
+            <CardContent className="p-4 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-3 md:gap-6 min-w-0">
+                <div className={`p-2 md:p-3 rounded-full shrink-0 ${job.status === 'running' ? 'bg-primary/20 text-primary animate-pulse' : 'bg-secondary text-muted-foreground'}`}>
+                  <RotateCw size={20} className={job.status === 'running' ? 'animate-spin' : ''} />
                 </div>
                 
-                <div className="space-y-1">
-                  <div className="flex items-center gap-3">
-                    <h3 className="font-semibold text-lg" data-testid={`text-job-name-${job.id}`}>{job.name}</h3>
+                <div className="space-y-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="font-semibold text-base md:text-lg truncate" data-testid={`text-job-name-${job.id}`}>{job.name}</h3>
                     <Badge variant={job.status === 'running' ? 'default' : 'secondary'} className={job.status === 'running' ? 'bg-primary/20 text-primary border-primary/20 hover:bg-primary/30' : ''} data-testid={`badge-status-${job.id}`}>
                       {job.status}
                     </Badge>
                     {!job.success && (
                       <Badge variant="destructive" className="bg-red-500/20 text-red-500 border-red-500/20 hover:bg-red-500/30">
-                        Last Run Failed
+                        Failed
                       </Badge>
                     )}
                   </div>
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground font-mono">
-                    <span className="flex items-center gap-1"><Globe size={12} /> {job.target}</span>
+                  <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm text-muted-foreground font-mono">
+                    <span className="flex items-center gap-1 truncate"><Globe size={12} /> <span className="truncate max-w-[120px] md:max-w-none">{job.target}</span></span>
                     <span className="flex items-center gap-1"><Clock size={12} /> {job.schedule}</span>
-                    <span className="text-xs opacity-50">Last: {formatLastRun(job.lastRun)}</span>
+                    <span className="text-xs opacity-50 hidden md:inline">Last: {formatLastRun(job.lastRun)}</span>
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-6">
-                <div className="text-right">
+              <div className="flex items-center justify-between md:justify-end gap-4 md:gap-6 pl-9 md:pl-0">
+                <div className="text-left md:text-right">
                     <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Next Run In</p>
-                    <p className={`font-mono text-xl font-bold ${job.status === 'running' ? 'text-primary' : 'text-muted-foreground opacity-50'}`}>
-                        {job.status === 'running' ? formatTime(job.nextRun) : '--:--:--'}
+                    <p className={`font-mono text-lg md:text-xl font-bold ${job.status === 'running' ? 'text-primary' : 'text-muted-foreground opacity-50'}`}>
+                        {job.status === 'running' ? formatTime(job.nextRun) : 'Ready'}
                     </p>
                 </div>
-                <div className="h-10 w-px bg-sidebar-border mx-2" />
-                <div className="flex items-center gap-3">
+                <div className="h-10 w-px bg-sidebar-border mx-2 hidden md:block" />
+                <div className="flex items-center gap-2 md:gap-3">
                     <Button 
                       variant="outline" 
                       size="icon"
                       onClick={() => toggleStatus(job.id, job.status)}
-                      className="rounded-full hover:bg-primary/20 hover:text-primary border-sidebar-border"
+                      className="rounded-full hover:bg-primary/20 hover:text-primary border-sidebar-border h-9 w-9"
                       data-testid={`button-toggle-${job.id}`}
                     >
                       {job.status === 'running' ? <Pause size={16} /> : <Play size={16} />}
@@ -251,7 +251,7 @@ export default function Jobs() {
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full"
+                      className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full h-9 w-9"
                       onClick={() => deleteJobMutation.mutate(job.id)}
                       data-testid={`button-delete-${job.id}`}
                     >
