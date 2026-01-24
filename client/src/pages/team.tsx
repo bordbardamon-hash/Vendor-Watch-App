@@ -655,17 +655,52 @@ export default function Team() {
               </div>
 
               {pendingSeats !== null && pendingSeats !== seatData.additionalSeats && (
-                <div className="p-3 rounded-lg bg-primary/10 border border-primary/30">
-                  <div className="text-sm text-foreground">
+                <div className="p-4 rounded-lg bg-primary/10 border border-primary/30 space-y-3">
+                  <div className="font-medium text-foreground">
                     {pendingSeats > seatData.additionalSeats ? (
-                      <span>
-                        Adding {pendingSeats - seatData.additionalSeats} seat{pendingSeats - seatData.additionalSeats > 1 ? 's' : ''} will cost an additional ${(pendingSeats - seatData.additionalSeats) * seatData.seatPrice}/month 
-                        (prorated for this billing cycle).
-                      </span>
+                      <span className="text-emerald-400">Adding {pendingSeats - seatData.additionalSeats} seat{pendingSeats - seatData.additionalSeats > 1 ? 's' : ''}</span>
                     ) : (
-                      <span>
-                        Removing {seatData.additionalSeats - pendingSeats} seat{seatData.additionalSeats - pendingSeats > 1 ? 's' : ''} will reduce your bill by ${(seatData.additionalSeats - pendingSeats) * seatData.seatPrice}/month.
-                      </span>
+                      <span className="text-amber-400">Removing {seatData.additionalSeats - pendingSeats} seat{seatData.additionalSeats - pendingSeats > 1 ? 's' : ''}</span>
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="p-2 rounded bg-muted/50">
+                      <div className="text-muted-foreground text-xs">Current Seats Cost</div>
+                      <div className="font-semibold">${seatData.additionalSeats * seatData.seatPrice}/month</div>
+                    </div>
+                    <div className="p-2 rounded bg-muted/50">
+                      <div className="text-muted-foreground text-xs">New Seats Cost</div>
+                      <div className="font-semibold">${pendingSeats * seatData.seatPrice}/month</div>
+                    </div>
+                  </div>
+                  
+                  <div className="text-sm space-y-1 pt-2 border-t border-border/50">
+                    {pendingSeats > seatData.additionalSeats ? (
+                      <>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Monthly increase:</span>
+                          <span className="text-emerald-400 font-medium">+${(pendingSeats - seatData.additionalSeats) * seatData.seatPrice}/month</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Today's prorated charge:</span>
+                          <span className="text-foreground">~Calculated by Stripe</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          You'll be charged a prorated amount for the remaining days in this billing period, 
+                          then the full amount starting next month.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Monthly savings:</span>
+                          <span className="text-amber-400 font-medium">-${(seatData.additionalSeats - pendingSeats) * seatData.seatPrice}/month</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          You'll receive a prorated credit for unused time on the removed seats.
+                        </p>
+                      </>
                     )}
                   </div>
                 </div>
