@@ -44,6 +44,9 @@ import Portals from "@/pages/portals";
 import PsaIntegrations from "@/pages/psa-integrations";
 import Predictions from "@/pages/predictions";
 import PublicPortal from "@/pages/public-portal";
+import Webhooks from "@/pages/webhooks";
+import ApiKeysPage from "@/pages/api-keys";
+import AuditLogsPage from "@/pages/audit-logs";
 import Onboarding from "@/pages/onboarding";
 import BillingSuccess from "@/pages/billing-success";
 import { Loader2 } from "lucide-react";
@@ -137,6 +140,9 @@ function AuthenticatedRouter() {
         <Route path="/portals" component={Portals} />
         <Route path="/psa-integrations" component={PsaIntegrations} />
         <Route path="/predictions" component={Predictions} />
+        <Route path="/webhooks" component={Webhooks} />
+        <Route path="/api-keys" component={ApiKeysPage} />
+        <Route path="/audit-logs" component={AuditLogsPage} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

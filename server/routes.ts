@@ -5296,10 +5296,31 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
       
       if (existing.integrationType === 'slack' && existing.webhookUrl) {
         try {
+          const slackPayload = {
+            blocks: [
+              {
+                type: "header",
+                text: { type: "plain_text", text: "✅ VendorWatch Test Message", emoji: true }
+              },
+              {
+                type: "section",
+                fields: [
+                  { type: "mrkdwn", text: "*Status:*\nConnection Successful" },
+                  { type: "mrkdwn", text: "*Integration:*\nSlack Webhook" }
+                ]
+              },
+              {
+                type: "context",
+                elements: [
+                  { type: "mrkdwn", text: "Your Slack integration is configured correctly. Incident alerts will appear here." }
+                ]
+              }
+            ]
+          };
           const response = await fetch(existing.webhookUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: "Vendor Watch test message - connection successful!" }),
+            body: JSON.stringify(slackPayload),
           });
           success = response.ok;
           message = success ? "Slack message sent successfully!" : "Failed to send Slack message";
@@ -5308,16 +5329,25 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
         }
       } else if (existing.integrationType === 'teams' && existing.webhookUrl) {
         try {
+          const teamsPayload = {
+            "@type": "MessageCard",
+            "@context": "http://schema.org/extensions",
+            "summary": "VendorWatch Test Message",
+            "themeColor": "00BCB4",
+            "sections": [{
+              "activityTitle": "✅ VendorWatch Test Message",
+              "facts": [
+                { "name": "Status", "value": "Connection Successful" },
+                { "name": "Integration", "value": "Microsoft Teams Webhook" }
+              ],
+              "text": "Your Teams integration is configured correctly. Incident alerts will appear here.",
+              "markdown": true
+            }]
+          };
           const response = await fetch(existing.webhookUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              "@type": "MessageCard",
-              "summary": "Vendor Watch Test",
-              "themeColor": "00BCB4",
-              "title": "Vendor Watch Test Message",
-              "text": "Connection successful!"
-            }),
+            body: JSON.stringify(teamsPayload),
           });
           success = response.ok;
           message = success ? "Teams message sent successfully!" : "Failed to send Teams message";
@@ -6656,6 +6686,512 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
     } catch (error) {
       console.error("Error generating predictions:", error);
       res.status(500).json({ error: "Failed to generate predictions" });
+    }
+  });
+
+  // ============ WEBHOOKS API ============
+  
+  // Zod schema for webhook creation/update
+  const webhookBodySchema = z.object({
+    name: z.string().min(1, "Name is required"),
+    url: z.string().url("Must be a valid URL"),
+    events: z.string().optional(),
+    vendorKeys: z.string().optional(),
+    chainKeys: z.string().optional(),
+    headers: z.string().optional(),
+    payloadTemplate: z.string().optional(),
+    secret: z.string().optional(),
+    isActive: z.boolean().optional(),
+  });
+  
+  // Helper to check if user tier supports webhooks (Growth or Enterprise only)
+  const tierSupportsWebhooks = (tier: string | null): boolean => {
+    return tier === 'growth' || tier === 'enterprise' || tier === 'platinum';
+  };
+  
+  // GET /api/webhooks - Get all webhooks for current user
+  app.get("/api/webhooks", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const user = req.user;
+      if (!tierSupportsWebhooks(user.subscriptionTier)) {
+        return res.status(403).json({ error: "Webhooks require Growth or Enterprise plan" });
+      }
+      
+      const webhooks = await storage.getUserWebhooks(userId);
+      res.json(webhooks);
+    } catch (error) {
+      console.error("Error fetching webhooks:", error);
+      res.status(500).json({ error: "Failed to fetch webhooks" });
+    }
+  });
+  
+  // GET /api/webhooks/:id - Get single webhook
+  app.get("/api/webhooks/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const webhook = await storage.getUserWebhook(req.params.id);
+      if (!webhook) {
+        return res.status(404).json({ error: "Webhook not found" });
+      }
+      
+      if (webhook.userId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      res.json(webhook);
+    } catch (error) {
+      console.error("Error fetching webhook:", error);
+      res.status(500).json({ error: "Failed to fetch webhook" });
+    }
+  });
+  
+  // POST /api/webhooks - Create new webhook
+  app.post("/api/webhooks", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const user = req.user;
+      if (!tierSupportsWebhooks(user.subscriptionTier)) {
+        return res.status(403).json({ error: "Webhooks require Growth or Enterprise plan" });
+      }
+      
+      const parseResult = webhookBodySchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ error: "Invalid request body", details: parseResult.error.errors });
+      }
+      
+      const existingWebhooks = await storage.getUserWebhooks(userId);
+      if (existingWebhooks.length >= 10) {
+        return res.status(400).json({ error: "Maximum of 10 webhooks allowed per user" });
+      }
+      
+      const webhookData = {
+        userId,
+        name: parseResult.data.name,
+        url: parseResult.data.url,
+        events: parseResult.data.events || 'all',
+        vendorKeys: parseResult.data.vendorKeys || null,
+        chainKeys: parseResult.data.chainKeys || null,
+        headers: parseResult.data.headers || null,
+        payloadTemplate: parseResult.data.payloadTemplate || null,
+        secret: parseResult.data.secret || null,
+        isActive: parseResult.data.isActive !== undefined ? parseResult.data.isActive : true,
+      };
+      
+      const webhook = await storage.createUserWebhook(webhookData);
+      res.status(201).json(webhook);
+    } catch (error) {
+      console.error("Error creating webhook:", error);
+      res.status(500).json({ error: "Failed to create webhook" });
+    }
+  });
+  
+  // PUT /api/webhooks/:id - Update webhook
+  app.put("/api/webhooks/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const existingWebhook = await storage.getUserWebhook(req.params.id);
+      if (!existingWebhook) {
+        return res.status(404).json({ error: "Webhook not found" });
+      }
+      
+      if (existingWebhook.userId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const parseResult = webhookBodySchema.partial().safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ error: "Invalid request body", details: parseResult.error.errors });
+      }
+      
+      const webhook = await storage.updateUserWebhook(req.params.id, parseResult.data);
+      res.json(webhook);
+    } catch (error) {
+      console.error("Error updating webhook:", error);
+      res.status(500).json({ error: "Failed to update webhook" });
+    }
+  });
+  
+  // DELETE /api/webhooks/:id - Delete webhook
+  app.delete("/api/webhooks/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const existingWebhook = await storage.getUserWebhook(req.params.id);
+      if (!existingWebhook) {
+        return res.status(404).json({ error: "Webhook not found" });
+      }
+      
+      if (existingWebhook.userId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      await storage.deleteUserWebhook(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting webhook:", error);
+      res.status(500).json({ error: "Failed to delete webhook" });
+    }
+  });
+  
+  // POST /api/webhooks/:id/test - Test webhook delivery
+  app.post("/api/webhooks/:id/test", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const webhook = await storage.getUserWebhook(req.params.id);
+      if (!webhook) {
+        return res.status(404).json({ error: "Webhook not found" });
+      }
+      
+      if (webhook.userId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const testPayload = {
+        event: "test",
+        timestamp: new Date().toISOString(),
+        webhook: {
+          id: webhook.id,
+          name: webhook.name,
+        },
+        data: {
+          message: "This is a test webhook delivery from VendorWatch",
+          vendorKey: "test_vendor",
+          incidentId: "test_incident_001",
+          status: "investigating",
+          severity: "minor",
+        },
+      };
+      
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "User-Agent": "VendorWatch-Webhook/1.0",
+      };
+      
+      if (webhook.headers) {
+        try {
+          const customHeaders = JSON.parse(webhook.headers);
+          Object.assign(headers, customHeaders);
+        } catch (e) {
+        }
+      }
+      
+      if (webhook.secret) {
+        const hmac = crypto.createHmac('sha256', webhook.secret);
+        hmac.update(JSON.stringify(testPayload));
+        headers['X-Webhook-Signature'] = hmac.digest('hex');
+      }
+      
+      try {
+        const response = await fetch(webhook.url, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(testPayload),
+        });
+        
+        res.json({
+          success: response.ok,
+          status: response.status,
+          statusText: response.statusText,
+        });
+      } catch (fetchError: any) {
+        res.json({
+          success: false,
+          status: 0,
+          error: fetchError.message || "Failed to connect to webhook URL",
+        });
+      }
+    } catch (error) {
+      console.error("Error testing webhook:", error);
+      res.status(500).json({ error: "Failed to test webhook" });
+    }
+  });
+  
+  // GET /api/webhooks/:id/logs - Get webhook delivery logs
+  app.get("/api/webhooks/:id/logs", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const webhook = await storage.getUserWebhook(req.params.id);
+      if (!webhook) {
+        return res.status(404).json({ error: "Webhook not found" });
+      }
+      
+      if (webhook.userId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const logs = await storage.getWebhookLogs(req.params.id, 50);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching webhook logs:", error);
+      res.status(500).json({ error: "Failed to fetch webhook logs" });
+    }
+  });
+
+  // ============ API KEYS ============
+  
+  const apiKeyBodySchema = z.object({
+    name: z.string().min(1, "Name is required"),
+    scopes: z.enum(['read', 'read_write', 'full']).optional(),
+    expiresAt: z.string().optional(),
+  });
+  
+  const apiKeyUpdateSchema = z.object({
+    name: z.string().min(1).optional(),
+    scopes: z.enum(['read', 'read_write', 'full']).optional(),
+    isActive: z.boolean().optional(),
+  });
+  
+  const tierSupportsApiKeys = (tier: string | null): boolean => {
+    return tier === 'enterprise' || tier === 'platinum';
+  };
+  
+  // GET /api/api-keys - List user's API keys
+  app.get("/api/api-keys", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const user = req.user;
+      if (!tierSupportsApiKeys(user.subscriptionTier)) {
+        return res.status(403).json({ error: "API keys require Enterprise plan" });
+      }
+      
+      const keys = await storage.getApiKeys(userId);
+      const safeKeys = keys.map(key => ({
+        id: key.id,
+        userId: key.userId,
+        name: key.name,
+        keyPrefix: key.keyPrefix,
+        scopes: key.scopes,
+        rateLimit: key.rateLimit,
+        lastUsedAt: key.lastUsedAt,
+        expiresAt: key.expiresAt,
+        isActive: key.isActive,
+        createdAt: key.createdAt,
+      }));
+      res.json(safeKeys);
+    } catch (error) {
+      console.error("Error fetching API keys:", error);
+      res.status(500).json({ error: "Failed to fetch API keys" });
+    }
+  });
+  
+  // POST /api/api-keys - Create new API key
+  app.post("/api/api-keys", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const user = req.user;
+      if (!tierSupportsApiKeys(user.subscriptionTier)) {
+        return res.status(403).json({ error: "API keys require Enterprise plan" });
+      }
+      
+      const parseResult = apiKeyBodySchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ error: "Invalid request body", details: parseResult.error.errors });
+      }
+      
+      const existingKeys = await storage.getApiKeys(userId);
+      if (existingKeys.length >= 5) {
+        return res.status(400).json({ error: "Maximum of 5 API keys allowed per user" });
+      }
+      
+      const rawKey = crypto.randomBytes(32).toString('hex');
+      const keyPrefix = `vw_${rawKey.substring(0, 8)}`;
+      const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
+      
+      const apiKeyData = {
+        userId,
+        name: parseResult.data.name,
+        keyHash,
+        keyPrefix,
+        scopes: parseResult.data.scopes || 'read',
+        rateLimit: 1000,
+        expiresAt: parseResult.data.expiresAt ? new Date(parseResult.data.expiresAt) : null,
+        isActive: true,
+      };
+      
+      const createdKey = await storage.createApiKey(apiKeyData);
+      
+      res.status(201).json({
+        ...createdKey,
+        keyHash: undefined,
+        plainKey: rawKey,
+      });
+    } catch (error) {
+      console.error("Error creating API key:", error);
+      res.status(500).json({ error: "Failed to create API key" });
+    }
+  });
+  
+  // PUT /api/api-keys/:id - Update API key
+  app.put("/api/api-keys/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const user = req.user;
+      if (!tierSupportsApiKeys(user.subscriptionTier)) {
+        return res.status(403).json({ error: "API keys require Enterprise plan" });
+      }
+      
+      const apiKey = await storage.getApiKey(req.params.id);
+      if (!apiKey) {
+        return res.status(404).json({ error: "API key not found" });
+      }
+      
+      if (apiKey.userId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const parseResult = apiKeyUpdateSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ error: "Invalid request body", details: parseResult.error.errors });
+      }
+      
+      const updateData: any = {};
+      if (parseResult.data.name !== undefined) updateData.name = parseResult.data.name;
+      if (parseResult.data.scopes !== undefined) updateData.scopes = parseResult.data.scopes;
+      if (parseResult.data.isActive !== undefined) updateData.isActive = parseResult.data.isActive;
+      
+      const updatedKey = await storage.updateApiKey(req.params.id, updateData);
+      if (!updatedKey) {
+        return res.status(404).json({ error: "API key not found" });
+      }
+      
+      res.json({
+        ...updatedKey,
+        keyHash: undefined,
+      });
+    } catch (error) {
+      console.error("Error updating API key:", error);
+      res.status(500).json({ error: "Failed to update API key" });
+    }
+  });
+  
+  // DELETE /api/api-keys/:id - Delete API key
+  app.delete("/api/api-keys/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const user = req.user;
+      if (!tierSupportsApiKeys(user.subscriptionTier)) {
+        return res.status(403).json({ error: "API keys require Enterprise plan" });
+      }
+      
+      const apiKey = await storage.getApiKey(req.params.id);
+      if (!apiKey) {
+        return res.status(404).json({ error: "API key not found" });
+      }
+      
+      if (apiKey.userId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      await storage.deleteApiKey(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting API key:", error);
+      res.status(500).json({ error: "Failed to delete API key" });
+    }
+  });
+  
+  // GET /api/api-keys/:id/logs - Get API key usage logs
+  app.get("/api/api-keys/:id/logs", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const user = req.user;
+      if (!tierSupportsApiKeys(user.subscriptionTier)) {
+        return res.status(403).json({ error: "API keys require Enterprise plan" });
+      }
+      
+      const apiKey = await storage.getApiKey(req.params.id);
+      if (!apiKey) {
+        return res.status(404).json({ error: "API key not found" });
+      }
+      
+      if (apiKey.userId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const logs = await storage.getApiRequestLogs(req.params.id, 100);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching API key logs:", error);
+      res.status(500).json({ error: "Failed to fetch API key logs" });
+    }
+  });
+
+  // ============ AUDIT LOGS ============
+
+  // Helper function to create audit logs
+  async function logAudit(req: any, action: string, resourceType: string, resourceId?: string, resourceName?: string, details?: any, success = true, errorMessage?: string) {
+    try {
+      const userId = req.user?.id;
+      const userEmail = req.user?.email;
+      const ipAddress = req.ip || req.headers['x-forwarded-for'];
+      const userAgent = req.headers['user-agent'];
+      await storage.createAuditLog({
+        userId, userEmail, action, resourceType, resourceId, resourceName,
+        details: details ? JSON.stringify(details) : null,
+        ipAddress, userAgent, success, errorMessage
+      });
+    } catch (e) { console.error('Audit log failed:', e); }
+  }
+
+  // GET /api/audit-logs - List audit logs (admin only)
+  app.get("/api/audit-logs", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { userId, action, resourceType, limit = '100', offset = '0' } = req.query;
+      
+      const logs = await storage.getAuditLogs({
+        userId: userId as string | undefined,
+        action: action as string | undefined,
+        resourceType: resourceType as string | undefined,
+        limit: parseInt(limit as string, 10) || 100,
+        offset: parseInt(offset as string, 10) || 0
+      });
+      
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching audit logs:", error);
+      res.status(500).json({ error: "Failed to fetch audit logs" });
+    }
+  });
+
+  // GET /api/audit-logs/count - Get total count for pagination (admin only)
+  app.get("/api/audit-logs/count", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { userId, action, resourceType } = req.query;
+      
+      const count = await storage.getAuditLogsCount({
+        userId: userId as string | undefined,
+        action: action as string | undefined,
+        resourceType: resourceType as string | undefined
+      });
+      
+      res.json({ count });
+    } catch (error) {
+      console.error("Error fetching audit logs count:", error);
+      res.status(500).json({ error: "Failed to fetch audit logs count" });
     }
   });
 

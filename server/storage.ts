@@ -8,6 +8,7 @@ import {
   clientPortals, portalVendorAssignments, portalSubscribers,
   psaIntegrations, psaTicketRules, psaTicketLinks,
   vendorTelemetryMetrics, outagePredictions, predictionPatterns,
+  userWebhooks, webhookLogs, apiKeys, apiRequestLogs, auditLogs, ssoConfigurations,
   type Organization, type InsertOrganization,
   type OrganizationMember, type InsertOrganizationMember,
   type OrganizationInvitation, type InsertOrganizationInvitation,
@@ -50,6 +51,12 @@ import {
   type VendorTelemetryMetric, type InsertVendorTelemetryMetric,
   type OutagePrediction, type InsertOutagePrediction,
   type PredictionPattern, type InsertPredictionPattern,
+  type UserWebhook, type InsertUserWebhook,
+  type WebhookLog, type InsertWebhookLog,
+  type ApiKey, type InsertApiKey,
+  type ApiRequestLog, type InsertApiRequestLog,
+  type AuditLog, type InsertAuditLog,
+  type SsoConfiguration, type InsertSsoConfiguration,
   SUBSCRIPTION_TIERS
 } from "@shared/schema";
 import { and, isNull, inArray, gte, lte, lt, sql, count, ilike, or } from "drizzle-orm";
@@ -462,6 +469,45 @@ export interface IStorage {
   purgeOldTelemetry(olderThanDays: number): Promise<number>;
   purgeOldPredictions(olderThanDays: number): Promise<number>;
   purgeOldActivityEvents(olderThanDays: number): Promise<number>;
+  
+  // User Webhooks
+  getUserWebhooks(userId: string): Promise<UserWebhook[]>;
+  getUserWebhook(id: string): Promise<UserWebhook | undefined>;
+  createUserWebhook(webhook: InsertUserWebhook): Promise<UserWebhook>;
+  updateUserWebhook(id: string, data: Partial<InsertUserWebhook>): Promise<UserWebhook | undefined>;
+  deleteUserWebhook(id: string): Promise<boolean>;
+  getActiveWebhooksForVendorEvent(vendorKey: string, eventType: string): Promise<UserWebhook[]>;
+  recordWebhookDelivery(id: string, success: boolean, status?: number, error?: string): Promise<void>;
+  
+  // Webhook Logs
+  createWebhookLog(log: InsertWebhookLog): Promise<WebhookLog>;
+  getWebhookLogs(webhookId: string, limit?: number): Promise<WebhookLog[]>;
+  
+  // API Keys
+  getApiKeys(userId: string): Promise<ApiKey[]>;
+  getApiKey(id: string): Promise<ApiKey | undefined>;
+  getApiKeyByHash(keyHash: string): Promise<ApiKey | undefined>;
+  createApiKey(apiKey: InsertApiKey): Promise<ApiKey>;
+  updateApiKey(id: string, data: Partial<InsertApiKey>): Promise<ApiKey | undefined>;
+  deleteApiKey(id: string): Promise<boolean>;
+  recordApiKeyUsage(id: string): Promise<void>;
+  
+  // API Request Logs  
+  createApiRequestLog(log: InsertApiRequestLog): Promise<ApiRequestLog>;
+  getApiRequestLogs(apiKeyId: string, limit?: number): Promise<ApiRequestLog[]>;
+  
+  // Audit Logs
+  createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
+  getAuditLogs(options?: { userId?: string; action?: string; resourceType?: string; limit?: number; offset?: number }): Promise<AuditLog[]>;
+  getAuditLogsCount(options?: { userId?: string; action?: string; resourceType?: string }): Promise<number>;
+  
+  // SSO Configurations
+  getSsoConfigurations(organizationId: string): Promise<SsoConfiguration[]>;
+  getSsoConfiguration(id: string): Promise<SsoConfiguration | undefined>;
+  getSsoConfigurationByDomain(emailDomain: string): Promise<SsoConfiguration | undefined>;
+  createSsoConfiguration(config: InsertSsoConfiguration): Promise<SsoConfiguration>;
+  updateSsoConfiguration(id: string, data: Partial<InsertSsoConfiguration>): Promise<SsoConfiguration | undefined>;
+  deleteSsoConfiguration(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3200,6 +3246,258 @@ export class DatabaseStorage implements IStorage {
       .where(lt(userActivityEvents.createdAt, cutoffDate))
       .returning();
     return result.length;
+  }
+
+  // ==========================================
+  // USER WEBHOOKS
+  // ==========================================
+
+  async getUserWebhooks(userId: string): Promise<UserWebhook[]> {
+    return await db.select().from(userWebhooks)
+      .where(eq(userWebhooks.userId, userId))
+      .orderBy(desc(userWebhooks.createdAt));
+  }
+
+  async getUserWebhook(id: string): Promise<UserWebhook | undefined> {
+    const [webhook] = await db.select().from(userWebhooks)
+      .where(eq(userWebhooks.id, id));
+    return webhook || undefined;
+  }
+
+  async createUserWebhook(webhook: InsertUserWebhook): Promise<UserWebhook> {
+    const [created] = await db.insert(userWebhooks).values(webhook).returning();
+    return created;
+  }
+
+  async updateUserWebhook(id: string, data: Partial<InsertUserWebhook>): Promise<UserWebhook | undefined> {
+    const [updated] = await db.update(userWebhooks)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(userWebhooks.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteUserWebhook(id: string): Promise<boolean> {
+    const result = await db.delete(userWebhooks)
+      .where(eq(userWebhooks.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async getActiveWebhooksForVendorEvent(vendorKey: string, eventType: string): Promise<UserWebhook[]> {
+    const activeWebhooks = await db.select().from(userWebhooks)
+      .where(eq(userWebhooks.isActive, true));
+    
+    return activeWebhooks.filter(webhook => {
+      const events = webhook.events === 'all' ? ['all'] : JSON.parse(webhook.events || '[]');
+      const matchesEvent = events.includes('all') || events.includes(eventType);
+      
+      const vendorKeys = webhook.vendorKeys ? JSON.parse(webhook.vendorKeys) : null;
+      const matchesVendor = !vendorKeys || vendorKeys.includes(vendorKey);
+      
+      return matchesEvent && matchesVendor;
+    });
+  }
+
+  async recordWebhookDelivery(id: string, success: boolean, status?: number, error?: string): Promise<void> {
+    const webhook = await this.getUserWebhook(id);
+    if (!webhook) return;
+    
+    await db.update(userWebhooks)
+      .set({
+        lastTriggeredAt: new Date(),
+        lastStatus: status || null,
+        lastError: error || null,
+        totalSent: success ? webhook.totalSent + 1 : webhook.totalSent,
+        totalFailed: success ? webhook.totalFailed : webhook.totalFailed + 1,
+      })
+      .where(eq(userWebhooks.id, id));
+  }
+
+  // ==========================================
+  // WEBHOOK LOGS
+  // ==========================================
+
+  async createWebhookLog(log: InsertWebhookLog): Promise<WebhookLog> {
+    const [created] = await db.insert(webhookLogs).values(log).returning();
+    return created;
+  }
+
+  async getWebhookLogs(webhookId: string, limit: number = 50): Promise<WebhookLog[]> {
+    return await db.select().from(webhookLogs)
+      .where(eq(webhookLogs.webhookId, webhookId))
+      .orderBy(desc(webhookLogs.createdAt))
+      .limit(limit);
+  }
+
+  // ==========================================
+  // API KEYS
+  // ==========================================
+
+  async getApiKeys(userId: string): Promise<ApiKey[]> {
+    return await db.select().from(apiKeys)
+      .where(eq(apiKeys.userId, userId))
+      .orderBy(desc(apiKeys.createdAt));
+  }
+
+  async getApiKey(id: string): Promise<ApiKey | undefined> {
+    const [key] = await db.select().from(apiKeys)
+      .where(eq(apiKeys.id, id));
+    return key || undefined;
+  }
+
+  async getApiKeyByHash(keyHash: string): Promise<ApiKey | undefined> {
+    const [key] = await db.select().from(apiKeys)
+      .where(eq(apiKeys.keyHash, keyHash));
+    return key || undefined;
+  }
+
+  async createApiKey(apiKey: InsertApiKey): Promise<ApiKey> {
+    const [created] = await db.insert(apiKeys).values(apiKey).returning();
+    return created;
+  }
+
+  async updateApiKey(id: string, data: Partial<InsertApiKey>): Promise<ApiKey | undefined> {
+    const [updated] = await db.update(apiKeys)
+      .set(data)
+      .where(eq(apiKeys.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteApiKey(id: string): Promise<boolean> {
+    const result = await db.delete(apiKeys)
+      .where(eq(apiKeys.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async recordApiKeyUsage(id: string): Promise<void> {
+    await db.update(apiKeys)
+      .set({ lastUsedAt: new Date() })
+      .where(eq(apiKeys.id, id));
+  }
+
+  // ==========================================
+  // API REQUEST LOGS
+  // ==========================================
+
+  async createApiRequestLog(log: InsertApiRequestLog): Promise<ApiRequestLog> {
+    const [created] = await db.insert(apiRequestLogs).values(log).returning();
+    return created;
+  }
+
+  async getApiRequestLogs(apiKeyId: string, limit: number = 100): Promise<ApiRequestLog[]> {
+    return await db.select().from(apiRequestLogs)
+      .where(eq(apiRequestLogs.apiKeyId, apiKeyId))
+      .orderBy(desc(apiRequestLogs.createdAt))
+      .limit(limit);
+  }
+
+  // ==========================================
+  // AUDIT LOGS
+  // ==========================================
+
+  async createAuditLog(log: InsertAuditLog): Promise<AuditLog> {
+    const [created] = await db.insert(auditLogs).values(log).returning();
+    return created;
+  }
+
+  async getAuditLogs(options: {
+    userId?: string;
+    action?: string;
+    resourceType?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<AuditLog[]> {
+    const { userId, action, resourceType, limit = 100, offset = 0 } = options;
+    
+    const conditions = [];
+    if (userId) conditions.push(eq(auditLogs.userId, userId));
+    if (action) conditions.push(eq(auditLogs.action, action));
+    if (resourceType) conditions.push(eq(auditLogs.resourceType, resourceType));
+    
+    const query = db.select().from(auditLogs);
+    
+    if (conditions.length > 0) {
+      return await query
+        .where(and(...conditions))
+        .orderBy(desc(auditLogs.createdAt))
+        .limit(limit)
+        .offset(offset);
+    }
+    
+    return await query
+      .orderBy(desc(auditLogs.createdAt))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  async getAuditLogsCount(options: {
+    userId?: string;
+    action?: string;
+    resourceType?: string;
+  }): Promise<number> {
+    const { userId, action, resourceType } = options;
+    
+    const conditions = [];
+    if (userId) conditions.push(eq(auditLogs.userId, userId));
+    if (action) conditions.push(eq(auditLogs.action, action));
+    if (resourceType) conditions.push(eq(auditLogs.resourceType, resourceType));
+    
+    if (conditions.length > 0) {
+      const [result] = await db.select({ count: count() }).from(auditLogs)
+        .where(and(...conditions));
+      return result?.count ?? 0;
+    }
+    
+    const [result] = await db.select({ count: count() }).from(auditLogs);
+    return result?.count ?? 0;
+  }
+
+  // ==========================================
+  // SSO CONFIGURATIONS
+  // ==========================================
+
+  async getSsoConfigurations(organizationId: string): Promise<SsoConfiguration[]> {
+    return await db.select().from(ssoConfigurations)
+      .where(eq(ssoConfigurations.organizationId, organizationId))
+      .orderBy(desc(ssoConfigurations.createdAt));
+  }
+
+  async getSsoConfiguration(id: string): Promise<SsoConfiguration | undefined> {
+    const [config] = await db.select().from(ssoConfigurations)
+      .where(eq(ssoConfigurations.id, id));
+    return config || undefined;
+  }
+
+  async getSsoConfigurationByDomain(emailDomain: string): Promise<SsoConfiguration | undefined> {
+    const [config] = await db.select().from(ssoConfigurations)
+      .where(and(
+        eq(ssoConfigurations.emailDomain, emailDomain),
+        eq(ssoConfigurations.isActive, true)
+      ));
+    return config || undefined;
+  }
+
+  async createSsoConfiguration(config: InsertSsoConfiguration): Promise<SsoConfiguration> {
+    const [created] = await db.insert(ssoConfigurations).values(config).returning();
+    return created;
+  }
+
+  async updateSsoConfiguration(id: string, data: Partial<InsertSsoConfiguration>): Promise<SsoConfiguration | undefined> {
+    const [updated] = await db.update(ssoConfigurations)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(ssoConfigurations.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteSsoConfiguration(id: string): Promise<boolean> {
+    const result = await db.delete(ssoConfigurations)
+      .where(eq(ssoConfigurations.id, id))
+      .returning();
+    return result.length > 0;
   }
 }
 

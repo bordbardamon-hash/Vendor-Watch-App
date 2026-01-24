@@ -1201,6 +1201,121 @@ export const predictionPatterns = pgTable("prediction_patterns", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+// ============ WEBHOOKS ============
+
+// User Webhooks - custom HTTP webhooks for incident alerts
+export const userWebhooks = pgTable("user_webhooks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: text("user_id").notNull(),
+  name: text("name").notNull(),
+  url: text("url").notNull(), // Webhook endpoint URL
+  secret: text("secret"), // Optional secret for signing payloads
+  events: text("events").notNull().default('all'), // JSON array: ['new_incident', 'incident_update', 'incident_resolved'] or 'all'
+  vendorKeys: text("vendor_keys"), // JSON array of vendor keys, null = all vendors
+  chainKeys: text("chain_keys"), // JSON array of chain keys, null = all chains
+  headers: text("headers"), // JSON object of custom headers
+  payloadTemplate: text("payload_template"), // Custom JSON template
+  isActive: boolean("is_active").notNull().default(true),
+  lastTriggeredAt: timestamp("last_triggered_at"),
+  lastStatus: integer("last_status"), // Last HTTP status code
+  lastError: text("last_error"),
+  totalSent: integer("total_sent").notNull().default(0),
+  totalFailed: integer("total_failed").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Webhook Logs - track webhook delivery attempts
+export const webhookLogs = pgTable("webhook_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  webhookId: text("webhook_id").notNull(),
+  incidentId: text("incident_id"),
+  blockchainIncidentId: text("blockchain_incident_id"),
+  eventType: text("event_type").notNull(), // 'new_incident', 'incident_update', 'incident_resolved'
+  payload: text("payload").notNull(), // JSON payload sent
+  responseStatus: integer("response_status"),
+  responseBody: text("response_body"),
+  durationMs: integer("duration_ms"),
+  success: boolean("success").notNull(),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// ============ API ACCESS ============
+
+// API Keys - for programmatic access
+export const apiKeys = pgTable("api_keys", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: text("user_id").notNull(),
+  name: text("name").notNull(),
+  keyHash: text("key_hash").notNull(), // Hashed API key
+  keyPrefix: text("key_prefix").notNull(), // First 8 chars for display (vw_xxxx)
+  scopes: text("scopes").notNull().default('read'), // 'read', 'read_write', 'full'
+  rateLimit: integer("rate_limit").notNull().default(1000), // Requests per hour
+  lastUsedAt: timestamp("last_used_at"),
+  expiresAt: timestamp("expires_at"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// API Request Logs - track API usage
+export const apiRequestLogs = pgTable("api_request_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  apiKeyId: text("api_key_id").notNull(),
+  endpoint: text("endpoint").notNull(),
+  method: text("method").notNull(),
+  statusCode: integer("status_code").notNull(),
+  durationMs: integer("duration_ms"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// ============ AUDIT LOGS ============
+
+// Audit Logs - comprehensive action tracking for compliance
+export const auditLogs = pgTable("audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: text("user_id"),
+  userEmail: text("user_email"),
+  action: text("action").notNull(), // 'login', 'logout', 'create', 'update', 'delete', 'invite', 'export', etc.
+  resourceType: text("resource_type").notNull(), // 'user', 'organization', 'webhook', 'portal', 'incident', 'settings', etc.
+  resourceId: text("resource_id"),
+  resourceName: text("resource_name"),
+  details: text("details"), // JSON with action-specific details
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  success: boolean("success").notNull().default(true),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// ============ SSO/SAML ============
+
+// SSO Configurations - Enterprise SAML/SSO settings
+export const ssoConfigurations = pgTable("sso_configurations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: text("organization_id").notNull(),
+  provider: text("provider").notNull(), // 'saml', 'oidc', 'azure_ad', 'okta', 'google'
+  displayName: text("display_name").notNull(),
+  // SAML config
+  entityId: text("entity_id"),
+  ssoUrl: text("sso_url"),
+  certificate: text("certificate"),
+  // OIDC config
+  clientId: text("client_id"),
+  clientSecret: text("client_secret"),
+  issuerUrl: text("issuer_url"),
+  // Common
+  emailDomain: text("email_domain"), // Auto-detect domain for SSO
+  autoProvision: boolean("auto_provision").notNull().default(true), // Create users on first login
+  defaultRole: text("default_role").notNull().default('member_ro'), // Default role for new users
+  isActive: boolean("is_active").notNull().default(false),
+  lastUsedAt: timestamp("last_used_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // Insert schemas for new tables
 export const insertClientPortalSchema = createInsertSchema(clientPortals).omit({ id: true, lastAccessedAt: true, viewCount: true, createdAt: true, updatedAt: true });
 export const insertPortalVendorAssignmentSchema = createInsertSchema(portalVendorAssignments).omit({ id: true, createdAt: true });
@@ -1211,6 +1326,14 @@ export const insertPsaTicketLinkSchema = createInsertSchema(psaTicketLinks).omit
 export const insertVendorTelemetryMetricSchema = createInsertSchema(vendorTelemetryMetrics).omit({ id: true, createdAt: true });
 export const insertOutagePredictionSchema = createInsertSchema(outagePredictions).omit({ id: true, acknowledgedBy: true, acknowledgedAt: true, actualIncidentId: true, feedbackScore: true, feedbackNotes: true, createdAt: true });
 export const insertPredictionPatternSchema = createInsertSchema(predictionPatterns).omit({ id: true, createdAt: true, updatedAt: true });
+
+// Insert schemas for webhooks, API keys, audit logs, and SSO
+export const insertUserWebhookSchema = createInsertSchema(userWebhooks).omit({ id: true, lastTriggeredAt: true, lastStatus: true, lastError: true, totalSent: true, totalFailed: true, createdAt: true, updatedAt: true });
+export const insertWebhookLogSchema = createInsertSchema(webhookLogs).omit({ id: true, createdAt: true });
+export const insertApiKeySchema = createInsertSchema(apiKeys).omit({ id: true, lastUsedAt: true, createdAt: true });
+export const insertApiRequestLogSchema = createInsertSchema(apiRequestLogs).omit({ id: true, createdAt: true });
+export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: true, createdAt: true });
+export const insertSsoConfigurationSchema = createInsertSchema(ssoConfigurations).omit({ id: true, lastUsedAt: true, createdAt: true, updatedAt: true });
 
 // Types for new tables
 export type InsertClientPortal = z.infer<typeof insertClientPortalSchema>;
@@ -1239,3 +1362,21 @@ export type OutagePrediction = typeof outagePredictions.$inferSelect;
 
 export type InsertPredictionPattern = z.infer<typeof insertPredictionPatternSchema>;
 export type PredictionPattern = typeof predictionPatterns.$inferSelect;
+
+export type InsertUserWebhook = z.infer<typeof insertUserWebhookSchema>;
+export type UserWebhook = typeof userWebhooks.$inferSelect;
+
+export type InsertWebhookLog = z.infer<typeof insertWebhookLogSchema>;
+export type WebhookLog = typeof webhookLogs.$inferSelect;
+
+export type InsertApiKey = z.infer<typeof insertApiKeySchema>;
+export type ApiKey = typeof apiKeys.$inferSelect;
+
+export type InsertApiRequestLog = z.infer<typeof insertApiRequestLogSchema>;
+export type ApiRequestLog = typeof apiRequestLogs.$inferSelect;
+
+export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
+export type AuditLog = typeof auditLogs.$inferSelect;
+
+export type InsertSsoConfiguration = z.infer<typeof insertSsoConfigurationSchema>;
+export type SsoConfiguration = typeof ssoConfigurations.$inferSelect;

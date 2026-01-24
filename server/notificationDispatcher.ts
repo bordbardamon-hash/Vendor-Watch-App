@@ -4,6 +4,7 @@ import { sendEmail } from './emailClient';
 import { shouldSendAlert, recordAlertSent } from './cooldownManager';
 import { formatSeverityDisplay, formatStatusDisplay } from './statusNormalizer';
 import { generateCustomerSummary, generateCustomerSummarySms } from './customerSummaryGenerator';
+import { dispatchSlackTeamsForAllSubscribedUsers } from './notifications/slack-teams';
 import type { Incident, Vendor, User, LifecycleEvent, CanonicalSeverity, CanonicalStatus, BlockchainIncident, BlockchainChain } from '@shared/schema';
 
 type EventType = 'new' | 'update' | 'resolved';
@@ -251,6 +252,11 @@ export async function notifyNewIncident(incident: Incident, vendor: Vendor): Pro
   if (result.errors.length > 0) {
     console.warn('[notify] Errors:', result.errors);
   }
+  
+  const slackTeamsResult = await dispatchSlackTeamsForAllSubscribedUsers(incident, vendor, 'new');
+  if (slackTeamsResult.slack > 0 || slackTeamsResult.teams > 0) {
+    console.log(`[notify] Sent ${slackTeamsResult.slack} Slack, ${slackTeamsResult.teams} Teams notifications for new incident`);
+  }
 }
 
 export async function notifyIncidentUpdate(incident: Incident, vendor: Vendor, previousStatus: string): Promise<void> {
@@ -260,6 +266,11 @@ export async function notifyIncidentUpdate(incident: Incident, vendor: Vendor, p
   if (result.errors.length > 0) {
     console.warn('[notify] Errors:', result.errors);
   }
+  
+  const slackTeamsResult = await dispatchSlackTeamsForAllSubscribedUsers(incident, vendor, 'update');
+  if (slackTeamsResult.slack > 0 || slackTeamsResult.teams > 0) {
+    console.log(`[notify] Sent ${slackTeamsResult.slack} Slack, ${slackTeamsResult.teams} Teams notifications for incident update`);
+  }
 }
 
 export async function notifyIncidentResolved(incident: Incident, vendor: Vendor): Promise<void> {
@@ -268,6 +279,11 @@ export async function notifyIncidentResolved(incident: Incident, vendor: Vendor)
   console.log(`[notify] Sent ${result.sms} SMS, ${result.email} emails for resolved incident`);
   if (result.errors.length > 0) {
     console.warn('[notify] Errors:', result.errors);
+  }
+  
+  const slackTeamsResult = await dispatchSlackTeamsForAllSubscribedUsers(incident, vendor, 'resolved');
+  if (slackTeamsResult.slack > 0 || slackTeamsResult.teams > 0) {
+    console.log(`[notify] Sent ${slackTeamsResult.slack} Slack, ${slackTeamsResult.teams} Teams notifications for resolved incident`);
   }
 }
 
