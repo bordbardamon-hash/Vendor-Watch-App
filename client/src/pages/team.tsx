@@ -100,6 +100,7 @@ export default function Team() {
   const [orgName, setOrgName] = useState('');
   const [isEditingOrg, setIsEditingOrg] = useState(false);
   const [editOrgName, setEditOrgName] = useState('');
+  const [showSeatConfirmation, setShowSeatConfirmation] = useState(false);
 
   const { data: orgData, isLoading: orgLoading } = useQuery<OrgData>({
     queryKey: ["/api/org"],
@@ -642,14 +643,87 @@ export default function Team() {
                     <Plus className="h-4 w-4" />
                   </Button>
                   {pendingSeats !== null && pendingSeats !== seatData.additionalSeats && (
-                    <Button
-                      onClick={() => updateSeatsMutation.mutate(pendingSeats)}
-                      disabled={updateSeatsMutation.isPending}
-                      className="ml-2"
-                      data-testid="button-save-seats"
-                    >
-                      {updateSeatsMutation.isPending ? "Updating..." : "Save"}
-                    </Button>
+                    <AlertDialog open={showSeatConfirmation} onOpenChange={setShowSeatConfirmation}>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          disabled={updateSeatsMutation.isPending}
+                          className="ml-2"
+                          data-testid="button-save-seats"
+                        >
+                          {updateSeatsMutation.isPending ? "Updating..." : "Review Changes"}
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent className="max-w-md">
+                        <AlertDialogHeader>
+                          <AlertDialogTitle className="flex items-center gap-2">
+                            <Armchair className="h-5 w-5" />
+                            Confirm Seat Change
+                          </AlertDialogTitle>
+                          <AlertDialogDescription asChild>
+                            <div className="space-y-4 pt-2">
+                              <div className="font-medium text-foreground text-base">
+                                {pendingSeats > seatData.additionalSeats ? (
+                                  <span>You are adding {pendingSeats - seatData.additionalSeats} additional seat{pendingSeats - seatData.additionalSeats > 1 ? 's' : ''}</span>
+                                ) : (
+                                  <span>You are removing {seatData.additionalSeats - pendingSeats} seat{seatData.additionalSeats - pendingSeats > 1 ? 's' : ''}</span>
+                                )}
+                              </div>
+                              
+                              <div className="grid grid-cols-2 gap-3 text-sm">
+                                <div className="p-3 rounded-lg bg-muted/50 border border-border">
+                                  <div className="text-muted-foreground text-xs mb-1">Current</div>
+                                  <div className="font-bold text-lg">{seatData.additionalSeats} seats</div>
+                                  <div className="text-sm text-muted-foreground">${seatData.additionalSeats * seatData.seatPrice}/month</div>
+                                </div>
+                                <div className="p-3 rounded-lg bg-primary/10 border border-primary/30">
+                                  <div className="text-muted-foreground text-xs mb-1">New</div>
+                                  <div className="font-bold text-lg">{pendingSeats} seats</div>
+                                  <div className="text-sm text-muted-foreground">${pendingSeats * seatData.seatPrice}/month</div>
+                                </div>
+                              </div>
+                              
+                              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                                {pendingSeats > seatData.additionalSeats ? (
+                                  <div className="space-y-2">
+                                    <div className="flex justify-between text-sm">
+                                      <span>Monthly increase:</span>
+                                      <span className="font-semibold text-emerald-400">+${(pendingSeats - seatData.additionalSeats) * seatData.seatPrice}/month</span>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                      Your card on file will be charged a prorated amount immediately for the remaining days in this billing period.
+                                    </p>
+                                  </div>
+                                ) : (
+                                  <div className="space-y-2">
+                                    <div className="flex justify-between text-sm">
+                                      <span>Monthly savings:</span>
+                                      <span className="font-semibold text-amber-400">-${(seatData.additionalSeats - pendingSeats) * seatData.seatPrice}/month</span>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                      You will receive a prorated credit for unused time on the removed seats.
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter className="mt-4">
+                          <AlertDialogCancel data-testid="button-cancel-seats">Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => {
+                              updateSeatsMutation.mutate(pendingSeats);
+                              setShowSeatConfirmation(false);
+                            }}
+                            disabled={updateSeatsMutation.isPending}
+                            className="bg-primary hover:bg-primary/90"
+                            data-testid="button-confirm-seats"
+                          >
+                            {updateSeatsMutation.isPending ? "Processing..." : pendingSeats > seatData.additionalSeats ? "Confirm & Pay" : "Confirm Change"}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   )}
                 </div>
               </div>
