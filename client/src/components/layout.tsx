@@ -27,7 +27,12 @@ import {
   Settings2,
   Globe,
   Ticket,
-  TrendingUp
+  TrendingUp,
+  Webhook,
+  Key,
+  FileText,
+  ClipboardList,
+  Lock
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -72,10 +77,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { href: "/mobile-status", icon: Smartphone, label: "Mobile Status", adminOnly: false, ownerOnly: false, requiresGrowth: true },
     { href: "/portals", icon: Globe, label: "Client Portals", adminOnly: false, ownerOnly: false, requiresGrowth: true },
     { href: "/psa-integrations", icon: Ticket, label: "PSA Ticketing", adminOnly: false, ownerOnly: false, requiresGrowth: true },
+    { href: "/webhooks", icon: Webhook, label: "Webhooks", adminOnly: false, ownerOnly: false, requiresGrowth: true },
+    { href: "/reports", icon: FileText, label: "Reports", adminOnly: false, ownerOnly: false, requiresGrowth: true },
     { href: "/predictions", icon: TrendingUp, label: "Predictions", adminOnly: false, ownerOnly: false, requiresEnterprise: true },
+    { href: "/api-keys", icon: Key, label: "API Access", adminOnly: false, ownerOnly: false, requiresEnterprise: true },
+    { href: "/sso", icon: Lock, label: "SSO", adminOnly: false, ownerOnly: false, requiresEnterprise: true },
     { href: "/jobs", icon: List, label: UI_LABELS.nav.scrapers, adminOnly: true, ownerOnly: false, requiresGrowth: false },
     { href: "/logs", icon: Terminal, label: UI_LABELS.nav.logs, adminOnly: true, ownerOnly: false, requiresGrowth: false },
     { href: "/consents", icon: FileCheck, label: "Consents", adminOnly: true, ownerOnly: false, requiresGrowth: false },
+    { href: "/audit-logs", icon: ClipboardList, label: "Audit Logs", adminOnly: true, ownerOnly: false, requiresGrowth: false },
     { href: "/feedback", icon: MessageSquare, label: "Feedback", adminOnly: true, ownerOnly: false, requiresGrowth: false },
     { href: "/parser-health", icon: Server, label: "Parser Health", adminOnly: false, ownerOnly: true, requiresGrowth: false },
     { href: "/users", icon: Users, label: "Users", adminOnly: false, ownerOnly: true, requiresGrowth: false },
