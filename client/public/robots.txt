@@ -8,5 +8,14 @@ Disallow: /parser-health
 Disallow: /feedback
 Disallow: /verify-2fa
 Disallow: /set-password
+Disallow: /audit-logs
+Disallow: /users
+Disallow: /onboarding
+Disallow: /reset-password
+Disallow: /forgot-password
+Disallow: /accept-invite
 
 Sitemap: https://vendorwatch.app/sitemap.xml
+
+# Crawl-delay for politeness
+Crawl-delay: 1
