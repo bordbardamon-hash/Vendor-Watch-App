@@ -6308,6 +6308,197 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
     }
   });
 
+  // ============ PUBLIC STATUS API (aliases for /api/status/:slug) ============
+  
+  // GET /api/status/:slug - Public route for status page
+  app.get("/api/status/:slug", async (req: any, res) => {
+    try {
+      const portal = await storage.getClientPortalBySlug(req.params.slug);
+      if (!portal || !portal.isActive) {
+        return res.status(404).json({ error: "Portal not found" });
+      }
+      
+      // Check access token if portal is not public
+      if (!portal.isPublic) {
+        const token = req.query.token || req.headers['x-portal-token'];
+        if (token !== portal.accessToken) {
+          return res.status(403).json({ error: "Access denied" });
+        }
+      }
+      
+      // Increment view count
+      await storage.incrementPortalViewCount(portal.id);
+      
+      // Get vendor assignments
+      const assignments = await storage.getPortalVendorAssignments(portal.id);
+      
+      // Get current vendor/blockchain statuses
+      const vendors = await storage.getVendors();
+      const chains = await storage.getBlockchainChains();
+      const vendorIncidents = await storage.getIncidents();
+      const chainIncidents = await storage.getBlockchainIncidents();
+      
+      // Get recent incidents from last 7 days
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      
+      // Collect assigned vendor/chain keys for filtering
+      const assignedVendorKeys = new Set(assignments.filter(a => a.resourceType === 'vendor' && a.vendorKey).map(a => a.vendorKey));
+      const assignedChainKeys = new Set(assignments.filter(a => a.resourceType === 'blockchain' && a.chainKey).map(a => a.chainKey));
+      
+      // Filter recent incidents for assigned resources
+      const recentVendorIncidents = vendorIncidents.filter(i => {
+        const incidentDate = new Date(i.startedAt);
+        return assignedVendorKeys.has(i.vendorKey) && incidentDate >= sevenDaysAgo;
+      }).map(i => {
+        const vendor = vendors.find(v => v.key === i.vendorKey);
+        return {
+          id: i.id,
+          type: 'vendor',
+          resourceName: vendor?.name || i.vendorKey,
+          title: i.title,
+          status: i.status,
+          severity: i.severity,
+          impact: i.impact,
+          startedAt: i.startedAt,
+          updatedAt: i.updatedAt,
+        };
+      });
+      
+      const recentChainIncidents = chainIncidents.filter(i => {
+        const incidentDate = new Date(i.startedAt);
+        return assignedChainKeys.has(i.chainKey) && incidentDate >= sevenDaysAgo;
+      }).map(i => {
+        const chain = chains.find(c => c.key === i.chainKey);
+        return {
+          id: i.id,
+          type: 'blockchain',
+          resourceName: chain?.name || i.chainKey,
+          title: i.title,
+          status: i.status,
+          severity: i.severity,
+          impact: i.impact,
+          startedAt: i.startedAt,
+          updatedAt: i.updatedAt,
+        };
+      });
+      
+      // Combine and sort recent incidents by startedAt descending
+      const recentIncidents = [...recentVendorIncidents, ...recentChainIncidents]
+        .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
+        .slice(0, 20); // Limit to 20 most recent
+      
+      // Build status for each assigned resource
+      const resources = assignments.filter(a => a.showOnPortal).map(a => {
+        if (a.resourceType === 'vendor' && a.vendorKey) {
+          const vendor = vendors.find(v => v.key === a.vendorKey);
+          const activeIncidents = vendorIncidents.filter(i => 
+            i.vendorKey === a.vendorKey && i.status !== 'resolved'
+          );
+          return {
+            type: 'vendor',
+            key: a.vendorKey,
+            name: a.displayName || vendor?.name || a.vendorKey,
+            status: vendor?.status || 'operational',
+            hasActiveIncidents: activeIncidents.length > 0,
+            activeIncidents: activeIncidents.map(i => ({
+              title: i.title,
+              status: i.status,
+              severity: i.severity,
+              startedAt: i.startedAt,
+            })),
+            customSlaTarget: a.customSlaTarget,
+          };
+        } else if (a.resourceType === 'blockchain' && a.chainKey) {
+          const chain = chains.find(c => c.key === a.chainKey);
+          const activeIncidents = chainIncidents.filter(i => 
+            i.chainKey === a.chainKey && i.status !== 'resolved'
+          );
+          return {
+            type: 'blockchain',
+            key: a.chainKey,
+            name: a.displayName || chain?.name || a.chainKey,
+            status: chain?.status || 'operational',
+            hasActiveIncidents: activeIncidents.length > 0,
+            activeIncidents: activeIncidents.map(i => ({
+              title: i.title,
+              status: i.status,
+              severity: i.severity,
+              startedAt: i.startedAt,
+            })),
+            customSlaTarget: a.customSlaTarget,
+          };
+        }
+        return null;
+      }).filter(Boolean);
+      
+      // Calculate overall status
+      const hasIssues = resources.some((r: any) => r.hasActiveIncidents);
+      const hasCritical = resources.some((r: any) => 
+        r.activeIncidents?.some((i: any) => i.severity === 'critical')
+      );
+      
+      res.json({
+        portal: {
+          name: portal.name,
+          logoUrl: portal.logoUrl,
+          primaryColor: portal.primaryColor,
+          secondaryColor: portal.secondaryColor,
+          backgroundColor: portal.backgroundColor,
+          accentColor: portal.accentColor,
+          fontFamily: portal.fontFamily,
+          headerText: portal.headerText,
+          footerText: portal.footerText,
+          showIncidentHistory: portal.showIncidentHistory,
+          showUptimeStats: portal.showUptimeStats,
+          showSubscribeOption: portal.showSubscribeOption,
+        },
+        overallStatus: hasCritical ? 'major_outage' : hasIssues ? 'partial_outage' : 'operational',
+        resources,
+        recentIncidents: portal.showIncidentHistory ? recentIncidents : [],
+      });
+    } catch (error) {
+      console.error("Error fetching public status page:", error);
+      res.status(500).json({ error: "Failed to fetch status page" });
+    }
+  });
+  
+  // POST /api/status/:slug/subscribe - Subscribe to portal updates
+  app.post("/api/status/:slug/subscribe", async (req: any, res) => {
+    try {
+      const portal = await storage.getClientPortalBySlug(req.params.slug);
+      if (!portal || !portal.isActive || !portal.showSubscribeOption) {
+        return res.status(404).json({ error: "Portal not found or subscriptions not enabled" });
+      }
+      
+      const { email } = req.body;
+      if (!email || typeof email !== 'string') {
+        return res.status(400).json({ error: "Email is required" });
+      }
+      
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({ error: "Invalid email format" });
+      }
+      
+      const verificationToken = crypto.randomUUID();
+      const unsubscribeToken = crypto.randomUUID();
+      
+      await storage.createPortalSubscriber({
+        portalId: portal.id,
+        email,
+        verificationToken,
+        unsubscribeToken,
+      });
+      
+      res.json({ success: true, message: "Successfully subscribed to updates" });
+    } catch (error) {
+      console.error("Error subscribing to status page:", error);
+      res.status(500).json({ error: "Failed to subscribe" });
+    }
+  });
+
   // ============ PSA INTEGRATIONS API ============
   
   // Helper to sanitize PSA integration (remove sensitive fields)
@@ -7137,6 +7328,629 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
     } catch (error) {
       console.error("Error fetching API key logs:", error);
       res.status(500).json({ error: "Failed to fetch API key logs" });
+    }
+  });
+
+  // ============ UPTIME REPORTS ============
+
+  // Helper to check if tier supports reports (Growth/Enterprise only)
+  const tierSupportsReports = (tier: string | null): boolean => {
+    return tier === 'growth' || tier === 'enterprise' || tier === 'platinum';
+  };
+
+  // GET /api/reports - List user's reports
+  app.get("/api/reports", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+      const user = req.user;
+      if (!tierSupportsReports(user.subscriptionTier)) {
+        return res.status(403).json({ error: "Uptime reports require Growth or Enterprise plan" });
+      }
+
+      const reports = await storage.getUptimeReports(userId);
+      res.json(reports);
+    } catch (error) {
+      console.error("Error fetching reports:", error);
+      res.status(500).json({ error: "Failed to fetch reports" });
+    }
+  });
+
+  // POST /api/reports - Generate new report
+  app.post("/api/reports", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+      const user = req.user;
+      if (!tierSupportsReports(user.subscriptionTier)) {
+        return res.status(403).json({ error: "Uptime reports require Growth or Enterprise plan" });
+      }
+
+      const { name, reportType, vendorKeys, chainKeys, startDate, endDate } = req.body;
+
+      if (!name || !startDate || !endDate) {
+        return res.status(400).json({ error: "Name, start date, and end date are required" });
+      }
+
+      const report = await storage.createUptimeReport({
+        userId,
+        name,
+        reportType: reportType || 'custom',
+        vendorKeys: vendorKeys || null,
+        chainKeys: chainKeys || null,
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+        status: 'pending',
+      });
+
+      // Mark as generating and simulate PDF generation
+      await storage.updateUptimeReport(report.id, {
+        status: 'generating',
+      });
+
+      // Placeholder: In production, actual PDF generation would happen here
+      // For now, mark as completed with a placeholder URL
+      setTimeout(async () => {
+        try {
+          await storage.updateUptimeReport(report.id, {
+            status: 'completed',
+            fileUrl: `/api/reports/${report.id}/download`,
+            fileSize: 1024,
+          } as any);
+        } catch (e) {
+          console.error('Failed to complete report:', e);
+        }
+      }, 2000);
+
+      res.status(201).json(report);
+    } catch (error) {
+      console.error("Error creating report:", error);
+      res.status(500).json({ error: "Failed to create report" });
+    }
+  });
+
+  // GET /api/reports/:id - Get report details
+  app.get("/api/reports/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+      const report = await storage.getUptimeReport(req.params.id);
+      if (!report) {
+        return res.status(404).json({ error: "Report not found" });
+      }
+
+      if (report.userId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      res.json(report);
+    } catch (error) {
+      console.error("Error fetching report:", error);
+      res.status(500).json({ error: "Failed to fetch report" });
+    }
+  });
+
+  // GET /api/reports/:id/download - Download PDF
+  app.get("/api/reports/:id/download", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+      const report = await storage.getUptimeReport(req.params.id);
+      if (!report) {
+        return res.status(404).json({ error: "Report not found" });
+      }
+
+      if (report.userId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      if (report.status !== 'completed') {
+        return res.status(400).json({ error: "Report not ready for download" });
+      }
+
+      // Generate simple HTML report as placeholder
+      const vendors = await storage.getVendors();
+      const chains = await storage.getBlockchainChains();
+
+      const vendorNames = report.vendorKeys?.length
+        ? vendors.filter(v => report.vendorKeys?.includes(v.key)).map(v => v.name).join(', ')
+        : 'All Vendors';
+      const chainNames = report.chainKeys?.length
+        ? chains.filter(c => report.chainKeys?.includes(c.key)).map(c => c.name).join(', ')
+        : 'All Chains';
+
+      const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>${report.name}</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 40px; }
+            h1 { color: #333; }
+            .meta { color: #666; margin-bottom: 20px; }
+            .section { margin: 20px 0; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+            th { background: #f5f5f5; }
+          </style>
+        </head>
+        <body>
+          <h1>Uptime Report: ${report.name}</h1>
+          <div class="meta">
+            <p><strong>Report Type:</strong> ${report.reportType}</p>
+            <p><strong>Period:</strong> ${new Date(report.startDate).toLocaleDateString()} - ${new Date(report.endDate).toLocaleDateString()}</p>
+            <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
+          </div>
+          <div class="section">
+            <h2>Coverage</h2>
+            <p><strong>Vendors:</strong> ${vendorNames}</p>
+            <p><strong>Blockchain Infrastructure:</strong> ${chainNames}</p>
+          </div>
+          <div class="section">
+            <h2>Summary</h2>
+            <p>This is a placeholder report. Full PDF generation with uptime statistics will be implemented with a PDF library.</p>
+          </div>
+        </body>
+        </html>
+      `;
+
+      res.setHeader('Content-Type', 'text/html');
+      res.setHeader('Content-Disposition', `attachment; filename="${report.name.replace(/[^a-zA-Z0-9]/g, '_')}_report.html"`);
+      res.send(html);
+    } catch (error) {
+      console.error("Error downloading report:", error);
+      res.status(500).json({ error: "Failed to download report" });
+    }
+  });
+
+  // DELETE /api/reports/:id - Delete report
+  app.delete("/api/reports/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+      const report = await storage.getUptimeReport(req.params.id);
+      if (!report) {
+        return res.status(404).json({ error: "Report not found" });
+      }
+
+      if (report.userId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      await storage.deleteUptimeReport(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting report:", error);
+      res.status(500).json({ error: "Failed to delete report" });
+    }
+  });
+
+  // GET /api/report-schedules - List schedules
+  app.get("/api/report-schedules", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+      const user = req.user;
+      if (!tierSupportsReports(user.subscriptionTier)) {
+        return res.status(403).json({ error: "Report schedules require Growth or Enterprise plan" });
+      }
+
+      const schedules = await storage.getReportSchedules(userId);
+      res.json(schedules);
+    } catch (error) {
+      console.error("Error fetching report schedules:", error);
+      res.status(500).json({ error: "Failed to fetch report schedules" });
+    }
+  });
+
+  // POST /api/report-schedules - Create schedule
+  app.post("/api/report-schedules", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+      const user = req.user;
+      if (!tierSupportsReports(user.subscriptionTier)) {
+        return res.status(403).json({ error: "Report schedules require Growth or Enterprise plan" });
+      }
+
+      const { name, frequency, vendorKeys, chainKeys, recipients, isActive } = req.body;
+
+      if (!name || !frequency) {
+        return res.status(400).json({ error: "Name and frequency are required" });
+      }
+
+      const schedule = await storage.createReportSchedule({
+        userId,
+        name,
+        frequency,
+        vendorKeys: vendorKeys || null,
+        chainKeys: chainKeys || null,
+        recipients: recipients || null,
+        isActive: isActive ?? true,
+      });
+
+      res.status(201).json(schedule);
+    } catch (error) {
+      console.error("Error creating report schedule:", error);
+      res.status(500).json({ error: "Failed to create report schedule" });
+    }
+  });
+
+  // PUT /api/report-schedules/:id - Update schedule
+  app.put("/api/report-schedules/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+      // Get existing schedule
+      const schedules = await storage.getReportSchedules(userId);
+      const existing = schedules.find(s => s.id === req.params.id);
+
+      if (!existing) {
+        return res.status(404).json({ error: "Schedule not found" });
+      }
+
+      const { name, frequency, vendorKeys, chainKeys, recipients, isActive } = req.body;
+
+      const updated = await storage.updateReportSchedule(req.params.id, {
+        name: name ?? existing.name,
+        frequency: frequency ?? existing.frequency,
+        vendorKeys: vendorKeys !== undefined ? vendorKeys : existing.vendorKeys,
+        chainKeys: chainKeys !== undefined ? chainKeys : existing.chainKeys,
+        recipients: recipients !== undefined ? recipients : existing.recipients,
+        isActive: isActive ?? existing.isActive,
+      });
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating report schedule:", error);
+      res.status(500).json({ error: "Failed to update report schedule" });
+    }
+  });
+
+  // DELETE /api/report-schedules/:id - Delete schedule
+  app.delete("/api/report-schedules/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+      // Verify ownership
+      const schedules = await storage.getReportSchedules(userId);
+      const existing = schedules.find(s => s.id === req.params.id);
+
+      if (!existing) {
+        return res.status(404).json({ error: "Schedule not found" });
+      }
+
+      await storage.deleteReportSchedule(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting report schedule:", error);
+      res.status(500).json({ error: "Failed to delete report schedule" });
+    }
+  });
+
+  // ============ SSO CONFIGURATION ============
+
+  // Helper to check if user has Enterprise tier
+  const isEnterpriseTier = (tier: string | null): boolean => {
+    return tier === 'enterprise' || tier === 'platinum';
+  };
+
+  // GET /api/sso-configurations - List organization's SSO configs
+  app.get("/api/sso-configurations", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+      // Check user is in an organization
+      const userRole = await storage.getUserRole(userId);
+      if (!userRole) {
+        return res.status(403).json({ error: "Organization membership required" });
+      }
+
+      // Check if user is master admin
+      if (userRole.role !== 'master_admin') {
+        return res.status(403).json({ error: "Master admin access required", requiresMasterAdmin: true });
+      }
+
+      // Get organization
+      const org = await storage.getOrganization(userRole.organizationId);
+      if (!org) {
+        return res.status(404).json({ error: "Organization not found" });
+      }
+
+      // Check Enterprise tier
+      if (!isEnterpriseTier(org.subscriptionTier)) {
+        return res.status(403).json({ error: "SSO requires Enterprise plan", requiresEnterprise: true });
+      }
+
+      const configs = await storage.getSsoConfigurations(userRole.organizationId);
+      res.json(configs);
+    } catch (error) {
+      console.error("Error fetching SSO configurations:", error);
+      res.status(500).json({ error: "Failed to fetch SSO configurations" });
+    }
+  });
+
+  // POST /api/sso-configurations - Create SSO config
+  app.post("/api/sso-configurations", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+      const userRole = await storage.getUserRole(userId);
+      if (!userRole || userRole.role !== 'master_admin') {
+        return res.status(403).json({ error: "Master admin access required" });
+      }
+
+      const org = await storage.getOrganization(userRole.organizationId);
+      if (!org || !isEnterpriseTier(org.subscriptionTier)) {
+        return res.status(403).json({ error: "SSO requires Enterprise plan" });
+      }
+
+      const { provider, displayName, emailDomain, entityId, ssoUrl, certificate, clientId, clientSecret, issuerUrl, autoProvision, defaultRole } = req.body;
+
+      // Validate required fields
+      if (!provider || !displayName || !emailDomain) {
+        return res.status(400).json({ error: "Provider, display name, and email domain are required" });
+      }
+
+      // Validate provider type
+      const validProviders = ['saml', 'oidc', 'okta', 'azure_ad'];
+      if (!validProviders.includes(provider)) {
+        return res.status(400).json({ error: "Invalid provider type" });
+      }
+
+      // Validate SAML fields
+      if ((provider === 'saml' || provider === 'okta' || provider === 'azure_ad') && (!entityId || !ssoUrl || !certificate)) {
+        return res.status(400).json({ error: "SAML configuration requires entityId, ssoUrl, and certificate" });
+      }
+
+      // Validate OIDC fields
+      if (provider === 'oidc' && (!clientId || !clientSecret || !issuerUrl)) {
+        return res.status(400).json({ error: "OIDC configuration requires clientId, clientSecret, and issuerUrl" });
+      }
+
+      // Check for duplicate email domain
+      const existingConfig = await storage.getSsoConfigurationByDomain(emailDomain);
+      if (existingConfig) {
+        return res.status(409).json({ error: "An SSO configuration already exists for this email domain" });
+      }
+
+      const config = await storage.createSsoConfiguration({
+        organizationId: userRole.organizationId,
+        provider,
+        displayName,
+        emailDomain,
+        entityId: entityId || null,
+        ssoUrl: ssoUrl || null,
+        certificate: certificate || null,
+        clientId: clientId || null,
+        clientSecret: clientSecret || null,
+        issuerUrl: issuerUrl || null,
+        autoProvision: autoProvision ?? true,
+        defaultRole: defaultRole || 'member_ro',
+        isActive: false,
+      });
+
+      res.status(201).json(config);
+    } catch (error) {
+      console.error("Error creating SSO configuration:", error);
+      res.status(500).json({ error: "Failed to create SSO configuration" });
+    }
+  });
+
+  // PUT /api/sso-configurations/:id - Update SSO config
+  app.put("/api/sso-configurations/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+      const userRole = await storage.getUserRole(userId);
+      if (!userRole || userRole.role !== 'master_admin') {
+        return res.status(403).json({ error: "Master admin access required" });
+      }
+
+      const org = await storage.getOrganization(userRole.organizationId);
+      if (!org || !isEnterpriseTier(org.subscriptionTier)) {
+        return res.status(403).json({ error: "SSO requires Enterprise plan" });
+      }
+
+      // Get existing config and verify ownership
+      const existingConfig = await storage.getSsoConfiguration(req.params.id);
+      if (!existingConfig) {
+        return res.status(404).json({ error: "SSO configuration not found" });
+      }
+
+      if (existingConfig.organizationId !== userRole.organizationId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const { displayName, emailDomain, entityId, ssoUrl, certificate, clientId, clientSecret, issuerUrl, autoProvision, defaultRole, isActive } = req.body;
+
+      // If email domain is being changed, check for duplicates
+      if (emailDomain && emailDomain !== existingConfig.emailDomain) {
+        const domainConfig = await storage.getSsoConfigurationByDomain(emailDomain);
+        if (domainConfig && domainConfig.id !== req.params.id) {
+          return res.status(409).json({ error: "An SSO configuration already exists for this email domain" });
+        }
+      }
+
+      const updated = await storage.updateSsoConfiguration(req.params.id, {
+        displayName: displayName ?? existingConfig.displayName,
+        emailDomain: emailDomain ?? existingConfig.emailDomain,
+        entityId: entityId !== undefined ? entityId : existingConfig.entityId,
+        ssoUrl: ssoUrl !== undefined ? ssoUrl : existingConfig.ssoUrl,
+        certificate: certificate !== undefined ? certificate : existingConfig.certificate,
+        clientId: clientId !== undefined ? clientId : existingConfig.clientId,
+        clientSecret: clientSecret !== undefined ? clientSecret : existingConfig.clientSecret,
+        issuerUrl: issuerUrl !== undefined ? issuerUrl : existingConfig.issuerUrl,
+        autoProvision: autoProvision ?? existingConfig.autoProvision,
+        defaultRole: defaultRole ?? existingConfig.defaultRole,
+        isActive: isActive ?? existingConfig.isActive,
+      });
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating SSO configuration:", error);
+      res.status(500).json({ error: "Failed to update SSO configuration" });
+    }
+  });
+
+  // DELETE /api/sso-configurations/:id - Delete SSO config
+  app.delete("/api/sso-configurations/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+      const userRole = await storage.getUserRole(userId);
+      if (!userRole || userRole.role !== 'master_admin') {
+        return res.status(403).json({ error: "Master admin access required" });
+      }
+
+      const org = await storage.getOrganization(userRole.organizationId);
+      if (!org || !isEnterpriseTier(org.subscriptionTier)) {
+        return res.status(403).json({ error: "SSO requires Enterprise plan" });
+      }
+
+      // Get existing config and verify ownership
+      const existingConfig = await storage.getSsoConfiguration(req.params.id);
+      if (!existingConfig) {
+        return res.status(404).json({ error: "SSO configuration not found" });
+      }
+
+      if (existingConfig.organizationId !== userRole.organizationId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      await storage.deleteSsoConfiguration(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting SSO configuration:", error);
+      res.status(500).json({ error: "Failed to delete SSO configuration" });
+    }
+  });
+
+  // POST /api/sso-configurations/:id/test - Test SSO connection
+  app.post("/api/sso-configurations/:id/test", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+      const userRole = await storage.getUserRole(userId);
+      if (!userRole || userRole.role !== 'master_admin') {
+        return res.status(403).json({ error: "Master admin access required" });
+      }
+
+      const org = await storage.getOrganization(userRole.organizationId);
+      if (!org || !isEnterpriseTier(org.subscriptionTier)) {
+        return res.status(403).json({ error: "SSO requires Enterprise plan" });
+      }
+
+      // Get config and verify ownership
+      const config = await storage.getSsoConfiguration(req.params.id);
+      if (!config) {
+        return res.status(404).json({ error: "SSO configuration not found" });
+      }
+
+      if (config.organizationId !== userRole.organizationId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const errors: string[] = [];
+      const warnings: string[] = [];
+
+      // Test SAML configuration
+      if (config.provider === 'saml' || config.provider === 'okta' || config.provider === 'azure_ad') {
+        // Validate certificate format
+        if (config.certificate) {
+          const certContent = config.certificate.trim();
+          if (!certContent.includes('BEGIN CERTIFICATE') || !certContent.includes('END CERTIFICATE')) {
+            errors.push("Certificate does not appear to be in valid X.509 PEM format");
+          }
+        } else {
+          errors.push("Certificate is required for SAML configuration");
+        }
+
+        // Test SSO URL reachability
+        if (config.ssoUrl) {
+          try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 10000);
+            const response = await fetch(config.ssoUrl, { 
+              method: 'HEAD',
+              signal: controller.signal 
+            });
+            clearTimeout(timeout);
+            if (!response.ok && response.status !== 405) {
+              warnings.push(`SSO URL returned status ${response.status}`);
+            }
+          } catch (e: any) {
+            if (e.name === 'AbortError') {
+              errors.push("SSO URL connection timed out");
+            } else {
+              errors.push(`SSO URL is not reachable: ${e.message}`);
+            }
+          }
+        } else {
+          errors.push("SSO URL is required for SAML configuration");
+        }
+
+        // Check entity ID
+        if (!config.entityId) {
+          errors.push("Entity ID is required for SAML configuration");
+        }
+      }
+
+      // Test OIDC configuration
+      if (config.provider === 'oidc') {
+        if (!config.clientId) errors.push("Client ID is required for OIDC configuration");
+        if (!config.clientSecret) errors.push("Client Secret is required for OIDC configuration");
+
+        // Test issuer URL/.well-known endpoint
+        if (config.issuerUrl) {
+          try {
+            const wellKnownUrl = `${config.issuerUrl.replace(/\/$/, '')}/.well-known/openid-configuration`;
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 10000);
+            const response = await fetch(wellKnownUrl, { signal: controller.signal });
+            clearTimeout(timeout);
+            if (response.ok) {
+              const data = await response.json();
+              if (!data.authorization_endpoint || !data.token_endpoint) {
+                warnings.push("OIDC discovery document is missing required endpoints");
+              }
+            } else {
+              errors.push(`OIDC discovery endpoint returned status ${response.status}`);
+            }
+          } catch (e: any) {
+            if (e.name === 'AbortError') {
+              errors.push("OIDC issuer URL connection timed out");
+            } else {
+              errors.push(`OIDC issuer URL is not reachable: ${e.message}`);
+            }
+          }
+        } else {
+          errors.push("Issuer URL is required for OIDC configuration");
+        }
+      }
+
+      if (errors.length > 0) {
+        return res.json({ success: false, errors, warnings });
+      }
+
+      res.json({ success: true, warnings, message: "SSO configuration test passed" });
+    } catch (error) {
+      console.error("Error testing SSO configuration:", error);
+      res.status(500).json({ error: "Failed to test SSO configuration" });
     }
   });
 

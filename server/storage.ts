@@ -9,6 +9,7 @@ import {
   psaIntegrations, psaTicketRules, psaTicketLinks,
   vendorTelemetryMetrics, outagePredictions, predictionPatterns,
   userWebhooks, webhookLogs, apiKeys, apiRequestLogs, auditLogs, ssoConfigurations,
+  uptimeReports, reportSchedules,
   type Organization, type InsertOrganization,
   type OrganizationMember, type InsertOrganizationMember,
   type OrganizationInvitation, type InsertOrganizationInvitation,
@@ -57,6 +58,8 @@ import {
   type ApiRequestLog, type InsertApiRequestLog,
   type AuditLog, type InsertAuditLog,
   type SsoConfiguration, type InsertSsoConfiguration,
+  type UptimeReport, type InsertUptimeReport,
+  type ReportSchedule, type InsertReportSchedule,
   SUBSCRIPTION_TIERS
 } from "@shared/schema";
 import { and, isNull, inArray, gte, lte, lt, sql, count, ilike, or } from "drizzle-orm";
@@ -508,6 +511,19 @@ export interface IStorage {
   createSsoConfiguration(config: InsertSsoConfiguration): Promise<SsoConfiguration>;
   updateSsoConfiguration(id: string, data: Partial<InsertSsoConfiguration>): Promise<SsoConfiguration | undefined>;
   deleteSsoConfiguration(id: string): Promise<boolean>;
+  
+  // ============ UPTIME REPORTS ============
+  getUptimeReports(userId: string): Promise<UptimeReport[]>;
+  getUptimeReport(id: string): Promise<UptimeReport | undefined>;
+  createUptimeReport(report: InsertUptimeReport): Promise<UptimeReport>;
+  updateUptimeReport(id: string, data: Partial<InsertUptimeReport>): Promise<UptimeReport | undefined>;
+  deleteUptimeReport(id: string): Promise<boolean>;
+  
+  // Report Schedules
+  getReportSchedules(userId: string): Promise<ReportSchedule[]>;
+  createReportSchedule(schedule: InsertReportSchedule): Promise<ReportSchedule>;
+  updateReportSchedule(id: string, data: Partial<InsertReportSchedule>): Promise<ReportSchedule | undefined>;
+  deleteReportSchedule(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3496,6 +3512,66 @@ export class DatabaseStorage implements IStorage {
   async deleteSsoConfiguration(id: string): Promise<boolean> {
     const result = await db.delete(ssoConfigurations)
       .where(eq(ssoConfigurations.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  // ============ UPTIME REPORTS ============
+  async getUptimeReports(userId: string): Promise<UptimeReport[]> {
+    return await db.select().from(uptimeReports)
+      .where(eq(uptimeReports.userId, userId))
+      .orderBy(desc(uptimeReports.createdAt));
+  }
+
+  async getUptimeReport(id: string): Promise<UptimeReport | undefined> {
+    const [report] = await db.select().from(uptimeReports)
+      .where(eq(uptimeReports.id, id));
+    return report || undefined;
+  }
+
+  async createUptimeReport(report: InsertUptimeReport): Promise<UptimeReport> {
+    const [created] = await db.insert(uptimeReports).values(report).returning();
+    return created;
+  }
+
+  async updateUptimeReport(id: string, data: Partial<InsertUptimeReport>): Promise<UptimeReport | undefined> {
+    const [updated] = await db.update(uptimeReports)
+      .set(data)
+      .where(eq(uptimeReports.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteUptimeReport(id: string): Promise<boolean> {
+    const result = await db.delete(uptimeReports)
+      .where(eq(uptimeReports.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  // Report Schedules
+  async getReportSchedules(userId: string): Promise<ReportSchedule[]> {
+    return await db.select().from(reportSchedules)
+      .where(eq(reportSchedules.userId, userId))
+      .orderBy(desc(reportSchedules.createdAt));
+  }
+
+  async createReportSchedule(schedule: InsertReportSchedule): Promise<ReportSchedule> {
+    const [created] = await db.insert(reportSchedules).values(schedule).returning();
+    return created;
+  }
+
+  async updateReportSchedule(id: string, data: Partial<InsertReportSchedule>): Promise<ReportSchedule | undefined> {
+    const [updated] = await db.update(reportSchedules)
+      .set(data)
+      .where(eq(reportSchedules.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteReportSchedule(id: string): Promise<boolean> {
+    const result = await db.delete(reportSchedules)
+      .where(eq(reportSchedules.id, id))
       .returning();
     return result.length > 0;
   }

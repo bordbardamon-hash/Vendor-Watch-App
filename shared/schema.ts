@@ -1316,6 +1316,52 @@ export const ssoConfigurations = pgTable("sso_configurations", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+// ============ UPTIME REPORTS ============
+
+// Uptime Reports - generated PDF reports
+export const uptimeReports = pgTable("uptime_reports", {
+  id: varchar("id", { length: 36 }).primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: varchar("user_id", { length: 255 }).notNull(),
+  organizationId: varchar("organization_id", { length: 36 }),
+  reportType: varchar("report_type", { length: 50 }).notNull().default("weekly"),
+  name: varchar("name", { length: 255 }).notNull(),
+  vendorKeys: text("vendor_keys").array(),
+  chainKeys: text("chain_keys").array(),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  status: varchar("status", { length: 50 }).notNull().default("pending"),
+  fileUrl: text("file_url"),
+  fileSize: integer("file_size"),
+  generatedAt: timestamp("generated_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Report Schedules for automatic generation
+export const reportSchedules = pgTable("report_schedules", {
+  id: varchar("id", { length: 36 }).primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: varchar("user_id", { length: 255 }).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  frequency: varchar("frequency", { length: 20 }).notNull().default("monthly"),
+  vendorKeys: text("vendor_keys").array(),
+  chainKeys: text("chain_keys").array(),
+  recipients: text("recipients").array(),
+  isActive: boolean("is_active").notNull().default(true),
+  lastRunAt: timestamp("last_run_at"),
+  nextRunAt: timestamp("next_run_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Insert schemas for Uptime Reports
+export const insertUptimeReportSchema = createInsertSchema(uptimeReports).omit({ id: true, createdAt: true, generatedAt: true });
+export const insertReportScheduleSchema = createInsertSchema(reportSchedules).omit({ id: true, createdAt: true, lastRunAt: true, nextRunAt: true });
+
+// Types for Uptime Reports
+export type InsertUptimeReport = z.infer<typeof insertUptimeReportSchema>;
+export type UptimeReport = typeof uptimeReports.$inferSelect;
+
+export type InsertReportSchedule = z.infer<typeof insertReportScheduleSchema>;
+export type ReportSchedule = typeof reportSchedules.$inferSelect;
+
 // Insert schemas for new tables
 export const insertClientPortalSchema = createInsertSchema(clientPortals).omit({ id: true, lastAccessedAt: true, viewCount: true, createdAt: true, updatedAt: true });
 export const insertPortalVendorAssignmentSchema = createInsertSchema(portalVendorAssignments).omit({ id: true, createdAt: true });

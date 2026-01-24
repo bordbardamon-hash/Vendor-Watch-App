@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, AlertTriangle, XCircle, Bell, Mail } from "lucide-react";
+import { CheckCircle, AlertTriangle, XCircle, Bell, Mail, Clock, History } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -21,6 +21,18 @@ interface PortalResource {
     startedAt: string;
   }>;
   customSlaTarget: string | null;
+}
+
+interface RecentIncident {
+  id: string;
+  type: string;
+  resourceName: string;
+  title: string;
+  status: string;
+  severity: string;
+  impact: string;
+  startedAt: string;
+  updatedAt: string;
 }
 
 interface PortalData {
@@ -40,6 +52,7 @@ interface PortalData {
   };
   overallStatus: 'operational' | 'partial_outage' | 'major_outage';
   resources: PortalResource[];
+  recentIncidents: RecentIncident[];
 }
 
 const STATUS_CONFIG = {
@@ -63,7 +76,7 @@ export default function PublicPortal() {
   const [subscribing, setSubscribing] = useState(false);
 
   const { data, isLoading, error } = useQuery<PortalData>({
-    queryKey: [`/api/public/portal/${slug}`],
+    queryKey: [`/api/status/${slug}`],
     enabled: !!slug,
   });
 
@@ -71,7 +84,7 @@ export default function PublicPortal() {
     if (!email) return;
     setSubscribing(true);
     try {
-      const res = await fetch(`/api/public/portal/${slug}/subscribe`, {
+      const res = await fetch(`/api/status/${slug}/subscribe`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
@@ -106,9 +119,23 @@ export default function PublicPortal() {
     );
   }
 
-  const { portal, overallStatus, resources } = data;
+  const { portal, overallStatus, resources, recentIncidents = [] } = data;
   const statusConfig = STATUS_CONFIG[overallStatus];
   const StatusIcon = statusConfig.icon;
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
+
+  const getSeverityColor = (severity: string) => {
+    switch (severity) {
+      case 'critical': return 'bg-red-500 text-white';
+      case 'major': return 'bg-orange-500 text-white';
+      case 'minor': return 'bg-yellow-500 text-black';
+      default: return 'bg-blue-500 text-white';
+    }
+  };
 
   return (
     <div
@@ -195,6 +222,53 @@ export default function PublicPortal() {
           })}
         </div>
 
+        {portal.showIncidentHistory && recentIncidents.length > 0 && (
+          <Card
+            className="mb-8 border-0"
+            style={{ backgroundColor: portal.secondaryColor || "#1e293b" }}
+            data-testid="recent-incidents-section"
+          >
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <History className="h-5 w-5" style={{ color: portal.primaryColor || "#3b82f6" }} />
+                <h3 className="font-semibold text-white">Recent Incidents (Last 7 Days)</h3>
+              </div>
+              <div className="space-y-3">
+                {recentIncidents.map((incident) => (
+                  <div
+                    key={incident.id}
+                    className="p-3 rounded-lg bg-gray-800/50 border border-gray-700"
+                    data-testid={`incident-${incident.id}`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge className={getSeverityColor(incident.severity)} variant="secondary">
+                            {incident.severity}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs capitalize">
+                            {incident.status}
+                          </Badge>
+                        </div>
+                        <p className="text-white font-medium">{incident.title}</p>
+                        <p className="text-sm text-gray-400 mt-1">
+                          {incident.resourceName} • {incident.type}
+                        </p>
+                      </div>
+                      <div className="text-right text-xs text-gray-500">
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {formatDate(incident.startedAt)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {portal.showSubscribeOption && (
           <Card
             className="mb-8 border-0"
@@ -202,7 +276,7 @@ export default function PublicPortal() {
           >
             <CardContent className="p-6">
               <div className="flex items-center gap-3 mb-4">
-                <Bell className="h-5 w-5 text-primary" />
+                <Bell className="h-5 w-5" style={{ color: portal.primaryColor || "#3b82f6" }} />
                 <h3 className="font-semibold text-white">Subscribe to Updates</h3>
               </div>
               <div className="flex gap-2">
