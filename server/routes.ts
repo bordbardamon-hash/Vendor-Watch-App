@@ -1113,6 +1113,111 @@ export async function registerRoutes(
     }
   });
 
+  // Extend user trial (Owner only) - for promotional accounts
+  app.patch("/api/admin/users/:userId/trial", isAuthenticated, isOwner, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const { days, tier } = req.body;
+      
+      if (!days || typeof days !== 'number' || days < 1 || days > 365) {
+        return res.status(400).json({ error: "Days must be a number between 1 and 365" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Calculate new trial end date
+      const newTrialEnd = new Date();
+      newTrialEnd.setDate(newTrialEnd.getDate() + days);
+      
+      // Update user with extended trial
+      const updateData: any = {
+        trialEndsAt: newTrialEnd,
+        billingStatus: 'trialing',
+        billingCompleted: true, // Allow access without payment
+        profileCompleted: user.profileCompleted || true,
+      };
+      
+      // Optionally set subscription tier for the promo period
+      if (tier && ['essential', 'growth', 'enterprise'].includes(tier)) {
+        updateData.subscriptionTier = tier;
+      }
+      
+      const updatedUser = await storage.upsertUser({
+        ...user,
+        ...updateData,
+      });
+      
+      res.json({ 
+        success: true, 
+        trialEndsAt: newTrialEnd,
+        message: `Trial extended by ${days} days until ${newTrialEnd.toLocaleDateString()}`
+      });
+    } catch (error) {
+      console.error("Error extending trial:", error);
+      res.status(500).json({ error: "Failed to extend trial" });
+    }
+  });
+
+  // Create promotional account (Owner only) - creates user with extended trial, no payment required
+  app.post("/api/admin/users/promo", isAuthenticated, isOwner, async (req: any, res) => {
+    try {
+      const { email, firstName, lastName, companyName, tier, trialDays } = req.body;
+      
+      if (!email || !email.includes('@')) {
+        return res.status(400).json({ error: "Valid email is required" });
+      }
+      
+      const days = trialDays || 30; // Default to 30 days for promo accounts
+      if (days < 1 || days > 365) {
+        return res.status(400).json({ error: "Trial days must be between 1 and 365" });
+      }
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({ error: "A user with this email already exists" });
+      }
+      
+      // Calculate trial end date
+      const trialEndsAt = new Date();
+      trialEndsAt.setDate(trialEndsAt.getDate() + days);
+      
+      // Create the promotional user
+      const user = await storage.upsertUser({
+        email,
+        firstName: firstName || null,
+        lastName: lastName || null,
+        companyName: companyName || null,
+        subscriptionTier: tier || 'growth', // Default to growth for promos
+        trialEndsAt,
+        billingStatus: 'trialing',
+        billingCompleted: true, // Skip payment requirement
+        profileCompleted: !!(firstName && lastName), // Complete if name provided
+        isAdmin: false,
+        isOwner: false,
+      });
+      
+      res.status(201).json({
+        success: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          subscriptionTier: user.subscriptionTier,
+          trialEndsAt: user.trialEndsAt,
+        },
+        message: `Promotional account created with ${days}-day trial ending ${trialEndsAt.toLocaleDateString()}`
+      });
+    } catch (error) {
+      console.error("Error creating promo account:", error);
+      res.status(500).json({ error: "Failed to create promotional account" });
+    }
+  });
+
   // ============ JOBS (Admin Only) ============
   
   // Get all jobs (admin only)

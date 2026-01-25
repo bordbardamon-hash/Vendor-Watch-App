@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Users, RefreshCw, Trash2, UserPlus, Crown, Shield, Mail, Phone, Building } from "lucide-react";
+import { Users, RefreshCw, Trash2, UserPlus, Crown, Shield, Mail, Phone, Building, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { normalizeTierDisplay } from "@/lib/utils";
 import { useState } from "react";
@@ -47,6 +47,8 @@ interface User {
   stripeSubscriptionId: string | null;
   createdAt: string;
   updatedAt: string | null;
+  trialEndsAt: string | null;
+  billingStatus: string | null;
 }
 
 const TIER_COLORS: Record<string, string> = {
@@ -67,6 +69,19 @@ export default function UsersPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [tierFilter, setTierFilter] = useState<string>("all");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isPromoDialogOpen, setIsPromoDialogOpen] = useState(false);
+  const [isExtendDialogOpen, setIsExtendDialogOpen] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [extendDays, setExtendDays] = useState(30);
+  const [extendTier, setExtendTier] = useState<string>("");
+  const [promoUser, setPromoUser] = useState({
+    email: "",
+    firstName: "",
+    lastName: "",
+    companyName: "",
+    tier: "essential" as 'essential' | 'growth' | 'enterprise',
+    trialDays: 30,
+  });
   const [newUser, setNewUser] = useState({
     email: "",
     firstName: "",
@@ -183,6 +198,57 @@ export default function UsersPage() {
     },
   });
 
+  const extendTrialMutation = useMutation({
+    mutationFn: async ({ userId, days, tier }: { userId: string; days: number; tier?: string }) => {
+      const res = await fetch(`/api/admin/users/${userId}/trial`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ days, tier }),
+      });
+      if (!res.ok) throw new Error("Failed to extend trial");
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      toast({ title: "Trial Extended", description: data.message });
+      setIsExtendDialogOpen(false);
+    },
+    onError: () => {
+      toast({ title: "Failed", description: "Could not extend trial", variant: "destructive" });
+    },
+  });
+
+  const createPromoMutation = useMutation({
+    mutationFn: async (data: typeof promoUser) => {
+      const res = await fetch("/api/admin/users/promo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to create promo account");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      toast({ title: "Promo Account Created", description: data.message });
+      setIsPromoDialogOpen(false);
+      setPromoUser({
+        email: "",
+        firstName: "",
+        lastName: "",
+        companyName: "",
+        tier: "essential",
+        trialDays: 30,
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
       const res = await fetch(`/api/admin/users/${userId}`, { method: "DELETE" });
@@ -235,7 +301,104 @@ export default function UsersPage() {
             Manage users, subscriptions, and admin access
           </p>
         </div>
-        <div className="flex gap-2 w-full sm:w-auto">
+        <div className="flex gap-2 w-full sm:w-auto flex-wrap">
+          <Dialog open={isPromoDialogOpen} onOpenChange={setIsPromoDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="gap-2" data-testid="button-create-promo">
+                <Clock className="w-4 h-4" />
+                Create Promo Account
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create Promo Account</DialogTitle>
+                <DialogDescription>
+                  Create a promotional trial account with a limited-time subscription.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="promo-email">Email *</Label>
+                  <Input
+                    id="promo-email"
+                    type="email"
+                    value={promoUser.email}
+                    onChange={(e) => setPromoUser({ ...promoUser, email: e.target.value })}
+                    data-testid="input-promo-email"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="promo-firstName">First Name</Label>
+                    <Input
+                      id="promo-firstName"
+                      value={promoUser.firstName}
+                      onChange={(e) => setPromoUser({ ...promoUser, firstName: e.target.value })}
+                      data-testid="input-promo-first-name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="promo-lastName">Last Name</Label>
+                    <Input
+                      id="promo-lastName"
+                      value={promoUser.lastName}
+                      onChange={(e) => setPromoUser({ ...promoUser, lastName: e.target.value })}
+                      data-testid="input-promo-last-name"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="promo-companyName">Company Name</Label>
+                  <Input
+                    id="promo-companyName"
+                    value={promoUser.companyName}
+                    onChange={(e) => setPromoUser({ ...promoUser, companyName: e.target.value })}
+                    data-testid="input-promo-company"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Subscription Tier</Label>
+                  <Select
+                    value={promoUser.tier}
+                    onValueChange={(v) => setPromoUser({ ...promoUser, tier: v as 'essential' | 'growth' | 'enterprise' })}
+                  >
+                    <SelectTrigger data-testid="select-promo-tier">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="essential">Essential</SelectItem>
+                      <SelectItem value="growth">Growth</SelectItem>
+                      <SelectItem value="enterprise">Enterprise</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="promo-trialDays">Trial Days (1-365)</Label>
+                  <Input
+                    id="promo-trialDays"
+                    type="number"
+                    min={1}
+                    max={365}
+                    value={promoUser.trialDays}
+                    onChange={(e) => setPromoUser({ ...promoUser, trialDays: Math.min(365, Math.max(1, parseInt(e.target.value) || 30)) })}
+                    data-testid="input-promo-trial-days"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsPromoDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => createPromoMutation.mutate(promoUser)}
+                  disabled={!promoUser.email || createPromoMutation.isPending}
+                  data-testid="button-create-promo-submit"
+                >
+                  {createPromoMutation.isPending ? "Creating..." : "Create Promo Account"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2" data-testid="button-add-user">
@@ -416,6 +579,36 @@ export default function UsersPage() {
                             No Subscription
                           </Badge>
                         )}
+                        {user.trialEndsAt && (
+                          <Badge 
+                            className={
+                              new Date(user.trialEndsAt) > new Date() 
+                                ? "gap-1 bg-amber-500/20 text-amber-400 border-amber-500/30" 
+                                : "gap-1 bg-red-500/20 text-red-400 border-red-500/30"
+                            }
+                            data-testid={`badge-trial-${user.id}`}
+                          >
+                            <Clock className="w-3 h-3" />
+                            {new Date(user.trialEndsAt) > new Date() 
+                              ? `Trial until ${format(new Date(user.trialEndsAt), "MMM d")}`
+                              : "Trial expired"
+                            }
+                          </Badge>
+                        )}
+                        {user.billingStatus && (
+                          <Badge 
+                            className={
+                              user.billingStatus === "active" 
+                                ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                                : user.billingStatus === "trialing"
+                                ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
+                                : "bg-red-500/20 text-red-400 border-red-500/30"
+                            }
+                            data-testid={`badge-billing-${user.id}`}
+                          >
+                            {user.billingStatus}
+                          </Badge>
+                        )}
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 text-sm">
@@ -473,6 +666,20 @@ export default function UsersPage() {
                         </Button>
                       )}
 
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedUserId(user.id);
+                          setExtendDays(30);
+                          setExtendTier("");
+                          setIsExtendDialogOpen(true);
+                        }}
+                        data-testid={`button-extend-trial-${user.id}`}
+                      >
+                        <Clock className="w-4 h-4" />
+                      </Button>
+
                       {!user.isOwner && (
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
@@ -512,6 +719,68 @@ export default function UsersPage() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={isExtendDialogOpen} onOpenChange={setIsExtendDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Extend Trial</DialogTitle>
+            <DialogDescription>
+              Extend the trial period for this user by a specified number of days.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="extend-days">Days to Extend</Label>
+              <Input
+                id="extend-days"
+                type="number"
+                min={1}
+                max={365}
+                value={extendDays}
+                onChange={(e) => setExtendDays(Math.min(365, Math.max(1, parseInt(e.target.value) || 30)))}
+                data-testid="input-extend-days"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Set Tier (Optional)</Label>
+              <Select
+                value={extendTier}
+                onValueChange={setExtendTier}
+              >
+                <SelectTrigger data-testid="select-extend-tier">
+                  <SelectValue placeholder="Keep current tier" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="keep">Keep current tier</SelectItem>
+                  <SelectItem value="essential">Essential</SelectItem>
+                  <SelectItem value="growth">Growth</SelectItem>
+                  <SelectItem value="enterprise">Enterprise</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsExtendDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (selectedUserId) {
+                  extendTrialMutation.mutate({
+                    userId: selectedUserId,
+                    days: extendDays,
+                    tier: extendTier && extendTier !== "keep" ? extendTier : undefined,
+                  });
+                }
+              }}
+              disabled={extendTrialMutation.isPending}
+              data-testid="button-extend-submit"
+            >
+              {extendTrialMutation.isPending ? "Extending..." : "Extend Trial"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
