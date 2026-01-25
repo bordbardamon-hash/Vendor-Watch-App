@@ -365,7 +365,7 @@ export default function UsersPage() {
                     <SelectTrigger data-testid="select-promo-tier">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="z-[200]">
                       <SelectItem value="essential">Essential</SelectItem>
                       <SelectItem value="growth">Growth</SelectItem>
                       <SelectItem value="enterprise">Enterprise</SelectItem>
@@ -471,7 +471,7 @@ export default function UsersPage() {
                     <SelectTrigger data-testid="select-new-tier">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="z-[200]">
                       <SelectItem value="essential">Essential ($89/mo)</SelectItem>
                       <SelectItem value="growth">Growth ($129/mo)</SelectItem>
                       <SelectItem value="enterprise">Enterprise ($189/mo)</SelectItem>
@@ -750,7 +750,7 @@ export default function UsersPage() {
                 <SelectTrigger data-testid="select-extend-tier">
                   <SelectValue placeholder="Keep current tier" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[200]">
                   <SelectItem value="keep">Keep current tier</SelectItem>
                   <SelectItem value="essential">Essential</SelectItem>
                   <SelectItem value="growth">Growth</SelectItem>
