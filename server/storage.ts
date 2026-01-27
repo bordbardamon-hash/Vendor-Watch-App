@@ -440,13 +440,16 @@ export interface IStorage {
   getVendorTelemetryMetrics(vendorKey: string, days?: number): Promise<VendorTelemetryMetric[]>;
   getBlockchainTelemetryMetrics(chainKey: string, days?: number): Promise<VendorTelemetryMetric[]>;
   createVendorTelemetryMetric(metric: InsertVendorTelemetryMetric): Promise<VendorTelemetryMetric>;
-  aggregateTelemetryForPredictions(resourceType: string): Promise<Array<{
+  aggregateTelemetryForPredictions(resourceType: string, sinceDate?: Date): Promise<Array<{
     resourceKey: string;
     dayOfWeek: number;
     hourOfDay: number;
     avgIncidentCount: number;
     totalIncidents: number;
     occurrences: number;
+    criticalCount: number;
+    majorCount: number;
+    minorCount: number;
   }>>;
   
   // Outage Predictions
@@ -3078,16 +3081,18 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async aggregateTelemetryForPredictions(resourceType: string): Promise<Array<{
+  async aggregateTelemetryForPredictions(resourceType: string, sinceDate?: Date): Promise<Array<{
     resourceKey: string;
     dayOfWeek: number;
     hourOfDay: number;
     avgIncidentCount: number;
     totalIncidents: number;
     occurrences: number;
+    criticalCount: number;
+    majorCount: number;
+    minorCount: number;
   }>> {
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - 90);
+    const cutoffDate = sinceDate || new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
     
     const metrics = await db.select().from(vendorTelemetryMetrics)
       .where(and(
@@ -3095,15 +3100,36 @@ export class DatabaseStorage implements IStorage {
         gte(vendorTelemetryMetrics.metricDate, cutoffDate)
       ));
     
-    const aggregated = new Map<string, { totalIncidents: number; occurrences: number; resourceKey: string; dayOfWeek: number; hourOfDay: number }>();
+    const aggregated = new Map<string, { 
+      totalIncidents: number; 
+      occurrences: number; 
+      resourceKey: string; 
+      dayOfWeek: number; 
+      hourOfDay: number;
+      criticalCount: number;
+      majorCount: number;
+      minorCount: number;
+    }>();
     
     for (const m of metrics) {
       const resourceKey = resourceType === 'vendor' ? m.vendorKey : m.chainKey;
       if (!resourceKey || m.dayOfWeek === null || m.hourOfDay === null) continue;
       
       const key = `${resourceKey}-${m.dayOfWeek}-${m.hourOfDay}`;
-      const existing = aggregated.get(key) || { totalIncidents: 0, occurrences: 0, resourceKey, dayOfWeek: m.dayOfWeek, hourOfDay: m.hourOfDay };
+      const existing = aggregated.get(key) || { 
+        totalIncidents: 0, 
+        occurrences: 0, 
+        resourceKey, 
+        dayOfWeek: m.dayOfWeek, 
+        hourOfDay: m.hourOfDay,
+        criticalCount: 0,
+        majorCount: 0,
+        minorCount: 0,
+      };
       existing.totalIncidents += m.incidentCount || 0;
+      existing.criticalCount += m.criticalCount || 0;
+      existing.majorCount += m.majorCount || 0;
+      existing.minorCount += m.minorCount || 0;
       existing.occurrences += 1;
       aggregated.set(key, existing);
     }

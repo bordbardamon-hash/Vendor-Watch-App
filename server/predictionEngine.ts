@@ -2,72 +2,234 @@ import { storage } from "./storage";
 
 const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-interface IncidentPattern {
+// Configuration for improved prediction quality
+const PREDICTION_CONFIG = {
+  MIN_INCIDENTS_REQUIRED: 5,           // Require at least 5 historical incidents (was 3)
+  MIN_FREQUENCY_THRESHOLD: 0.5,        // Minimum avg frequency to consider (was 0.3)
+  MIN_CONFIDENCE_TO_CREATE: 0.60,      // Only create predictions with 60%+ confidence
+  MAX_PREDICTION_HOURS_AHEAD: 48,      // Only predict up to 48 hours ahead (was 7 days)
+  RECENCY_WEIGHT_DAYS: 30,             // Incidents in last 30 days count 3x more
+  RECENCY_MULTIPLIER: 3,               // Weight multiplier for recent incidents
+  VALIDATION_WINDOW_HOURS: 4,          // Hours before/after prediction to check for incidents
+};
+
+interface EnhancedIncidentPattern {
   resourceKey: string;
   resourceType: 'vendor' | 'blockchain';
   dayOfWeek: number;
   hourOfDay: number;
-  incidentCount: number;
-  avgSeverity: string;
+  totalIncidents: number;
+  recentIncidents: number;        // Incidents in last 30 days
+  criticalCount: number;
+  majorCount: number;
+  minorCount: number;
+  avgSeverityScore: number;       // 1-3 scale (minor=1, major=2, critical=3)
+  weightedScore: number;          // Combined score with recency weighting
+}
+
+interface PredictionAccuracy {
+  validated: number;
+  invalidated: number;
+  accuracyRate: number;
+}
+
+// Track historical accuracy to adjust future confidence
+let cachedAccuracy: PredictionAccuracy | null = null;
+let accuracyCacheTime = 0;
+
+async function getPredictionAccuracy(): Promise<PredictionAccuracy> {
+  const now = Date.now();
+  // Cache accuracy for 1 hour
+  if (cachedAccuracy && (now - accuracyCacheTime) < 60 * 60 * 1000) {
+    return cachedAccuracy;
+  }
+
+  const allPredictions = await storage.getAllOutagePredictions();
+  const validated = allPredictions.filter(p => p.status === 'validated').length;
+  const invalidated = allPredictions.filter(p => p.status === 'invalidated').length;
+  const total = validated + invalidated;
+  
+  cachedAccuracy = {
+    validated,
+    invalidated,
+    accuracyRate: total > 0 ? validated / total : 0.5, // Default 50% if no history
+  };
+  accuracyCacheTime = now;
+  
+  return cachedAccuracy;
 }
 
 export async function generatePredictions(): Promise<void> {
-  console.log('[PredictionEngine] Starting prediction generation...');
+  console.log('[PredictionEngine] Starting improved prediction generation...');
   
   try {
     const vendors = await storage.getVendors();
     const chains = await storage.getBlockchainChains();
     
-    const vendorPatterns = await analyzeHistoricalPatterns('vendor', vendors.map(v => v.key));
-    const blockchainPatterns = await analyzeHistoricalPatterns('blockchain', chains.map(c => c.key));
+    // Get historical accuracy to factor into confidence
+    const accuracy = await getPredictionAccuracy();
+    console.log(`[PredictionEngine] Historical accuracy: ${(accuracy.accuracyRate * 100).toFixed(1)}% (${accuracy.validated}/${accuracy.validated + accuracy.invalidated})`);
+    
+    const vendorPatterns = await analyzeEnhancedPatterns('vendor', vendors.map(v => v.key));
+    const blockchainPatterns = await analyzeEnhancedPatterns('blockchain', chains.map(c => c.key));
     
     const allPatterns = [...vendorPatterns, ...blockchainPatterns];
+    let created = 0;
+    let skippedLowConfidence = 0;
+    let skippedTooFarAhead = 0;
     
     for (const pattern of allPatterns) {
-      if (pattern.incidentCount >= 3) {
-        await createPredictionFromPattern(pattern);
+      // Higher threshold: require 5+ incidents
+      if (pattern.totalIncidents < PREDICTION_CONFIG.MIN_INCIDENTS_REQUIRED) {
+        continue;
       }
+      
+      const result = await createEnhancedPrediction(pattern, accuracy);
+      if (result === 'created') created++;
+      else if (result === 'low_confidence') skippedLowConfidence++;
+      else if (result === 'too_far_ahead') skippedTooFarAhead++;
     }
     
-    console.log(`[PredictionEngine] Generated predictions from ${allPatterns.length} patterns`);
+    console.log(`[PredictionEngine] Created ${created} predictions, skipped ${skippedLowConfidence} (low confidence), ${skippedTooFarAhead} (too far ahead)`);
   } catch (error) {
     console.error('[PredictionEngine] Error generating predictions:', error);
   }
 }
 
-async function analyzeHistoricalPatterns(
+async function analyzeEnhancedPatterns(
   resourceType: 'vendor' | 'blockchain',
   resourceKeys: string[]
-): Promise<IncidentPattern[]> {
-  const patterns: IncidentPattern[] = [];
+): Promise<EnhancedIncidentPattern[]> {
+  const patterns: EnhancedIncidentPattern[] = [];
   
   const aggregated = await storage.aggregateTelemetryForPredictions(resourceType);
+  const now = new Date();
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  
+  // Get recent telemetry for recency weighting
+  const recentAggregated = await storage.aggregateTelemetryForPredictions(resourceType, thirtyDaysAgo);
+  const recentMap = new Map(recentAggregated.map(a => [`${a.resourceKey}-${a.dayOfWeek}-${a.hourOfDay}`, a]));
   
   for (const agg of aggregated) {
-    if (agg.avgIncidentCount >= 0.3) {
-      patterns.push({
-        resourceKey: agg.resourceKey,
-        resourceType,
-        dayOfWeek: agg.dayOfWeek,
-        hourOfDay: agg.hourOfDay,
-        incidentCount: agg.totalIncidents,
-        avgSeverity: agg.avgIncidentCount >= 0.7 ? 'major' : 'minor',
-      });
+    // Higher frequency threshold
+    if (agg.avgIncidentCount < PREDICTION_CONFIG.MIN_FREQUENCY_THRESHOLD) {
+      continue;
     }
+    
+    const key = `${agg.resourceKey}-${agg.dayOfWeek}-${agg.hourOfDay}`;
+    const recentData = recentMap.get(key);
+    const recentIncidents = recentData?.totalIncidents || 0;
+    
+    // Calculate severity score (1-3 scale)
+    const criticalCount = agg.criticalCount || 0;
+    const majorCount = agg.majorCount || 0;
+    const minorCount = agg.minorCount || 0;
+    const totalSeverityPoints = (criticalCount * 3) + (majorCount * 2) + (minorCount * 1);
+    const avgSeverityScore = agg.totalIncidents > 0 ? totalSeverityPoints / agg.totalIncidents : 1;
+    
+    // Calculate weighted score with recency multiplier
+    const baseScore = agg.totalIncidents;
+    const recencyBonus = recentIncidents * (PREDICTION_CONFIG.RECENCY_MULTIPLIER - 1);
+    const weightedScore = baseScore + recencyBonus;
+    
+    patterns.push({
+      resourceKey: agg.resourceKey,
+      resourceType,
+      dayOfWeek: agg.dayOfWeek,
+      hourOfDay: agg.hourOfDay,
+      totalIncidents: agg.totalIncidents,
+      recentIncidents,
+      criticalCount,
+      majorCount,
+      minorCount,
+      avgSeverityScore,
+      weightedScore,
+    });
   }
+  
+  // Sort by weighted score (highest first) to prioritize most impactful predictions
+  patterns.sort((a, b) => b.weightedScore - a.weightedScore);
   
   return patterns;
 }
 
-async function createPredictionFromPattern(pattern: IncidentPattern): Promise<void> {
+function calculateEnhancedConfidence(pattern: EnhancedIncidentPattern, accuracy: PredictionAccuracy): number {
+  // Base confidence from logarithmic scaling of incident count
+  // This makes it much harder to reach high confidence
+  // log2(5) = 2.32, log2(10) = 3.32, log2(20) = 4.32, log2(50) = 5.64
+  const logIncidents = Math.log2(pattern.totalIncidents + 1);
+  const incidentConfidence = Math.min(0.4, logIncidents * 0.08); // Max 0.4 from incidents
+  
+  // Recency bonus: recent incidents boost confidence
+  const recencyRatio = pattern.recentIncidents / Math.max(1, pattern.totalIncidents);
+  const recencyConfidence = recencyRatio * 0.2; // Max 0.2 from recency
+  
+  // Severity bonus: more severe incidents increase confidence
+  const severityConfidence = (pattern.avgSeverityScore - 1) * 0.1; // Max 0.2 from severity
+  
+  // Historical accuracy adjustment
+  // If our predictions have been accurate, boost confidence slightly
+  // If inaccurate, reduce confidence
+  const accuracyAdjustment = (accuracy.accuracyRate - 0.5) * 0.15; // -0.075 to +0.075
+  
+  // Combine all factors
+  let confidence = 0.35 + incidentConfidence + recencyConfidence + severityConfidence + accuracyAdjustment;
+  
+  // Clamp between 0.35 and 0.92 (never show 100% confidence)
+  return Math.min(0.92, Math.max(0.35, confidence));
+}
+
+function calculateRiskLevel(pattern: EnhancedIncidentPattern, confidence: number): 'low' | 'medium' | 'high' {
+  // Risk is determined by multiple factors, not just frequency
+  let riskScore = 0;
+  
+  // Factor 1: Confidence level (0-3 points)
+  if (confidence >= 0.80) riskScore += 3;
+  else if (confidence >= 0.65) riskScore += 2;
+  else if (confidence >= 0.50) riskScore += 1;
+  
+  // Factor 2: Recent activity (0-3 points)
+  if (pattern.recentIncidents >= 3) riskScore += 3;
+  else if (pattern.recentIncidents >= 2) riskScore += 2;
+  else if (pattern.recentIncidents >= 1) riskScore += 1;
+  
+  // Factor 3: Severity history (0-3 points)
+  if (pattern.criticalCount >= 2) riskScore += 3;
+  else if (pattern.criticalCount >= 1 || pattern.majorCount >= 3) riskScore += 2;
+  else if (pattern.majorCount >= 1) riskScore += 1;
+  
+  // Total: 0-9 points
+  if (riskScore >= 7) return 'high';
+  if (riskScore >= 4) return 'medium';
+  return 'low';
+}
+
+async function createEnhancedPrediction(
+  pattern: EnhancedIncidentPattern, 
+  accuracy: PredictionAccuracy
+): Promise<'created' | 'duplicate' | 'low_confidence' | 'too_far_ahead'> {
   const now = new Date();
   const predictedDate = getNextOccurrence(pattern.dayOfWeek, pattern.hourOfDay);
   
   if (predictedDate <= now) {
-    return;
+    return 'too_far_ahead';
   }
   
-  // Check if a similar prediction already exists to prevent duplicates
+  // Only predict up to 48 hours ahead
+  const hoursAhead = (predictedDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+  if (hoursAhead > PREDICTION_CONFIG.MAX_PREDICTION_HOURS_AHEAD) {
+    return 'too_far_ahead';
+  }
+  
+  // Calculate confidence with enhanced algorithm
+  const confidence = calculateEnhancedConfidence(pattern, accuracy);
+  
+  // Filter out low-confidence predictions
+  if (confidence < PREDICTION_CONFIG.MIN_CONFIDENCE_TO_CREATE) {
+    return 'low_confidence';
+  }
+  
+  // Check for duplicates
   const existingPredictions = await storage.getActivePredictions();
   const isDuplicate = existingPredictions.some(p => {
     const matchesResource = pattern.resourceType === 'vendor' 
@@ -79,15 +241,23 @@ async function createPredictionFromPattern(pattern: IncidentPattern): Promise<vo
   });
   
   if (isDuplicate) {
-    return;
+    return 'duplicate';
   }
   
-  const confidence = Math.min(0.95, 0.5 + (pattern.incidentCount * 0.05));
-  const severity = pattern.avgSeverity === 'major' ? 'high' : 'medium';
+  // Calculate risk level with multi-factor approach
+  const severity = calculateRiskLevel(pattern, confidence);
   
   const resourceName = pattern.resourceKey;
   const dayName = DAYS_OF_WEEK[pattern.dayOfWeek];
   const hourStr = pattern.hourOfDay.toString().padStart(2, '0') + ':00';
+  
+  // Build detailed description
+  const recentText = pattern.recentIncidents > 0 
+    ? ` (${pattern.recentIncidents} in the last 30 days)` 
+    : '';
+  const severityText = pattern.criticalCount > 0 
+    ? `, including ${pattern.criticalCount} critical incident${pattern.criticalCount > 1 ? 's' : ''}` 
+    : '';
   
   try {
     await storage.createOutagePrediction({
@@ -97,20 +267,28 @@ async function createPredictionFromPattern(pattern: IncidentPattern): Promise<vo
       predictionType: 'pattern_detected',
       severity,
       confidence: confidence.toFixed(2),
-      title: `Potential issue detected for ${resourceName}`,
-      description: `Based on historical analysis, ${resourceName} has experienced incidents ${pattern.incidentCount} times around ${dayName}s at ${hourStr}. Consider preparing incident response procedures.`,
+      title: `${severity === 'high' ? '⚠️ ' : ''}Potential issue for ${resourceName}`,
+      description: `Based on ${pattern.totalIncidents} historical incidents${recentText}${severityText}, ${resourceName} may experience issues around ${dayName}s at ${hourStr}. Confidence based on pattern strength and historical accuracy.`,
       predictedStartAt: predictedDate,
       predictedEndAt: new Date(predictedDate.getTime() + 2 * 60 * 60 * 1000),
       patternBasis: JSON.stringify({
         dayOfWeek: pattern.dayOfWeek,
         hourOfDay: pattern.hourOfDay,
-        historicalCount: pattern.incidentCount,
+        historicalCount: pattern.totalIncidents,
+        recentCount: pattern.recentIncidents,
+        criticalCount: pattern.criticalCount,
+        majorCount: pattern.majorCount,
+        avgSeverityScore: pattern.avgSeverityScore,
+        weightedScore: pattern.weightedScore,
+        historicalAccuracy: accuracy.accuracyRate,
       }),
       status: 'active',
-      expiresAt: new Date(predictedDate.getTime() + 24 * 60 * 60 * 1000),
+      expiresAt: new Date(predictedDate.getTime() + 12 * 60 * 60 * 1000), // 12 hours after prediction time
     });
+    return 'created';
   } catch (error) {
     console.log(`[PredictionEngine] Pattern for ${pattern.resourceKey} may already exist`);
+    return 'duplicate';
   }
 }
 
@@ -144,7 +322,6 @@ export async function maintainPredictions(): Promise<{ expired: number; validate
   let invalidated = 0;
   
   try {
-    // Get all predictions (active and non-active for cleanup)
     const allPredictions = await storage.getAllOutagePredictions();
     const vendorIncidents = await storage.getIncidents();
     const blockchainIncidents = await storage.getBlockchainIncidents();
@@ -163,7 +340,6 @@ export async function maintainPredictions(): Promise<{ expired: number; validate
       
       // Guard against missing or invalid predictedStartAt
       if (!prediction.predictedStartAt || isNaN(new Date(prediction.predictedStartAt).getTime())) {
-        // Invalid prediction - mark as expired to clean up
         await storage.updateOutagePrediction(prediction.id, { status: 'expired' });
         expired++;
         continue;
@@ -171,10 +347,11 @@ export async function maintainPredictions(): Promise<{ expired: number; validate
       
       const predictedDate = new Date(prediction.predictedStartAt);
       const expiryDate = prediction.expiresAt ? new Date(prediction.expiresAt) : null;
-      const windowEnd = new Date(predictedDate.getTime() + 6 * 60 * 60 * 1000); // 6 hours after
+      const validationHours = PREDICTION_CONFIG.VALIDATION_WINDOW_HOURS;
+      const windowEnd = new Date(predictedDate.getTime() + validationHours * 60 * 60 * 1000);
       
-      // Apply fallback expiry: if no expiresAt is set and prediction is > 7 days old, expire it
-      const fallbackExpiryDate = new Date(predictedDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+      // Apply fallback expiry: if no expiresAt is set and prediction is > 3 days old, expire it
+      const fallbackExpiryDate = new Date(predictedDate.getTime() + 3 * 24 * 60 * 60 * 1000);
       if (!expiryDate && now > fallbackExpiryDate) {
         await storage.updateOutagePrediction(prediction.id, { status: 'expired' });
         expired++;
@@ -189,11 +366,9 @@ export async function maintainPredictions(): Promise<{ expired: number; validate
       }
       
       // Only validate/invalidate AFTER the full validation window has closed
-      // This prevents false negatives by waiting for all potential incidents
       if (now > windowEnd) {
-        const windowStart = new Date(predictedDate.getTime() - 6 * 60 * 60 * 1000); // 6 hours before
+        const windowStart = new Date(predictedDate.getTime() - validationHours * 60 * 60 * 1000);
         
-        // Look for incidents within the prediction window
         let hadIncident = false;
         let actualIncidentId: string | null = null;
         
@@ -220,18 +395,19 @@ export async function maintainPredictions(): Promise<{ expired: number; validate
         }
         
         if (hadIncident) {
-          // Prediction was validated - there was an incident within the window
           await storage.updateOutagePrediction(prediction.id, { 
             status: 'validated',
             actualIncidentId 
           });
           validated++;
+          // Invalidate accuracy cache so next predictions use updated data
+          cachedAccuracy = null;
         } else {
-          // Prediction was invalidated - no incident occurred in the full window
           await storage.updateOutagePrediction(prediction.id, { 
             status: 'invalidated' 
           });
           invalidated++;
+          cachedAccuracy = null;
         }
       }
     }
@@ -244,23 +420,20 @@ export async function maintainPredictions(): Promise<{ expired: number; validate
   }
 }
 
-// Update confidence levels for existing predictions based on telemetry data (90-day window)
+// Update confidence levels for existing predictions
 export async function updatePredictionConfidence(): Promise<number> {
   console.log('[PredictionEngine] Updating prediction confidence levels...');
   
   let updated = 0;
   
   try {
-    // Get ALL predictions with active status (including those with past predictedStartAt)
-    // to ensure we don't miss updating confidence for predictions awaiting validation
     const allPredictions = await storage.getAllOutagePredictions();
     const predictions = allPredictions.filter(p => p.status === 'active');
+    const accuracy = await getPredictionAccuracy();
     
-    // Compute aggregates once for all resources (not per-prediction)
     const vendorAggregated = await storage.aggregateTelemetryForPredictions('vendor');
     const blockchainAggregated = await storage.aggregateTelemetryForPredictions('blockchain');
     
-    // Create lookup maps for O(1) access
     const vendorMap = new Map(vendorAggregated.map(a => [a.resourceKey, a]));
     const blockchainMap = new Map(blockchainAggregated.map(a => [a.resourceKey, a]));
     
@@ -270,19 +443,20 @@ export async function updatePredictionConfidence(): Promise<number> {
       
       if (!resourceKey) continue;
       
-      // Use pre-computed aggregates
       const aggregateMap = resourceType === 'vendor' ? vendorMap : blockchainMap;
       const resourceData = aggregateMap.get(resourceKey);
       
       if (!resourceData) continue;
       
-      // Calculate confidence based on incident frequency from 90-day telemetry data
-      // avgIncidentCount is incidents per time window, so it's already normalized
-      const incidentFrequency = resourceData.avgIncidentCount;
-      const newConfidence = Math.min(0.95, Math.max(0.3, 0.5 + (incidentFrequency * 0.3)));
+      // Use logarithmic confidence calculation
+      const logIncidents = Math.log2(resourceData.totalIncidents + 1);
+      const incidentConfidence = Math.min(0.4, logIncidents * 0.08);
+      const frequencyConfidence = Math.min(0.2, resourceData.avgIncidentCount * 0.2);
+      const accuracyAdjustment = (accuracy.accuracyRate - 0.5) * 0.15;
+      
+      const newConfidence = Math.min(0.92, Math.max(0.35, 0.35 + incidentConfidence + frequencyConfidence + accuracyAdjustment));
       const currentConfidence = parseFloat(prediction.confidence);
       
-      // Only update if confidence changed significantly (> 5%)
       if (Math.abs(newConfidence - currentConfidence) > 0.05) {
         await storage.updateOutagePrediction(prediction.id, {
           confidence: newConfidence.toFixed(2)
@@ -355,5 +529,37 @@ export async function collectTelemetryMetrics(): Promise<void> {
     console.log(`[PredictionEngine] Collected metrics for ${vendors.length} vendors and ${chains.length} chains`);
   } catch (error) {
     console.error('[PredictionEngine] Error collecting telemetry:', error);
+  }
+}
+
+// Clear all low-quality predictions and regenerate with improved algorithm
+export async function regeneratePredictions(): Promise<{ cleared: number; created: number }> {
+  console.log('[PredictionEngine] Regenerating all predictions with improved algorithm...');
+  
+  try {
+    // Clear all active predictions (validated/invalidated ones are kept for accuracy tracking)
+    const allPredictions = await storage.getAllOutagePredictions();
+    let cleared = 0;
+    
+    for (const prediction of allPredictions) {
+      if (prediction.status === 'active') {
+        await storage.deletePrediction(prediction.id);
+        cleared++;
+      }
+    }
+    
+    console.log(`[PredictionEngine] Cleared ${cleared} active predictions`);
+    
+    // Regenerate with improved algorithm
+    await generatePredictions();
+    
+    // Count new predictions
+    const newPredictions = await storage.getActivePredictions();
+    
+    console.log(`[PredictionEngine] Regeneration complete: cleared ${cleared}, created ${newPredictions.length}`);
+    return { cleared, created: newPredictions.length };
+  } catch (error) {
+    console.error('[PredictionEngine] Error regenerating predictions:', error);
+    return { cleared: 0, created: 0 };
   }
 }

@@ -6985,6 +6985,24 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
     }
   });
 
+  // Regenerate predictions - clears low-quality ones and regenerates with improved algorithm
+  app.post("/api/predictions/regenerate", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { regeneratePredictions } = await import("./predictionEngine");
+      const result = await regeneratePredictions();
+      
+      res.json({ 
+        success: true, 
+        cleared: result.cleared, 
+        created: result.created,
+        message: `Cleared ${result.cleared} old predictions, created ${result.created} high-quality predictions`
+      });
+    } catch (error) {
+      console.error("Error regenerating predictions:", error);
+      res.status(500).json({ error: "Failed to regenerate predictions" });
+    }
+  });
+
   // ============ WEBHOOKS API ============
   
   // Zod schema for webhook creation/update
