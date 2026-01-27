@@ -8,7 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Brain, AlertTriangle, Calendar, TrendingUp, Clock, CheckCircle, X, ThumbsUp, ThumbsDown, Sparkles, Activity } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
+import { Brain, AlertTriangle, Calendar, TrendingUp, Clock, CheckCircle, X, ThumbsUp, ThumbsDown, Sparkles, Activity, RefreshCw } from "lucide-react";
 
 interface Prediction {
   id: string;
@@ -48,8 +49,11 @@ const SEVERITY_TEXT: Record<string, string> = {
 export default function Predictions() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [selectedPrediction, setSelectedPrediction] = useState<Prediction | null>(null);
   const [feedbackNotes, setFeedbackNotes] = useState("");
+  
+  const isAdmin = user?.isAdmin || user?.isOwner;
 
   const { data: predictions = [], isLoading, error } = useQuery<Prediction[]>({
     queryKey: ["/api/predictions"],
@@ -98,6 +102,25 @@ export default function Predictions() {
       queryClient.invalidateQueries({ queryKey: ["/api/predictions"] });
       setSelectedPrediction(null);
       toast({ title: "Feedback submitted" });
+    },
+  });
+
+  const regenerateMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/predictions/regenerate", { method: "POST" });
+      if (!res.ok) throw new Error("Failed to regenerate predictions");
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/predictions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/predictions/calendar"] });
+      toast({ 
+        title: "Predictions Regenerated", 
+        description: data.message 
+      });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to regenerate predictions", variant: "destructive" });
     },
   });
 
@@ -159,6 +182,17 @@ export default function Predictions() {
           </h1>
           <p className="text-muted-foreground">AI-powered outage forecasting based on historical patterns</p>
         </div>
+        {isAdmin && (
+          <Button
+            variant="outline"
+            onClick={() => regenerateMutation.mutate()}
+            disabled={regenerateMutation.isPending}
+            data-testid="button-regenerate-predictions"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${regenerateMutation.isPending ? 'animate-spin' : ''}`} />
+            {regenerateMutation.isPending ? 'Regenerating...' : 'Refresh Predictions'}
+          </Button>
+        )}
       </div>
 
       <div className="grid gap-4 md:grid-cols-4 mb-6">
