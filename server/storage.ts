@@ -161,6 +161,7 @@ export interface IStorage {
   getUsersSubscribedToVendor(vendorKey: string): Promise<User[]>;
   getVendorsForUser(userId: string): Promise<Vendor[]>;
   getIncidentsForUser(userId: string): Promise<Incident[]>;
+  getBlockchainIncidentsForUser(userId: string): Promise<BlockchainIncident[]>;
   
   // Vendor Ordering
   getUserVendorOrder(userId: string): Promise<UserVendorOrder[]>;
@@ -1208,6 +1209,27 @@ export class DatabaseStorage implements IStorage {
       .from(incidents)
       .where(inArray(incidents.vendorKey, subscribedKeys))
       .orderBy(desc(incidents.createdAt));
+  }
+
+  async getBlockchainIncidentsForUser(userId: string): Promise<BlockchainIncident[]> {
+    const hasSetSubscriptions = await this.hasUserSetBlockchainSubscriptions(userId);
+    const subscribedKeys = await this.getUserBlockchainSubscriptions(userId);
+    
+    // If user hasn't set up subscriptions yet, show all (default behavior)
+    if (!hasSetSubscriptions) {
+      return await this.getBlockchainIncidents();
+    }
+    
+    // If user has set subscriptions but has none, return empty
+    if (subscribedKeys.length === 0) {
+      return [];
+    }
+    
+    return await db
+      .select()
+      .from(blockchainIncidents)
+      .where(inArray(blockchainIncidents.chainKey, subscribedKeys))
+      .orderBy(desc(blockchainIncidents.createdAt));
   }
   
   // Vendor Ordering

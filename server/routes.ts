@@ -748,9 +748,14 @@ export async function registerRoutes(
   // ============ INCIDENTS ============
   
   // Get all incidents (protected)
-  app.get("/api/incidents", isAuthenticated, async (req, res) => {
+  app.get("/api/incidents", isAuthenticated, async (req: any, res) => {
     try {
-      const incidents = await storage.getIncidents();
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      // Filter incidents to only show those for vendors the user is subscribed to
+      const incidents = await storage.getIncidentsForUser(userId);
       res.json(incidents);
     } catch (error) {
       console.error("Error fetching incidents:", error);
@@ -2572,9 +2577,14 @@ export async function registerRoutes(
   });
 
   // Get all blockchain incidents
-  app.get("/api/blockchain/incidents", isAuthenticated, async (req, res) => {
+  app.get("/api/blockchain/incidents", isAuthenticated, async (req: any, res) => {
     try {
-      const incidents = await storage.getBlockchainIncidents();
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      // Filter incidents to only show those for blockchains the user is subscribed to
+      const incidents = await storage.getBlockchainIncidentsForUser(userId);
       res.json(incidents);
     } catch (error) {
       console.error("Error fetching blockchain incidents:", error);
