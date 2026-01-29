@@ -166,11 +166,22 @@ export async function sendWelcomeEmail(
 </html>
   `;
   
+  const passwordSetupText = passwordSetupUrl 
+    ? `\n\nSet up your password (expires in 7 days): ${passwordSetupUrl}\n` 
+    : '';
+  
   const textBody = isPromo
-    ? `Welcome to Vendor Watch, ${name}!\n\nYou've been granted ${trialDays}-day access to Vendor Watch with full ${tier} features.\n\nYour trial is active until ${trialEndDate}.\n\nAccess your dashboard: ${appUrl}\n\nQuick Start:\n- Add the vendors your clients rely on\n- Set up email or SMS alerts for incidents\n- Monitor status from a single dashboard\n- Get AI-powered outage predictions\n\nQuestions? Just reply to this email!`
+    ? `Welcome to Vendor Watch, ${name}!\n\nYou've been granted ${trialDays}-day access to Vendor Watch with full ${tier} features.\n\nYour trial is active until ${trialEndDate}.${passwordSetupText}\n\nAccess your dashboard: ${appUrl}\n\nQuick Start:\n- Add the vendors your clients rely on\n- Set up email or SMS alerts for incidents\n- Monitor status from a single dashboard\n- Get AI-powered outage predictions\n\nQuestions? Just reply to this email!`
     : `Welcome to Vendor Watch, ${name}!\n\nThanks for signing up! We're excited to help you stay ahead of vendor outages.\n\nAccess your dashboard: ${appUrl}\n\nQuick Start:\n- Add the vendors your clients rely on\n- Set up email or SMS alerts for incidents\n- Monitor status from a single dashboard\n- Get AI-powered outage predictions\n\nQuestions? Just reply to this email!`;
   
-  return sendEmail(to, subject, htmlBody, textBody);
+  try {
+    const result = await sendEmail(to, subject, htmlBody, textBody);
+    console.log(`[email] Welcome email result for ${to}: ${result ? 'sent' : 'failed'}`);
+    return result;
+  } catch (error) {
+    console.error(`[email] Welcome email error for ${to}:`, error);
+    return false;
+  }
 }
 
 export async function getEmailConfig(): Promise<{ configured: boolean; fromEmail: string }> {
