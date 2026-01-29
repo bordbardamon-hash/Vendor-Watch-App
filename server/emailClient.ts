@@ -66,6 +66,7 @@ export async function sendWelcomeEmail(
     passwordSetupUrl?: string;
   }
 ): Promise<boolean> {
+  console.log(`[email] sendWelcomeEmail called for: ${to}, isPromo: ${options?.isPromo}`);
   const name = firstName || 'there';
   const appUrl = process.env.REPLIT_DEV_DOMAIN 
     ? `https://${process.env.REPLIT_DEV_DOMAIN}` 
