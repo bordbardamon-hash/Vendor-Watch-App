@@ -4,7 +4,7 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY;
 
 async function getFromEmail(): Promise<string> {
   const fromConfig = await storage.getConfig('email_from');
-  return fromConfig?.value || 'notifications@resend.dev';
+  return fromConfig?.value || 'noreply@vendorwatch.app';
 }
 
 export async function sendEmail(
