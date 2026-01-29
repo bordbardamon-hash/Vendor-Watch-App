@@ -1226,8 +1226,10 @@ export async function registerRoutes(
       const tierDisplay = (tier || 'growth').charAt(0).toUpperCase() + (tier || 'growth').slice(1);
       
       // Use try-catch for better error handling
+      let emailSent = false;
+      let emailError = null;
       try {
-        const emailSent = await sendWelcomeEmail(email, firstName || null, {
+        emailSent = await sendWelcomeEmail(email, firstName || null, {
           isPromo: true,
           trialDays: days,
           trialEndsAt,
@@ -1235,8 +1237,9 @@ export async function registerRoutes(
           passwordSetupUrl,
         });
         console.log(`[promo] Welcome email send result for ${email}: ${emailSent ? 'success' : 'failed'}`);
-      } catch (emailError) {
-        console.error('[promo] Failed to send welcome email:', emailError);
+      } catch (err: any) {
+        emailError = err?.message || 'Unknown error';
+        console.error('[promo] Failed to send welcome email:', err);
         // Don't fail the whole request if email fails
       }
       
@@ -1250,6 +1253,8 @@ export async function registerRoutes(
           subscriptionTier: user.subscriptionTier,
           trialEndsAt: user.trialEndsAt,
         },
+        emailSent,
+        emailError,
         message: `Promotional account created with ${days}-day trial ending ${trialEndsAt.toLocaleDateString()}`
       });
     } catch (error) {

@@ -233,7 +233,12 @@ export default function UsersPage() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
-      toast({ title: "Promo Account Created", description: data.message });
+      const emailStatus = data.emailSent 
+        ? " Welcome email sent!" 
+        : data.emailError 
+          ? ` Email failed: ${data.emailError}` 
+          : " Email not sent.";
+      toast({ title: "Promo Account Created", description: data.message + emailStatus });
       setIsPromoDialogOpen(false);
       setPromoUser({
         email: "",
