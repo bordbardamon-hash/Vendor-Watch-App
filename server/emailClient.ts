@@ -63,6 +63,7 @@ export async function sendWelcomeEmail(
     trialDays?: number;
     trialEndsAt?: Date;
     tier?: string;
+    passwordSetupUrl?: string;
   }
 ): Promise<boolean> {
   const name = firstName || 'there';
@@ -76,6 +77,7 @@ export async function sendWelcomeEmail(
   const trialDays = options?.trialDays || 14;
   const trialEndsAt = options?.trialEndsAt;
   const tier = options?.tier || 'Essential';
+  const passwordSetupUrl = options?.passwordSetupUrl;
   
   const trialEndDate = trialEndsAt 
     ? trialEndsAt.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
@@ -111,6 +113,19 @@ export async function sendWelcomeEmail(
       <p style="color: #d4d4d4; line-height: 1.6;">
         Your trial is active until <strong style="color: #fff;">${trialEndDate}</strong>.
       </p>
+      ${passwordSetupUrl ? `
+      <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 8px; padding: 20px; margin: 24px 0; text-align: center;">
+        <h3 style="color: #fff; margin: 0 0 12px 0; font-size: 18px;">🔐 Set Up Your Password</h3>
+        <p style="color: rgba(255,255,255,0.9); margin: 0 0 16px 0; font-size: 14px;">
+          Click the button below to create your account password. This link expires in 7 days.
+        </p>
+        <a href="${passwordSetupUrl}" 
+           style="display: inline-block; background: #fff; color: #059669; text-decoration: none; 
+                  padding: 12px 28px; border-radius: 6px; font-weight: 600; font-size: 15px;">
+          Create Password
+        </a>
+      </div>
+      ` : ''}
       ` : `
       <p style="color: #d4d4d4; line-height: 1.6;">
         Thanks for signing up for Vendor Watch! We're excited to help you stay ahead of vendor outages 

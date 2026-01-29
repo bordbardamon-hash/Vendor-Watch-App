@@ -1190,7 +1190,12 @@ export async function registerRoutes(
       const trialEndsAt = new Date();
       trialEndsAt.setDate(trialEndsAt.getDate() + days);
       
-      // Create the promotional user
+      // Generate password setup token (7 day expiry for new accounts)
+      const crypto = await import('crypto');
+      const passwordSetupToken = crypto.randomBytes(32).toString('hex');
+      const passwordSetupExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+      
+      // Create the promotional user with password setup token
       const user = await storage.upsertUser({
         email,
         firstName: firstName || null,
@@ -1203,9 +1208,17 @@ export async function registerRoutes(
         profileCompleted: !!(firstName && lastName), // Complete if name provided
         isAdmin: false,
         isOwner: false,
+        passwordResetToken: passwordSetupToken,
+        passwordResetExpires: passwordSetupExpires,
       });
       
-      // Send promotional welcome email with trial details (non-blocking)
+      // Generate password setup URL
+      const baseUrl = process.env.REPLIT_DOMAINS 
+        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
+        : 'http://localhost:5000';
+      const passwordSetupUrl = `${baseUrl}/reset-password?token=${passwordSetupToken}`;
+      
+      // Send promotional welcome email with trial details and password setup link (non-blocking)
       const { sendWelcomeEmail } = await import('./emailClient');
       const tierDisplay = (tier || 'growth').charAt(0).toUpperCase() + (tier || 'growth').slice(1);
       sendWelcomeEmail(email, firstName || null, {
@@ -1213,6 +1226,7 @@ export async function registerRoutes(
         trialDays: days,
         trialEndsAt,
         tier: tierDisplay,
+        passwordSetupUrl,
       }).catch(err => {
         console.error('[promo] Failed to send welcome email:', err);
       });
