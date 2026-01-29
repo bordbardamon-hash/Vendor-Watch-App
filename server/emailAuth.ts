@@ -11,7 +11,7 @@ import { db } from './db';
 import { users } from '@shared/models/auth';
 import { eq } from 'drizzle-orm';
 import { storage } from './storage';
-import { sendEmail } from './emailClient';
+import { sendEmail, sendWelcomeEmail } from './emailClient';
 
 const SALT_ROUNDS = 10;
 
@@ -246,6 +246,11 @@ export async function setupEmailAuth(app: Express) {
 
       // Set session
       (req.session as any).userId = newUser.id;
+
+      // Send welcome email (non-blocking)
+      sendWelcomeEmail(email, firstName || null).catch(err => {
+        console.error('[auth] Failed to send welcome email:', err);
+      });
 
       console.log(`[auth] User registered: ${email}`);
       res.json({ 

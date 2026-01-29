@@ -1205,6 +1205,18 @@ export async function registerRoutes(
         isOwner: false,
       });
       
+      // Send promotional welcome email with trial details (non-blocking)
+      const { sendWelcomeEmail } = await import('./emailClient');
+      const tierDisplay = (tier || 'growth').charAt(0).toUpperCase() + (tier || 'growth').slice(1);
+      sendWelcomeEmail(email, firstName || null, {
+        isPromo: true,
+        trialDays: days,
+        trialEndsAt,
+        tier: tierDisplay,
+      }).catch(err => {
+        console.error('[promo] Failed to send welcome email:', err);
+      });
+      
       res.status(201).json({
         success: true,
         user: {

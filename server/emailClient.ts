@@ -55,6 +55,108 @@ export async function isEmailConfigured(): Promise<boolean> {
   return !!RESEND_API_KEY;
 }
 
+export async function sendWelcomeEmail(
+  to: string,
+  firstName: string | null,
+  options?: {
+    isPromo?: boolean;
+    trialDays?: number;
+    trialEndsAt?: Date;
+    tier?: string;
+  }
+): Promise<boolean> {
+  const name = firstName || 'there';
+  const appUrl = process.env.REPLIT_DEV_DOMAIN 
+    ? `https://${process.env.REPLIT_DEV_DOMAIN}` 
+    : process.env.REPLIT_DOMAINS 
+      ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
+      : 'https://vendorwatch.app';
+  
+  const isPromo = options?.isPromo || false;
+  const trialDays = options?.trialDays || 14;
+  const trialEndsAt = options?.trialEndsAt;
+  const tier = options?.tier || 'Essential';
+  
+  const trialEndDate = trialEndsAt 
+    ? trialEndsAt.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    : '';
+  
+  const subject = isPromo 
+    ? `Welcome to Vendor Watch - Your ${tier} trial is ready!`
+    : 'Welcome to Vendor Watch - Get Started Now!';
+  
+  const htmlBody = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; background-color: #0a0a0a;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+    <div style="background: linear-gradient(135deg, #1a1a1a 0%, #0d0d0d 100%); border-radius: 12px; padding: 40px; border: 1px solid #2a2a2a;">
+      
+      <div style="text-align: center; margin-bottom: 30px;">
+        <h1 style="color: #10b981; margin: 0; font-size: 28px;">🛡️ Vendor Watch</h1>
+        <p style="color: #888; margin-top: 8px;">MSP Vendor Status Monitoring</p>
+      </div>
+      
+      <h2 style="color: #fff; margin-bottom: 20px;">Welcome, ${name}!</h2>
+      
+      ${isPromo ? `
+      <p style="color: #d4d4d4; line-height: 1.6;">
+        Great news! You've been granted <strong style="color: #10b981;">${trialDays}-day access</strong> to Vendor Watch 
+        with full <strong style="color: #fbbf24;">${tier}</strong> features.
+      </p>
+      <p style="color: #d4d4d4; line-height: 1.6;">
+        Your trial is active until <strong style="color: #fff;">${trialEndDate}</strong>.
+      </p>
+      ` : `
+      <p style="color: #d4d4d4; line-height: 1.6;">
+        Thanks for signing up for Vendor Watch! We're excited to help you stay ahead of vendor outages 
+        and keep your clients informed.
+      </p>
+      `}
+      
+      <div style="background: #1f1f1f; border-radius: 8px; padding: 20px; margin: 24px 0;">
+        <h3 style="color: #10b981; margin: 0 0 12px 0; font-size: 16px;">🚀 Quick Start:</h3>
+        <ul style="color: #d4d4d4; margin: 0; padding-left: 20px; line-height: 1.8;">
+          <li>Add the vendors your clients rely on</li>
+          <li>Set up email or SMS alerts for incidents</li>
+          <li>Monitor status from a single dashboard</li>
+          <li>Get AI-powered outage predictions</li>
+        </ul>
+      </div>
+      
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${appUrl}" 
+           style="display: inline-block; background: #10b981; color: #fff; text-decoration: none; 
+                  padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
+          Access Your Dashboard →
+        </a>
+      </div>
+      
+      <p style="color: #888; font-size: 14px; text-align: center; margin-top: 30px;">
+        Questions? Just reply to this email - we're here to help!
+      </p>
+      
+    </div>
+    
+    <p style="color: #666; font-size: 12px; text-align: center; margin-top: 20px;">
+      © ${new Date().getFullYear()} Vendor Watch. Proactive monitoring for MSPs.
+    </p>
+  </div>
+</body>
+</html>
+  `;
+  
+  const textBody = isPromo
+    ? `Welcome to Vendor Watch, ${name}!\n\nYou've been granted ${trialDays}-day access to Vendor Watch with full ${tier} features.\n\nYour trial is active until ${trialEndDate}.\n\nAccess your dashboard: ${appUrl}\n\nQuick Start:\n- Add the vendors your clients rely on\n- Set up email or SMS alerts for incidents\n- Monitor status from a single dashboard\n- Get AI-powered outage predictions\n\nQuestions? Just reply to this email!`
+    : `Welcome to Vendor Watch, ${name}!\n\nThanks for signing up! We're excited to help you stay ahead of vendor outages.\n\nAccess your dashboard: ${appUrl}\n\nQuick Start:\n- Add the vendors your clients rely on\n- Set up email or SMS alerts for incidents\n- Monitor status from a single dashboard\n- Get AI-powered outage predictions\n\nQuestions? Just reply to this email!`;
+  
+  return sendEmail(to, subject, htmlBody, textBody);
+}
+
 export async function getEmailConfig(): Promise<{ configured: boolean; fromEmail: string }> {
   const fromEmail = await getFromEmail();
   return {
