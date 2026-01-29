@@ -6,6 +6,7 @@ import { setupEmailAuth, isAuthenticated as emailIsAuthenticated } from "./email
 import { registerAuthRoutes } from "./replit_integrations/auth";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
 import { sendSMS } from "./twilioClient";
+import { sendWelcomeEmail } from "./emailClient";
 import { syncVendorStatus, resolveStaleIncidents } from "./statusSync";
 import { syncAllBlockchainChains, resolveStaleBlockchainIncidents } from "./blockchainSync";
 import { setupTwoFactor, verifyTOTP, verifyRecoveryCode, generateRecoveryCodes } from "./twoFactor";
@@ -1220,21 +1221,24 @@ export async function registerRoutes(
         : 'http://localhost:5000';
       const passwordSetupUrl = `${baseUrl}/reset-password?token=${passwordSetupToken}`;
       
-      // Send promotional welcome email with trial details and password setup link (non-blocking)
+      // Send promotional welcome email with trial details and password setup link
       console.log(`[promo] Sending welcome email to: ${email}`);
-      const { sendWelcomeEmail } = await import('./emailClient');
       const tierDisplay = (tier || 'growth').charAt(0).toUpperCase() + (tier || 'growth').slice(1);
-      sendWelcomeEmail(email, firstName || null, {
-        isPromo: true,
-        trialDays: days,
-        trialEndsAt,
-        tier: tierDisplay,
-        passwordSetupUrl,
-      }).then(sent => {
-        console.log(`[promo] Welcome email send result for ${email}: ${sent ? 'success' : 'failed'}`);
-      }).catch(err => {
-        console.error('[promo] Failed to send welcome email:', err);
-      });
+      
+      // Use try-catch for better error handling
+      try {
+        const emailSent = await sendWelcomeEmail(email, firstName || null, {
+          isPromo: true,
+          trialDays: days,
+          trialEndsAt,
+          tier: tierDisplay,
+          passwordSetupUrl,
+        });
+        console.log(`[promo] Welcome email send result for ${email}: ${emailSent ? 'success' : 'failed'}`);
+      } catch (emailError) {
+        console.error('[promo] Failed to send welcome email:', emailError);
+        // Don't fail the whole request if email fails
+      }
       
       res.status(201).json({
         success: true,
