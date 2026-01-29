@@ -1168,8 +1168,10 @@ export async function registerRoutes(
 
   // Create promotional account (Owner only) - creates user with extended trial, no payment required
   app.post("/api/admin/users/promo", isAuthenticated, isOwner, async (req: any, res) => {
+    console.log('[promo] Creating promotional account request received');
     try {
       const { email, firstName, lastName, companyName, tier, trialDays } = req.body;
+      console.log(`[promo] Creating account for: ${email}`);
       
       if (!email || !email.includes('@')) {
         return res.status(400).json({ error: "Valid email is required" });
@@ -1219,6 +1221,7 @@ export async function registerRoutes(
       const passwordSetupUrl = `${baseUrl}/reset-password?token=${passwordSetupToken}`;
       
       // Send promotional welcome email with trial details and password setup link (non-blocking)
+      console.log(`[promo] Sending welcome email to: ${email}`);
       const { sendWelcomeEmail } = await import('./emailClient');
       const tierDisplay = (tier || 'growth').charAt(0).toUpperCase() + (tier || 'growth').slice(1);
       sendWelcomeEmail(email, firstName || null, {
@@ -1227,6 +1230,8 @@ export async function registerRoutes(
         trialEndsAt,
         tier: tierDisplay,
         passwordSetupUrl,
+      }).then(sent => {
+        console.log(`[promo] Welcome email send result for ${email}: ${sent ? 'success' : 'failed'}`);
       }).catch(err => {
         console.error('[promo] Failed to send welcome email:', err);
       });
