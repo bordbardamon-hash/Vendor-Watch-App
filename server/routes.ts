@@ -1215,11 +1215,11 @@ export async function registerRoutes(
         passwordResetExpires: passwordSetupExpires,
       });
       
-      // Generate password setup URL
-      const baseUrl = process.env.REPLIT_DOMAINS 
-        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
+      // Generate password setup URL - use vendorwatch.app for production
+      const baseUrl = process.env.NODE_ENV === 'production' 
+        ? 'https://vendorwatch.app'
         : 'http://localhost:5000';
-      const passwordSetupUrl = `${baseUrl}/reset-password?token=${passwordSetupToken}`;
+      const passwordSetupUrl = `${baseUrl}/set-password?token=${passwordSetupToken}`;
       
       // Send promotional welcome email with trial details and password setup link
       console.log(`[promo] Sending welcome email to: ${email}`);
