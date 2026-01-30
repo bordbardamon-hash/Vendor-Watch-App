@@ -3999,11 +3999,20 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
     }
   });
 
-  // Get vendor performance stats (all vendors)
+  // Get vendor performance stats (filtered by user subscriptions)
   app.get("/api/analytics/vendors", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
       const days = parseInt(req.query.days as string) || 30;
-      const stats = await storage.getAllVendorPerformanceStats(days);
+      const vendorSubs = await storage.getUserVendorSubscriptions(userId);
+      
+      const allStats = await storage.getAllVendorPerformanceStats(days);
+      const stats = vendorSubs.length > 0
+        ? allStats.filter((s: any) => vendorSubs.includes(s.vendorKey))
+        : [];
+      
       res.json(stats);
     } catch (error) {
       console.error("Error getting vendor stats:", error);
@@ -4048,11 +4057,20 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
     }
   });
 
-  // Get blockchain performance stats (all blockchains)
+  // Get blockchain performance stats (filtered by user subscriptions)
   app.get("/api/analytics/blockchain", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
       const days = parseInt(req.query.days as string) || 30;
-      const stats = await storage.getAllBlockchainPerformanceStats(days);
+      const blockchainSubs = await storage.getUserBlockchainSubscriptions(userId);
+      
+      const allStats = await storage.getAllBlockchainPerformanceStats(days);
+      const stats = blockchainSubs.length > 0
+        ? allStats.filter((s: any) => blockchainSubs.includes(s.chainKey))
+        : [];
+      
       res.json(stats);
     } catch (error) {
       console.error("Error getting blockchain stats:", error);
