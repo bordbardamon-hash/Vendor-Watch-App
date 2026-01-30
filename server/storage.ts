@@ -1174,13 +1174,9 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getVendorsForUser(userId: string): Promise<Vendor[]> {
-    const hasSetSubscriptions = await this.hasUserSetSubscriptions(userId);
     const subscribedKeys = await this.getUserVendorSubscriptions(userId);
     
-    if (!hasSetSubscriptions) {
-      return await this.getVendors();
-    }
-    
+    // Users start with no subscriptions - return only what they've subscribed to
     if (subscribedKeys.length === 0) {
       return [];
     }
@@ -1193,13 +1189,9 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getIncidentsForUser(userId: string): Promise<Incident[]> {
-    const hasSetSubscriptions = await this.hasUserSetSubscriptions(userId);
     const subscribedKeys = await this.getUserVendorSubscriptions(userId);
     
-    if (!hasSetSubscriptions) {
-      return await this.getIncidents();
-    }
-    
+    // Users start with no subscriptions - return only incidents from subscribed vendors
     if (subscribedKeys.length === 0) {
       return [];
     }
@@ -1212,15 +1204,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getBlockchainIncidentsForUser(userId: string): Promise<BlockchainIncident[]> {
-    const hasSetSubscriptions = await this.hasUserSetBlockchainSubscriptions(userId);
     const subscribedKeys = await this.getUserBlockchainSubscriptions(userId);
     
-    // If user hasn't set up subscriptions yet, show all (default behavior)
-    if (!hasSetSubscriptions) {
-      return await this.getBlockchainIncidents();
-    }
-    
-    // If user has set subscriptions but has none, return empty
+    // Users start with no subscriptions - return only incidents from subscribed chains
     if (subscribedKeys.length === 0) {
       return [];
     }
