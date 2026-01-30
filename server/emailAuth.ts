@@ -11,7 +11,7 @@ import { db } from './db';
 import { users } from '@shared/models/auth';
 import { eq } from 'drizzle-orm';
 import { storage } from './storage';
-import { sendEmail, sendWelcomeEmail } from './emailClient';
+import { sendEmail, sendWelcomeEmail, notifyOwnerNewSignup } from './emailClient';
 
 const SALT_ROUNDS = 10;
 
@@ -130,6 +130,11 @@ export async function setupEmailAuth(app: Express) {
                 profileImageUrl,
               }).returning();
               console.log(`[auth] Created new user from Replit OAuth: ${email}`);
+              
+              // Notify owner about new signup (non-blocking)
+              notifyOwnerNewSignup(email, firstName, lastName, 'replit_oauth').catch(err => {
+                console.error('[auth] Failed to notify owner:', err);
+              });
             } else {
               // Update profile info if needed
               await db.update(users).set({
@@ -250,6 +255,11 @@ export async function setupEmailAuth(app: Express) {
       // Send welcome email (non-blocking)
       sendWelcomeEmail(email, firstName || null).catch(err => {
         console.error('[auth] Failed to send welcome email:', err);
+      });
+      
+      // Notify owner about new signup (non-blocking)
+      notifyOwnerNewSignup(email, firstName || null, lastName || null, 'email').catch(err => {
+        console.error('[auth] Failed to notify owner:', err);
       });
 
       console.log(`[auth] User registered: ${email}`);

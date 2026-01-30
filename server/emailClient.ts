@@ -1,6 +1,9 @@
 import { storage } from './storage';
+import { sendSMS } from './twilioClient';
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const OWNER_EMAIL = process.env.OWNER_EMAIL;
+const OWNER_PHONE = process.env.OWNER_PHONE;
 
 async function getFromEmail(): Promise<string> {
   const fromConfig = await storage.getConfig('email_from');
@@ -197,4 +200,75 @@ export async function getEmailConfig(): Promise<{ configured: boolean; fromEmail
     configured: !!RESEND_API_KEY,
     fromEmail,
   };
+}
+
+export async function notifyOwnerNewSignup(
+  userEmail: string,
+  firstName: string | null,
+  lastName: string | null,
+  signupMethod: 'email' | 'replit_oauth' | 'promo_trial',
+  tier?: string
+): Promise<void> {
+  const name = [firstName, lastName].filter(Boolean).join(' ') || 'Unknown';
+  const timestamp = new Date().toLocaleString('en-US', { 
+    timeZone: 'America/New_York',
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  });
+  
+  const methodLabel = {
+    'email': 'Email Registration',
+    'replit_oauth': 'Google/GitHub Login',
+    'promo_trial': `Promotional Trial (${tier || 'Essential'})`
+  }[signupMethod];
+  
+  const smsMessage = `🎉 New Signup!\n${name}\n${userEmail}\nVia: ${methodLabel}\n${timestamp}`;
+  
+  if (OWNER_PHONE) {
+    try {
+      await sendSMS(OWNER_PHONE, smsMessage);
+      console.log(`[notify] SMS sent to owner about new signup: ${userEmail}`);
+    } catch (error) {
+      console.error('[notify] Failed to send SMS to owner:', error);
+    }
+  }
+  
+  if (OWNER_EMAIL) {
+    const subject = `🎉 New Vendor Watch Signup: ${name}`;
+    const htmlBody = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5;">
+  <div style="max-width: 500px; margin: 0 auto; background: #fff; border-radius: 8px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+    <h2 style="color: #047857; margin: 0 0 20px 0;">🎉 New User Signup!</h2>
+    <table style="width: 100%; border-collapse: collapse;">
+      <tr>
+        <td style="padding: 8px 0; color: #666; width: 100px;">Name:</td>
+        <td style="padding: 8px 0; color: #111; font-weight: 600;">${name}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #666;">Email:</td>
+        <td style="padding: 8px 0; color: #111;">${userEmail}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #666;">Method:</td>
+        <td style="padding: 8px 0; color: #111;">${methodLabel}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #666;">Time:</td>
+        <td style="padding: 8px 0; color: #111;">${timestamp}</td>
+      </tr>
+    </table>
+  </div>
+</body>
+</html>`;
+    
+    try {
+      await sendEmail(OWNER_EMAIL, subject, htmlBody);
+      console.log(`[notify] Email sent to owner about new signup: ${userEmail}`);
+    } catch (error) {
+      console.error('[notify] Failed to send email to owner:', error);
+    }
+  }
 }

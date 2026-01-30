@@ -6,7 +6,7 @@ import { setupEmailAuth, isAuthenticated as emailIsAuthenticated } from "./email
 import { registerAuthRoutes } from "./replit_integrations/auth";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
 import { sendSMS } from "./twilioClient";
-import { sendWelcomeEmail } from "./emailClient";
+import { sendWelcomeEmail, notifyOwnerNewSignup } from "./emailClient";
 import { syncVendorStatus, resolveStaleIncidents } from "./statusSync";
 import { syncAllBlockchainChains, resolveStaleBlockchainIncidents } from "./blockchainSync";
 import { setupTwoFactor, verifyTOTP, verifyRecoveryCode, generateRecoveryCodes } from "./twoFactor";
@@ -1248,6 +1248,11 @@ export async function registerRoutes(
           passwordSetupUrl,
         });
         console.log(`[promo] Welcome email send result for ${email}: ${emailSent ? 'success' : 'failed'}`);
+        
+        // Notify owner about new promo signup (non-blocking)
+        notifyOwnerNewSignup(email, firstName || null, lastName || null, 'promo_trial', tierDisplay).catch(err => {
+          console.error('[promo] Failed to notify owner:', err);
+        });
       } catch (err: any) {
         emailError = err?.message || 'Unknown error';
         console.error('[promo] Failed to send welcome email:', err);
