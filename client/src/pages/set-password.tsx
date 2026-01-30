@@ -1,24 +1,60 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { APP_NAME } from "@/lib/labels";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Loader2, Eye, EyeOff } from "lucide-react";
+import { Loader2, Eye, EyeOff, AlertCircle, CheckCircle } from "lucide-react";
 import { VendorWatchLogo } from "@/components/ui/vendor-watch-logo";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 
 export default function SetPassword() {
   const [, setLocation] = useLocation();
+  const searchString = useSearch();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [tokenValid, setTokenValid] = useState<boolean | null>(null);
+  const [tokenError, setTokenError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
   const [formData, setFormData] = useState({
-    email: "",
     newPassword: "",
     confirmPassword: "",
   });
+
+  // Get token from URL
+  const urlParams = new URLSearchParams(searchString);
+  const token = urlParams.get("token");
+
+  // Validate token on mount
+  useEffect(() => {
+    if (!token) {
+      setTokenValid(false);
+      setTokenError("No setup token provided. Please use the link from your welcome email.");
+      return;
+    }
+
+    // Validate token with backend
+    const validateToken = async () => {
+      try {
+        const response = await fetch(`/api/auth/verify-reset-token?token=${encodeURIComponent(token)}`);
+        const data = await response.json();
+        
+        if (response.ok && data.valid) {
+          setTokenValid(true);
+        } else {
+          setTokenValid(false);
+          setTokenError(data.message || "Invalid or expired setup link. Please contact support for a new link.");
+        }
+      } catch (error) {
+        setTokenValid(false);
+        setTokenError("Failed to validate setup link. Please try again.");
+      }
+    };
+
+    validateToken();
+  }, [token]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,11 +80,11 @@ export default function SetPassword() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/auth/set-password", {
+      const response = await fetch("/api/auth/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: formData.email,
+          token,
           password: formData.newPassword,
         }),
       });
@@ -59,11 +95,16 @@ export default function SetPassword() {
         throw new Error(data.message || "Failed to set password");
       }
 
+      setSuccess(true);
       toast({
-        title: "Password Set",
+        title: "Password Set Successfully",
         description: "You can now sign in with your email and password",
       });
-      setLocation("/login");
+      
+      // Redirect to login after 2 seconds
+      setTimeout(() => {
+        setLocation("/login");
+      }, 2000);
     } catch (error) {
       toast({
         title: "Error",
@@ -75,6 +116,83 @@ export default function SetPassword() {
     }
   };
 
+  // Show loading while validating token
+  if (tokenValid === null) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="flex items-center justify-center gap-2 mb-8">
+            <VendorWatchLogo size={48} />
+            <span className="text-2xl font-bold tracking-tight">{APP_NAME}</span>
+          </div>
+          <Card>
+            <CardContent className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <span className="ml-3 text-muted-foreground">Validating your setup link...</span>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error if token is invalid
+  if (!tokenValid) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="flex items-center justify-center gap-2 mb-8">
+            <VendorWatchLogo size={48} />
+            <span className="text-2xl font-bold tracking-tight">{APP_NAME}</span>
+          </div>
+          <Card>
+            <CardHeader className="text-center">
+              <div className="flex justify-center mb-4">
+                <AlertCircle className="h-12 w-12 text-destructive" />
+              </div>
+              <CardTitle>Invalid Setup Link</CardTitle>
+              <CardDescription className="text-destructive">
+                {tokenError}
+              </CardDescription>
+            </CardHeader>
+            <CardFooter className="flex flex-col gap-4">
+              <Link href="/login" className="w-full">
+                <Button variant="outline" className="w-full" data-testid="button-go-to-login">
+                  Go to Login
+                </Button>
+              </Link>
+            </CardFooter>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // Show success message
+  if (success) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="flex items-center justify-center gap-2 mb-8">
+            <VendorWatchLogo size={48} />
+            <span className="text-2xl font-bold tracking-tight">{APP_NAME}</span>
+          </div>
+          <Card>
+            <CardHeader className="text-center">
+              <div className="flex justify-center mb-4">
+                <CheckCircle className="h-12 w-12 text-green-500" />
+              </div>
+              <CardTitle>Password Set Successfully!</CardTitle>
+              <CardDescription>
+                Redirecting you to login...
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -85,28 +203,15 @@ export default function SetPassword() {
 
         <Card>
           <CardHeader className="text-center">
-            <CardTitle>Set Password</CardTitle>
+            <CardTitle>Set Your Password</CardTitle>
             <CardDescription>
-              If your account was created via Replit login, set a password to sign in directly
+              Create a password to access your trial account
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  required
-                  data-testid="input-email"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="newPassword">New Password</Label>
+                <Label htmlFor="newPassword">Password</Label>
                 <div className="relative">
                   <Input
                     id="newPassword"
@@ -155,7 +260,7 @@ export default function SetPassword() {
                     Setting password...
                   </>
                 ) : (
-                  "Set Password"
+                  "Set Password & Continue"
                 )}
               </Button>
             </form>

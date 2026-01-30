@@ -546,6 +546,10 @@ If you didn't request this password reset, you can safely ignore this email.`
         return res.status(401).json({ message: 'Unauthorized' });
       }
 
+      // Check if user has active trial (promo accounts bypass billing)
+      const hasActiveTrial = user.trialEndsAt && new Date(user.trialEndsAt) > new Date();
+      const needsOnboarding = !user.profileCompleted || (!user.billingCompleted && !hasActiveTrial);
+
       res.json({
         id: user.id,
         email: user.email,
@@ -556,6 +560,11 @@ If you didn't request this password reset, you can safely ignore this email.`
         isOwner: user.isOwner,
         subscriptionTier: user.subscriptionTier,
         twoFactorEnabled: user.twoFactorEnabled,
+        profileCompleted: user.profileCompleted,
+        billingCompleted: user.billingCompleted || hasActiveTrial, // Trial accounts bypass billing
+        trialEndsAt: user.trialEndsAt,
+        billingStatus: user.billingStatus,
+        needsOnboarding,
       });
     } catch (error) {
       console.error('[auth] Get user error:', error);
