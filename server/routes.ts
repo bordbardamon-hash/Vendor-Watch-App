@@ -2654,11 +2654,23 @@ export async function registerRoutes(
     }
   });
 
-  // Blockchain stats overview
-  app.get("/api/blockchain/stats", isAuthenticated, async (req, res) => {
+  // Blockchain stats overview - returns stats for USER'S subscribed chains only
+  app.get("/api/blockchain/stats", isAuthenticated, async (req: any, res) => {
     try {
-      const chains = await storage.getBlockchainChains();
-      const activeIncidents = await storage.getActiveBlockchainIncidents();
+      const userId = req.user.id;
+      const allChains = await storage.getBlockchainChains();
+      const userSubscriptions = await storage.getUserBlockchainSubscriptions(userId);
+      
+      // Filter chains to only those user is subscribed to
+      const chains = userSubscriptions.length > 0 
+        ? allChains.filter(c => userSubscriptions.includes(c.key))
+        : [];
+      
+      // Get user's subscribed blockchain incidents only
+      const allActiveIncidents = await storage.getActiveBlockchainIncidents();
+      const activeIncidents = userSubscriptions.length > 0
+        ? allActiveIncidents.filter(i => userSubscriptions.includes(i.chainKey))
+        : [];
       
       const stats = {
         totalChains: chains.length,

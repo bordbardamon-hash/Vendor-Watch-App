@@ -212,11 +212,8 @@ export default function Settings() {
   // Sync vendor subscriptions from API - wait for both vendors and subscriptions to load
   useEffect(() => {
     if (vendorSubscriptions && allVendors.length > 0 && !vendorsInitialized) {
-      if (vendorSubscriptions.hasSetSubscriptions) {
-        setSelectedVendors(vendorSubscriptions.vendorKeys);
-      } else {
-        setSelectedVendors(allVendors.map(v => v.key));
-      }
+      // Always use actual subscriptions - users start with none selected
+      setSelectedVendors(vendorSubscriptions.vendorKeys || []);
       setVendorsInitialized(true);
     }
   }, [vendorSubscriptions, vendorsInitialized, allVendors]);
@@ -313,11 +310,8 @@ export default function Settings() {
   // Sync blockchain subscriptions from API
   useEffect(() => {
     if (blockchainSubscriptions && allChains.length > 0 && !chainsInitialized) {
-      if (blockchainSubscriptions.hasSetSubscriptions) {
-        setSelectedChains(blockchainSubscriptions.chainKeys);
-      } else {
-        setSelectedChains(allChains.map((c: any) => c.key));
-      }
+      // Always use actual subscriptions - users start with none selected
+      setSelectedChains(blockchainSubscriptions.chainKeys || []);
       setChainsInitialized(true);
     }
   }, [blockchainSubscriptions, chainsInitialized, allChains]);
@@ -1053,21 +1047,15 @@ CONFIG = AppConfig(
                 {subscriptionMode === 'vendors' ? (
                   <>
                     Choose which vendors you want to monitor and receive notifications for.
-                    {!vendorSubscriptions?.hasSetSubscriptions && (
-                      <span className="block mt-1 text-primary">You haven't set preferences yet - monitoring all vendors by default.</span>
-                    )}
-                    {vendorSubscriptions?.hasSetSubscriptions && selectedVendors.length === 0 && (
-                      <span className="block mt-1 text-amber-500">No vendors selected - you won't receive any notifications.</span>
+                    {selectedVendors.length === 0 && (
+                      <span className="block mt-1 text-amber-500">No vendors selected - select vendors to start monitoring.</span>
                     )}
                   </>
                 ) : (
                   <>
                     Choose which blockchain networks you want to monitor and receive notifications for.
-                    {!blockchainSubscriptions?.hasSetSubscriptions && (
-                      <span className="block mt-1 text-primary">You haven't set preferences yet - monitoring all chains by default.</span>
-                    )}
-                    {blockchainSubscriptions?.hasSetSubscriptions && selectedChains.length === 0 && (
-                      <span className="block mt-1 text-amber-500">No chains selected - you won't receive any notifications.</span>
+                    {selectedChains.length === 0 && (
+                      <span className="block mt-1 text-amber-500">No blockchains selected - select networks to start monitoring.</span>
                     )}
                   </>
                 )}

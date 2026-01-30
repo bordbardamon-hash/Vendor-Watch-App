@@ -149,8 +149,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             {(sidebarOpen || isMobile) && (
               <Button
                 variant="ghost"
-                size="icon"
-                className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                size="sm"
+                className="text-muted-foreground hover:text-foreground hover:bg-destructive/10"
                 onClick={async () => {
                   try {
                     await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
@@ -161,7 +161,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 }}
                 data-testid="button-logout"
               >
-                <LogOut size={14} />
+                <LogOut size={14} className="mr-1" />
+                Sign Out
               </Button>
             )}
           </div>
