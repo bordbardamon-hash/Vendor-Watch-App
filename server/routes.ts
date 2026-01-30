@@ -3582,16 +3582,34 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
 
   // ============ SLA DASHBOARD ROUTES ============
   
-  // Get SLA metrics for all vendors
+  // Get SLA metrics for user's subscribed vendors only
   app.get("/api/sla/metrics", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
       const days = parseInt(req.query.days as string) || 30;
       const target = parseFloat(req.query.target as string) || 99.9;
       
-      const vendors = await storage.getVendors();
-      const vendorMetrics = await storage.getAllVendorPerformanceStats(days);
+      // Get user's vendor subscriptions first
+      const vendorSubs = await storage.getUserVendorSubscriptions(userId);
+      
+      // Filter vendors to only subscribed ones
+      const allVendors = await storage.getVendors();
+      const vendors = vendorSubs.length > 0 
+        ? allVendors.filter(v => vendorSubs.includes(v.key))
+        : [];
+      
+      const allVendorMetrics = await storage.getAllVendorPerformanceStats(days);
+      const vendorMetrics = vendorSubs.length > 0
+        ? allVendorMetrics.filter((m: any) => vendorSubs.includes(m.vendorKey))
+        : [];
+      
       const { getAllVendorReliability } = await import('./reliabilityTracker');
-      const reliabilityStats = await getAllVendorReliability();
+      const allReliabilityStats = await getAllVendorReliability();
+      const reliabilityStats = vendorSubs.length > 0
+        ? allReliabilityStats.filter((r: any) => vendorSubs.includes(r.vendorKey))
+        : [];
       
       const totalMinutesInPeriod = days * 24 * 60;
       
