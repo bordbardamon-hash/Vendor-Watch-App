@@ -535,12 +535,23 @@ export async function registerRoutes(
         return res.status(401).json({ error: "Unauthorized" });
       }
       
-      // Get active vendor incidents
-      const vendorIncidents = await storage.getIncidents();
-      const activeVendorIncidents = vendorIncidents.filter(i => i.status !== 'resolved');
+      // Get user subscriptions first
+      const [vendorSubs, blockchainSubs] = await Promise.all([
+        storage.getUserVendorSubscriptions(userId),
+        storage.getUserBlockchainSubscriptions(userId)
+      ]);
       
-      // Get active blockchain incidents
-      const blockchainIncidentsList = await storage.getActiveBlockchainIncidents();
+      // Get active vendor incidents - filtered by subscriptions
+      const allVendorIncidents = await storage.getIncidents();
+      const activeVendorIncidents = vendorSubs.length > 0
+        ? allVendorIncidents.filter(i => i.status !== 'resolved' && vendorSubs.includes(i.vendorKey))
+        : [];
+      
+      // Get active blockchain incidents - filtered by subscriptions
+      const allBlockchainIncidents = await storage.getActiveBlockchainIncidents();
+      const blockchainIncidentsList = blockchainSubs.length > 0
+        ? allBlockchainIncidents.filter(i => blockchainSubs.includes(i.chainKey))
+        : [];
       
       // Get vendors and chains for names
       const vendors = await storage.getVendors();
@@ -2633,9 +2644,19 @@ export async function registerRoutes(
   });
 
   // Get active blockchain incidents
-  app.get("/api/blockchain/incidents/active", isAuthenticated, async (req, res) => {
+  app.get("/api/blockchain/incidents/active", isAuthenticated, async (req: any, res) => {
     try {
-      const incidents = await storage.getActiveBlockchainIncidents();
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const allIncidents = await storage.getActiveBlockchainIncidents();
+      const blockchainSubs = await storage.getUserBlockchainSubscriptions(userId);
+      
+      // Filter to only subscribed chains
+      const incidents = blockchainSubs.length > 0
+        ? allIncidents.filter(i => blockchainSubs.includes(i.chainKey))
+        : [];
+      
       res.json(incidents);
     } catch (error) {
       console.error("Error fetching active blockchain incidents:", error);
@@ -3633,14 +3654,34 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
   // SLA Dashboard - Combined view for vendors and blockchain
   app.get("/api/sla/dashboard", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
       const days = parseInt(req.query.days as string) || 30;
       const target = parseFloat(req.query.target as string) || 99.9;
       
-      // Get vendor SLA data
-      const vendors = await storage.getVendors();
-      const vendorMetrics = await storage.getAllVendorPerformanceStats(days);
+      // Get user's subscriptions first
+      const [vendorSubs, blockchainSubs] = await Promise.all([
+        storage.getUserVendorSubscriptions(userId),
+        storage.getUserBlockchainSubscriptions(userId)
+      ]);
+      
+      // Get vendor SLA data - filtered by subscriptions
+      const allVendors = await storage.getVendors();
+      const vendors = vendorSubs.length > 0 
+        ? allVendors.filter(v => vendorSubs.includes(v.key))
+        : [];
+      
+      const allVendorMetrics = await storage.getAllVendorPerformanceStats(days);
+      const vendorMetrics = vendorSubs.length > 0
+        ? allVendorMetrics.filter((m: any) => vendorSubs.includes(m.vendorKey))
+        : [];
+      
       const { getAllVendorReliability } = await import('./reliabilityTracker');
-      const reliabilityStats = await getAllVendorReliability();
+      const allReliabilityStats = await getAllVendorReliability();
+      const reliabilityStats = vendorSubs.length > 0
+        ? allReliabilityStats.filter((r: any) => vendorSubs.includes(r.vendorKey))
+        : [];
       
       const totalMinutesInPeriod = days * 24 * 60;
       
@@ -3675,9 +3716,16 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
         };
       });
       
-      // Get blockchain SLA data - filter to the requested time period
-      const chains = await storage.getBlockchainChains();
-      const blockchainIncidentsList = await storage.getBlockchainIncidents();
+      // Get blockchain SLA data - filter to user subscriptions and requested time period
+      const allChains = await storage.getBlockchainChains();
+      const chains = blockchainSubs.length > 0
+        ? allChains.filter(c => blockchainSubs.includes(c.key))
+        : [];
+      
+      const allBlockchainIncidents = await storage.getBlockchainIncidents();
+      const blockchainIncidentsList = blockchainSubs.length > 0
+        ? allBlockchainIncidents.filter(i => blockchainSubs.includes(i.chainKey))
+        : [];
       
       const now = Date.now();
       const periodStart = now - (days * 24 * 60 * 60 * 1000);
@@ -5266,19 +5314,42 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
     }
   });
 
-  // Mobile Status API - Quick summary endpoint for mobile view
+  // Mobile Status API - Quick summary endpoint for mobile view (filtered by user subscriptions)
   app.get("/api/status/summary", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user?.id;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
       
-      const [vendors, incidents, blockchainChains, blockchainIncidentsList, maintenanceStats] = await Promise.all([
+      // Get user's subscriptions
+      const [allVendors, allIncidents, allBlockchainChains, allBlockchainIncidents, maintenanceStats, vendorSubs, blockchainSubs] = await Promise.all([
         storage.getVendors(),
         storage.getIncidents(),
         storage.getBlockchainChains(),
         storage.getActiveBlockchainIncidents(),
-        storage.getMaintenanceStats()
+        storage.getMaintenanceStats(),
+        storage.getUserVendorSubscriptions(userId),
+        storage.getUserBlockchainSubscriptions(userId)
       ]);
+      
+      // Filter vendors to only subscribed ones
+      const vendors = vendorSubs.length > 0 
+        ? allVendors.filter(v => vendorSubs.includes(v.key))
+        : [];
+      
+      // Filter blockchain chains to only subscribed ones
+      const blockchainChains = blockchainSubs.length > 0
+        ? allBlockchainChains.filter(c => blockchainSubs.includes(c.key))
+        : [];
+      
+      // Filter incidents to subscribed vendors only
+      const incidents = vendorSubs.length > 0
+        ? allIncidents.filter(i => vendorSubs.includes(i.vendorKey))
+        : [];
+      
+      // Filter blockchain incidents to subscribed chains only
+      const blockchainIncidentsList = blockchainSubs.length > 0
+        ? allBlockchainIncidents.filter(i => blockchainSubs.includes(i.chainKey))
+        : [];
       
       const vendorStats = {
         total: vendors.length,
