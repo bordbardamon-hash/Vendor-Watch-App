@@ -152,19 +152,19 @@ export default function AutomationPage() {
   const getActionIcon = (type: string) => ACTION_TYPES.find(a => a.value === type)?.icon || Activity;
 
   return (
-    <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Bot className="h-8 w-8 text-cyan-500" />
+    <div className="p-4 sm:p-6 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <Bot className="h-6 w-6 sm:h-8 sm:w-8 text-cyan-500 shrink-0 mt-1" />
             <div>
-              <h1 className="text-2xl font-bold text-white">Response Orchestrator</h1>
-              <p className="text-gray-400 text-sm">Automate incident response with intelligent rules</p>
+              <h1 className="text-xl sm:text-2xl font-bold text-white">Response Orchestrator</h1>
+              <p className="text-gray-400 text-xs sm:text-sm">Automate incident response with intelligent rules</p>
             </div>
           </div>
           
           <Dialog open={showNewRuleDialog} onOpenChange={setShowNewRuleDialog}>
             <DialogTrigger asChild>
-              <Button className="bg-cyan-600 hover:bg-cyan-700" data-testid="btn-new-rule">
+              <Button className="bg-cyan-600 hover:bg-cyan-700 w-full sm:w-auto" data-testid="btn-new-rule">
                 <Plus className="h-4 w-4 mr-2" />
                 New Automation Rule
               </Button>
@@ -299,22 +299,22 @@ export default function AutomationPage() {
         )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="bg-gray-800 border-gray-700">
-            <TabsTrigger value="rules" className="data-[state=active]:bg-cyan-600" data-testid="tab-rules">
-              <Settings className="h-4 w-4 mr-2" />
-              Automation Rules
+          <TabsList className="bg-gray-800 border-gray-700 w-full sm:w-auto overflow-x-auto flex-nowrap">
+            <TabsTrigger value="rules" className="data-[state=active]:bg-cyan-600 text-xs sm:text-sm whitespace-nowrap" data-testid="tab-rules">
+              <Settings className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Automation </span>Rules
             </TabsTrigger>
-            <TabsTrigger value="runbooks" className="data-[state=active]:bg-cyan-600" data-testid="tab-runbooks">
-              <BookOpen className="h-4 w-4 mr-2" />
+            <TabsTrigger value="runbooks" className="data-[state=active]:bg-cyan-600 text-xs sm:text-sm whitespace-nowrap" data-testid="tab-runbooks">
+              <BookOpen className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
               Runbooks
             </TabsTrigger>
-            <TabsTrigger value="escalation" className="data-[state=active]:bg-cyan-600" data-testid="tab-escalation">
-              <Users className="h-4 w-4 mr-2" />
-              Escalation Policies
+            <TabsTrigger value="escalation" className="data-[state=active]:bg-cyan-600 text-xs sm:text-sm whitespace-nowrap" data-testid="tab-escalation">
+              <Users className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Escalation </span>Policies
             </TabsTrigger>
-            <TabsTrigger value="audit" className="data-[state=active]:bg-cyan-600" data-testid="tab-audit">
-              <Activity className="h-4 w-4 mr-2" />
-              Audit Log
+            <TabsTrigger value="audit" className="data-[state=active]:bg-cyan-600 text-xs sm:text-sm whitespace-nowrap" data-testid="tab-audit">
+              <Activity className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Audit </span>Log
             </TabsTrigger>
           </TabsList>
 

@@ -106,28 +106,29 @@ export async function sendWelcomeEmail(
     <div style="background: linear-gradient(135deg, #1a1a1a 0%, #0d0d0d 100%); border-radius: 12px; padding: 40px; border: 1px solid #2a2a2a;">
       
       <div style="text-align: center; margin-bottom: 30px;">
-        <h1 style="color: #10b981; margin: 0; font-size: 28px;">🛡️ Vendor Watch</h1>
-        <p style="color: #888; margin-top: 8px;">MSP Vendor Status Monitoring</p>
+        <img src="https://vendorwatch.app/icon-512.png" alt="Vendor Watch" width="64" height="64" style="margin-bottom: 12px; border-radius: 12px;" />
+        <h1 style="color: #047857; margin: 0; font-size: 28px;">Vendor Watch</h1>
+        <p style="color: #888; margin-top: 8px;">Proactive Vendor Status Monitoring</p>
       </div>
       
       <h2 style="color: #fff; margin-bottom: 20px;">Welcome, ${name}!</h2>
       
       ${isPromo ? `
       <p style="color: #d4d4d4; line-height: 1.6;">
-        Great news! You've been granted <strong style="color: #10b981;">${trialDays}-day access</strong> to Vendor Watch 
+        Great news! You've been granted <strong style="color: #047857;">${trialDays}-day access</strong> to Vendor Watch 
         with full <strong style="color: #fbbf24;">${tier}</strong> features.
       </p>
       <p style="color: #d4d4d4; line-height: 1.6;">
         Your trial is active until <strong style="color: #fff;">${trialEndDate}</strong>.
       </p>
       ${passwordSetupUrl ? `
-      <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 8px; padding: 20px; margin: 24px 0; text-align: center;">
+      <div style="background: linear-gradient(135deg, #047857 0%, #065f46 100%); border-radius: 8px; padding: 20px; margin: 24px 0; text-align: center;">
         <h3 style="color: #fff; margin: 0 0 12px 0; font-size: 18px;">🔐 Set Up Your Password</h3>
         <p style="color: rgba(255,255,255,0.9); margin: 0 0 16px 0; font-size: 14px;">
           Click the button below to create your account password. This link expires in 7 days.
         </p>
         <a href="${passwordSetupUrl}" 
-           style="display: inline-block; background: #fff; color: #059669; text-decoration: none; 
+           style="display: inline-block; background: #fff; color: #047857; text-decoration: none; 
                   padding: 12px 28px; border-radius: 6px; font-weight: 600; font-size: 15px;">
           Create Password
         </a>
@@ -141,7 +142,7 @@ export async function sendWelcomeEmail(
       `}
       
       <div style="background: #1f1f1f; border-radius: 8px; padding: 20px; margin: 24px 0;">
-        <h3 style="color: #10b981; margin: 0 0 12px 0; font-size: 16px;">🚀 Quick Start:</h3>
+        <h3 style="color: #047857; margin: 0 0 12px 0; font-size: 16px;">🚀 Quick Start:</h3>
         <ul style="color: #d4d4d4; margin: 0; padding-left: 20px; line-height: 1.8;">
           <li>Add the vendors your clients rely on</li>
           <li>Set up email or SMS alerts for incidents</li>
@@ -152,7 +153,7 @@ export async function sendWelcomeEmail(
       
       <div style="text-align: center; margin: 30px 0;">
         <a href="${appUrl}" 
-           style="display: inline-block; background: #10b981; color: #fff; text-decoration: none; 
+           style="display: inline-block; background: #047857; color: #fff; text-decoration: none; 
                   padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
           Access Your Dashboard →
         </a>
@@ -165,7 +166,7 @@ export async function sendWelcomeEmail(
     </div>
     
     <p style="color: #666; font-size: 12px; text-align: center; margin-top: 20px;">
-      © ${new Date().getFullYear()} Vendor Watch. Proactive monitoring for MSPs.
+      © ${new Date().getFullYear()} Vendor Watch. Proactive vendor status monitoring.
     </p>
   </div>
 </body>
