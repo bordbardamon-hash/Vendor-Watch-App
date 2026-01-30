@@ -1,15 +1,61 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Component, ErrorInfo, ReactNode } from "react";
 import { APP_NAME } from "@/lib/labels";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Loader2, Eye, EyeOff, CheckCircle, XCircle, KeyRound } from "lucide-react";
+import { Loader2, Eye, EyeOff, CheckCircle, XCircle, KeyRound, AlertTriangle } from "lucide-react";
 import { VendorWatchLogo } from "@/components/ui/vendor-watch-logo";
 import { Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 
-export default function ResetPassword() {
+class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('[reset-password] Error caught:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+          <Card className="w-full max-w-md">
+            <CardHeader className="text-center">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
+                <AlertTriangle className="h-6 w-6 text-destructive" />
+              </div>
+              <CardTitle>Something Went Wrong</CardTitle>
+              <CardDescription>
+                {this.state.error?.message || "An unexpected error occurred"}
+              </CardDescription>
+            </CardHeader>
+            <CardFooter className="flex flex-col gap-4">
+              <Button className="w-full" onClick={() => window.location.reload()}>
+                Reload Page
+              </Button>
+              <a href="/login" className="w-full">
+                <Button variant="outline" className="w-full">
+                  Go to Login
+                </Button>
+              </a>
+            </CardFooter>
+          </Card>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function ResetPasswordContent() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
@@ -293,5 +339,13 @@ export default function ResetPassword() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ResetPassword() {
+  return (
+    <ErrorBoundary>
+      <ResetPasswordContent />
+    </ErrorBoundary>
   );
 }
