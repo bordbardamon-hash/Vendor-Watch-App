@@ -4,7 +4,13 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY;
 
 async function getFromEmail(): Promise<string> {
   const fromConfig = await storage.getConfig('email_from');
-  return fromConfig?.value || 'noreply@vendorwatch.app';
+  const configuredEmail = fromConfig?.value || 'noreply@vendorwatch.app';
+  // Always use verified domain - never use resend.dev test domain
+  if (configuredEmail.includes('resend.dev')) {
+    console.log('[email] Overriding resend.dev test domain with verified domain');
+    return 'noreply@vendorwatch.app';
+  }
+  return configuredEmail;
 }
 
 export async function sendEmail(
