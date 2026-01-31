@@ -3693,7 +3693,7 @@ const DEFAULT_VENDORS: InsertVendor[] = [
   { key: "splunk", name: "Splunk", statusUrl: "https://status.splunk.com/", parser: "statuspage_json", status: "operational" },
   { key: "launchdarkly", name: "LaunchDarkly", statusUrl: "https://status.launchdarkly.com/", parser: "statuspage_json", status: "operational" },
   { key: "contentful", name: "Contentful", statusUrl: "https://status.contentful.com/", parser: "statuspage_json", status: "operational" },
-  { key: "algolia", name: "Algolia", statusUrl: "https://status.algolia.com/", parser: "statuspage_json", status: "operational" },
+  { key: "algolia", name: "Algolia", statusUrl: "https://www.algoliastatus.com/", parser: "statuspage_json", status: "operational" },
 ];
 
 export async function seedVendorsIfEmpty(): Promise<void> {
