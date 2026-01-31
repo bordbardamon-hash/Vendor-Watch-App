@@ -54,3 +54,22 @@ Key entities include Users, Sessions, Vendors, Incidents, Jobs, Configurations, 
 
 ### Payment Gateway
 - **Stripe**: For subscription management and billing.
+
+## Recent Changes (January 2026)
+
+### Parser Health Improvements
+- Fixed 27 vendor status URLs that were causing sync failures (404, 403, JSON parse errors)
+- Improved parser health from 71 healthy vendors to 98 out of 100
+- Updated STATUSPAGE_API_URLS map in statusSync.ts with verified working endpoints:
+  - Square: issquareup.com
+  - Bitdefender: status.gravityzone.bitdefender.com
+  - Mixpanel: www.mixpanelstatus.com
+  - Intercom: www.intercomstatus.com
+  - And many more
+- Changed vendors without public Statuspage.io APIs to use "manual" parser (HTML scraping):
+  - GitLab, Heroku, Auth0, Okta, ServiceNow, Workday, Webex, Splunk, and others
+- Only 2 vendors remain unhealthy (CrowdStrike and ServiceNow) due to non-existent status page domains
+
+### Vendor/Blockchain Coverage
+- 100 vendors monitored across cloud, SaaS, security, and enterprise categories
+- 110 blockchain networks monitored including L1/L2 chains, DeFi, NFT marketplaces, exchanges, and RPC providers

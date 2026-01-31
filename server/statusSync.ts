@@ -49,7 +49,7 @@ interface IncidentsResponse {
 
 // Only include vendors with verified working Statuspage.io API endpoints
 const STATUSPAGE_API_URLS: Record<string, string> = {
-  // Verified working - tested Dec 2024
+  // Verified working - tested Jan 2026
   cloudflare: "https://www.cloudflarestatus.com",
   zoom: "https://status.zoom.us",
   atlassian: "https://status.atlassian.com",
@@ -64,7 +64,6 @@ const STATUSPAGE_API_URLS: Record<string, string> = {
   nable: "https://status.n-able.com",
   syncro: "https://www.syncrostatus.com",
   slack: "https://status.slack.com",
-  fastly: "https://status.fastly.com",
   duo: "https://status.duo.com",
   dropbox: "https://status.dropbox.com",
   box: "https://status.box.com",
@@ -97,6 +96,24 @@ const STATUSPAGE_API_URLS: Record<string, string> = {
   // Password Management
   "1password": "https://status.1password.com",
   lastpass: "https://status.lastpass.com",
+  // Analytics & Data - verified Jan 2026
+  mixpanel: "https://www.mixpanelstatus.com",
+  segment: "https://status.segment.com",
+  snowflake: "https://status.snowflake.com",
+  plaid: "https://status.plaid.com",
+  // Communication & Support - verified Jan 2026
+  intercom: "https://www.intercomstatus.com",
+  klaviyo: "https://status.klaviyo.com",
+  // Developer Tools - verified Jan 2026
+  npm: "https://status.npmjs.org",
+  // Social - verified Jan 2026
+  reddit: "https://www.redditstatus.com",
+  // Database - verified Jan 2026
+  redis: "https://status.redis.io",
+  // E-commerce - verified Jan 2026  
+  square: "https://issquareup.com",
+  // Security - verified Jan 2026
+  bitdefender: "https://status.gravityzone.bitdefender.com",
 };
 
 function mapStatusIndicator(indicator: string): string {
