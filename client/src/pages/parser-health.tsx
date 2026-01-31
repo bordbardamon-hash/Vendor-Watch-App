@@ -109,7 +109,10 @@ export default function ParserHealthPage() {
         </h1>
         <Button
           variant="outline"
-          onClick={() => refetch()}
+          onClick={async () => {
+            await refetch();
+            toast({ title: "Refreshed", description: "Parser health data updated" });
+          }}
           disabled={isLoading}
           data-testid="button-refresh-parser-health"
         >
