@@ -35,7 +35,7 @@ function DashboardPreview() {
       <div className="p-6">
         <div className="grid grid-cols-3 gap-4 mb-6">
           <div className="bg-background/50 rounded-lg p-4 border">
-            <div className="text-2xl font-bold text-green-500">50</div>
+            <div className="text-2xl font-bold text-green-500">89</div>
             <div className="text-xs text-muted-foreground">Vendors Monitored</div>
           </div>
           <div className="bg-background/50 rounded-lg p-4 border">
@@ -318,7 +318,7 @@ export default function Landing() {
               <div className="absolute top-8 left-[60%] w-[80%] h-0.5 bg-gradient-to-r from-primary/50 to-transparent hidden md:block" />
               <h3 className="font-semibold text-lg mb-2">2. Select Your Vendors</h3>
               <p className="text-sm text-muted-foreground">
-                Choose from 50+ pre-configured vendors and 60 blockchain networks, or request custom additions.
+                Choose from 89 pre-configured vendors and 60 blockchain networks, or request custom additions.
               </p>
             </div>
 
