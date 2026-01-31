@@ -3783,6 +3783,78 @@ const DEFAULT_BLOCKCHAIN_CHAINS: InsertBlockchainChain[] = [
   { key: "chorusone", name: "Chorus One", symbol: "CHO", tier: "tier2", category: "staking", sourceType: "statuspage", statusUrl: "https://status.chorus.one" },
   { key: "p2p", name: "P2P Validator", symbol: "P2P", tier: "tier2", category: "staking", sourceType: "statuspage", statusUrl: "https://status.p2p.org" },
   { key: "stakefish", name: "Stakefish", symbol: "STF", tier: "tier2", category: "staking", sourceType: "statuspage", statusUrl: "https://status.stake.fish" },
+  
+  // Layer 1 Blockchains (Additional)
+  { key: "fantom", name: "Fantom", symbol: "FTM", tier: "tier2", category: "chain", sourceType: "statuspage", statusUrl: "https://status.fantom.foundation" },
+  { key: "cardano", name: "Cardano", symbol: "ADA", tier: "tier1", category: "chain", sourceType: "statuspage", statusUrl: "https://status.cardano.org" },
+  { key: "polkadot", name: "Polkadot", symbol: "DOT", tier: "tier1", category: "chain", sourceType: "statuspage", statusUrl: "https://status.polkadot.network" },
+  { key: "algorand", name: "Algorand", symbol: "ALGO", tier: "tier2", category: "chain", sourceType: "statuspage", statusUrl: "https://status.algorand.org" },
+  { key: "hedera", name: "Hedera", symbol: "HBAR", tier: "tier2", category: "chain", sourceType: "statuspage", statusUrl: "https://status.hedera.com" },
+  { key: "flow", name: "Flow", symbol: "FLOW", tier: "tier2", category: "chain", sourceType: "statuspage", statusUrl: "https://status.flow.com" },
+  { key: "tezos", name: "Tezos", symbol: "XTZ", tier: "tier2", category: "chain", sourceType: "statuspage", statusUrl: "https://status.tezos.com" },
+  { key: "kaspa", name: "Kaspa", symbol: "KAS", tier: "tier3", category: "chain", sourceType: "statuspage", statusUrl: "https://status.kaspa.org" },
+  
+  // Layer 2 & Sidechains (Additional)
+  { key: "starknet", name: "Starknet", symbol: "STRK", tier: "tier2", category: "l2", sourceType: "statuspage", statusUrl: "https://status.starknet.io" },
+  { key: "immutablex", name: "Immutable X", symbol: "IMX", tier: "tier2", category: "l2", sourceType: "statuspage", statusUrl: "https://status.immutable.com" },
+  { key: "ronin", name: "Ronin", symbol: "RON", tier: "tier2", category: "l2", sourceType: "statuspage", statusUrl: "https://status.roninchain.com" },
+  { key: "blast", name: "Blast", symbol: "BLAST", tier: "tier2", category: "l2", sourceType: "statuspage", statusUrl: "https://status.blast.io" },
+  { key: "metis", name: "Metis", symbol: "METIS", tier: "tier3", category: "l2", sourceType: "statuspage", statusUrl: "https://status.metis.io" },
+  
+  // DeFi Protocols
+  { key: "dydx", name: "dYdX", symbol: "DYDX", tier: "tier2", category: "defi", sourceType: "statuspage", statusUrl: "https://status.dydx.trade" },
+  { key: "aave", name: "Aave", symbol: "AAVE", tier: "tier1", category: "defi", sourceType: "statuspage", statusUrl: "https://status.aave.com" },
+  { key: "oneinch", name: "1inch", symbol: "1INCH", tier: "tier2", category: "defi", sourceType: "statuspage", statusUrl: "https://status.1inch.io" },
+  { key: "gmx", name: "GMX", symbol: "GMX", tier: "tier2", category: "defi", sourceType: "statuspage", statusUrl: "https://status.gmx.io" },
+  { key: "jupiter", name: "Jupiter", symbol: "JUP", tier: "tier2", category: "defi", sourceType: "statuspage", statusUrl: "https://status.jup.ag" },
+  
+  // NFT Marketplaces
+  { key: "opensea", name: "OpenSea", tier: "tier1", category: "nft", sourceType: "statuspage", statusUrl: "https://status.opensea.io" },
+  { key: "rarible", name: "Rarible", tier: "tier2", category: "nft", sourceType: "statuspage", statusUrl: "https://status.rarible.com" },
+  { key: "magiceden", name: "Magic Eden", tier: "tier2", category: "nft", sourceType: "statuspage", statusUrl: "https://status.magiceden.io" },
+  { key: "blur", name: "Blur", tier: "tier2", category: "nft", sourceType: "statuspage", statusUrl: "https://status.blur.io" },
+  
+  // Crypto Exchanges
+  { key: "okx", name: "OKX", tier: "tier1", category: "exchange", sourceType: "statuspage", statusUrl: "https://status.okx.com" },
+  { key: "kucoin", name: "KuCoin", tier: "tier2", category: "exchange", sourceType: "statuspage", statusUrl: "https://status.kucoin.com" },
+  { key: "gateio", name: "Gate.io", tier: "tier2", category: "exchange", sourceType: "statuspage", statusUrl: "https://status.gate.io" },
+  { key: "bitfinex", name: "Bitfinex", tier: "tier2", category: "exchange", sourceType: "statuspage", statusUrl: "https://status.bitfinex.com" },
+  { key: "bitstamp", name: "Bitstamp", tier: "tier2", category: "exchange", sourceType: "statuspage", statusUrl: "https://status.bitstamp.net" },
+  { key: "upbit", name: "Upbit", tier: "tier2", category: "exchange", sourceType: "statuspage", statusUrl: "https://status.upbit.com" },
+  { key: "htx", name: "HTX (Huobi)", tier: "tier2", category: "exchange", sourceType: "statuspage", statusUrl: "https://status.htx.com" },
+  
+  // Blockchain Security & Analytics
+  { key: "chainalysis", name: "Chainalysis", tier: "tier2", category: "security", sourceType: "statuspage", statusUrl: "https://status.chainalysis.com" },
+  { key: "elliptic", name: "Elliptic", tier: "tier2", category: "security", sourceType: "statuspage", statusUrl: "https://status.elliptic.co" },
+  { key: "certik", name: "Certik", tier: "tier2", category: "security", sourceType: "statuspage", statusUrl: "https://status.certik.com" },
+  { key: "hacken", name: "Hacken", tier: "tier3", category: "security", sourceType: "statuspage", statusUrl: "https://status.hacken.io" },
+  
+  // Institutional Custody
+  { key: "bitgo", name: "BitGo", tier: "tier1", category: "custody", sourceType: "statuspage", statusUrl: "https://status.bitgo.com" },
+  { key: "copper", name: "Copper", tier: "tier2", category: "custody", sourceType: "statuspage", statusUrl: "https://status.copper.co" },
+  { key: "hextrust", name: "Hex Trust", tier: "tier3", category: "custody", sourceType: "statuspage", statusUrl: "https://status.hextrust.com" },
+  
+  // RPC Providers (Additional)
+  { key: "moralis", name: "Moralis", tier: "tier2", category: "rpc_provider", sourceType: "statuspage", statusUrl: "https://status.moralis.io" },
+  { key: "chainstack", name: "Chainstack", tier: "tier2", category: "rpc_provider", sourceType: "statuspage", statusUrl: "https://status.chainstack.com" },
+  { key: "getblock", name: "GetBlock", tier: "tier3", category: "rpc_provider", sourceType: "statuspage", statusUrl: "https://status.getblock.io" },
+  { key: "nownodes", name: "NOWNodes", tier: "tier3", category: "rpc_provider", sourceType: "statuspage", statusUrl: "https://status.nownodes.io" },
+  { key: "tenderly", name: "Tenderly", tier: "tier2", category: "rpc_provider", sourceType: "statuspage", statusUrl: "https://status.tenderly.co" },
+  
+  // Bridges & Cross-Chain
+  { key: "layerzero", name: "LayerZero", tier: "tier1", category: "bridge", sourceType: "statuspage", statusUrl: "https://status.layerzero.network" },
+  { key: "wormhole", name: "Wormhole", tier: "tier1", category: "bridge", sourceType: "statuspage", statusUrl: "https://status.wormhole.com" },
+  { key: "axelar", name: "Axelar", tier: "tier2", category: "bridge", sourceType: "statuspage", statusUrl: "https://status.axelar.network" },
+  { key: "stargate", name: "Stargate", tier: "tier2", category: "bridge", sourceType: "statuspage", statusUrl: "https://status.stargate.finance" },
+  
+  // Oracles
+  { key: "pyth", name: "Pyth Network", tier: "tier2", category: "oracle", sourceType: "statuspage", statusUrl: "https://status.pyth.network" },
+  { key: "band", name: "Band Protocol", tier: "tier3", category: "oracle", sourceType: "statuspage", statusUrl: "https://status.bandprotocol.com" },
+  
+  // Stablecoins
+  { key: "circle", name: "Circle (USDC)", symbol: "USDC", tier: "tier1", category: "stablecoin", sourceType: "statuspage", statusUrl: "https://status.circle.com" },
+  { key: "paxos", name: "Paxos", symbol: "USDP", tier: "tier2", category: "stablecoin", sourceType: "statuspage", statusUrl: "https://status.paxos.com" },
+  { key: "tether", name: "Tether", symbol: "USDT", tier: "tier1", category: "stablecoin", sourceType: "statuspage", statusUrl: "https://status.tether.to" },
 ];
 
 export async function seedBlockchainChainsIfEmpty(): Promise<void> {
