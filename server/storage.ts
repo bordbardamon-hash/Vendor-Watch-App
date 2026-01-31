@@ -3679,6 +3679,48 @@ const DEFAULT_VENDORS: InsertVendor[] = [
   { key: "sendgrid", name: "SendGrid", statusUrl: "https://status.sendgrid.com/", parser: "statuspage_json", status: "operational" },
   // E-commerce
   { key: "shopify", name: "Shopify", statusUrl: "https://status.shopify.com/", parser: "statuspage_json", status: "operational" },
+  { key: "bigcommerce", name: "BigCommerce", statusUrl: "https://status.bigcommerce.com", parser: "statuspage_json", status: "operational" },
+  { key: "square", name: "Square", statusUrl: "https://status.squareup.com", parser: "statuspage_json", status: "operational" },
+  // Communication & Collaboration
+  { key: "discord", name: "Discord", statusUrl: "https://discordstatus.com", parser: "statuspage_json", status: "operational" },
+  { key: "intercom", name: "Intercom", statusUrl: "https://status.intercom.com", parser: "statuspage_json", status: "operational" },
+  { key: "loom", name: "Loom", statusUrl: "https://status.loom.com", parser: "statuspage_json", status: "operational" },
+  { key: "calendly", name: "Calendly", statusUrl: "https://status.calendly.com", parser: "statuspage_json", status: "operational" },
+  { key: "canva", name: "Canva", statusUrl: "https://status.canva.com", parser: "statuspage_json", status: "operational" },
+  // CRM & Marketing
+  { key: "freshworks", name: "Freshworks", statusUrl: "https://status.freshworks.com", parser: "statuspage_json", status: "operational" },
+  { key: "zendesk", name: "Zendesk", statusUrl: "https://status.zendesk.com", parser: "statuspage_json", status: "operational" },
+  { key: "pipedrive", name: "Pipedrive", statusUrl: "https://status.pipedrive.com", parser: "statuspage_json", status: "operational" },
+  { key: "klaviyo", name: "Klaviyo", statusUrl: "https://status.klaviyo.com", parser: "statuspage_json", status: "operational" },
+  { key: "activecampaign", name: "ActiveCampaign", statusUrl: "https://status.activecampaign.com", parser: "statuspage_json", status: "operational" },
+  { key: "constantcontact", name: "Constant Contact", statusUrl: "https://status.constantcontact.com", parser: "statuspage_json", status: "operational" },
+  { key: "mailchimp", name: "Mailchimp", statusUrl: "https://status.mailchimp.com", parser: "statuspage_json", status: "operational" },
+  // Developer Tools
+  { key: "gitlab", name: "GitLab", statusUrl: "https://status.gitlab.com", parser: "statuspage_json", status: "operational" },
+  { key: "heroku", name: "Heroku", statusUrl: "https://status.heroku.com", parser: "statuspage_json", status: "operational" },
+  { key: "bitbucket", name: "Bitbucket", statusUrl: "https://bitbucket.status.atlassian.com", parser: "statuspage_json", status: "operational" },
+  { key: "confluence", name: "Confluence", statusUrl: "https://confluence.status.atlassian.com", parser: "statuspage_json", status: "operational" },
+  { key: "jira", name: "Jira", statusUrl: "https://jira.status.atlassian.com", parser: "statuspage_json", status: "operational" },
+  { key: "npm", name: "npm", statusUrl: "https://status.npmjs.org", parser: "statuspage_json", status: "operational" },
+  { key: "pagerduty", name: "PagerDuty", statusUrl: "https://status.pagerduty.com", parser: "statuspage_json", status: "operational" },
+  // Analytics & Data
+  { key: "amplitude", name: "Amplitude", statusUrl: "https://status.amplitude.com", parser: "statuspage_json", status: "operational" },
+  { key: "mixpanel", name: "Mixpanel", statusUrl: "https://status.mixpanel.com", parser: "statuspage_json", status: "operational" },
+  { key: "segment", name: "Segment", statusUrl: "https://status.segment.com", parser: "statuspage_json", status: "operational" },
+  { key: "snowflake", name: "Snowflake", statusUrl: "https://status.snowflake.com", parser: "statuspage_json", status: "operational" },
+  { key: "plaid", name: "Plaid", statusUrl: "https://status.plaid.com", parser: "statuspage_json", status: "operational" },
+  // Security
+  { key: "crowdstrike", name: "CrowdStrike", statusUrl: "https://status.crowdstrike.com", parser: "statuspage_json", status: "operational" },
+  { key: "sophos", name: "Sophos", statusUrl: "https://status.sophos.com", parser: "statuspage_json", status: "operational" },
+  { key: "bitdefender", name: "Bitdefender", statusUrl: "https://status.bitdefender.com", parser: "statuspage_json", status: "operational" },
+  { key: "webroot", name: "Webroot", statusUrl: "https://status.webroot.com", parser: "statuspage_json", status: "operational" },
+  // Other Services
+  { key: "automattic", name: "WooCommerce/Automattic", statusUrl: "https://automatticstatus.com", parser: "statuspage_json", status: "operational" },
+  { key: "braintree", name: "Braintree", statusUrl: "https://status.braintreepayments.com", parser: "statuspage_json", status: "operational" },
+  { key: "postmark", name: "Postmark", statusUrl: "https://status.postmarkapp.com", parser: "statuspage_json", status: "operational" },
+  { key: "redis", name: "Redis Cloud", statusUrl: "https://status.redis.io", parser: "statuspage_json", status: "operational" },
+  { key: "reddit", name: "Reddit", statusUrl: "https://www.redditstatus.com", parser: "statuspage_json", status: "operational" },
+  { key: "zoho", name: "Zoho", statusUrl: "https://status.zoho.com", parser: "statuspage_json", status: "operational" },
   // Additional Enterprise Services (to reach 100)
   { key: "servicenow", name: "ServiceNow", statusUrl: "https://status.servicenow.com/", parser: "statuspage_json", status: "operational" },
   { key: "workday", name: "Workday", statusUrl: "https://status.workday.com/", parser: "statuspage_json", status: "operational" },
