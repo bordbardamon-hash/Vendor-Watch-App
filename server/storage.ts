@@ -3679,6 +3679,18 @@ const DEFAULT_VENDORS: InsertVendor[] = [
   { key: "sendgrid", name: "SendGrid", statusUrl: "https://status.sendgrid.com/", parser: "statuspage_json", status: "operational" },
   // E-commerce
   { key: "shopify", name: "Shopify", statusUrl: "https://status.shopify.com/", parser: "statuspage_json", status: "operational" },
+  // Additional Enterprise Services (to reach 100)
+  { key: "servicenow", name: "ServiceNow", statusUrl: "https://status.servicenow.com/", parser: "statuspage_json", status: "operational" },
+  { key: "workday", name: "Workday", statusUrl: "https://status.workday.com/", parser: "statuspage_json", status: "operational" },
+  { key: "okta", name: "Okta", statusUrl: "https://status.okta.com/", parser: "statuspage_json", status: "operational" },
+  { key: "auth0", name: "Auth0", statusUrl: "https://status.auth0.com/", parser: "statuspage_json", status: "operational" },
+  { key: "docusign", name: "DocuSign", statusUrl: "https://status.docusign.com/", parser: "statuspage_json", status: "operational" },
+  { key: "monday", name: "Monday.com", statusUrl: "https://status.monday.com/", parser: "statuspage_json", status: "operational" },
+  { key: "airtable", name: "Airtable", statusUrl: "https://status.airtable.com/", parser: "statuspage_json", status: "operational" },
+  { key: "figma", name: "Figma", statusUrl: "https://status.figma.com/", parser: "statuspage_json", status: "operational" },
+  { key: "miro", name: "Miro", statusUrl: "https://status.miro.com/", parser: "statuspage_json", status: "operational" },
+  { key: "webex", name: "Webex", statusUrl: "https://status.webex.com/", parser: "statuspage_json", status: "operational" },
+  { key: "splunk", name: "Splunk", statusUrl: "https://status.splunk.com/", parser: "statuspage_json", status: "operational" },
 ];
 
 export async function seedVendorsIfEmpty(): Promise<void> {
