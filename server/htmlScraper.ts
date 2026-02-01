@@ -505,26 +505,8 @@ export async function scrapeVendorStatus(vendor: { key: string; statusUrl: strin
     case 'syncro':
       return scrapeStatusIoPage(vendor);
     // Vendors without accessible public APIs - return operational by default
-    // Visit their status pages directly for manual monitoring
     case 'paypal':
     case 'gcp':
-    case 'algolia':
-    case 'auth0':
-    case 'braintree':
-    case 'gitlab':
-    case 'heroku':
-    case 'freshworks':
-    case 'crowdstrike':
-    case 'servicenow':
-    case 'okta':
-    case 'zendesk':
-    case 'pagerduty':
-    case 'jira':
-    case 'pipedrive':
-    case 'mailchimp':
-    case 'splunk':
-    case 'workday':
-    case 'webex':
       return manualStatusVendor(vendor);
     default:
       return scrapeStatuspageHtml(vendor);
