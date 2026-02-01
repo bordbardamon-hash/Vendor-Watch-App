@@ -71,5 +71,5 @@ Key entities include Users, Sessions, Vendors, Incidents, Jobs, Configurations, 
 - Only 2 vendors remain unhealthy (CrowdStrike and ServiceNow) due to non-existent status page domains
 
 ### Vendor/Blockchain Coverage
-- 100 vendors monitored across cloud, SaaS, security, and enterprise categories
+- 78 vendors monitored across cloud, SaaS, security, and enterprise categories (only vendors with working public status APIs)
 - 110 blockchain networks monitored including L1/L2 chains, DeFi, NFT marketplaces, exchanges, and RPC providers
