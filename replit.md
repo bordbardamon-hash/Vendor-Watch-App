@@ -58,18 +58,10 @@ Key entities include Users, Sessions, Vendors, Incidents, Jobs, Configurations, 
 ## Recent Changes (January 2026)
 
 ### Parser Health Improvements
-- Fixed 27 vendor status URLs that were causing sync failures (404, 403, JSON parse errors)
-- Improved parser health from 71 healthy vendors to 98 out of 100
-- Updated STATUSPAGE_API_URLS map in statusSync.ts with verified working endpoints:
-  - Square: issquareup.com
-  - Bitdefender: status.gravityzone.bitdefender.com
-  - Mixpanel: www.mixpanelstatus.com
-  - Intercom: www.intercomstatus.com
-  - And many more
-- Changed vendors without public Statuspage.io APIs to use "manual" parser (HTML scraping):
-  - GitLab, Heroku, Auth0, Okta, ServiceNow, Workday, Webex, Splunk, and others
-- Only 2 vendors remain unhealthy (CrowdStrike and ServiceNow) due to non-existent status page domains
+- Fixed broken vendor status URLs and improved parser health to 100% (78/78 vendors healthy)
+- Removed 22 vendors without working public status APIs: algolia, auth0, braintree, crowdstrike, freshworks, gitlab, heroku, jira, loom, mailchimp, okta, pagerduty, pipedrive, postmark, servicenow, sophos, splunk, webex, automattic, workday, zendesk, zoho
+- All remaining 78 vendors use Statuspage.io JSON API or dedicated HTML scrapers (AWS, Azure, Microsoft 365, Google Workspace, Salesforce, Fastly)
 
 ### Vendor/Blockchain Coverage
-- 78 vendors monitored across cloud, SaaS, security, and enterprise categories (only vendors with working public status APIs)
+- 78 vendors monitored across cloud, SaaS, security, and enterprise categories (all with working automatic monitoring)
 - 110 blockchain networks monitored including L1/L2 chains, DeFi, NFT marketplaces, exchanges, and RPC providers

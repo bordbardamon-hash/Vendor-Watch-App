@@ -11,7 +11,7 @@ function DashboardPreview() {
     { name: "Microsoft 365", status: "operational", icon: Server },
     { name: "Cloudflare", status: "operational", icon: Globe },
     { name: "Salesforce", status: "degraded", icon: Database },
-    { name: "Okta", status: "operational", icon: Shield },
+    { name: "Duo Security", status: "operational", icon: Shield },
     { name: "Zoom", status: "operational", icon: Activity },
   ];
 
