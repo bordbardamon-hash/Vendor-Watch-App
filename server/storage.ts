@@ -3740,6 +3740,18 @@ export async function seedVendorsIfEmpty(): Promise<void> {
     }
   }
   
+  // Clean up orphaned parser_health entries (vendor_key not in vendors table or DEFAULT_VENDORS)
+  try {
+    const orphanedResult = await db.delete(parserHealth)
+      .where(sql`${parserHealth.vendorKey} NOT IN (SELECT key FROM ${vendors})`)
+      .returning({ vendorKey: parserHealth.vendorKey });
+    if (orphanedResult.length > 0) {
+      console.log(`[seed] Cleaned up ${orphanedResult.length} orphaned parser_health entries: ${orphanedResult.map(r => r.vendorKey).join(', ')}`);
+    }
+  } catch (error) {
+    console.log(`[seed] Error cleaning up orphaned parser_health entries:`, error);
+  }
+  
   const missingVendors = DEFAULT_VENDORS.filter(v => !existingKeys.has(v.key));
   
   if (missingVendors.length > 0) {
