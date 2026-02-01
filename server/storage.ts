@@ -1,5 +1,5 @@
 import { 
-  users, vendors, incidents, incidentArchive, jobs, config, feedback, notificationConsents, incidentAlerts, userVendorSubscriptions, userVendorOrder, customVendorRequests,
+  users, vendors, incidents, incidentArchive, jobs, config, feedback, notificationConsents, incidentAlerts, userVendorSubscriptions, userVendorOrder, customVendorRequests, parserHealth,
   blockchainChains, blockchainIncidents, blockchainIncidentArchive, userBlockchainSubscriptions, incidentAcknowledgements, maintenanceAcknowledgements,
   vendorMaintenances, blockchainMaintenances, userActivityEvents, vendorDailyMetrics, psaWebhooks,
   slaContracts, slaBreaches, syntheticProbes, syntheticProbeResults,
@@ -3719,6 +3719,26 @@ const DEFAULT_VENDORS: InsertVendor[] = [
 export async function seedVendorsIfEmpty(): Promise<void> {
   const existingVendors = await storage.getVendors();
   const existingKeys = new Set(existingVendors.map(v => v.key));
+  const defaultKeys = new Set(DEFAULT_VENDORS.map(v => v.key));
+  
+  // Remove vendors that are no longer in DEFAULT_VENDORS
+  const vendorsToRemove = existingVendors.filter(v => !defaultKeys.has(v.key));
+  if (vendorsToRemove.length > 0) {
+    console.log(`[seed] Removing ${vendorsToRemove.length} vendors no longer in default list...`);
+    for (const vendor of vendorsToRemove) {
+      try {
+        // Delete parser health records first
+        await db.delete(parserHealth).where(eq(parserHealth.vendorKey, vendor.key));
+        // Delete incidents
+        await db.delete(incidents).where(eq(incidents.vendorKey, vendor.key));
+        // Delete the vendor
+        await db.delete(vendors).where(eq(vendors.key, vendor.key));
+        console.log(`[seed] Removed vendor: ${vendor.name}`);
+      } catch (error) {
+        console.log(`[seed] Error removing vendor ${vendor.key}:`, error);
+      }
+    }
+  }
   
   const missingVendors = DEFAULT_VENDORS.filter(v => !existingKeys.has(v.key));
   
@@ -3733,8 +3753,10 @@ export async function seedVendorsIfEmpty(): Promise<void> {
       }
     }
     console.log('[seed] Vendor seeding complete');
-  } else {
+  } else if (vendorsToRemove.length === 0) {
     console.log(`[seed] Found ${existingVendors.length} vendors, all up to date`);
+  } else {
+    console.log(`[seed] Vendor cleanup complete, ${existingVendors.length - vendorsToRemove.length} vendors remaining`);
   }
 }
 
