@@ -1,5 +1,5 @@
 import { db } from './db';
-import { parserHealth } from '@shared/schema';
+import { parserHealth, vendors } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 
 const CONSECUTIVE_FAILURE_THRESHOLD = 5;
@@ -12,6 +12,18 @@ interface ParseResult {
 }
 
 export async function recordParseResult(vendorKey: string, result: ParseResult): Promise<void> {
+  // Verify the vendor exists before creating/updating parser_health
+  const vendorExists = await db.select({ key: vendors.key })
+    .from(vendors)
+    .where(eq(vendors.key, vendorKey))
+    .limit(1);
+  
+  if (vendorExists.length === 0) {
+    // Vendor doesn't exist, skip recording and clean up any orphaned entry
+    await db.delete(parserHealth).where(eq(parserHealth.vendorKey, vendorKey));
+    return;
+  }
+
   const existing = await db.select()
     .from(parserHealth)
     .where(eq(parserHealth.vendorKey, vendorKey))
