@@ -61,8 +61,6 @@ const STATUSPAGE_API_URLS: Record<string, string> = {
   quickbooks: "https://status.quickbooks.intuit.com",
   netsuite: "https://status.netsuite.com",
   kaseya: "https://status.kaseya.com",
-  nable: "https://status.n-able.com",
-  syncro: "https://www.syncrostatus.com",
   slack: "https://status.slack.com",
   duo: "https://status.duo.com",
   dropbox: "https://status.dropbox.com",

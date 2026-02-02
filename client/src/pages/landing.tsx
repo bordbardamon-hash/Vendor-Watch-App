@@ -318,7 +318,7 @@ export default function Landing() {
               <div className="absolute top-8 left-[60%] w-[80%] h-0.5 bg-gradient-to-r from-primary/50 to-transparent hidden md:block" />
               <h3 className="font-semibold text-lg mb-2">2. Select Your Vendors</h3>
               <p className="text-sm text-muted-foreground">
-                Choose from 78 pre-configured vendors and 110 blockchain networks, or request custom additions.
+                Choose from 75 pre-configured vendors and 110 blockchain networks, or request custom additions.
               </p>
             </div>
 

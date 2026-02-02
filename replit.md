@@ -58,10 +58,10 @@ Key entities include Users, Sessions, Vendors, Incidents, Jobs, Configurations, 
 ## Recent Changes (January 2026)
 
 ### Parser Health Improvements
-- Fixed broken vendor status URLs and improved parser health to 100% (78/78 vendors healthy)
-- Removed 22 vendors without working public status APIs: algolia, auth0, braintree, crowdstrike, freshworks, gitlab, heroku, jira, loom, mailchimp, okta, pagerduty, pipedrive, postmark, servicenow, sophos, splunk, webex, automattic, workday, zendesk, zoho
-- All remaining 78 vendors use Statuspage.io JSON API or dedicated HTML scrapers (AWS, Azure, Microsoft 365, Google Workspace, Salesforce, Fastly)
+- Fixed broken vendor status URLs and improved parser health to 100% (75/75 vendors healthy)
+- Removed 25 vendors without working public status APIs: algolia, auth0, braintree, crowdstrike, freshworks, gitlab, heroku, jira, loom, mailchimp, okta, pagerduty, pipedrive, postmark, servicenow, sophos, splunk, webex, automattic, workday, zendesk, zoho, fastly, nable, syncro
+- All remaining 75 vendors use Statuspage.io JSON API or dedicated HTML scrapers (AWS, Azure, Microsoft 365, Google Workspace, Salesforce)
 
 ### Vendor/Blockchain Coverage
-- 78 vendors monitored across cloud, SaaS, security, and enterprise categories (all with working automatic monitoring)
+- 75 vendors monitored across cloud, SaaS, security, and enterprise categories (all with working automatic monitoring)
 - 110 blockchain networks monitored including L1/L2 chains, DeFi, NFT marketplaces, exchanges, and RPC providers

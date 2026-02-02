@@ -499,11 +499,6 @@ export async function scrapeVendorStatus(vendor: { key: string; statusUrl: strin
       return scrapeSalesforceStatus(vendor);
     case 'slack':
       return scrapeSlackStatus(vendor);
-    case 'fastly':
-      return scrapeFastlyStatus(vendor);
-    case 'nable':
-    case 'syncro':
-      return scrapeStatusIoPage(vendor);
     // Vendors without accessible public APIs - return operational by default
     case 'paypal':
     case 'gcp':

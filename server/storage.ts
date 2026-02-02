@@ -3626,7 +3626,6 @@ const DEFAULT_VENDORS: InsertVendor[] = [
   { key: "digitalocean", name: "DigitalOcean", statusUrl: "https://status.digitalocean.com", parser: "statuspage_json", status: "operational" },
   { key: "linode", name: "Linode", statusUrl: "https://status.linode.com", parser: "statuspage_json", status: "operational" },
   { key: "akamai", name: "Akamai", statusUrl: "https://www.akamaistatus.com/", parser: "statuspage_json", status: "operational" },
-  { key: "fastly", name: "Fastly", statusUrl: "https://status.fastly.com/", parser: "statuspage_json", status: "operational" },
   // Collaboration & Communication
   { key: "zoom", name: "Zoom", statusUrl: "https://status.zoom.us", parser: "statuspage_json", status: "operational" },
   { key: "atlassian", name: "Atlassian", statusUrl: "https://status.atlassian.com", parser: "statuspage_json", status: "operational" },
@@ -3659,9 +3658,7 @@ const DEFAULT_VENDORS: InsertVendor[] = [
   { key: "newrelic", name: "New Relic", statusUrl: "https://status.newrelic.com", parser: "statuspage_json", status: "operational" },
   { key: "sentinelone", name: "SentinelOne", statusUrl: "https://status.sentinelone.com/", parser: "statuspage_json", status: "operational" },
   // MSP Tools
-  { key: "nable", name: "N-able", statusUrl: "https://status.n-able.com/", parser: "statuspage_json", status: "operational" },
   { key: "kaseya", name: "Kaseya", statusUrl: "https://status.kaseya.com/", parser: "statuspage_json", status: "operational" },
-  { key: "syncro", name: "Syncro", statusUrl: "https://www.syncrostatus.com/", parser: "statuspage_json", status: "operational" },
   // Crypto & Fintech
   { key: "fireblocks", name: "Fireblocks", statusUrl: "https://status.fireblocks.com/", parser: "statuspage_json", status: "operational" },
   // Developer Tools & Platforms
