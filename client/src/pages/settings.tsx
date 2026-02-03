@@ -401,7 +401,7 @@ export default function Settings() {
     smtpPass: "your_app_password",
     alertTo: "alerts_to@example.com",
     dbPath: "vendorwatch.db",
-    enableEmail: true,
+    enableEmail: false,
     enableSms: false,
     notificationEmail: "",
     smsPhone: "",
@@ -429,12 +429,12 @@ export default function Settings() {
         ...prev,
         notificationEmail: notifPrefs.notificationEmail || "",
         smsPhone: notifPrefs.phone || "",
-        enableEmail: notifPrefs.notifyEmail ?? true,
+        enableEmail: notifPrefs.notifyEmail ?? false,
         enableSms: notifPrefs.notifySms ?? false,
         timezone: notifPrefs.timezone || "UTC",
       }));
       if (originalEmailEnabled === null) {
-        setOriginalEmailEnabled(notifPrefs.notifyEmail ?? true);
+        setOriginalEmailEnabled(notifPrefs.notifyEmail ?? false);
       }
       if (originalSmsEnabled === null) {
         setOriginalSmsEnabled(notifPrefs.notifySms ?? false);
@@ -472,8 +472,12 @@ export default function Settings() {
   const [copied, setCopied] = useState(false);
 
   const recordConsent = async (channel: 'email' | 'sms', destination: string, consentText: string) => {
+    if (!destination) {
+      console.error(`Cannot record ${channel} consent: destination is empty`);
+      return;
+    }
     try {
-      await fetch('/api/consents', {
+      const response = await fetch('/api/consents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -484,6 +488,10 @@ export default function Settings() {
           sourceContext: 'Settings - Notification Preferences'
         })
       });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        console.error(`Failed to record ${channel} consent:`, response.status, error);
+      }
     } catch (error) {
       console.error('Failed to record consent:', error);
     }
@@ -1396,7 +1404,7 @@ CREATE TABLE IF NOT EXISTS alerts_sent (
 
       <div className="flex justify-end gap-4">
         <Button variant="outline">Reset to Defaults</Button>
-        <Button onClick={handleSave} className="gap-2">
+        <Button onClick={handleSave} className="gap-2" data-testid="button-save-notification-prefs">
           <Save className="w-4 h-4" /> Save Changes
         </Button>
       </div>

@@ -2338,7 +2338,7 @@ export async function registerRoutes(
       res.json({
         notificationEmail: user.notificationEmail || user.email || "",
         phone: user.phone || "",
-        notifyEmail: user.notifyEmail ?? true,
+        notifyEmail: user.notifyEmail ?? false,
         notifySms: user.notifySms ?? false,
         timezone: user.timezone || "UTC",
       });

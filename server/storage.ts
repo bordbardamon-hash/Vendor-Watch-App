@@ -604,8 +604,8 @@ export class DatabaseStorage implements IStorage {
         phone: data.phone || null,
         subscriptionTier: data.subscriptionTier || null,
         isAdmin: data.isAdmin || false,
-        notifyEmail: true,
-        notifySms: !!data.phone,
+        notifyEmail: false,
+        notifySms: false,
       })
       .returning();
     return user;

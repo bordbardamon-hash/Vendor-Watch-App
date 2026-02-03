@@ -39,7 +39,7 @@ export const users = pgTable("users", {
   subscriptionTier: varchar("subscription_tier"), // 'essential', 'growth', 'enterprise'
   isAdmin: boolean("is_admin").default(false),
   isOwner: boolean("is_owner").default(false), // Owner receives parser/system alerts
-  notifyEmail: boolean("notify_email").default(true),
+  notifyEmail: boolean("notify_email").default(false),
   notifySms: boolean("notify_sms").default(false),
   // Timezone preference for alerts and dashboard display
   timezone: varchar("timezone").default("UTC"),
