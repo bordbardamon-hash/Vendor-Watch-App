@@ -82,8 +82,8 @@ export default function Consents() {
             Track and manage user opt-in records for compliance with SMS/Email regulations
           </p>
         </div>
-        <Button variant="outline" onClick={() => refetch()} className="gap-2">
-          <RefreshCw className="w-4 h-4" />
+        <Button variant="outline" onClick={() => { queryClient.invalidateQueries({ queryKey: ["/api/consents"] }); refetch(); }} className="gap-2" data-testid="button-refresh-consents">
+          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
       </div>
