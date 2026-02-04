@@ -1446,23 +1446,25 @@ export async function registerRoutes(
     }
   });
 
-  // Test email (protected)
+  // Test email (protected) - uses notification email if set, otherwise account email
   app.post("/api/email/test", isAuthenticated, async (req: any, res) => {
     try {
       const user = await storage.getUser(req.user.id);
-      if (!user?.email) {
-        return res.status(400).json({ error: "No email address on your account" });
+      // Use notification email if set, otherwise fall back to account email
+      const targetEmail = user?.notificationEmail || user?.email;
+      if (!targetEmail) {
+        return res.status(400).json({ error: "No email address configured. Please set your notification email in Settings." });
       }
       
       const { sendEmail } = await import('./emailClient');
       const success = await sendEmail(
-        user.email,
+        targetEmail,
         'Vendor Watch - Test Email',
         `<h1>Test Email</h1><p>This is a test email from Vendor Watch to confirm your email notifications are working correctly.</p><p>If you received this, your email alerts are configured properly!</p>`
       );
       
       if (success) {
-        res.json({ success: true, message: `Test email sent to ${user.email}` });
+        res.json({ success: true, message: `Test email sent to ${targetEmail}` });
       } else {
         res.status(500).json({ error: "Failed to send test email. Check Resend API key configuration." });
       }
