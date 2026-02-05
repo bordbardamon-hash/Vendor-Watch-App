@@ -7,11 +7,11 @@ const OWNER_PHONE = process.env.OWNER_PHONE;
 
 async function getFromEmail(): Promise<string> {
   const fromConfig = await storage.getConfig('email_from');
-  const configuredEmail = fromConfig?.value || 'noreply@vendorwatch.app';
+  const configuredEmail = fromConfig?.value || 'notification@vendorwatch.app';
   // Always use verified domain - never use resend.dev test domain
   if (configuredEmail.includes('resend.dev')) {
     console.log('[email] Overriding resend.dev test domain with verified domain');
-    return 'noreply@vendorwatch.app';
+    return 'notification@vendorwatch.app';
   }
   return configuredEmail;
 }
