@@ -1072,9 +1072,32 @@ CONFIG = AppConfig(
             <CardContent className="space-y-4">
               {subscriptionMode === 'vendors' ? (
                 <>
-                  <p className="text-xs text-muted-foreground flex items-center gap-2">
-                    <GripVertical className="w-3 h-3" /> Drag to reorder vendors. Order is saved automatically.
-                  </p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-muted-foreground flex items-center gap-2">
+                      <GripVertical className="w-3 h-3" /> Drag to reorder vendors. Order is saved automatically.
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        {selectedVendors.length} of {allVendors.length} selected
+                      </span>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setSelectedVendors(allVendors.map(v => v.key))}
+                        data-testid="button-select-all-vendors-top"
+                      >
+                        Select All
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setSelectedVendors([])}
+                        data-testid="button-clear-vendors-top"
+                      >
+                        Clear All
+                      </Button>
+                    </div>
+                  </div>
                   <DndContext
                     sensors={sensors}
                     collisionDetection={closestCenter}
@@ -1166,9 +1189,32 @@ CONFIG = AppConfig(
                 </>
               ) : (
                 <>
-                  <p className="text-xs text-muted-foreground">
-                    Select blockchain networks to monitor for incidents and status changes.
-                  </p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-muted-foreground">
+                      Select blockchain networks to monitor for incidents and status changes.
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        {selectedChains.length} of {allChains.length} selected
+                      </span>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setSelectedChains(allChains.map((c: any) => c.key))}
+                        data-testid="button-select-all-chains-top"
+                      >
+                        Select All
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setSelectedChains([])}
+                        data-testid="button-clear-chains-top"
+                      >
+                        Clear All
+                      </Button>
+                    </div>
+                  </div>
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {[...allChains].sort((a: any, b: any) => a.name.localeCompare(b.name)).map((chain: any) => (
                       <div
