@@ -214,13 +214,14 @@ export async function dispatchIncidentNotification(notification: IncidentNotific
       }
     }
     
-    if (user.notifyEmail && user.email) {
+    const targetEmail = user.notificationEmail || user.email;
+    if (user.notifyEmail && targetEmail) {
       const alreadySent = await storage.hasAlertBeenSent(incident.incidentId, user.id, 'email', eventType, incident.status);
       if (!alreadySent) {
         try {
           const subject = formatEmailSubject(notification);
           const html = formatEmailHtml(notification, user.timezone || 'UTC');
-          const success = await sendEmail(user.email, subject, html);
+          const success = await sendEmail(targetEmail, subject, html);
           if (success) {
             await storage.recordAlert({
               incidentId: incident.incidentId,
@@ -228,15 +229,15 @@ export async function dispatchIncidentNotification(notification: IncidentNotific
               channel: 'email',
               eventType,
               statusSnapshot: incident.status,
-              destination: user.email,
+              destination: targetEmail,
             });
             emailSent++;
-            console.log(`[notify] Email sent to ${user.email} for ${eventType} incident`);
+            console.log(`[notify] Email sent to ${targetEmail} for ${eventType} incident`);
           } else {
-            console.log(`[notify] Email skipped (not configured) for ${user.email}`);
+            console.log(`[notify] Email skipped (not configured) for ${targetEmail}`);
           }
         } catch (error) {
-          errors.push(`Email error for ${user.email}: ${error instanceof Error ? error.message : 'Unknown'}`);
+          errors.push(`Email error for ${targetEmail}: ${error instanceof Error ? error.message : 'Unknown'}`);
         }
       }
     }
@@ -524,13 +525,14 @@ export async function dispatchLifecycleNotification(notification: LifecycleNotif
       }
     }
     
-    if (user.notifyEmail && user.email) {
+    const targetEmail = user.notificationEmail || user.email;
+    if (user.notifyEmail && targetEmail) {
       const alreadySent = await storage.hasAlertBeenSent(incident.incidentId, user.id, 'email', lifecycleEvent, incident.status);
       if (!alreadySent) {
         try {
           const subject = formatLifecycleEmailSubject(notification);
           const html = formatLifecycleEmailHtml(notification, user.timezone || 'UTC');
-          const success = await sendEmail(user.email, subject, html);
+          const success = await sendEmail(targetEmail, subject, html);
           if (success) {
             await storage.recordAlert({
               incidentId: incident.incidentId,
@@ -538,7 +540,7 @@ export async function dispatchLifecycleNotification(notification: LifecycleNotif
               channel: 'email',
               eventType: lifecycleEvent,
               statusSnapshot: incident.status,
-              destination: user.email,
+              destination: targetEmail,
             });
             await recordAlertSent(
               incident.incidentId,
@@ -547,12 +549,12 @@ export async function dispatchLifecycleNotification(notification: LifecycleNotif
               incident.status as CanonicalStatus
             );
             emailSent++;
-            console.log(`[notify] Email sent to ${user.email} for ${lifecycleEvent}`);
+            console.log(`[notify] Email sent to ${targetEmail} for ${lifecycleEvent}`);
           } else {
-            console.log(`[notify] Email skipped (not configured) for ${user.email}`);
+            console.log(`[notify] Email skipped (not configured) for ${targetEmail}`);
           }
         } catch (error: unknown) {
-          errors.push(`Email error for ${user.email}: ${error instanceof Error ? error.message : 'Unknown'}`);
+          errors.push(`Email error for ${targetEmail}: ${error instanceof Error ? error.message : 'Unknown'}`);
         }
       }
     }
@@ -828,7 +830,8 @@ export async function dispatchBlockchainNotification(notification: BlockchainNot
       }
     }
     
-    if (user.notifyEmail && user.email) {
+    const targetEmail = user.notificationEmail || user.email;
+    if (user.notifyEmail && targetEmail) {
       // Use atomic reserve to prevent race condition duplicates
       const reserved = await storage.tryReserveBlockchainAlert({
         incidentId: incident.incidentId,
@@ -836,22 +839,22 @@ export async function dispatchBlockchainNotification(notification: BlockchainNot
         channel: 'email',
         eventType,
         statusSnapshot: incident.status,
-        destination: user.email,
+        destination: targetEmail,
       });
       
       if (reserved) {
         try {
           const subject = formatBlockchainEmailSubject(notification);
           const html = formatBlockchainEmailHtml(notification, user.timezone || 'UTC');
-          const success = await sendEmail(user.email, subject, html);
+          const success = await sendEmail(targetEmail, subject, html);
           if (success) {
             emailSent++;
-            console.log(`[notify] Blockchain email sent to ${user.email} for ${eventType}`);
+            console.log(`[notify] Blockchain email sent to ${targetEmail} for ${eventType}`);
           } else {
-            console.log(`[notify] Blockchain email skipped (not configured) for ${user.email}`);
+            console.log(`[notify] Blockchain email skipped (not configured) for ${targetEmail}`);
           }
         } catch (error) {
-          errors.push(`Blockchain email error for ${user.email}: ${error instanceof Error ? error.message : 'Unknown'}`);
+          errors.push(`Blockchain email error for ${targetEmail}: ${error instanceof Error ? error.message : 'Unknown'}`);
         }
       }
     }
