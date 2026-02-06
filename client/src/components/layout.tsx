@@ -127,7 +127,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         ))}
       </nav>
 
-      <div className="p-2 border-t border-sidebar-border space-y-2">
+      <div className="p-2 border-t border-sidebar-border space-y-2 shrink-0">
         {user && (
           <div className={cn(
             "flex items-center gap-3 px-2 py-2 rounded-md bg-sidebar-accent/30",
@@ -233,7 +233,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Desktop Sidebar */}
       <aside className={cn(
-        "hidden md:flex border-r border-border bg-sidebar flex-col transition-all duration-300",
+        "hidden md:flex border-r border-border bg-sidebar flex-col transition-all duration-300 overflow-hidden",
         sidebarOpen ? "w-64" : "w-16"
       )}>
         <div className="p-4 flex items-center gap-3 border-b border-sidebar-border">
