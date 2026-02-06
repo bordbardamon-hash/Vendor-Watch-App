@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Users, Crown, Shield, Eye, UserPlus, Trash2, Mail, Clock, Building2, Pencil, Settings, Plus, Minus, Armchair } from "lucide-react";
+import { Users, Crown, Shield, Eye, UserPlus, Trash2, Mail, Clock, Building2, Pencil, Settings, Plus, Minus, Armchair, Bell, Search, X, Check } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { normalizeTierDisplay } from "@/lib/utils";
@@ -63,6 +63,28 @@ interface SeatData {
   seatPrice: number;
   supportsSeats: boolean;
   subscriptionTier: string | null;
+}
+
+interface AlertAssignment {
+  id: string;
+  organizationId: string;
+  memberUserId: string;
+  targetType: 'vendor' | 'blockchain';
+  targetKey: string;
+  assignedBy: string;
+  createdAt: string;
+}
+
+interface VendorItem {
+  key: string;
+  name: string;
+  status: string;
+}
+
+interface BlockchainItem {
+  key: string;
+  name: string;
+  status: string;
 }
 
 interface MembersData {
@@ -375,6 +397,84 @@ export default function Team() {
 
   const isMasterAdmin = orgData?.userRole === 'master_admin';
   const domain = user?.email?.split('@')[1] || '';
+
+  const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false);
+  const [selectedMemberForAssignment, setSelectedMemberForAssignment] = useState<Member | null>(null);
+  const [assignmentSearch, setAssignmentSearch] = useState('');
+  const [assignmentTab, setAssignmentTab] = useState<'vendor' | 'blockchain'>('vendor');
+
+  const { data: alertAssignments = [] } = useQuery<AlertAssignment[]>({
+    queryKey: ["/api/org/alert-assignments"],
+    queryFn: async () => {
+      const res = await fetch("/api/org/alert-assignments");
+      if (!res.ok) throw new Error("Failed to fetch alert assignments");
+      const data = await res.json();
+      return data.assignments;
+    },
+    enabled: !!orgData?.organization && isMasterAdmin,
+  });
+
+  const { data: vendors = [] } = useQuery<VendorItem[]>({
+    queryKey: ["/api/vendors"],
+    queryFn: async () => {
+      const res = await fetch("/api/vendors");
+      if (!res.ok) throw new Error("Failed to fetch vendors");
+      return res.json();
+    },
+    enabled: !!orgData?.organization && isMasterAdmin,
+  });
+
+  const { data: blockchains = [] } = useQuery<BlockchainItem[]>({
+    queryKey: ["blockchain-chains-team"],
+    queryFn: async () => {
+      const res = await fetch("/api/blockchain/chains");
+      if (!res.ok) throw new Error("Failed to fetch chains");
+      return res.json();
+    },
+    enabled: !!orgData?.organization && isMasterAdmin,
+  });
+
+  const bulkAssignMutation = useMutation({
+    mutationFn: async ({ memberUserId, assignments }: { memberUserId: string; assignments: { targetType: 'vendor' | 'blockchain'; targetKey: string }[] }) => {
+      const res = await fetch("/api/org/alert-assignments/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ memberUserId, assignments }),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to save assignments");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/org/alert-assignments"] });
+      toast({ title: "Alert Assignments Saved", description: "Vendor alert routing has been updated.", className: "bg-emerald-500 border-emerald-500 text-white" });
+      setAssignmentDialogOpen(false);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteAssignmentMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/org/alert-assignments/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to remove assignment");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/org/alert-assignments"] });
+    },
+  });
+
+  const getMemberAssignments = (userId: string) => alertAssignments.filter(a => a.memberUserId === userId);
+  const getTargetName = (targetType: string, targetKey: string) => {
+    if (targetType === 'vendor') {
+      return vendors.find(v => v.key === targetKey)?.name || targetKey;
+    }
+    return blockchains.find(b => b.key === targetKey)?.name || targetKey;
+  };
 
   if (orgLoading) {
     return (
@@ -978,6 +1078,106 @@ export default function Team() {
         </Card>
       )}
 
+      {isMasterAdmin && orgData?.organization && (
+        <Card className="bg-card border-border" data-testid="card-alert-assignments">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Bell className="h-5 w-5 text-amber-500" />
+              Alert Assignments
+            </CardTitle>
+            <CardDescription>
+              Assign specific vendors or blockchains to team members. When assigned, only those members receive alerts for the assigned services - perfect for delegation and vacation coverage.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {membersData?.members && membersData.members.length > 0 ? (
+              <div className="space-y-3">
+                {membersData.members.map((member) => {
+                  const memberAssigns = getMemberAssignments(member.userId);
+                  return (
+                    <div 
+                      key={member.userId} 
+                      className="p-4 rounded-lg bg-muted/30 border border-border"
+                      data-testid={`assignment-member-${member.userId}`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm font-bold">
+                            {member.user.firstName?.[0]}{member.user.lastName?.[0]}
+                          </div>
+                          <div>
+                            <span className="font-medium text-foreground">{member.user.firstName} {member.user.lastName}</span>
+                            <span className="text-muted-foreground text-sm ml-2">({member.user.email})</span>
+                          </div>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedMemberForAssignment(member);
+                            setAssignmentSearch('');
+                            setAssignmentTab('vendor');
+                            setAssignmentDialogOpen(true);
+                          }}
+                          data-testid={`button-manage-assignments-${member.userId}`}
+                        >
+                          <Settings className="h-4 w-4 mr-1" />
+                          Manage
+                        </Button>
+                      </div>
+                      {memberAssigns.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {memberAssigns.map(a => (
+                            <Badge 
+                              key={a.id} 
+                              variant="outline" 
+                              className={a.targetType === 'vendor' ? 'bg-blue-500/10 text-blue-400 border-blue-500/30' : 'bg-purple-500/10 text-purple-400 border-purple-500/30'}
+                              data-testid={`badge-assignment-${a.id}`}
+                            >
+                              {getTargetName(a.targetType, a.targetKey)}
+                              <button
+                                onClick={() => deleteAssignmentMutation.mutate(a.id)}
+                                className="ml-1 hover:text-destructive"
+                                data-testid={`button-remove-assignment-${a.id}`}
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground mt-1">No assignments - receives alerts for all subscribed services</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-sm">Add team members first to manage alert assignments.</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      <AlertAssignmentDialog
+        open={assignmentDialogOpen}
+        onOpenChange={setAssignmentDialogOpen}
+        member={selectedMemberForAssignment}
+        alertAssignments={alertAssignments}
+        vendors={vendors}
+        blockchains={blockchains}
+        assignmentTab={assignmentTab}
+        onTabChange={setAssignmentTab}
+        search={assignmentSearch}
+        onSearchChange={setAssignmentSearch}
+        onSave={(assignments) => {
+          if (selectedMemberForAssignment) {
+            bulkAssignMutation.mutate({ memberUserId: selectedMemberForAssignment.userId, assignments });
+          }
+        }}
+        isSaving={bulkAssignMutation.isPending}
+      />
+
       <div className="mt-8 text-sm text-muted-foreground">
         <h3 className="font-semibold mb-2">Role Permissions</h3>
         <ul className="space-y-1">
@@ -996,5 +1196,169 @@ export default function Team() {
         </ul>
       </div>
     </div>
+  );
+}
+
+function AlertAssignmentDialog({
+  open,
+  onOpenChange,
+  member,
+  alertAssignments,
+  vendors,
+  blockchains,
+  assignmentTab,
+  onTabChange,
+  search,
+  onSearchChange,
+  onSave,
+  isSaving,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  member: Member | null;
+  alertAssignments: AlertAssignment[];
+  vendors: VendorItem[];
+  blockchains: BlockchainItem[];
+  assignmentTab: 'vendor' | 'blockchain';
+  onTabChange: (tab: 'vendor' | 'blockchain') => void;
+  search: string;
+  onSearchChange: (s: string) => void;
+  onSave: (assignments: { targetType: 'vendor' | 'blockchain'; targetKey: string }[]) => void;
+  isSaving: boolean;
+}) {
+  const existingAssignments = member ? alertAssignments.filter(a => a.memberUserId === member.userId) : [];
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+
+  const initializeSelections = () => {
+    const keys = new Set<string>();
+    existingAssignments.forEach(a => keys.add(`${a.targetType}:${a.targetKey}`));
+    setSelectedKeys(keys);
+  };
+
+  const handleOpenChange = (isOpen: boolean) => {
+    if (isOpen) initializeSelections();
+    onOpenChange(isOpen);
+  };
+
+  const toggleKey = (type: 'vendor' | 'blockchain', key: string) => {
+    const compositeKey = `${type}:${key}`;
+    setSelectedKeys(prev => {
+      const next = new Set(prev);
+      if (next.has(compositeKey)) {
+        next.delete(compositeKey);
+      } else {
+        next.add(compositeKey);
+      }
+      return next;
+    });
+  };
+
+  const handleSave = () => {
+    const assignments = Array.from(selectedKeys).map(ck => {
+      const [targetType, targetKey] = ck.split(':') as ['vendor' | 'blockchain', string];
+      return { targetType, targetKey };
+    });
+    onSave(assignments);
+  };
+
+  const items = assignmentTab === 'vendor' ? vendors : blockchains;
+  const filtered = items.filter(item => 
+    item.name.toLowerCase().includes(search.toLowerCase()) || 
+    item.key.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const vendorCount = Array.from(selectedKeys).filter(k => k.startsWith('vendor:')).length;
+  const blockchainCount = Array.from(selectedKeys).filter(k => k.startsWith('blockchain:')).length;
+
+  if (!member) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-lg max-h-[80vh] flex flex-col" data-testid="dialog-alert-assignments">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Bell className="h-5 w-5 text-amber-500" />
+            Alert Assignments for {member.user.firstName} {member.user.lastName}
+          </DialogTitle>
+          <DialogDescription>
+            Select which vendors and blockchains this member should receive alerts for. 
+            If no assignments are set, they receive alerts for all their subscriptions.
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="flex gap-2 mb-3">
+          <Button
+            variant={assignmentTab === 'vendor' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => onTabChange('vendor')}
+            data-testid="tab-vendors"
+          >
+            Vendors {vendorCount > 0 && <Badge className="ml-1 bg-blue-500/20 text-blue-400">{vendorCount}</Badge>}
+          </Button>
+          <Button
+            variant={assignmentTab === 'blockchain' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => onTabChange('blockchain')}
+            data-testid="tab-blockchains"
+          >
+            Blockchains {blockchainCount > 0 && <Badge className="ml-1 bg-purple-500/20 text-purple-400">{blockchainCount}</Badge>}
+          </Button>
+        </div>
+        
+        <div className="relative mb-3">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder={`Search ${assignmentTab === 'vendor' ? 'vendors' : 'blockchains'}...`}
+            value={search}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="pl-9"
+            data-testid="input-search-assignments"
+          />
+        </div>
+
+        <div className="flex gap-2 mb-2">
+          <Button variant="ghost" size="sm" onClick={() => {
+            const allKeys = new Set(selectedKeys);
+            filtered.forEach(item => allKeys.add(`${assignmentTab}:${item.key}`));
+            setSelectedKeys(allKeys);
+          }} data-testid="button-select-all-assignments">Select All</Button>
+          <Button variant="ghost" size="sm" onClick={() => {
+            const newKeys = new Set(selectedKeys);
+            filtered.forEach(item => newKeys.delete(`${assignmentTab}:${item.key}`));
+            setSelectedKeys(newKeys);
+          }} data-testid="button-clear-all-assignments">Clear All</Button>
+        </div>
+        
+        <div className="overflow-y-auto flex-1 max-h-[300px] border rounded-lg divide-y divide-border">
+          {filtered.length === 0 ? (
+            <div className="p-4 text-center text-muted-foreground text-sm">No results found</div>
+          ) : (
+            filtered.map(item => {
+              const isSelected = selectedKeys.has(`${assignmentTab}:${item.key}`);
+              return (
+                <button
+                  key={item.key}
+                  className={`w-full flex items-center gap-3 p-3 text-left hover:bg-muted/50 transition-colors ${isSelected ? 'bg-primary/5' : ''}`}
+                  onClick={() => toggleKey(assignmentTab, item.key)}
+                  data-testid={`assignment-item-${item.key}`}
+                >
+                  <div className={`w-5 h-5 rounded border flex items-center justify-center ${isSelected ? 'bg-primary border-primary' : 'border-muted-foreground/30'}`}>
+                    {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
+                  </div>
+                  <span className="text-sm font-medium flex-1">{item.name}</span>
+                </button>
+              );
+            })
+          )}
+        </div>
+        
+        <DialogFooter className="mt-4">
+          <Button variant="outline" onClick={() => onOpenChange(false)} data-testid="button-cancel-assignments">Cancel</Button>
+          <Button onClick={handleSave} disabled={isSaving} data-testid="button-save-assignments">
+            {isSaving ? 'Saving...' : `Save (${vendorCount + blockchainCount} assigned)`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

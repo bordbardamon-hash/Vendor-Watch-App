@@ -6066,6 +6066,137 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
     }
   });
   
+  // ============ ALERT ASSIGNMENTS ============
+  
+  app.get("/api/org/alert-assignments", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const userRole = await storage.getUserRole(userId);
+      if (!userRole) return res.status(403).json({ error: "Not in an organization" });
+      
+      const assignments = await storage.getAlertAssignments(userRole.organizationId);
+      res.json({ assignments });
+    } catch (error) {
+      console.error("Error fetching alert assignments:", error);
+      res.status(500).json({ error: "Failed to fetch alert assignments" });
+    }
+  });
+  
+  const alertAssignmentSchema = z.object({
+    memberUserId: z.string(),
+    targetType: z.enum(['vendor', 'blockchain']),
+    targetKey: z.string(),
+  });
+  
+  app.post("/api/org/alert-assignments", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const userRole = await storage.getUserRole(userId);
+      if (!userRole || userRole.role !== 'master_admin') {
+        return res.status(403).json({ error: "Only master admins can manage alert assignments" });
+      }
+      
+      const parsed = alertAssignmentSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request", details: parsed.error.issues });
+      }
+      
+      const { memberUserId, targetType, targetKey } = parsed.data;
+      
+      const existing = await storage.getAssignedUsersForTarget(
+        userRole.organizationId, targetType, targetKey
+      );
+      if (existing.some(a => a.memberUserId === memberUserId)) {
+        return res.status(400).json({ error: "This member is already assigned to this target" });
+      }
+      
+      const assignment = await storage.createAlertAssignment({
+        organizationId: userRole.organizationId,
+        memberUserId,
+        targetType,
+        targetKey,
+        assignedBy: userId,
+      });
+      
+      res.json({ assignment });
+    } catch (error) {
+      console.error("Error creating alert assignment:", error);
+      res.status(500).json({ error: "Failed to create alert assignment" });
+    }
+  });
+  
+  app.post("/api/org/alert-assignments/bulk", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const userRole = await storage.getUserRole(userId);
+      if (!userRole || userRole.role !== 'master_admin') {
+        return res.status(403).json({ error: "Only master admins can manage alert assignments" });
+      }
+      
+      const bulkSchema = z.object({
+        memberUserId: z.string(),
+        assignments: z.array(z.object({
+          targetType: z.enum(['vendor', 'blockchain']),
+          targetKey: z.string(),
+        })),
+      });
+      
+      const parsed = bulkSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request" });
+      }
+      
+      const { memberUserId, assignments } = parsed.data;
+      
+      await storage.deleteAlertAssignmentsByMember(userRole.organizationId, memberUserId);
+      
+      const created = [];
+      for (const a of assignments) {
+        const assignment = await storage.createAlertAssignment({
+          organizationId: userRole.organizationId,
+          memberUserId,
+          targetType: a.targetType,
+          targetKey: a.targetKey,
+          assignedBy: userId,
+        });
+        created.push(assignment);
+      }
+      
+      res.json({ assignments: created });
+    } catch (error) {
+      console.error("Error bulk updating alert assignments:", error);
+      res.status(500).json({ error: "Failed to update alert assignments" });
+    }
+  });
+  
+  app.delete("/api/org/alert-assignments/:assignmentId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const userRole = await storage.getUserRole(userId);
+      if (!userRole || userRole.role !== 'master_admin') {
+        return res.status(403).json({ error: "Only master admins can manage alert assignments" });
+      }
+      
+      const deleted = await storage.deleteAlertAssignment(req.params.assignmentId);
+      if (!deleted) {
+        return res.status(404).json({ error: "Assignment not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting alert assignment:", error);
+      res.status(500).json({ error: "Failed to delete alert assignment" });
+    }
+  });
+  
   // Get invitation details (public - used for accepting)
   app.get("/api/org/invitations/accept/:token", async (req: any, res) => {
     try {

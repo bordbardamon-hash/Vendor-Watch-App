@@ -65,3 +65,13 @@ Key entities include Users, Sessions, Vendors, Incidents, Jobs, Configurations, 
 ### Vendor/Blockchain Coverage
 - 75 vendors monitored across cloud, SaaS, security, and enterprise categories (all with working automatic monitoring)
 - 110 blockchain networks monitored including L1/L2 chains, DeFi, NFT marketplaces, exchanges, and RPC providers
+
+## Recent Changes (February 2026)
+
+### Alert Assignment System
+- New `org_alert_assignments` table for delegating vendor/blockchain monitoring to specific team members
+- Master admins can assign vendors and blockchains to individual team members via Team Management page
+- Notification dispatchers (vendor, lifecycle, blockchain) now check for alert assignments and route notifications only to assigned members
+- When no assignments exist for a target, default behavior is preserved (all subscribed users get notified)
+- Bulk assignment API (`/api/org/alert-assignments/bulk`) replaces all assignments for a member at once
+- UI includes searchable vendor/blockchain picker dialog with Select All/Clear All controls

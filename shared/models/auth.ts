@@ -117,6 +117,21 @@ export const insertOrganizationInvitationSchema = createInsertSchema(organizatio
 export type InsertOrganizationInvitation = z.infer<typeof insertOrganizationInvitationSchema>;
 export type OrganizationInvitation = typeof organizationInvitations.$inferSelect;
 
+// Alert Assignments - master admins assign specific vendors/blockchains to team members
+export const orgAlertAssignments = pgTable("org_alert_assignments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull(),
+  memberUserId: varchar("member_user_id").notNull(),
+  targetType: varchar("target_type").notNull(), // 'vendor' or 'blockchain'
+  targetKey: varchar("target_key").notNull(),
+  assignedBy: varchar("assigned_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertOrgAlertAssignmentSchema = createInsertSchema(orgAlertAssignments).omit({ id: true, createdAt: true });
+export type InsertOrgAlertAssignment = z.infer<typeof insertOrgAlertAssignmentSchema>;
+export type OrgAlertAssignment = typeof orgAlertAssignments.$inferSelect;
+
 // Mobile auth tokens table - for native mobile app authentication
 export const mobileAuthTokens = pgTable("mobile_auth_tokens", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

@@ -9,6 +9,19 @@ import type { Incident, Vendor, User, LifecycleEvent, CanonicalSeverity, Canonic
 
 type EventType = 'new' | 'update' | 'resolved';
 
+async function getAssignedUserIds(targetType: 'vendor' | 'blockchain', targetKey: string): Promise<string[] | null> {
+  try {
+    const assignments = await storage.getGlobalAssignmentsForTarget(targetType, targetKey);
+    if (assignments.length > 0) {
+      return assignments.map(a => a.memberUserId);
+    }
+    return null;
+  } catch (error) {
+    console.error(`[notify] Error checking alert assignments for ${targetType}:${targetKey}:`, error);
+    return null;
+  }
+}
+
 interface IncidentNotification {
   incident: Incident;
   vendor: Vendor;
@@ -163,16 +176,23 @@ export async function dispatchIncidentNotification(notification: IncidentNotific
   
   const usersWithNotifications = await storage.getUsersWithNotificationsEnabled();
   
+  const assignedUserIds = await getAssignedUserIds('vendor', vendor.key);
+  if (assignedUserIds) {
+    console.log(`[notify] Alert assignments found for vendor ${vendor.key}: ${assignedUserIds.length} assigned users`);
+  }
+  
   for (const user of usersWithNotifications) {
-    const hasSetSubscriptions = await storage.hasUserSetSubscriptions(user.id);
+    if (assignedUserIds && !assignedUserIds.includes(user.id)) {
+      console.log(`[notify] Skipping ${user.email} - vendor ${vendor.key} assigned to other team members`);
+      continue;
+    }
+    
     const userSubscriptions = await storage.getUserVendorSubscriptions(user.id);
     
     let isSubscribed: boolean;
     if (userSubscriptions.length > 0) {
-      // User has specific subscriptions - only notify for those vendors
       isSubscribed = userSubscriptions.includes(vendor.key);
     } else {
-      // No subscriptions = no notifications (opt-in only)
       isSubscribed = false;
     }
     
@@ -464,16 +484,22 @@ export async function dispatchLifecycleNotification(notification: LifecycleNotif
   
   const usersWithNotifications = await storage.getUsersWithNotificationsEnabled();
   
+  const assignedUserIds = await getAssignedUserIds('vendor', vendor.key);
+  if (assignedUserIds) {
+    console.log(`[notify] Alert assignments found for lifecycle vendor ${vendor.key}: ${assignedUserIds.length} assigned users`);
+  }
+  
   for (const user of usersWithNotifications) {
-    const hasSetSubscriptions = await storage.hasUserSetSubscriptions(user.id);
+    if (assignedUserIds && !assignedUserIds.includes(user.id)) {
+      continue;
+    }
+    
     const userSubscriptions = await storage.getUserVendorSubscriptions(user.id);
     
     let isSubscribed: boolean;
     if (userSubscriptions.length > 0) {
-      // User has specific subscriptions - only notify for those vendors
       isSubscribed = userSubscriptions.includes(vendor.key);
     } else {
-      // No subscriptions = no notifications (opt-in only)
       isSubscribed = false;
     }
     
@@ -778,16 +804,23 @@ export async function dispatchBlockchainNotification(notification: BlockchainNot
   
   const usersWithNotifications = await storage.getUsersWithNotificationsEnabled();
   
+  const assignedUserIds = await getAssignedUserIds('blockchain', chain.key);
+  if (assignedUserIds) {
+    console.log(`[notify] Alert assignments found for blockchain ${chain.key}: ${assignedUserIds.length} assigned users`);
+  }
+  
   for (const user of usersWithNotifications) {
-    const hasSetSubscriptions = await storage.hasUserSetBlockchainSubscriptions(user.id);
+    if (assignedUserIds && !assignedUserIds.includes(user.id)) {
+      console.log(`[notify] Skipping ${user.email} - blockchain ${chain.key} assigned to other team members`);
+      continue;
+    }
+    
     const userSubscriptions = await storage.getUserBlockchainSubscriptions(user.id);
     
     let isSubscribed: boolean;
     if (userSubscriptions.length > 0) {
-      // User has specific blockchain subscriptions - only notify for those chains
       isSubscribed = userSubscriptions.includes(chain.key);
     } else {
-      // No subscriptions = no notifications (opt-in only)
       isSubscribed = false;
     }
     

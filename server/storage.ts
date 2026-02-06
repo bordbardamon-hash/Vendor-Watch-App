@@ -4,7 +4,7 @@ import {
   vendorMaintenances, blockchainMaintenances, userActivityEvents, vendorDailyMetrics, psaWebhooks,
   slaContracts, slaBreaches, syntheticProbes, syntheticProbeResults,
   clients, clientVendorLinks, incidentPlaybooks, incidentPlaybookSteps, userIntegrations,
-  organizations, organizationMembers, organizationInvitations,
+  organizations, organizationMembers, organizationInvitations, orgAlertAssignments,
   clientPortals, portalVendorAssignments, portalSubscribers,
   psaIntegrations, psaTicketRules, psaTicketLinks,
   vendorTelemetryMetrics, outagePredictions, predictionPatterns,
@@ -13,6 +13,7 @@ import {
   type Organization, type InsertOrganization,
   type OrganizationMember, type InsertOrganizationMember,
   type OrganizationInvitation, type InsertOrganizationInvitation,
+  type OrgAlertAssignment, type InsertOrgAlertAssignment,
   type MemberRole,
   type User, type UpsertUser,
   type Vendor, type InsertVendor,
@@ -392,6 +393,15 @@ export interface IStorage {
   createOrganizationInvitation(invitation: InsertOrganizationInvitation): Promise<OrganizationInvitation>;
   updateInvitationStatus(id: string, status: string): Promise<OrganizationInvitation | undefined>;
   deleteOrganizationInvitation(id: string): Promise<boolean>;
+  
+  // Alert Assignments
+  getAlertAssignments(orgId: string): Promise<OrgAlertAssignment[]>;
+  getAlertAssignmentsForMember(orgId: string, userId: string): Promise<OrgAlertAssignment[]>;
+  getAssignedUsersForTarget(orgId: string, targetType: string, targetKey: string): Promise<OrgAlertAssignment[]>;
+  createAlertAssignment(assignment: InsertOrgAlertAssignment): Promise<OrgAlertAssignment>;
+  deleteAlertAssignment(id: string): Promise<boolean>;
+  deleteAlertAssignmentsByMember(orgId: string, userId: string): Promise<void>;
+  getGlobalAssignmentsForTarget(targetType: string, targetKey: string): Promise<OrgAlertAssignment[]>;
   
   // ============ CLIENT PORTALS ============
   getClientPortals(userId: string): Promise<ClientPortal[]>;
@@ -2827,6 +2837,58 @@ export class DatabaseStorage implements IStorage {
       .where(eq(organizationInvitations.id, id))
       .returning();
     return result.length > 0;
+  }
+
+  // Alert Assignments
+  async getAlertAssignments(orgId: string): Promise<OrgAlertAssignment[]> {
+    return db.select().from(orgAlertAssignments)
+      .where(eq(orgAlertAssignments.organizationId, orgId))
+      .orderBy(desc(orgAlertAssignments.createdAt));
+  }
+
+  async getAlertAssignmentsForMember(orgId: string, userId: string): Promise<OrgAlertAssignment[]> {
+    return db.select().from(orgAlertAssignments)
+      .where(and(
+        eq(orgAlertAssignments.organizationId, orgId),
+        eq(orgAlertAssignments.memberUserId, userId)
+      ));
+  }
+
+  async getAssignedUsersForTarget(orgId: string, targetType: string, targetKey: string): Promise<OrgAlertAssignment[]> {
+    return db.select().from(orgAlertAssignments)
+      .where(and(
+        eq(orgAlertAssignments.organizationId, orgId),
+        eq(orgAlertAssignments.targetType, targetType),
+        eq(orgAlertAssignments.targetKey, targetKey)
+      ));
+  }
+
+  async createAlertAssignment(assignment: InsertOrgAlertAssignment): Promise<OrgAlertAssignment> {
+    const [created] = await db.insert(orgAlertAssignments).values(assignment).returning();
+    return created;
+  }
+
+  async deleteAlertAssignment(id: string): Promise<boolean> {
+    const result = await db.delete(orgAlertAssignments)
+      .where(eq(orgAlertAssignments.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async deleteAlertAssignmentsByMember(orgId: string, userId: string): Promise<void> {
+    await db.delete(orgAlertAssignments)
+      .where(and(
+        eq(orgAlertAssignments.organizationId, orgId),
+        eq(orgAlertAssignments.memberUserId, userId)
+      ));
+  }
+
+  async getGlobalAssignmentsForTarget(targetType: string, targetKey: string): Promise<OrgAlertAssignment[]> {
+    return db.select().from(orgAlertAssignments)
+      .where(and(
+        eq(orgAlertAssignments.targetType, targetType),
+        eq(orgAlertAssignments.targetKey, targetKey)
+      ));
   }
 
   // ============ CLIENT PORTALS ============
