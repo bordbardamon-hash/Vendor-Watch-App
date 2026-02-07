@@ -89,7 +89,13 @@ async function initStripe() {
 
     stripeSync.syncBackfill()
       .then(() => console.log('[stripe] Stripe data synced'))
-      .catch((err: Error) => console.error('[stripe] Error syncing Stripe data:', err));
+      .catch((err: any) => {
+        if (err?.code === 'resource_missing' || err?.statusCode === 404) {
+          console.log('[stripe] Stripe sync: some resources no longer exist in Stripe (this is normal after deletions)');
+        } else {
+          console.error('[stripe] Error syncing Stripe data:', err);
+        }
+      });
   } catch (error) {
     console.error('[stripe] Failed to initialize Stripe:', error);
   }
