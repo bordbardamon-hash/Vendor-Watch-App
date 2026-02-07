@@ -70,8 +70,8 @@ export function determineLifecycleEvent(
   currentSeverity: CanonicalSeverity,
   isNew: boolean
 ): LifecycleEvent {
-  if (isNew) return 'new';
   if (currentStatus === 'resolved') return 'resolved';
+  if (isNew) return 'new';
   
   const severityOrder: Record<CanonicalSeverity, number> = {
     'info': 0,
