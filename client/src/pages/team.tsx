@@ -549,31 +549,31 @@ export default function Team() {
   const organization = orgData.organization;
 
   return (
-    <div className="container mx-auto py-8 px-4 max-w-4xl">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
-          <Users className="h-8 w-8 text-primary" />
+    <div className="container mx-auto py-6 md:py-8 px-3 md:px-4 max-w-4xl">
+      <div className="mb-6 md:mb-8">
+        <h1 className="text-2xl md:text-3xl font-bold text-foreground flex items-center gap-3">
+          <Users className="h-7 w-7 md:h-8 md:w-8 text-primary" />
           Team Management
         </h1>
-        <p className="text-muted-foreground mt-2">
+        <p className="text-muted-foreground mt-2 text-sm md:text-base">
           Manage your organization's team members and their access levels.
         </p>
       </div>
 
       <Card className="bg-card border-border mb-6">
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Building2 className="h-5 w-5" />
-                {organization.name}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="min-w-0">
+              <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                <Building2 className="h-5 w-5 shrink-0" />
+                <span className="truncate">{organization.name}</span>
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-xs md:text-sm">
                 Domain: @{organization.primaryDomain}
               </CardDescription>
             </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-sm">
+            <div className="flex items-center gap-2 shrink-0">
+              <Badge variant="outline" className="text-xs md:text-sm">
                 {normalizeTierDisplay(organization.subscriptionTier)}
               </Badge>
               {isMasterAdmin && (
@@ -660,7 +660,7 @@ export default function Team() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-3 md:gap-4 text-xs md:text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
               <Crown className="h-4 w-4 text-amber-500" />
               <span>{orgData.masterAdminCount} / {orgData.maxMasterAdmins} Master Admins</span>
@@ -896,8 +896,8 @@ export default function Team() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex gap-3 flex-wrap">
-              <div className="flex-1 min-w-[200px]">
+            <div className="space-y-3 md:space-y-0 md:flex md:gap-3 md:flex-wrap">
+              <div className="flex-1 min-w-0 md:min-w-[200px]">
                 <Input
                   type="email"
                   placeholder={`colleague@${organization.primaryDomain}`}
@@ -906,29 +906,32 @@ export default function Team() {
                   data-testid="input-invite-email"
                 />
               </div>
-              <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as MemberRole)}>
-                <SelectTrigger className="w-[160px]" data-testid="select-invite-role">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="member_ro">Read-Only</SelectItem>
-                  <SelectItem value="member_rw">Read/Write</SelectItem>
-                  <SelectItem 
-                    value="master_admin" 
-                    disabled={orgData.masterAdminCount >= orgData.maxMasterAdmins}
-                  >
-                    Master Admin
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-              <Button 
-                onClick={() => inviteMutation.mutate({ email: inviteEmail, role: inviteRole })}
-                disabled={!inviteEmail || inviteMutation.isPending}
-                data-testid="button-send-invite"
-              >
-                <Mail className="h-4 w-4 mr-2" />
-                {inviteMutation.isPending ? "Sending..." : "Send Invite"}
-              </Button>
+              <div className="flex gap-2">
+                <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as MemberRole)}>
+                  <SelectTrigger className="w-[130px] md:w-[160px]" data-testid="select-invite-role">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="member_ro">Read-Only</SelectItem>
+                    <SelectItem value="member_rw">Read/Write</SelectItem>
+                    <SelectItem 
+                      value="master_admin" 
+                      disabled={orgData.masterAdminCount >= orgData.maxMasterAdmins}
+                    >
+                      Master Admin
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button 
+                  onClick={() => inviteMutation.mutate({ email: inviteEmail, role: inviteRole })}
+                  disabled={!inviteEmail || inviteMutation.isPending}
+                  className="flex-1 md:flex-initial"
+                  data-testid="button-send-invite"
+                >
+                  <Mail className="h-4 w-4 mr-2" />
+                  {inviteMutation.isPending ? "Sending..." : "Invite"}
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -946,80 +949,82 @@ export default function Team() {
               {membersData?.members?.map((member) => (
                 <div 
                   key={member.id} 
-                  className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border"
+                  className="p-3 rounded-lg bg-muted/50 border border-border"
                   data-testid={`member-row-${member.userId}`}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                      {roleIcons[member.role]}
-                    </div>
-                    <div>
-                      <div className="font-medium text-foreground">
-                        {member.user.firstName} {member.user.lastName}
-                        {member.userId === user?.id && (
-                          <span className="text-muted-foreground text-sm ml-2">(You)</span>
-                        )}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                        {roleIcons[member.role]}
                       </div>
-                      <div className="text-sm text-muted-foreground">{member.user.email}</div>
+                      <div className="min-w-0">
+                        <div className="font-medium text-foreground text-sm md:text-base truncate">
+                          {member.user.firstName} {member.user.lastName}
+                          {member.userId === user?.id && (
+                            <span className="text-muted-foreground text-xs md:text-sm ml-1">(You)</span>
+                          )}
+                        </div>
+                        <div className="text-xs md:text-sm text-muted-foreground truncate">{member.user.email}</div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {isMasterAdmin && member.userId !== user?.id ? (
-                      <>
-                        <Select 
-                          value={member.role} 
-                          onValueChange={(v) => updateRoleMutation.mutate({ memberId: member.userId, role: v as MemberRole })}
-                        >
-                          <SelectTrigger className="w-[140px]" data-testid={`select-role-${member.userId}`}>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="member_ro">Read-Only</SelectItem>
-                            <SelectItem value="member_rw">Read/Write</SelectItem>
-                            <SelectItem 
-                              value="master_admin"
-                              disabled={member.role !== 'master_admin' && orgData.masterAdminCount >= orgData.maxMasterAdmins}
-                            >
-                              Master Admin
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="text-destructive hover:text-destructive"
-                              data-testid={`button-remove-${member.userId}`}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Remove Team Member?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                This will remove {member.user.firstName} {member.user.lastName} from the organization. 
-                                They will lose access to all shared resources.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction 
-                                onClick={() => removeMemberMutation.mutate(member.userId)}
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    <div className="flex items-center gap-2 shrink-0">
+                      {isMasterAdmin && member.userId !== user?.id ? (
+                        <>
+                          <Select 
+                            value={member.role} 
+                            onValueChange={(v) => updateRoleMutation.mutate({ memberId: member.userId, role: v as MemberRole })}
+                          >
+                            <SelectTrigger className="w-[110px] md:w-[140px] text-xs md:text-sm" data-testid={`select-role-${member.userId}`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="member_ro">Read-Only</SelectItem>
+                              <SelectItem value="member_rw">Read/Write</SelectItem>
+                              <SelectItem 
+                                value="master_admin"
+                                disabled={member.role !== 'master_admin' && orgData.masterAdminCount >= orgData.maxMasterAdmins}
                               >
-                                Remove
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </>
-                    ) : (
-                      <Badge variant="outline" className={roleBadgeColors[member.role]}>
-                        {roleLabels[member.role]}
-                      </Badge>
-                    )}
+                                Master Admin
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="text-destructive hover:text-destructive h-8 w-8"
+                                data-testid={`button-remove-${member.userId}`}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Remove Team Member?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This will remove {member.user.firstName} {member.user.lastName} from the organization. 
+                                  They will lose access to all shared resources.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction 
+                                  onClick={() => removeMemberMutation.mutate(member.userId)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  Remove
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </>
+                      ) : (
+                        <Badge variant="outline" className={`text-xs ${roleBadgeColors[member.role]}`}>
+                          {roleLabels[member.role]}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -1041,35 +1046,37 @@ export default function Team() {
               {membersData.invitations.map((invitation) => (
                 <div 
                   key={invitation.id} 
-                  className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-dashed border-border"
+                  className="p-3 rounded-lg bg-muted/30 border border-dashed border-border"
                   data-testid={`invitation-row-${invitation.id}`}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                      <Mail className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <div className="font-medium text-foreground">{invitation.email}</div>
-                      <div className="text-sm text-muted-foreground">
-                        Expires {new Date(invitation.expiresAt).toLocaleDateString()}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
+                        <Mail className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-medium text-foreground text-sm md:text-base truncate">{invitation.email}</div>
+                        <div className="text-xs md:text-sm text-muted-foreground">
+                          Expires {new Date(invitation.expiresAt).toLocaleDateString()}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Badge variant="outline" className={roleBadgeColors[invitation.role]}>
-                      {roleLabels[invitation.role]}
-                    </Badge>
-                    {isMasterAdmin && (
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="text-muted-foreground hover:text-destructive"
-                        onClick={() => cancelInvitationMutation.mutate(invitation.id)}
-                        data-testid={`button-cancel-invite-${invitation.id}`}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Badge variant="outline" className={`text-xs ${roleBadgeColors[invitation.role]}`}>
+                        {roleLabels[invitation.role]}
+                      </Badge>
+                      {isMasterAdmin && (
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="text-muted-foreground hover:text-destructive h-8 w-8"
+                          onClick={() => cancelInvitationMutation.mutate(invitation.id)}
+                          data-testid={`button-cancel-invite-${invitation.id}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -1097,22 +1104,25 @@ export default function Team() {
                   return (
                     <div 
                       key={member.userId} 
-                      className="p-4 rounded-lg bg-muted/30 border border-border"
+                      className="p-3 md:p-4 rounded-lg bg-muted/30 border border-border"
                       data-testid={`assignment-member-${member.userId}`}
                     >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm font-bold">
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <div className="flex items-center gap-2 md:gap-3 min-w-0">
+                          <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs md:text-sm font-bold shrink-0">
                             {member.user.firstName?.[0]}{member.user.lastName?.[0]}
                           </div>
-                          <div>
-                            <span className="font-medium text-foreground">{member.user.firstName} {member.user.lastName}</span>
-                            <span className="text-muted-foreground text-sm ml-2">({member.user.email})</span>
+                          <div className="min-w-0">
+                            <div className="font-medium text-foreground text-sm md:text-base truncate">
+                              {member.user.firstName} {member.user.lastName}
+                            </div>
+                            <div className="text-muted-foreground text-xs truncate">{member.user.email}</div>
                           </div>
                         </div>
                         <Button
                           variant="outline"
                           size="sm"
+                          className="shrink-0 text-xs md:text-sm h-8"
                           onClick={() => {
                             setSelectedMemberForAssignment(member);
                             setAssignmentSearch('');
@@ -1121,7 +1131,7 @@ export default function Team() {
                           }}
                           data-testid={`button-manage-assignments-${member.userId}`}
                         >
-                          <Settings className="h-4 w-4 mr-1" />
+                          <Settings className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1" />
                           Manage
                         </Button>
                       </div>
@@ -1178,20 +1188,20 @@ export default function Team() {
         isSaving={bulkAssignMutation.isPending}
       />
 
-      <div className="mt-8 text-sm text-muted-foreground">
+      <div className="mt-6 md:mt-8 mb-6 text-xs md:text-sm text-muted-foreground">
         <h3 className="font-semibold mb-2">Role Permissions</h3>
-        <ul className="space-y-1">
-          <li className="flex items-center gap-2">
-            <Crown className="h-4 w-4 text-amber-500" />
-            <strong>Master Admin:</strong> Full access - can invite/remove members, change roles, and manage all settings
+        <ul className="space-y-2">
+          <li className="flex items-start gap-2">
+            <Crown className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+            <div><strong>Master Admin:</strong> Full access - can invite/remove members, change roles, and manage all settings</div>
           </li>
-          <li className="flex items-center gap-2">
-            <Shield className="h-4 w-4 text-blue-500" />
-            <strong>Read/Write:</strong> Can modify settings, acknowledge incidents, and manage vendor subscriptions
+          <li className="flex items-start gap-2">
+            <Shield className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+            <div><strong>Read/Write:</strong> Can modify settings, acknowledge incidents, and manage vendor subscriptions</div>
           </li>
-          <li className="flex items-center gap-2">
-            <Eye className="h-4 w-4 text-slate-500" />
-            <strong>Read-Only:</strong> Can view dashboards, incidents, and reports but cannot make changes
+          <li className="flex items-start gap-2">
+            <Eye className="h-4 w-4 text-slate-500 shrink-0 mt-0.5" />
+            <div><strong>Read-Only:</strong> Can view dashboards, incidents, and reports but cannot make changes</div>
           </li>
         </ul>
       </div>
@@ -1274,7 +1284,7 @@ function AlertAssignmentDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-lg max-h-[80vh] flex flex-col" data-testid="dialog-alert-assignments">
+      <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[80vh] flex flex-col" data-testid="dialog-alert-assignments">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Bell className="h-5 w-5 text-amber-500" />

@@ -151,22 +151,21 @@ export default function Jobs() {
   }
 
   return (
-    <div className="p-8 space-y-8 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Job Scheduler</h1>
-            <p className="text-muted-foreground mt-1">Manage and monitor your Python monitoring tasks</p>
+    <div className="p-4 md:p-8 space-y-6 md:space-y-8 max-w-7xl mx-auto">
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+          <div className="min-w-0">
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Job Scheduler</h1>
+            <p className="text-muted-foreground mt-1 text-sm md:text-base">Manage and monitor your monitoring tasks</p>
           </div>
-          <div className="h-8 w-px bg-border mx-2" />
-          <div className="flex items-center gap-2 bg-sidebar/50 px-3 py-1.5 rounded-full border border-sidebar-border">
+          <div className="flex items-center gap-2 bg-sidebar/50 px-3 py-1.5 rounded-full border border-sidebar-border w-fit shrink-0">
             <div className={`w-2 h-2 rounded-full ${schedulerActive ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
             <span className="text-xs font-mono text-muted-foreground">
               SCHEDULER: {schedulerActive ? 'ONLINE' : 'HALTED'}
             </span>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
             <Button 
                 variant="outline" 
                 size="sm"
@@ -190,7 +189,7 @@ export default function Jobs() {
                 data-testid="button-toggle-scheduler"
             >
                 {schedulerActive ? <Pause className="w-4 h-4 mr-2" /> : <Play className="w-4 h-4 mr-2" />}
-                {schedulerActive ? "Pause System" : "Resume System"}
+                {schedulerActive ? "Pause" : "Resume"}
             </Button>
             <NewJobDialog />
         </div>
@@ -222,9 +221,9 @@ export default function Jobs() {
                       </Badge>
                     )}
                   </div>
-                  <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm text-muted-foreground font-mono">
-                    <span className="flex items-center gap-1 truncate"><Globe size={12} /> <span className="truncate max-w-[120px] md:max-w-none">{job.target}</span></span>
-                    <span className="flex items-center gap-1"><Clock size={12} /> {job.schedule}</span>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs md:text-sm text-muted-foreground font-mono">
+                    <span className="flex items-center gap-1 min-w-0"><Globe size={12} className="shrink-0" /> <span className="truncate max-w-[140px] sm:max-w-[200px] md:max-w-none">{job.target}</span></span>
+                    <span className="flex items-center gap-1 shrink-0"><Clock size={12} /> {job.schedule}</span>
                     <span className="text-xs opacity-50 hidden md:inline">Last: {formatLastRun(job.lastRun)}</span>
                   </div>
                 </div>
