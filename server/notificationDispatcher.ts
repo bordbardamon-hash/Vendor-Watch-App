@@ -77,10 +77,10 @@ function formatEmailSubject(notification: IncidentNotification): string {
   const { incident, vendor, eventType } = notification;
   
   const prefix = eventType === 'resolved' 
-    ? '[RESOLVED]' 
+    ? '✅ [RESOLVED]' 
     : eventType === 'new' 
-    ? '[NEW INCIDENT]' 
-    : '[UPDATE]';
+    ? '🚨 [NEW INCIDENT]' 
+    : '⚠️ [UPDATE]';
   
   return sanitizeSubject(`${prefix} ${vendor.name}: ${incident.title}`);
 }
@@ -97,10 +97,10 @@ function formatEmailHtml(notification: IncidentNotification, timezone: string = 
     : '#eab308';
   
   const eventLabel = eventType === 'resolved' 
-    ? 'Incident Resolved' 
+    ? '✅ Incident Resolved' 
     : eventType === 'new' 
-    ? 'New Incident Detected' 
-    : 'Incident Update';
+    ? '🚨 New Incident Detected' 
+    : '⚠️ Incident Update';
   
   return `
 <!DOCTYPE html>
@@ -345,11 +345,11 @@ function formatLifecycleEmailSubject(notification: LifecycleNotification): strin
   const { incident, vendor, lifecycleEvent } = notification;
   
   const prefixes: Record<LifecycleEvent, string> = {
-    'new': '[NEW INCIDENT]',
-    'escalation': '[ESCALATED]',
-    'update': '[UPDATE]',
-    'resolved': '[RESOLVED]',
-    'long_running': '[LONG RUNNING]',
+    'new': '🚨 [NEW INCIDENT]',
+    'escalation': '⬆️ [ESCALATED]',
+    'update': '📝 [UPDATE]',
+    'resolved': '✅ [RESOLVED]',
+    'long_running': '⏰ [LONG RUNNING]',
   };
   
   const prefix = prefixes[lifecycleEvent] || '[UPDATE]';
@@ -374,11 +374,11 @@ function formatLifecycleEmailHtml(notification: LifecycleNotification, timezone:
   const statusColor = lifecycleEvent === 'resolved' ? '#22c55e' : severityColors[severity] || '#eab308';
   
   const eventTitles: Record<LifecycleEvent, string> = {
-    'new': 'New Incident Detected',
-    'escalation': 'Incident Escalated',
-    'update': 'Incident Update',
-    'resolved': 'Incident Resolved',
-    'long_running': 'Long Running Incident',
+    'new': '🚨 New Incident Detected',
+    'escalation': '⬆️ Incident Escalated',
+    'update': '📝 Incident Update',
+    'resolved': '✅ Incident Resolved',
+    'long_running': '⏰ Long Running Incident',
   };
   
   const eventTitle = eventTitles[lifecycleEvent] || 'Incident Update';
@@ -698,10 +698,10 @@ function formatBlockchainEmailSubject(notification: BlockchainNotification): str
   const { incident, chain, eventType } = notification;
   
   const prefix = eventType === 'resolved' 
-    ? '[RESOLVED]' 
+    ? '✅ [RESOLVED]' 
     : eventType === 'new' 
-    ? '[NEW INCIDENT]' 
-    : '[UPDATE]';
+    ? '🚨 [NEW INCIDENT]' 
+    : '⚠️ [UPDATE]';
   
   return sanitizeSubject(`${prefix} Blockchain: ${chain.name} - ${incident.title}`);
 }
@@ -718,10 +718,10 @@ function formatBlockchainEmailHtml(notification: BlockchainNotification, timezon
     : '#eab308';
   
   const eventLabel = eventType === 'resolved' 
-    ? 'Incident Resolved' 
+    ? '✅ Incident Resolved' 
     : eventType === 'new' 
-    ? 'New Blockchain Incident' 
-    : 'Incident Update';
+    ? '🚨 New Blockchain Incident' 
+    : '⚠️ Incident Update';
   
   const tierLabel = chain.tier === '1' ? 'Tier 1 (Core)' : chain.tier === '2' ? 'Tier 2 (Infrastructure)' : chain.tier === '3' ? 'Tier 3 (Enterprise)' : 'Tier 4 (Dependencies)';
   
