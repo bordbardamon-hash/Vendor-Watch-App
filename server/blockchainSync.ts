@@ -2,6 +2,7 @@ import { storage } from "./storage";
 import { fetchWithRetry } from "./retryUtil";
 import { notifyNewBlockchainIncident, notifyBlockchainIncidentUpdate, notifyBlockchainIncidentResolved } from "./notificationDispatcher";
 import { OrchestratorEngine } from "./orchestrator";
+import { confirmBlockchainIncident, cleanupStalePendingIncidents } from "./incidentConfirmation";
 import type { BlockchainChain } from "@shared/schema";
 
 const orchestrator = new OrchestratorEngine();
@@ -311,6 +312,12 @@ async function syncBlockchainChain(chainData: { key: string; name: string; sourc
         }
       }
     } else {
+      const isConfirmed = confirmBlockchainIncident(chainData.key, incident.id, incident);
+      if (!isConfirmed) {
+        console.log(`[blockchain:${chainData.key}] Pending confirmation: ${incident.name}`);
+        continue;
+      }
+
       const newIncident = await storage.createBlockchainIncident({
         chainKey: chainData.key,
         incidentId: incident.id,
@@ -322,7 +329,7 @@ async function syncBlockchainChain(chainData: { key: string; name: string; sourc
         startedAt: incident.created_at,
         updatedAt: incident.updated_at,
       });
-      console.log(`[blockchain:${chainData.key}] Created incident: ${incident.name}`);
+      console.log(`[blockchain:${chainData.key}] Created incident (confirmed): ${incident.name}`);
       
       await notifyNewBlockchainIncident(newIncident, fullChain);
       await orchestrator.processBlockchainIncident(newIncident, 'newBlockchainIncident');
@@ -390,6 +397,19 @@ export async function syncAllBlockchainChains(): Promise<void> {
       console.error(`[blockchain:${chain.key}] Sync error:`, error);
     }
     await new Promise(resolve => setTimeout(resolve, 200));
+  }
+  
+  cleanupStalePendingIncidents();
+  
+  try {
+    await storage.upsertHealthState('blockchain_sync', {
+      status: 'healthy',
+      lastRunAt: new Date(),
+      lastSuccessAt: new Date(),
+      consecutiveFailures: 0,
+    });
+  } catch (e) {
+    console.error('[health] Failed to update blockchain_sync health state:', e);
   }
   
   console.log('[blockchain] Blockchain status sync complete');

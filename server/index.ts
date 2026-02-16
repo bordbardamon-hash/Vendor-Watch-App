@@ -10,6 +10,7 @@ import { seedVendorsIfEmpty, seedBlockchainChainsIfEmpty, storage } from './stor
 import { syncVendorStatus, resolveStaleIncidents } from './statusSync';
 import { syncAllBlockchainChains, resolveStaleBlockchainIncidents } from './blockchainSync';
 import { collectTelemetryMetrics, generatePredictions, maintainPredictions, updatePredictionConfidence } from './predictionEngine';
+import { apiLimiter, authLimiter, strictLimiter } from './rateLimiter';
 
 // Global error handlers
 process.on('unhandledRejection', (reason, promise) => {
@@ -181,7 +182,13 @@ app.use((req, res, next) => {
   await seedVendorsIfEmpty();
   await seedBlockchainChainsIfEmpty();
 
-  // Health check endpoint - registered first
+  app.use('/api/auth/login', authLimiter);
+  app.use('/api/auth/register', authLimiter);
+  app.use('/api/auth/forgot-password', strictLimiter);
+  app.use('/api/auth/reset-password', strictLimiter);
+  app.use('/api/', apiLimiter);
+
+  // Health check endpoint - registered first (exempt from rate limiting via placement)
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok", env: process.env.NODE_ENV });
   });

@@ -111,11 +111,44 @@ export const incidentAlerts = pgTable("incident_alerts", {
   eventType: text("event_type").notNull(), // 'new', 'update', 'resolved'
   statusSnapshot: text("status_snapshot").notNull(), // the incident status at time of alert
   destination: text("destination").notNull(), // phone number or email address
+  deliveryStatus: text("delivery_status").notNull().default('success'), // 'pending', 'success', 'failed'
+  errorMessage: text("error_message"),
   sentAt: timestamp("sent_at").notNull().defaultNow(),
 }, (t) => [
   // Unique constraint to prevent duplicate notifications via atomic insert
   unique('unique_alert').on(t.incidentId, t.userId, t.channel, t.eventType, t.statusSnapshot)
 ]);
+
+// Notification Queue - retry failed notifications
+export const notificationQueue = pgTable("notification_queue", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: text("user_id").notNull(),
+  channel: text("channel").notNull(), // 'sms' or 'email'
+  destination: text("destination").notNull(),
+  subject: text("subject"),
+  body: text("body").notNull(),
+  retryCount: integer("retry_count").notNull().default(0),
+  maxRetries: integer("max_retries").notNull().default(3),
+  status: text("status").notNull().default('pending'), // 'pending', 'processing', 'sent', 'failed'
+  errorMessage: text("error_message"),
+  nextAttemptAt: timestamp("next_attempt_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// System Health State - track scheduler runs and service health
+export const systemHealthState = pgTable("system_health_state", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  componentName: text("component_name").notNull().unique(), // 'vendor_sync', 'blockchain_sync', 'email_service', 'sms_service'
+  status: text("status").notNull().default('healthy'), // 'healthy', 'degraded', 'down'
+  lastRunAt: timestamp("last_run_at"),
+  lastSuccessAt: timestamp("last_success_at"),
+  lastErrorAt: timestamp("last_error_at"),
+  lastErrorMessage: text("last_error_message"),
+  consecutiveFailures: integer("consecutive_failures").notNull().default(0),
+  metadata: text("metadata"), // JSON string for extra info
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
 
 // Custom Vendor Requests - for Growth users to request new vendors
 export const customVendorRequests = pgTable("custom_vendor_requests", {
@@ -325,6 +358,17 @@ export const insertIncidentAlertSchema = createInsertSchema(incidentAlerts).omit
   sentAt: true,
 });
 
+export const insertNotificationQueueSchema = createInsertSchema(notificationQueue).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSystemHealthStateSchema = createInsertSchema(systemHealthState).omit({
+  id: true,
+  updatedAt: true,
+});
+
 export const insertUserVendorSubscriptionSchema = createInsertSchema(userVendorSubscriptions).omit({
   id: true,
   createdAt: true,
@@ -407,6 +451,12 @@ export type NotificationConsent = typeof notificationConsents.$inferSelect;
 
 export type InsertIncidentAlert = z.infer<typeof insertIncidentAlertSchema>;
 export type IncidentAlert = typeof incidentAlerts.$inferSelect;
+
+export type InsertNotificationQueue = z.infer<typeof insertNotificationQueueSchema>;
+export type NotificationQueueItem = typeof notificationQueue.$inferSelect;
+
+export type InsertSystemHealthState = z.infer<typeof insertSystemHealthStateSchema>;
+export type SystemHealthState = typeof systemHealthState.$inferSelect;
 
 export type InsertUserVendorSubscription = z.infer<typeof insertUserVendorSubscriptionSchema>;
 export type UserVendorSubscription = typeof userVendorSubscriptions.$inferSelect;

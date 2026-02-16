@@ -1,7 +1,10 @@
 import { storage } from './storage';
 import { sendSMS } from './twilioClient';
+import { isCircuitOpen, recordSuccess, recordFailure, configureCircuitBreaker } from './circuitBreaker';
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const EMAIL_CIRCUIT = 'resend_email';
+configureCircuitBreaker(EMAIL_CIRCUIT, { failureThreshold: 5, resetTimeoutMs: 2 * 60 * 1000 });
 const OWNER_EMAIL = process.env.OWNER_EMAIL;
 const OWNER_PHONE = process.env.OWNER_PHONE;
 
@@ -27,6 +30,11 @@ export async function sendEmail(
     return false;
   }
 
+  if (isCircuitOpen(EMAIL_CIRCUIT)) {
+    console.warn(`[email] Circuit breaker OPEN for Resend - skipping email to ${to}`);
+    return false;
+  }
+
   try {
     const fromEmail = await getFromEmail();
     
@@ -48,14 +56,17 @@ export async function sendEmail(
     if (!response.ok) {
       const error = await response.json();
       console.error('[email] Resend error:', error);
+      recordFailure(EMAIL_CIRCUIT);
       return false;
     }
 
     const result = await response.json();
     console.log(`[email] Email sent via Resend to ${to}: ${subject} (id: ${result.id})`);
+    recordSuccess(EMAIL_CIRCUIT);
     return true;
   } catch (error) {
     console.error('[email] Failed to send email:', error);
+    recordFailure(EMAIL_CIRCUIT);
     return false;
   }
 }

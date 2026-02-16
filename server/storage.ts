@@ -10,6 +10,7 @@ import {
   vendorTelemetryMetrics, outagePredictions, predictionPatterns,
   userWebhooks, webhookLogs, apiKeys, apiRequestLogs, auditLogs, ssoConfigurations,
   uptimeReports, reportSchedules,
+  notificationQueue, systemHealthState,
   type Organization, type InsertOrganization,
   type OrganizationMember, type InsertOrganizationMember,
   type OrganizationInvitation, type InsertOrganizationInvitation,
@@ -148,6 +149,11 @@ export interface IStorage {
   recordAlert(alert: InsertIncidentAlert): Promise<IncidentAlert>;
   hasAlertBeenSent(incidentId: string, userId: string, channel: string, eventType: string, statusSnapshot?: string): Promise<boolean>;
   getAlertsByIncident(incidentId: string): Promise<IncidentAlert[]>;
+  getAlertDeliveryHistory(userId: string, limit?: number, offset?: number): Promise<{ alerts: IncidentAlert[]; total: number }>;
+  
+  // System Health
+  upsertHealthState(componentName: string, data: Partial<{ status: string; lastRunAt: Date; lastSuccessAt: Date; lastErrorAt: Date; lastErrorMessage: string; consecutiveFailures: number; metadata: string }>): Promise<void>;
+  getHealthStates(): Promise<Array<{ componentName: string; status: string; lastRunAt: Date | null; lastSuccessAt: Date | null; lastErrorAt: Date | null; lastErrorMessage: string | null; consecutiveFailures: number; updatedAt: Date }>>;
   
   // Users with notifications enabled
   getUsersWithNotificationsEnabled(): Promise<User[]>;
@@ -1106,6 +1112,56 @@ export class DatabaseStorage implements IStorage {
       .from(incidentAlerts)
       .where(eq(incidentAlerts.incidentId, incidentId))
       .orderBy(desc(incidentAlerts.sentAt));
+  }
+
+  async getAlertDeliveryHistory(userId: string, limit: number = 50, offset: number = 0): Promise<{ alerts: IncidentAlert[]; total: number }> {
+    const [countResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(incidentAlerts)
+      .where(eq(incidentAlerts.userId, userId));
+    
+    const alerts = await db
+      .select()
+      .from(incidentAlerts)
+      .where(eq(incidentAlerts.userId, userId))
+      .orderBy(desc(incidentAlerts.sentAt))
+      .limit(limit)
+      .offset(offset);
+    
+    return { alerts, total: countResult?.count || 0 };
+  }
+
+  async upsertHealthState(componentName: string, data: Partial<{ status: string; lastRunAt: Date; lastSuccessAt: Date; lastErrorAt: Date; lastErrorMessage: string; consecutiveFailures: number; metadata: string }>): Promise<void> {
+    const existing = await db.select().from(systemHealthState).where(eq(systemHealthState.componentName, componentName)).limit(1);
+    if (existing.length > 0) {
+      await db.update(systemHealthState)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(systemHealthState.componentName, componentName));
+    } else {
+      await db.insert(systemHealthState).values({
+        componentName,
+        status: data.status || 'healthy',
+        lastRunAt: data.lastRunAt,
+        lastSuccessAt: data.lastSuccessAt,
+        lastErrorAt: data.lastErrorAt,
+        lastErrorMessage: data.lastErrorMessage,
+        consecutiveFailures: data.consecutiveFailures || 0,
+        metadata: data.metadata,
+      });
+    }
+  }
+
+  async getHealthStates(): Promise<Array<{ componentName: string; status: string; lastRunAt: Date | null; lastSuccessAt: Date | null; lastErrorAt: Date | null; lastErrorMessage: string | null; consecutiveFailures: number; updatedAt: Date }>> {
+    return await db.select({
+      componentName: systemHealthState.componentName,
+      status: systemHealthState.status,
+      lastRunAt: systemHealthState.lastRunAt,
+      lastSuccessAt: systemHealthState.lastSuccessAt,
+      lastErrorAt: systemHealthState.lastErrorAt,
+      lastErrorMessage: systemHealthState.lastErrorMessage,
+      consecutiveFailures: systemHealthState.consecutiveFailures,
+      updatedAt: systemHealthState.updatedAt,
+    }).from(systemHealthState);
   }
   
   // Users with notifications enabled

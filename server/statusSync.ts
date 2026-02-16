@@ -5,6 +5,7 @@ import { mapStatuspageImpact, mapStatuspageStatus, determineLifecycleEvent, shou
 import { recordParseResult, shouldSendParserHealthAlert, markAlertSent, getParserHealthStatus } from "./parserHealthTracker";
 import { scrapeVendorStatus } from "./htmlScraper";
 import { scrapeJsVendorStatus } from "./puppeteerScraper";
+import { confirmVendorIncident, cleanupStalePendingIncidents } from "./incidentConfirmation";
 import type { CanonicalSeverity, CanonicalStatus, LifecycleEvent } from "@shared/schema";
 
 function isValidIncident(incident: { name: string; id: string }): boolean {
@@ -488,6 +489,12 @@ export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: nu
           const affectedComponents = incident.components?.map((c: { id: string; name: string; status: string }) => c.name).join(', ') || '';
           
           if (!exists) {
+            const isConfirmed = confirmVendorIncident(vendor.key, incident.id, incident);
+            if (!isConfirmed) {
+              console.log(`  ⏳ Pending confirmation: ${incident.name} [${normalizedSeverity}/${normalizedStatus}]`);
+              continue;
+            }
+
             const newIncident = await storage.createIncident({
               vendorKey: vendor.key,
               incidentId: incident.id,
@@ -500,7 +507,7 @@ export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: nu
               updatedAt: incident.updated_at,
               rawHash: null
             });
-            console.log(`  → New incident: ${incident.name} [${normalizedSeverity}/${normalizedStatus}]`);
+            console.log(`  → New incident (confirmed): ${incident.name} [${normalizedSeverity}/${normalizedStatus}]`);
             
             const lifecycleEvent = determineLifecycleEvent(null, null, normalizedStatus, normalizedSeverity, true);
             
@@ -618,6 +625,22 @@ export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: nu
       errors.push(msg);
       console.error(`✗ ${msg}`);
     }
+  }
+  
+  cleanupStalePendingIncidents();
+  
+  try {
+    await storage.upsertHealthState('vendor_sync', {
+      status: errors.length === 0 ? 'healthy' : 'degraded',
+      lastRunAt: new Date(),
+      lastSuccessAt: errors.length === 0 ? new Date() : undefined,
+      lastErrorAt: errors.length > 0 ? new Date() : undefined,
+      lastErrorMessage: errors.length > 0 ? errors.slice(0, 3).join('; ') : undefined,
+      consecutiveFailures: errors.length,
+      metadata: JSON.stringify({ synced, skipped, errorCount: errors.length }),
+    });
+  } catch (e) {
+    console.error('[health] Failed to update vendor_sync health state:', e);
   }
   
   return { synced, errors, skipped };

@@ -214,7 +214,26 @@ export async function dispatchIncidentNotification(notification: IncidentNotific
         try {
           const message = formatSmsMessage(notification);
           const success = await sendSMS(user.phone, message);
+          await storage.recordAlert({
+            incidentId: incident.incidentId,
+            userId: user.id,
+            channel: 'sms',
+            eventType,
+            statusSnapshot: incident.status,
+            destination: user.phone,
+            deliveryStatus: success ? 'success' : 'failed',
+            errorMessage: success ? undefined : 'SMS delivery failed',
+          });
           if (success) {
+            smsSent++;
+            console.log(`[notify] SMS sent to ${user.phone} for ${eventType} incident`);
+          } else {
+            errors.push(`Failed to send SMS to ${user.phone}`);
+          }
+        } catch (error) {
+          const errMsg = error instanceof Error ? error.message : 'Unknown';
+          errors.push(`SMS error for ${user.phone}: ${errMsg}`);
+          try {
             await storage.recordAlert({
               incidentId: incident.incidentId,
               userId: user.id,
@@ -222,14 +241,10 @@ export async function dispatchIncidentNotification(notification: IncidentNotific
               eventType,
               statusSnapshot: incident.status,
               destination: user.phone,
+              deliveryStatus: 'failed',
+              errorMessage: errMsg,
             });
-            smsSent++;
-            console.log(`[notify] SMS sent to ${user.phone} for ${eventType} incident`);
-          } else {
-            errors.push(`Failed to send SMS to ${user.phone}`);
-          }
-        } catch (error) {
-          errors.push(`SMS error for ${user.phone}: ${error instanceof Error ? error.message : 'Unknown'}`);
+          } catch { /* ignore recording errors */ }
         }
       }
     }
@@ -242,7 +257,26 @@ export async function dispatchIncidentNotification(notification: IncidentNotific
           const subject = formatEmailSubject(notification);
           const html = formatEmailHtml(notification, user.timezone || 'UTC');
           const success = await sendEmail(targetEmail, subject, html);
+          await storage.recordAlert({
+            incidentId: incident.incidentId,
+            userId: user.id,
+            channel: 'email',
+            eventType,
+            statusSnapshot: incident.status,
+            destination: targetEmail,
+            deliveryStatus: success ? 'success' : 'failed',
+            errorMessage: success ? undefined : 'Email delivery failed or not configured',
+          });
           if (success) {
+            emailSent++;
+            console.log(`[notify] Email sent to ${targetEmail} for ${eventType} incident`);
+          } else {
+            console.log(`[notify] Email failed/skipped for ${targetEmail}`);
+          }
+        } catch (error) {
+          const errMsg = error instanceof Error ? error.message : 'Unknown';
+          errors.push(`Email error for ${targetEmail}: ${errMsg}`);
+          try {
             await storage.recordAlert({
               incidentId: incident.incidentId,
               userId: user.id,
@@ -250,14 +284,10 @@ export async function dispatchIncidentNotification(notification: IncidentNotific
               eventType,
               statusSnapshot: incident.status,
               destination: targetEmail,
+              deliveryStatus: 'failed',
+              errorMessage: errMsg,
             });
-            emailSent++;
-            console.log(`[notify] Email sent to ${targetEmail} for ${eventType} incident`);
-          } else {
-            console.log(`[notify] Email skipped (not configured) for ${targetEmail}`);
-          }
-        } catch (error) {
-          errors.push(`Email error for ${targetEmail}: ${error instanceof Error ? error.message : 'Unknown'}`);
+          } catch { /* ignore recording errors */ }
         }
       }
     }

@@ -15,7 +15,7 @@ import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { db } from "./db";
 import { users, mobileAuthTokens, pendingSignups } from "@shared/models/auth";
-import { eq, and, isNull, gt } from "drizzle-orm";
+import { eq, and, isNull, gt, sql } from "drizzle-orm";
 
 const SALT_ROUNDS = 10;
 
@@ -525,6 +525,80 @@ export async function registerRoutes(
     }
   });
   
+  // ============ NOTIFICATION DELIVERY TRACKING ============
+
+  app.get("/api/alerts/delivery-history", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+      const offset = parseInt(req.query.offset as string) || 0;
+      
+      const result = await storage.getAlertDeliveryHistory(userId, limit, offset);
+      res.json({
+        alerts: result.alerts,
+        total: result.total,
+        limit,
+        offset,
+        hasMore: offset + limit < result.total,
+      });
+    } catch (error) {
+      console.error('[api] Delivery history error:', error);
+      res.status(500).json({ error: "Failed to fetch delivery history" });
+    }
+  });
+
+  // ============ SYSTEM HEALTH (DETAILED) ============
+
+  app.get("/api/system/health", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const user = req.user;
+      if (!user.isOwner) return res.status(403).json({ error: "Admin access required" });
+
+      const { getAllCircuitStatuses } = await import('./circuitBreaker');
+      const { getRateLimiterStats } = await import('./rateLimiter');
+      const { getPendingIncidentStats } = await import('./incidentConfirmation');
+
+      let dbHealthy = false;
+      try {
+        await db.execute(sql`SELECT 1`);
+        dbHealthy = true;
+      } catch { dbHealthy = false; }
+
+      const healthStates = await storage.getHealthStates();
+      const circuits = getAllCircuitStatuses();
+      const rateLimiterStats = getRateLimiterStats();
+      const pendingIncidents = getPendingIncidentStats();
+
+      const emailConfigured = !!process.env.RESEND_API_KEY;
+      const stripeConfigured = !!process.env.STRIPE_SECRET_KEY;
+
+      res.json({
+        status: dbHealthy ? 'healthy' : 'degraded',
+        timestamp: new Date().toISOString(),
+        database: { healthy: dbHealthy },
+        components: healthStates,
+        circuitBreakers: circuits,
+        rateLimiter: rateLimiterStats,
+        pendingIncidents,
+        externalServices: {
+          email: { configured: emailConfigured, circuit: circuits['resend_email'] || { state: 'closed', failureCount: 0 } },
+          sms: { circuit: circuits['twilio_sms'] || { state: 'closed', failureCount: 0 } },
+          stripe: { configured: stripeConfigured },
+        },
+        uptime: process.uptime(),
+        memoryUsage: process.memoryUsage(),
+      });
+    } catch (error) {
+      console.error('[api] System health error:', error);
+      res.status(500).json({ error: "Failed to fetch system health" });
+    }
+  });
+
   // ============ MOBILE-FRIENDLY ALERT SUMMARY ============
   
   // Get critical alerts summary for mobile devices

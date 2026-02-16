@@ -1,5 +1,9 @@
 // Twilio Integration - SMS alerts for vendor incidents
 import twilio from 'twilio';
+import { isCircuitOpen, recordSuccess, recordFailure, configureCircuitBreaker } from './circuitBreaker';
+
+const SMS_CIRCUIT = 'twilio_sms';
+configureCircuitBreaker(SMS_CIRCUIT, { failureThreshold: 5, resetTimeoutMs: 2 * 60 * 1000 });
 
 let connectionSettings: any;
 
@@ -49,6 +53,11 @@ export async function getTwilioFromPhoneNumber() {
 }
 
 export async function sendSMS(to: string, message: string): Promise<boolean> {
+  if (isCircuitOpen(SMS_CIRCUIT)) {
+    console.warn(`[twilio] Circuit breaker OPEN for Twilio - skipping SMS to ${to}`);
+    return false;
+  }
+
   try {
     const client = await getTwilioClient();
     const fromNumber = await getTwilioFromPhoneNumber();
@@ -60,9 +69,11 @@ export async function sendSMS(to: string, message: string): Promise<boolean> {
     });
     
     console.log(`[twilio] SMS sent to ${to}`);
+    recordSuccess(SMS_CIRCUIT);
     return true;
   } catch (error) {
     console.error('[twilio] Failed to send SMS:', error);
+    recordFailure(SMS_CIRCUIT);
     return false;
   }
 }
