@@ -150,6 +150,7 @@ export interface IStorage {
   hasAlertBeenSent(incidentId: string, userId: string, channel: string, eventType: string, statusSnapshot?: string): Promise<boolean>;
   getAlertsByIncident(incidentId: string): Promise<IncidentAlert[]>;
   getAlertDeliveryHistory(userId: string, limit?: number, offset?: number): Promise<{ alerts: IncidentAlert[]; total: number }>;
+  tryReserveAlert(alert: { incidentId: string; userId: string; channel: string; eventType: string; statusSnapshot: string; destination: string; deliveryStatus?: string; errorMessage?: string }): Promise<boolean>;
   
   // System Health
   upsertHealthState(componentName: string, data: Partial<{ status: string; lastRunAt: Date; lastSuccessAt: Date; lastErrorAt: Date; lastErrorMessage: string; consecutiveFailures: number; metadata: string }>): Promise<void>;
@@ -1112,6 +1113,27 @@ export class DatabaseStorage implements IStorage {
       .from(incidentAlerts)
       .where(eq(incidentAlerts.incidentId, incidentId))
       .orderBy(desc(incidentAlerts.sentAt));
+  }
+
+  async tryReserveAlert(alert: { incidentId: string; userId: string; channel: string; eventType: string; statusSnapshot: string; destination: string; deliveryStatus?: string; errorMessage?: string }): Promise<boolean> {
+    try {
+      await db.insert(incidentAlerts).values({
+        incidentId: alert.incidentId,
+        userId: alert.userId,
+        channel: alert.channel,
+        eventType: alert.eventType,
+        statusSnapshot: alert.statusSnapshot,
+        destination: alert.destination,
+        deliveryStatus: alert.deliveryStatus || 'pending',
+        errorMessage: alert.errorMessage,
+      });
+      return true;
+    } catch (error: any) {
+      if (error?.code === '23505' || error?.message?.includes('unique constraint') || error?.message?.includes('duplicate key')) {
+        return false;
+      }
+      throw error;
+    }
   }
 
   async getAlertDeliveryHistory(userId: string, limit: number = 50, offset: number = 0): Promise<{ alerts: IncidentAlert[]; total: number }> {

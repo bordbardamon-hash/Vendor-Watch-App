@@ -209,21 +209,19 @@ export async function dispatchIncidentNotification(notification: IncidentNotific
     }
     
     if (user.notifySms && user.phone) {
-      const alreadySent = await storage.hasAlertBeenSent(incident.incidentId, user.id, 'sms', eventType, incident.status);
-      if (!alreadySent) {
+      const reserved = await storage.tryReserveAlert({
+        incidentId: incident.incidentId,
+        userId: user.id,
+        channel: 'sms',
+        eventType,
+        statusSnapshot: incident.status,
+        destination: user.phone,
+      });
+      
+      if (reserved) {
         try {
           const message = formatSmsMessage(notification);
           const success = await sendSMS(user.phone, message);
-          await storage.recordAlert({
-            incidentId: incident.incidentId,
-            userId: user.id,
-            channel: 'sms',
-            eventType,
-            statusSnapshot: incident.status,
-            destination: user.phone,
-            deliveryStatus: success ? 'success' : 'failed',
-            errorMessage: success ? undefined : 'SMS delivery failed',
-          });
           if (success) {
             smsSent++;
             console.log(`[notify] SMS sent to ${user.phone} for ${eventType} incident`);
@@ -233,40 +231,26 @@ export async function dispatchIncidentNotification(notification: IncidentNotific
         } catch (error) {
           const errMsg = error instanceof Error ? error.message : 'Unknown';
           errors.push(`SMS error for ${user.phone}: ${errMsg}`);
-          try {
-            await storage.recordAlert({
-              incidentId: incident.incidentId,
-              userId: user.id,
-              channel: 'sms',
-              eventType,
-              statusSnapshot: incident.status,
-              destination: user.phone,
-              deliveryStatus: 'failed',
-              errorMessage: errMsg,
-            });
-          } catch { /* ignore recording errors */ }
         }
       }
     }
     
     const targetEmail = user.notificationEmail || user.email;
     if (user.notifyEmail && targetEmail) {
-      const alreadySent = await storage.hasAlertBeenSent(incident.incidentId, user.id, 'email', eventType, incident.status);
-      if (!alreadySent) {
+      const reserved = await storage.tryReserveAlert({
+        incidentId: incident.incidentId,
+        userId: user.id,
+        channel: 'email',
+        eventType,
+        statusSnapshot: incident.status,
+        destination: targetEmail,
+      });
+      
+      if (reserved) {
         try {
           const subject = formatEmailSubject(notification);
           const html = formatEmailHtml(notification, user.timezone || 'UTC');
           const success = await sendEmail(targetEmail, subject, html);
-          await storage.recordAlert({
-            incidentId: incident.incidentId,
-            userId: user.id,
-            channel: 'email',
-            eventType,
-            statusSnapshot: incident.status,
-            destination: targetEmail,
-            deliveryStatus: success ? 'success' : 'failed',
-            errorMessage: success ? undefined : 'Email delivery failed or not configured',
-          });
           if (success) {
             emailSent++;
             console.log(`[notify] Email sent to ${targetEmail} for ${eventType} incident`);
@@ -276,18 +260,6 @@ export async function dispatchIncidentNotification(notification: IncidentNotific
         } catch (error) {
           const errMsg = error instanceof Error ? error.message : 'Unknown';
           errors.push(`Email error for ${targetEmail}: ${errMsg}`);
-          try {
-            await storage.recordAlert({
-              incidentId: incident.incidentId,
-              userId: user.id,
-              channel: 'email',
-              eventType,
-              statusSnapshot: incident.status,
-              destination: targetEmail,
-              deliveryStatus: 'failed',
-              errorMessage: errMsg,
-            });
-          } catch { /* ignore recording errors */ }
         }
       }
     }
@@ -550,20 +522,20 @@ export async function dispatchLifecycleNotification(notification: LifecycleNotif
     }
     
     if (user.notifySms && user.phone) {
-      const alreadySent = await storage.hasAlertBeenSent(incident.incidentId, user.id, 'sms', lifecycleEvent, incident.status);
-      if (!alreadySent) {
+      const reserved = await storage.tryReserveAlert({
+        incidentId: incident.incidentId,
+        userId: user.id,
+        channel: 'sms',
+        eventType: lifecycleEvent,
+        statusSnapshot: incident.status,
+        destination: user.phone,
+      });
+      
+      if (reserved) {
         try {
           const message = formatLifecycleSms(notification);
           const success = await sendSMS(user.phone, message);
           if (success) {
-            await storage.recordAlert({
-              incidentId: incident.incidentId,
-              userId: user.id,
-              channel: 'sms',
-              eventType: lifecycleEvent,
-              statusSnapshot: incident.status,
-              destination: user.phone,
-            });
             await recordAlertSent(
               incident.incidentId,
               user.id,
@@ -583,21 +555,21 @@ export async function dispatchLifecycleNotification(notification: LifecycleNotif
     
     const targetEmail = user.notificationEmail || user.email;
     if (user.notifyEmail && targetEmail) {
-      const alreadySent = await storage.hasAlertBeenSent(incident.incidentId, user.id, 'email', lifecycleEvent, incident.status);
-      if (!alreadySent) {
+      const reserved = await storage.tryReserveAlert({
+        incidentId: incident.incidentId,
+        userId: user.id,
+        channel: 'email',
+        eventType: lifecycleEvent,
+        statusSnapshot: incident.status,
+        destination: targetEmail,
+      });
+      
+      if (reserved) {
         try {
           const subject = formatLifecycleEmailSubject(notification);
           const html = formatLifecycleEmailHtml(notification, user.timezone || 'UTC');
           const success = await sendEmail(targetEmail, subject, html);
           if (success) {
-            await storage.recordAlert({
-              incidentId: incident.incidentId,
-              userId: user.id,
-              channel: 'email',
-              eventType: lifecycleEvent,
-              statusSnapshot: incident.status,
-              destination: targetEmail,
-            });
             await recordAlertSent(
               incident.incidentId,
               user.id,

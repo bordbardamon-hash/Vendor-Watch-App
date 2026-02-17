@@ -236,41 +236,34 @@ app.use((req, res, next) => {
       
       // Start automatic vendor status sync
       const SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+      let syncRunning = false;
+      
+      async function runSync(label: string) {
+        if (syncRunning) {
+          console.log(`[sync] Skipping ${label} sync - previous sync still running`);
+          return;
+        }
+        syncRunning = true;
+        try {
+          console.log(`[sync] Starting ${label} status sync...`);
+          const result = await syncVendorStatus();
+          console.log(`[sync] ${label} vendor sync complete: ${result.synced} synced, ${result.skipped} skipped`);
+          
+          await syncAllBlockchainChains();
+          console.log(`[sync] ${label} blockchain sync complete`);
+        } catch (err) {
+          console.error(`[sync] ${label} sync failed:`, err);
+        } finally {
+          syncRunning = false;
+        }
+      }
       
       // Run initial sync after short delay to let server stabilize
-      setTimeout(async () => {
-        console.log('[sync] Starting initial status sync...');
-        try {
-          const result = await syncVendorStatus();
-          console.log(`[sync] Initial vendor sync complete: ${result.synced} synced, ${result.skipped} skipped`);
-        } catch (err) {
-          console.error('[sync] Initial vendor sync failed:', err);
-        }
-        
-        try {
-          await syncAllBlockchainChains();
-          console.log('[sync] Initial blockchain sync complete');
-        } catch (err) {
-          console.error('[sync] Initial blockchain sync failed:', err);
-        }
-      }, 5000);
+      setTimeout(() => runSync('initial'), 5000);
       
       // Set up recurring sync every 5 minutes
       setInterval(async () => {
-        console.log('[sync] Starting scheduled status sync...');
-        try {
-          const result = await syncVendorStatus();
-          console.log(`[sync] Scheduled vendor sync complete: ${result.synced} synced, ${result.skipped} skipped`);
-        } catch (err) {
-          console.error('[sync] Scheduled vendor sync failed:', err);
-        }
-        
-        try {
-          await syncAllBlockchainChains();
-          console.log('[sync] Scheduled blockchain sync complete');
-        } catch (err) {
-          console.error('[sync] Scheduled blockchain sync failed:', err);
-        }
+        await runSync('scheduled');
         
         // Auto-resolve stale incidents (not updated in 7 days)
         try {
