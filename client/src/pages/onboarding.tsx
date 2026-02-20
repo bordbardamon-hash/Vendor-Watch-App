@@ -28,9 +28,9 @@ const PLANS: PlanInfo[] = [
     price: 89,
     icon: Building,
     features: [
-      "10 vendors monitored",
-      "Email alerts only",
-      "Basic dashboard",
+      "Up to 25 vendors (600+ catalog)",
+      "Email alerts",
+      "Component-level monitoring",
     ],
   },
   {
@@ -40,11 +40,11 @@ const PLANS: PlanInfo[] = [
     icon: Zap,
     recommended: true,
     features: [
-      "25 vendors monitored",
-      "Email + SMS alerts",
-      "10 blockchain networks",
-      "Client portals",
-      "PSA integrations",
+      "Up to 100 vendors",
+      "Email, SMS, Slack & Teams",
+      "25 blockchain networks",
+      "PagerDuty & webhooks",
+      "Client portals & playbooks",
     ],
   },
   {
@@ -53,10 +53,10 @@ const PLANS: PlanInfo[] = [
     price: 189,
     icon: Crown,
     features: [
-      "Unlimited vendors",
+      "Unlimited vendors & blockchain",
       "All alert channels",
-      "Unlimited blockchain",
-      "Predictive AI",
+      "AI Copilot & predictive AI",
+      "Branded portals & embeds",
       "Priority support",
     ],
   },

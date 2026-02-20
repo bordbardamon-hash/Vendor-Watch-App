@@ -28,18 +28,20 @@ const featureCategories: FeatureCategory[] = [
   {
     name: "Vendor Monitoring",
     features: [
-      { name: "Vendors monitored", essential: "Up to 10", growth: "Up to 25", enterprise: "Unlimited" },
+      { name: "Vendors monitored", tooltip: "Choose from our catalog of 600+ pre-configured services", essential: "Up to 25", growth: "Up to 100", enterprise: "Unlimited" },
+      { name: "Service catalog", tooltip: "600+ services across 44 categories including cloud, SaaS, security, payments, AI, and more", essential: "600+ services", growth: "600+ services", enterprise: "600+ services" },
       { name: "Real-time status updates", essential: true, growth: true, enterprise: true },
+      { name: "Component-level monitoring", tooltip: "Track individual service components like AWS EC2, S3, Lambda", essential: true, growth: true, enterprise: true },
       { name: "Incident tracking", essential: true, growth: true, enterprise: true },
       { name: "Maintenance alerts", essential: true, growth: true, enterprise: true },
-      { name: "Custom vendor requests", tooltip: "Request new vendors to be added to monitoring", essential: false, growth: "3/month", enterprise: "Unlimited" },
+      { name: "Custom vendor requests", tooltip: "Request new vendors to be added to monitoring", essential: false, growth: "5/month", enterprise: "Unlimited" },
       { name: "Add vendors directly", tooltip: "Add your own vendor status pages without waiting", essential: false, growth: false, enterprise: true },
     ],
   },
   {
     name: "Blockchain & Crypto",
     features: [
-      { name: "Blockchain networks", essential: false, growth: "Up to 10", enterprise: "Unlimited" },
+      { name: "Blockchain networks", tooltip: "Monitor 110+ blockchain networks including L1, L2, DeFi, and RPC providers", essential: false, growth: "Up to 25", enterprise: "Unlimited" },
       { name: "Wallet status monitoring", essential: false, growth: true, enterprise: true },
       { name: "Staking platform monitoring", essential: false, growth: false, enterprise: true },
       { name: "DeFi protocol tracking", essential: false, growth: false, enterprise: true },
@@ -50,6 +52,10 @@ const featureCategories: FeatureCategory[] = [
     features: [
       { name: "Email alerts", essential: true, growth: true, enterprise: true },
       { name: "SMS alerts", tooltip: "TCPA-compliant text message notifications", essential: false, growth: true, enterprise: true },
+      { name: "Slack & Teams", tooltip: "Send formatted incident alerts to Slack or Microsoft Teams channels", essential: false, growth: true, enterprise: true },
+      { name: "PagerDuty", tooltip: "Auto-trigger and resolve PagerDuty incidents synced to vendor events", essential: false, growth: true, enterprise: true },
+      { name: "Outbound webhooks", tooltip: "HMAC-SHA256 signed payloads to any endpoint", essential: false, growth: true, enterprise: true },
+      { name: "Alert assignments", tooltip: "Route alerts to specific team members per vendor", essential: false, growth: true, enterprise: true },
       { name: "Alert customization", essential: "Basic", growth: "Advanced", enterprise: "Full" },
       { name: "Timezone support", essential: true, growth: true, enterprise: true },
     ],
@@ -72,6 +78,10 @@ const featureCategories: FeatureCategory[] = [
       { name: "SLA breach tracking", tooltip: "Track uptime against your SLA targets", essential: false, growth: false, enterprise: true },
       { name: "Synthetic monitoring", tooltip: "Probe vendor endpoints for proactive detection", essential: false, growth: false, enterprise: true },
       { name: "AI Communication Copilot", tooltip: "Generate professional incident updates with AI", essential: false, growth: false, enterprise: true },
+      { name: "Early warning signals", tooltip: "Crowdsourced incident reports with dynamic confidence scoring", essential: false, growth: false, enterprise: true },
+      { name: "Embeddable status widgets", tooltip: "Public status pages, SVG badges, and JSON APIs for clients", essential: false, growth: true, enterprise: true },
+      { name: "Predictive outage detection", tooltip: "AI-powered analysis to predict potential outages", essential: false, growth: false, enterprise: true },
+      { name: "Historical reports & CSV export", tooltip: "Uptime reports with MTTR, incident counts, and vendor breakdowns", essential: false, growth: "Basic", enterprise: "Full" },
       { name: "Analytics dashboard", essential: "Basic", growth: "Advanced", enterprise: "Full" },
     ],
   },
@@ -159,7 +169,7 @@ export default function Pricing() {
               Simple, Transparent Pricing
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Choose the plan that fits your needs. All plans include a 7-day free trial.
+              Choose the plan that fits your needs. All plans include access to our catalog of 600+ services and a 7-day free trial.
             </p>
           </div>
 
