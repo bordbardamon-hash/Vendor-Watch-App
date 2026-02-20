@@ -11,6 +11,14 @@ interface ProbeResult {
   correlatedIncidentId: string | null;
 }
 
+function normalizeUrl(url: string): string {
+  let normalized = url.trim();
+  if (!/^https?:\/\//i.test(normalized)) {
+    normalized = `https://${normalized}`;
+  }
+  return normalized;
+}
+
 export async function runSyntheticProbe(probeId: string): Promise<ProbeResult> {
   const probe = await storage.getSyntheticProbe(probeId);
   if (!probe) {
@@ -24,11 +32,13 @@ export async function runSyntheticProbe(probeId: string): Promise<ProbeResult> {
   let errorMessage: string | null = null;
   let correlatedIncidentId: string | null = null;
   
+  const targetUrl = normalizeUrl(probe.targetUrl);
+  
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), probe.timeoutMs);
     
-    const response = await fetch(probe.targetUrl, {
+    const response = await fetch(targetUrl, {
       method: 'GET',
       signal: controller.signal,
       headers: {

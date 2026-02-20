@@ -5099,7 +5099,11 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
       const userId = req.user?.id;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
       
-      const probe = await storage.createSyntheticProbe({ ...req.body, userId });
+      const body = { ...req.body, userId };
+      if (body.targetUrl && !/^https?:\/\//i.test(body.targetUrl.trim())) {
+        body.targetUrl = `https://${body.targetUrl.trim()}`;
+      }
+      const probe = await storage.createSyntheticProbe(body);
       res.status(201).json(probe);
     } catch (error) {
       console.error("Error creating synthetic probe:", error);
@@ -5113,7 +5117,11 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
       const userId = req.user?.id;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
       
-      const probe = await storage.updateSyntheticProbe(req.params.id, req.body);
+      const body = { ...req.body };
+      if (body.targetUrl && !/^https?:\/\//i.test(body.targetUrl.trim())) {
+        body.targetUrl = `https://${body.targetUrl.trim()}`;
+      }
+      const probe = await storage.updateSyntheticProbe(req.params.id, body);
       res.json(probe);
     } catch (error) {
       console.error("Error updating synthetic probe:", error);
