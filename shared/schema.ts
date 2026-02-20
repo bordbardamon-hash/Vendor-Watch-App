@@ -1097,6 +1097,33 @@ export const portalSubscribers = pgTable("portal_subscribers", {
   unsubscribedAt: timestamp("unsubscribed_at"),
 });
 
+// ============ VENDOR COMPONENTS ============
+
+// Vendor Components - individual service components within each vendor (e.g., AWS EC2, AWS S3)
+export const vendorComponents = pgTable("vendor_components", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  vendorKey: text("vendor_key").notNull(),
+  componentId: text("component_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  groupName: text("group_name"),
+  status: text("status").notNull().default('operational'),
+  position: integer("position").default(0),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [
+  unique('unique_vendor_component').on(t.vendorKey, t.componentId)
+]);
+
+export const insertVendorComponentSchema = createInsertSchema(vendorComponents).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertVendorComponent = z.infer<typeof insertVendorComponentSchema>;
+export type VendorComponent = typeof vendorComponents.$inferSelect;
+
 // ============ PSA/TICKETING INTEGRATION ============
 
 // PSA Integrations - organization-level PSA system connections
