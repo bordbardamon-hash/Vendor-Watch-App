@@ -11,6 +11,7 @@ import { syncVendorStatus, resolveStaleIncidents } from './statusSync';
 import { syncAllBlockchainChains, resolveStaleBlockchainIncidents } from './blockchainSync';
 import { collectTelemetryMetrics, generatePredictions, maintainPredictions, updatePredictionConfidence } from './predictionEngine';
 import { apiLimiter, authLimiter, strictLimiter } from './rateLimiter';
+import { registerEmbedRoutes } from './embedRoutes';
 
 // Global error handlers
 process.on('unhandledRejection', (reason, promise) => {
@@ -193,6 +194,7 @@ app.use((req, res, next) => {
     res.json({ status: "ok", env: process.env.NODE_ENV });
   });
 
+  registerEmbedRoutes(app);
   await registerRoutes(httpServer, app);
 
   // API 404 handler - catches unmatched API routes

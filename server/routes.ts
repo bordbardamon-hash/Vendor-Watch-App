@@ -831,6 +831,28 @@ export async function registerRoutes(
     }
   });
   
+  // ============ VENDOR COMPONENTS ============
+
+  app.get("/api/vendors/:key/components", isAuthenticated, async (req: any, res) => {
+    try {
+      const components = await storage.getVendorComponents(req.params.key);
+      res.json(components);
+    } catch (error) {
+      console.error("Error fetching vendor components:", error);
+      res.status(500).json({ error: "Failed to fetch vendor components" });
+    }
+  });
+
+  app.get("/api/components", isAuthenticated, async (req: any, res) => {
+    try {
+      const components = await storage.getAllVendorComponents();
+      res.json(components);
+    } catch (error) {
+      console.error("Error fetching all components:", error);
+      res.status(500).json({ error: "Failed to fetch components" });
+    }
+  });
+
   // ============ INCIDENTS ============
   
   // Get all incidents (protected)

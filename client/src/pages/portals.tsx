@@ -11,7 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Globe, Plus, ExternalLink, Copy, Settings, Users, Eye, Trash2, Server, Link2, CheckCircle, Upload, X, ImageIcon } from "lucide-react";
+import { Globe, Plus, ExternalLink, Copy, Settings, Users, Eye, Trash2, Server, Link2, CheckCircle, Upload, X, ImageIcon, Code, Monitor, Image } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 
 interface ClientPortal {
   id: string;
@@ -57,6 +58,7 @@ export default function Portals() {
   const queryClient = useQueryClient();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editingPortal, setEditingPortal] = useState<ClientPortal | null>(null);
+  const [embedPortal, setEmbedPortal] = useState<ClientPortal | null>(null);
   const [selectedVendors, setSelectedVendors] = useState<Set<string>>(new Set());
   const [selectedChains, setSelectedChains] = useState<Set<string>>(new Set());
   const [formData, setFormData] = useState({
@@ -651,6 +653,15 @@ export default function Portals() {
                   <Button
                     variant="outline"
                     size="sm"
+                    onClick={() => setEmbedPortal(portal)}
+                    data-testid={`embed-portal-${portal.id}`}
+                    title="Get embed code"
+                  >
+                    <Code className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => setEditingPortal(portal)}
                     data-testid={`edit-portal-${portal.id}`}
                   >
@@ -702,6 +713,172 @@ export default function Portals() {
                 {updateAssignmentsMutation.isPending ? "Saving..." : "Save Changes"}
               </Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {embedPortal && (
+        <Dialog open={!!embedPortal} onOpenChange={() => setEmbedPortal(null)}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Embed & Share - {embedPortal.name}</DialogTitle>
+              <DialogDescription>Get embed codes, badges, and sharing links for this portal</DialogDescription>
+            </DialogHeader>
+            <Tabs defaultValue="iframe" className="mt-4">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="iframe">
+                  <Monitor className="h-4 w-4 mr-1" />
+                  Widget
+                </TabsTrigger>
+                <TabsTrigger value="badge">
+                  <Image className="h-4 w-4 mr-1" />
+                  Badge
+                </TabsTrigger>
+                <TabsTrigger value="api">
+                  <Code className="h-4 w-4 mr-1" />
+                  API
+                </TabsTrigger>
+                <TabsTrigger value="tv">
+                  <Monitor className="h-4 w-4 mr-1" />
+                  TV Mode
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="iframe" className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <Label>Embeddable Status Widget</Label>
+                  <p className="text-sm text-muted-foreground">Add this iframe to any webpage to show live status</p>
+                  <Textarea
+                    readOnly
+                    rows={3}
+                    value={`<iframe src="${window.location.origin}/embed/${embedPortal.slug}" style="width:100%;height:400px;border:none;border-radius:8px;" title="${embedPortal.name} Status"></iframe>`}
+                    className="font-mono text-xs"
+                    data-testid="embed-iframe-code"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(`<iframe src="${window.location.origin}/embed/${embedPortal.slug}" style="width:100%;height:400px;border:none;border-radius:8px;" title="${embedPortal.name} Status"></iframe>`);
+                      toast({ title: "Copied!", description: "Iframe code copied to clipboard" });
+                    }}
+                    data-testid="copy-iframe-btn"
+                  >
+                    <Copy className="h-4 w-4 mr-1" />
+                    Copy Code
+                  </Button>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="badge" className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <Label>Status Badge (SVG)</Label>
+                  <p className="text-sm text-muted-foreground">Embed a status badge on your website or README</p>
+                  <div className="p-4 bg-muted rounded-lg flex items-center justify-center">
+                    <img
+                      src={`/status/${embedPortal.slug}/badge.svg`}
+                      alt={`${embedPortal.name} Status`}
+                      className="h-5"
+                    />
+                  </div>
+                  <Textarea
+                    readOnly
+                    rows={2}
+                    value={`<a href="${window.location.origin}/embed/${embedPortal.slug}"><img src="${window.location.origin}/status/${embedPortal.slug}/badge.svg" alt="${embedPortal.name} Status" /></a>`}
+                    className="font-mono text-xs"
+                    data-testid="embed-badge-code"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(`<a href="${window.location.origin}/embed/${embedPortal.slug}"><img src="${window.location.origin}/status/${embedPortal.slug}/badge.svg" alt="${embedPortal.name} Status" /></a>`);
+                        toast({ title: "Copied!", description: "Badge HTML copied to clipboard" });
+                      }}
+                      data-testid="copy-badge-html-btn"
+                    >
+                      <Copy className="h-4 w-4 mr-1" />
+                      HTML
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(`[![${embedPortal.name} Status](${window.location.origin}/status/${embedPortal.slug}/badge.svg)](${window.location.origin}/embed/${embedPortal.slug})`);
+                        toast({ title: "Copied!", description: "Badge Markdown copied to clipboard" });
+                      }}
+                      data-testid="copy-badge-md-btn"
+                    >
+                      <Copy className="h-4 w-4 mr-1" />
+                      Markdown
+                    </Button>
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="api" className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <Label>Status API Endpoint</Label>
+                  <p className="text-sm text-muted-foreground">Fetch live status data as JSON from this endpoint</p>
+                  <Textarea
+                    readOnly
+                    rows={1}
+                    value={`${window.location.origin}/status/${embedPortal.slug}/api`}
+                    className="font-mono text-xs"
+                    data-testid="embed-api-url"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/status/${embedPortal.slug}/api`);
+                      toast({ title: "Copied!", description: "API URL copied to clipboard" });
+                    }}
+                    data-testid="copy-api-url-btn"
+                  >
+                    <Copy className="h-4 w-4 mr-1" />
+                    Copy URL
+                  </Button>
+                  <div className="mt-3 p-3 bg-muted rounded-lg">
+                    <p className="text-xs text-muted-foreground font-mono">
+                      {`curl ${window.location.origin}/status/${embedPortal.slug}/api`}
+                    </p>
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="tv" className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <Label>TV Display Mode</Label>
+                  <p className="text-sm text-muted-foreground">Full-screen status display optimized for TV dashboards and wall monitors. Auto-refreshes every 60 seconds.</p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      asChild
+                    >
+                      <a href={`/embed/${embedPortal.slug}?tv=true`} target="_blank" rel="noopener noreferrer" data-testid="open-tv-mode-btn">
+                        <Monitor className="h-4 w-4 mr-1" />
+                        Open TV Mode
+                      </a>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}/embed/${embedPortal.slug}?tv=true`);
+                        toast({ title: "Copied!", description: "TV mode URL copied to clipboard" });
+                      }}
+                      data-testid="copy-tv-url-btn"
+                    >
+                      <Copy className="h-4 w-4 mr-1" />
+                      Copy URL
+                    </Button>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
           </DialogContent>
         </Dialog>
       )}

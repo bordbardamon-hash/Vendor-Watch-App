@@ -34,7 +34,8 @@ import {
   User,
   Bot,
   Sparkles,
-  Copy
+  Copy,
+  ChevronDown
 } from "lucide-react";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -109,6 +110,121 @@ interface ArchivedIncident {
   startedAt: string;
   resolvedAt: string;
   archivedAt: string;
+}
+
+interface VendorComponent {
+  id: string;
+  vendorKey: string;
+  componentId: string;
+  name: string;
+  description: string | null;
+  groupName: string | null;
+  status: string;
+  position: number;
+  updatedAt: string;
+}
+
+function getComponentStatusColor(status: string) {
+  switch (status) {
+    case 'operational': return 'text-emerald-500';
+    case 'degraded_performance': return 'text-yellow-500';
+    case 'partial_outage': return 'text-orange-500';
+    case 'major_outage': return 'text-red-500';
+    case 'under_maintenance': return 'text-blue-500';
+    default: return 'text-muted-foreground';
+  }
+}
+
+function getComponentStatusDot(status: string) {
+  switch (status) {
+    case 'operational': return 'bg-emerald-500';
+    case 'degraded_performance': return 'bg-yellow-500';
+    case 'partial_outage': return 'bg-orange-500';
+    case 'major_outage': return 'bg-red-500';
+    case 'under_maintenance': return 'bg-blue-500';
+    default: return 'bg-muted-foreground';
+  }
+}
+
+function formatComponentStatus(status: string) {
+  return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+}
+
+function VendorComponentsSection({ vendorKey }: { vendorKey: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const { data: components = [], isLoading } = useQuery<VendorComponent[]>({
+    queryKey: [`/api/vendors/${vendorKey}/components`],
+    queryFn: async () => {
+      const res = await fetch(`/api/vendors/${vendorKey}/components`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  if (!isLoading && components.length === 0) return null;
+
+  const grouped = components.reduce((acc, comp) => {
+    const group = comp.groupName || 'Services';
+    if (!acc[group]) acc[group] = [];
+    acc[group].push(comp);
+    return acc;
+  }, {} as Record<string, VendorComponent[]>);
+
+  const nonOperational = components.filter(c => c.status !== 'operational').length;
+
+  return (
+    <div className="p-6 border-b border-sidebar-border" data-testid="vendor-components-section">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between cursor-pointer hover:opacity-80 transition-opacity"
+        data-testid="button-toggle-components"
+      >
+        <h3 className="text-lg font-semibold flex items-center gap-2">
+          <Server className="w-5 h-5 text-primary" />
+          Service Components
+          {nonOperational > 0 && (
+            <Badge variant="destructive" className="text-xs">{nonOperational} degraded</Badge>
+          )}
+        </h3>
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary" className="text-xs">{components.length}</Badge>
+          <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${expanded ? 'rotate-180' : ''}`} />
+        </div>
+      </button>
+      {isLoading && (
+        <div className="flex items-center gap-2 mt-4 text-muted-foreground text-sm">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Loading components...
+        </div>
+      )}
+      {expanded && !isLoading && (
+        <div className="space-y-4 mt-4">
+          {Object.entries(grouped).map(([group, comps]) => (
+            <div key={group}>
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{group}</h4>
+              <div className="space-y-1">
+                {comps.sort((a, b) => a.position - b.position).map(comp => (
+                  <div
+                    key={comp.id}
+                    className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-sidebar/50 transition-colors"
+                    data-testid={`component-${comp.componentId}`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className={`w-2 h-2 rounded-full shrink-0 ${getComponentStatusDot(comp.status)}`} />
+                      <span className="text-sm truncate">{comp.name}</span>
+                    </div>
+                    <span className={`text-xs font-medium shrink-0 ${getComponentStatusColor(comp.status)}`}>
+                      {formatComponentStatus(comp.status)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function Vendors() {
@@ -1047,6 +1163,8 @@ export default function Vendors() {
                   )}
                 </div>
                 
+                <VendorComponentsSection vendorKey={selectedVendor.key} />
+
                 <div className="p-6 bg-sidebar/30 flex-1">
                   <h4 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wider">Configuration</h4>
                   <div className="bg-black/50 p-4 rounded-md border border-sidebar-border font-mono text-xs text-muted-foreground overflow-x-auto">

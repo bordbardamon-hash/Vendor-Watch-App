@@ -75,3 +75,10 @@ Key entities include Users, Sessions, Vendors, Incidents, Jobs, Configurations, 
 - When no assignments exist for a target, default behavior is preserved (all subscribed users get notified)
 - Bulk assignment API (`/api/org/alert-assignments/bulk`) replaces all assignments for a member at once
 - UI includes searchable vendor/blockchain picker dialog with Select All/Clear All controls
+
+### Competitive Parity Features (February 2026)
+- **Component-Level Monitoring**: `vendor_components` table tracks individual service components (e.g., AWS EC2, S3). Components parsed from Statuspage.io /summary.json API and synced on every vendor status update. Frontend shows collapsible "Service Components" section in vendor detail panel with grouped, color-coded statuses. API: GET /api/vendors/:key/components, GET /api/components
+- **Outbound Webhooks with HMAC Signing**: `webhookDispatcher.ts` fires HMAC-SHA256 signed payloads on new/update/resolved incidents. Integrated into notificationDispatcher lifecycle. 10-second timeout, delivery logging via `webhookLogs` table. Full CRUD UI in webhooks.tsx
+- **Embeddable Status Widgets**: `embedRoutes.ts` provides public endpoints - /embed/:slug (self-contained HTML widget with TV mode and 60s auto-refresh), /status/:slug/badge.svg (shields.io-style SVG badge), /status/:slug/api (JSON with CORS). Embed code generator dialog on portals page with tabs for iframe, badge, API, and TV display
+- **Slack/Teams Integration**: `slack-teams.ts` formats and dispatches incident notifications to Slack/Teams channels via incoming webhooks. Full integration management UI on /integrations page with add/test/delete
+- **Public Branded Status Pages**: Portal system with embed functionality, TV mode for NOC displays, and branded status page generation

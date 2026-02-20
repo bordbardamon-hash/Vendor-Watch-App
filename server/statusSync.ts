@@ -22,6 +22,15 @@ interface StatusPageResponse {
     indicator: string;
     description: string;
   };
+  components?: Array<{
+    id: string;
+    name: string;
+    description?: string;
+    group_id?: string;
+    status: string;
+    position?: number;
+    group?: boolean;
+  }>;
 }
 
 interface IncidentsResponse {
@@ -159,6 +168,7 @@ async function fetchStatuspageJson(vendor: { key: string; statusUrl: string }): 
   status: string; 
   incidents: any[]; 
   maintenances: MaintenanceData[];
+  components?: StatusPageResponse['components'];
   success: boolean; 
   httpStatus?: number; 
   errorMessage?: string 
@@ -166,7 +176,7 @@ async function fetchStatuspageJson(vendor: { key: string; statusUrl: string }): 
   const apiBase = STATUSPAGE_API_URLS[vendor.key] || vendor.statusUrl.replace(/\/$/, '');
   
   try {
-    const statusUrl = `${apiBase}/api/v2/status.json`;
+    const statusUrl = `${apiBase}/api/v2/summary.json`;
     const response = await fetchWithRetry(statusUrl, {
       headers: { 
         'Accept': 'application/json',
@@ -230,7 +240,7 @@ async function fetchStatuspageJson(vendor: { key: string; statusUrl: string }): 
       incidentsParsed: incidents.length 
     });
     
-    return { status, incidents, maintenances, success: true, httpStatus: 200 };
+    return { status, incidents, maintenances, components: data.components, success: true, httpStatus: 200 };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.log(`[${vendor.key}] Failed to fetch status:`, errorMessage);
@@ -239,6 +249,30 @@ async function fetchStatuspageJson(vendor: { key: string; statusUrl: string }): 
       errorMessage 
     });
     return { status: 'unknown', incidents: [], maintenances: [], success: false, errorMessage };
+  }
+}
+
+async function syncVendorComponents(vendorKey: string, components: Array<{ id: string; name: string; description?: string; group_id?: string; status: string; position?: number; group?: boolean }>) {
+  if (!components || components.length === 0) return;
+  
+  const groups = components.filter(c => c.group === true || c.group_id === null);
+  const groupMap = new Map(groups.map(g => [g.id, g.name]));
+  
+  const serviceComponents = components.filter(c => c.group !== true && c.group_id !== null);
+  
+  for (const comp of serviceComponents) {
+    try {
+      await storage.upsertVendorComponent({
+        vendorKey,
+        componentId: comp.id,
+        name: comp.name,
+        description: comp.description || null,
+        groupName: comp.group_id ? (groupMap.get(comp.group_id) || null) : null,
+        status: comp.status || 'operational',
+        position: comp.position || 0,
+      });
+    } catch (err) {
+    }
   }
 }
 
@@ -599,6 +633,14 @@ export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: nu
               rawHash: undefined,
             });
             console.log(`  → Maintenance: ${maint.name} [${maintenanceStatus}]`);
+          }
+        }
+        
+        if (result.components) {
+          try {
+            await syncVendorComponents(vendor.key, result.components);
+          } catch (e) {
+            console.log(`[${vendor.key}] Could not sync components`);
           }
         }
         

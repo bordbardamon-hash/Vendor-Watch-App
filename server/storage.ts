@@ -8,6 +8,7 @@ import {
   clientPortals, portalVendorAssignments, portalSubscribers,
   psaIntegrations, psaTicketRules, psaTicketLinks,
   vendorTelemetryMetrics, outagePredictions, predictionPatterns,
+  vendorComponents,
   userWebhooks, webhookLogs, apiKeys, apiRequestLogs, auditLogs, ssoConfigurations,
   uptimeReports, reportSchedules,
   notificationQueue, systemHealthState,
@@ -54,6 +55,7 @@ import {
   type VendorTelemetryMetric, type InsertVendorTelemetryMetric,
   type OutagePrediction, type InsertOutagePrediction,
   type PredictionPattern, type InsertPredictionPattern,
+  type VendorComponent, type InsertVendorComponent,
   type UserWebhook, type InsertUserWebhook,
   type WebhookLog, type InsertWebhookLog,
   type ApiKey, type InsertApiKey,
@@ -494,6 +496,11 @@ export interface IStorage {
   purgeOldPredictions(olderThanDays: number): Promise<number>;
   purgeOldActivityEvents(olderThanDays: number): Promise<number>;
   
+  // Vendor Components
+  getVendorComponents(vendorKey: string): Promise<VendorComponent[]>;
+  getAllVendorComponents(): Promise<VendorComponent[]>;
+  upsertVendorComponent(data: InsertVendorComponent): Promise<VendorComponent>;
+
   // User Webhooks
   getUserWebhooks(userId: string): Promise<UserWebhook[]>;
   getUserWebhook(id: string): Promise<UserWebhook | undefined>;
@@ -3436,6 +3443,37 @@ export class DatabaseStorage implements IStorage {
       .where(lt(userActivityEvents.createdAt, cutoffDate))
       .returning();
     return result.length;
+  }
+
+  // ==========================================
+  // VENDOR COMPONENTS
+  // ==========================================
+
+  async getVendorComponents(vendorKey: string): Promise<VendorComponent[]> {
+    return await db.select().from(vendorComponents)
+      .where(eq(vendorComponents.vendorKey, vendorKey));
+  }
+
+  async getAllVendorComponents(): Promise<VendorComponent[]> {
+    return await db.select().from(vendorComponents);
+  }
+
+  async upsertVendorComponent(data: InsertVendorComponent): Promise<VendorComponent> {
+    const [component] = await db.insert(vendorComponents)
+      .values(data)
+      .onConflictDoUpdate({
+        target: [vendorComponents.vendorKey, vendorComponents.componentId],
+        set: {
+          name: data.name,
+          description: data.description,
+          groupName: data.groupName,
+          status: data.status,
+          position: data.position,
+          updatedAt: new Date(),
+        }
+      })
+      .returning();
+    return component;
   }
 
   // ==========================================

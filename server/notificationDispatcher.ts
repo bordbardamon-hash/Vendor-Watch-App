@@ -5,6 +5,7 @@ import { shouldSendAlert, recordAlertSent } from './cooldownManager';
 import { formatSeverityDisplay, formatStatusDisplay } from './statusNormalizer';
 import { generateCustomerSummary, generateCustomerSummarySms } from './customerSummaryGenerator';
 import { dispatchSlackTeamsForAllSubscribedUsers } from './notifications/slack-teams';
+import { dispatchWebhooksForIncident, dispatchWebhooksForBlockchainIncident } from './webhookDispatcher';
 import type { Incident, Vendor, User, LifecycleEvent, CanonicalSeverity, CanonicalStatus, BlockchainIncident, BlockchainChain } from '@shared/schema';
 
 type EventType = 'new' | 'update' | 'resolved';
@@ -280,6 +281,9 @@ export async function notifyNewIncident(incident: Incident, vendor: Vendor): Pro
   if (slackTeamsResult.slack > 0 || slackTeamsResult.teams > 0) {
     console.log(`[notify] Sent ${slackTeamsResult.slack} Slack, ${slackTeamsResult.teams} Teams notifications for new incident`);
   }
+
+  dispatchWebhooksForIncident(incident, vendor, 'new').catch(err =>
+    console.error('[notify] Webhook dispatch error for new incident:', err));
 }
 
 export async function notifyIncidentUpdate(incident: Incident, vendor: Vendor, previousStatus: string): Promise<void> {
@@ -294,6 +298,9 @@ export async function notifyIncidentUpdate(incident: Incident, vendor: Vendor, p
   if (slackTeamsResult.slack > 0 || slackTeamsResult.teams > 0) {
     console.log(`[notify] Sent ${slackTeamsResult.slack} Slack, ${slackTeamsResult.teams} Teams notifications for incident update`);
   }
+
+  dispatchWebhooksForIncident(incident, vendor, 'update').catch(err =>
+    console.error('[notify] Webhook dispatch error for incident update:', err));
 }
 
 export async function notifyIncidentResolved(incident: Incident, vendor: Vendor): Promise<void> {
@@ -308,6 +315,9 @@ export async function notifyIncidentResolved(incident: Incident, vendor: Vendor)
   if (slackTeamsResult.slack > 0 || slackTeamsResult.teams > 0) {
     console.log(`[notify] Sent ${slackTeamsResult.slack} Slack, ${slackTeamsResult.teams} Teams notifications for resolved incident`);
   }
+
+  dispatchWebhooksForIncident(incident, vendor, 'resolved').catch(err =>
+    console.error('[notify] Webhook dispatch error for resolved incident:', err));
 }
 
 function formatLifecycleSms(notification: LifecycleNotification): string {
@@ -905,12 +915,18 @@ export async function dispatchBlockchainNotification(notification: BlockchainNot
 
 export async function notifyNewBlockchainIncident(incident: BlockchainIncident, chain: BlockchainChain): Promise<void> {
   await dispatchBlockchainNotification({ incident, chain, eventType: 'new' });
+  dispatchWebhooksForBlockchainIncident(incident, chain, 'new').catch(err =>
+    console.error('[notify] Webhook dispatch error for new blockchain incident:', err));
 }
 
 export async function notifyBlockchainIncidentUpdate(incident: BlockchainIncident, chain: BlockchainChain, previousStatus: string): Promise<void> {
   await dispatchBlockchainNotification({ incident, chain, eventType: 'update', previousStatus });
+  dispatchWebhooksForBlockchainIncident(incident, chain, 'update').catch(err =>
+    console.error('[notify] Webhook dispatch error for blockchain incident update:', err));
 }
 
 export async function notifyBlockchainIncidentResolved(incident: BlockchainIncident, chain: BlockchainChain): Promise<void> {
   await dispatchBlockchainNotification({ incident, chain, eventType: 'resolved' });
+  dispatchWebhooksForBlockchainIncident(incident, chain, 'resolved').catch(err =>
+    console.error('[notify] Webhook dispatch error for resolved blockchain incident:', err));
 }
