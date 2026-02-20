@@ -7,6 +7,7 @@ import { scrapeVendorStatus } from "./htmlScraper";
 import { scrapeJsVendorStatus } from "./puppeteerScraper";
 import { confirmVendorIncident, cleanupStalePendingIncidents } from "./incidentConfirmation";
 import type { CanonicalSeverity, CanonicalStatus, LifecycleEvent } from "@shared/schema";
+import { NEW_STATUSPAGE_URLS } from "./newVendors";
 
 function isValidIncident(incident: { name: string; id: string }): boolean {
   const title = incident.name || '';
@@ -122,6 +123,7 @@ const STATUSPAGE_API_URLS: Record<string, string> = {
   square: "https://issquareup.com",
   // Security - verified Jan 2026
   bitdefender: "https://status.gravityzone.bitdefender.com",
+  ...NEW_STATUSPAGE_URLS,
 };
 
 function mapStatusIndicator(indicator: string): string {

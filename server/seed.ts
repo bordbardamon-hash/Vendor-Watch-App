@@ -1,4 +1,5 @@
 import { storage } from "./storage";
+import { NEW_VENDORS } from "./newVendors";
 
 async function seed() {
   console.log("Seeding database...");
@@ -386,21 +387,30 @@ async function seed() {
     { key: "expo", name: "Expo", statusUrl: "https://status.expo.dev", parser: "statuspage_json", status: 'operational' },
   ];
 
-  for (const vendor of vendorsData) {
+  const allVendors = [...vendorsData, ...NEW_VENDORS];
+  
+  let created = 0;
+  let existing = 0;
+  let failed = 0;
+  
+  for (const vendor of allVendors) {
     try {
-      const existing = await storage.getVendor(vendor.key);
-      if (!existing) {
+      const exists = await storage.getVendor(vendor.key);
+      if (!exists) {
         await storage.createVendor(vendor);
-        console.log(`✓ Created vendor: ${vendor.name}`);
+        created++;
+        if (created % 50 === 0) console.log(`[seed] Progress: ${created} vendors created...`);
       } else {
-        console.log(`- Vendor already exists: ${vendor.name}`);
+        existing++;
       }
     } catch (error) {
+      failed++;
       console.error(`✗ Failed to create vendor ${vendor.name}:`, error);
     }
   }
+  
+  console.log(`[seed] Vendor seeding complete: ${created} created, ${existing} already existed, ${failed} failed (${allVendors.length} total)`);
 
-  // No sample incidents - real incidents will be detected by the status sync service
   console.log("Note: Incidents will be populated by real-time status monitoring");
 
   // Add sample jobs

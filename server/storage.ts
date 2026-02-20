@@ -3791,9 +3791,11 @@ export class DatabaseStorage implements IStorage {
 
 export const storage = new DatabaseStorage();
 
+import { NEW_VENDORS, NEW_STATUSPAGE_URLS } from "./newVendors";
+
 // Default vendors to seed - adds any missing vendors on startup
 // parser types: statuspage_json (Statuspage.io API), generic_html (HTML scraping), manual (no API)
-const DEFAULT_VENDORS: InsertVendor[] = [
+const BASE_VENDORS: InsertVendor[] = [
   // Core Cloud & Infrastructure
   { key: "aws", name: "AWS", statusUrl: "https://status.aws.amazon.com", parser: "generic_html", status: "operational" },
   { key: "azure", name: "Azure", statusUrl: "https://status.azure.com", parser: "generic_html", status: "operational" },
@@ -3944,6 +3946,16 @@ const DEFAULT_VENDORS: InsertVendor[] = [
   { key: "ghost", name: "Ghost", statusUrl: "https://status.ghost.org/", parser: "statuspage_json", status: "operational" },
   { key: "expo", name: "Expo", statusUrl: "https://status.expo.dev/", parser: "statuspage_json", status: "operational" },
 ];
+
+const DEFAULT_VENDORS: InsertVendor[] = (() => {
+  const combined = [...BASE_VENDORS, ...NEW_VENDORS.map(v => ({ ...v, status: v.status as string }))];
+  const seen = new Set<string>();
+  return combined.filter(v => {
+    if (seen.has(v.key)) return false;
+    seen.add(v.key);
+    return true;
+  });
+})();
 
 export async function seedVendorsIfEmpty(): Promise<void> {
   const existingVendors = await storage.getVendors();
