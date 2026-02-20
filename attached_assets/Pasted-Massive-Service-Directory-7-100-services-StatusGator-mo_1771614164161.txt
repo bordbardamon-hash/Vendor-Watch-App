@@ -1,0 +1,23 @@
+Massive Service Directory (7,100+ services) — StatusGator monitors over 7,000 cloud services. Your app covers 75 vendors + 110 blockchains, which is solid for a focused tool but much smaller in catalog size.
+
+Early Warning Signals — They detect potential outages before official status pages acknowledge them, using crowdsourced reports and anomaly detection. Your app relies solely on official status page data.
+
+Public/Private Branded Status Pages — Users can create shareable, branded status pages (with custom domains, logos, colors, dark mode) that can be embedded on websites or shown on TV displays. Your app doesn't have a public-facing status page feature for end users to share with their clients.
+
+Website & Ping Monitoring — Beyond vendor status pages, they offer uptime monitoring (HTTP checks) and ping monitoring for your own servers at 1-minute intervals. Your app only monitors third-party vendor status pages.
+
+Component-Level Filtering — Users can drill into specific service components (e.g., "AWS EC2 - US East" only) and get alerts on just those. Your app monitors vendors as a whole, not individual components.
+
+Slack & Microsoft Teams Integration — Direct chat integrations to push alerts into specific channels. Your app has email and SMS but no chat platform integrations.
+
+PagerDuty / Incident Tool Integration — They connect to PagerDuty, StatusHub, and Atlassian Statuspage to auto-create incidents. Your app doesn't integrate with external incident management tools.
+
+Webhooks for Custom Integrations — They offer outbound webhooks so users can build custom automation. Your app doesn't have outbound webhooks yet (it's listed as an enterprise feature but not implemented).
+
+Embeddable Status Widgets — iframe embeds, status modals, and TV/NOC display modes. Your app doesn't have embeddable widgets.
+
+Normalized Status States — They standardize all vendor statuses into 4 simple states: Up, Warn, Down, Maintenance. Your app has more granular statuses but lacks that clean normalization across all vendors.
+
+10+ Years of Historical Data — Deep historical analytics for vendor reliability over time. Your app tracks incidents but doesn't emphasize long-term historical reporting.
+
+SAML SSO for Status Pages — Password-protected or SSO-secured private status pages. Your app uses Replit Auth but doesn't offer SAML.
