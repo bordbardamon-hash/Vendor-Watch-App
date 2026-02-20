@@ -11,7 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Globe, Plus, ExternalLink, Copy, Settings, Users, Eye, Trash2, Server, Link2, CheckCircle, Upload, X, ImageIcon, Code, Monitor, Image } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Globe, Plus, ExternalLink, Copy, Settings, Users, Eye, Trash2, Server, Link2, CheckCircle, Upload, X, ImageIcon, Code, Monitor, Image, Lock, ShieldOff, Shield } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 
 interface ClientPortal {
@@ -23,6 +24,7 @@ interface ClientPortal {
   logoUrl: string | null;
   primaryColor: string;
   accessToken: string | null;
+  accessType: 'public' | 'password' | 'private';
   viewCount: number;
   createdAt: string;
 }
@@ -59,6 +61,9 @@ export default function Portals() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editingPortal, setEditingPortal] = useState<ClientPortal | null>(null);
   const [embedPortal, setEmbedPortal] = useState<ClientPortal | null>(null);
+  const [accessControlPortal, setAccessControlPortal] = useState<ClientPortal | null>(null);
+  const [accessType, setAccessType] = useState<'public' | 'password' | 'private'>('public');
+  const [accessPassword, setAccessPassword] = useState("");
   const [selectedVendors, setSelectedVendors] = useState<Set<string>>(new Set());
   const [selectedChains, setSelectedChains] = useState<Set<string>>(new Set());
   const [formData, setFormData] = useState({
@@ -189,6 +194,30 @@ export default function Portals() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/portals"] });
       toast({ title: "Portal deleted" });
+    },
+  });
+
+  const accessControlMutation = useMutation({
+    mutationFn: async ({ slug, accessType, password }: { slug: string; accessType: string; password?: string }) => {
+      const res = await fetch(`/api/portals/${slug}/access`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accessType, password }),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to update access settings");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/portals"] });
+      setAccessControlPortal(null);
+      setAccessPassword("");
+      toast({ title: "Access settings updated" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
 
@@ -616,15 +645,20 @@ export default function Portals() {
                     <Eye className="h-4 w-4" />
                     <span>{portal.viewCount || 0} views</span>
                   </div>
-                  <div className="flex items-center gap-1">
-                    {portal.isPublic ? (
+                  <div className="flex items-center gap-1" data-testid={`access-type-${portal.id}`}>
+                    {(portal.accessType || 'public') === 'public' ? (
                       <>
-                        <Globe className="h-4 w-4" />
+                        <Globe className="h-4 w-4 text-green-500" />
                         <span>Public</span>
+                      </>
+                    ) : (portal.accessType) === 'password' ? (
+                      <>
+                        <Lock className="h-4 w-4 text-yellow-500" />
+                        <span>Password</span>
                       </>
                     ) : (
                       <>
-                        <Users className="h-4 w-4" />
+                        <ShieldOff className="h-4 w-4 text-red-500" />
                         <span>Private</span>
                       </>
                     )}
@@ -658,6 +692,19 @@ export default function Portals() {
                     title="Get embed code"
                   >
                     <Code className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setAccessControlPortal(portal);
+                      setAccessType((portal.accessType as any) || 'public');
+                      setAccessPassword("");
+                    }}
+                    data-testid={`access-control-${portal.id}`}
+                    title="Access Control"
+                  >
+                    <Shield className="h-4 w-4" />
                   </Button>
                   <Button
                     variant="outline"
@@ -879,6 +926,102 @@ export default function Portals() {
                 </div>
               </TabsContent>
             </Tabs>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {accessControlPortal && (
+        <Dialog open={!!accessControlPortal} onOpenChange={() => setAccessControlPortal(null)}>
+          <DialogContent className="max-w-md" data-testid="access-control-dialog">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5" />
+                Access Control - {accessControlPortal.name}
+              </DialogTitle>
+              <DialogDescription>Configure who can access this status portal</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-6 mt-4">
+              <div className="space-y-3">
+                <Label>Access Type</Label>
+                <Select value={accessType} onValueChange={(v: any) => setAccessType(v)} data-testid="access-type-select">
+                  <SelectTrigger data-testid="access-type-trigger">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="public" data-testid="access-type-public">
+                      <div className="flex items-center gap-2">
+                        <Globe className="h-4 w-4 text-green-500" />
+                        <span>Public — Anyone with the link can view</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="password" data-testid="access-type-password">
+                      <div className="flex items-center gap-2">
+                        <Lock className="h-4 w-4 text-yellow-500" />
+                        <span>Password Protected — Requires a password</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="private" data-testid="access-type-private">
+                      <div className="flex items-center gap-2">
+                        <ShieldOff className="h-4 w-4 text-red-500" />
+                        <span>Private — Not publicly accessible</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {accessType === 'password' && (
+                <div className="space-y-2">
+                  <Label htmlFor="access-password">Portal Password</Label>
+                  <Input
+                    id="access-password"
+                    type="password"
+                    placeholder="Enter a password for this portal"
+                    value={accessPassword}
+                    onChange={(e) => setAccessPassword(e.target.value)}
+                    data-testid="access-password-input"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Visitors will need to enter this password to view the status portal.
+                    {accessControlPortal.accessType === 'password' && !accessPassword && (
+                      <span className="text-yellow-500 ml-1">Leave blank to keep the existing password.</span>
+                    )}
+                  </p>
+                </div>
+              )}
+
+              {accessType === 'private' && (
+                <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                  <p className="text-sm text-destructive">
+                    This portal will not be accessible to anyone. The status page URL will show a "not accessible" message.
+                  </p>
+                </div>
+              )}
+
+              {accessType === 'public' && (
+                <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                  <p className="text-sm text-green-400">
+                    Anyone with the link can view this status portal without authentication.
+                  </p>
+                </div>
+              )}
+            </div>
+            <DialogFooter className="mt-6">
+              <Button variant="outline" onClick={() => setAccessControlPortal(null)}>Cancel</Button>
+              <Button
+                onClick={() => {
+                  accessControlMutation.mutate({
+                    slug: accessControlPortal.slug,
+                    accessType,
+                    password: accessType === 'password' ? accessPassword : undefined,
+                  });
+                }}
+                disabled={accessControlMutation.isPending || (accessType === 'password' && !accessPassword && accessControlPortal.accessType !== 'password')}
+                data-testid="save-access-btn"
+              >
+                {accessControlMutation.isPending ? "Saving..." : "Save Access Settings"}
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       )}

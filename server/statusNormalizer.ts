@@ -110,6 +110,40 @@ export function shouldAlertForEvent(
   }
 }
 
+export type SimpleStatus = 'up' | 'warn' | 'down' | 'maintenance';
+
+export function normalizeToSimpleStatus(vendorStatus: string): SimpleStatus {
+  const s = vendorStatus?.toLowerCase().trim();
+  switch (s) {
+    case 'operational':
+      return 'up';
+    case 'degraded':
+    case 'degraded_performance':
+    case 'partial_outage':
+      return 'warn';
+    case 'outage':
+    case 'major_outage':
+    case 'down':
+    case 'critical':
+      return 'down';
+    case 'maintenance':
+    case 'under_maintenance':
+    case 'scheduled':
+      return 'maintenance';
+    default:
+      return 'up';
+  }
+}
+
+export function getSimpleStatusLabel(status: SimpleStatus): string {
+  switch (status) {
+    case 'up': return 'Up';
+    case 'warn': return 'Warn';
+    case 'down': return 'Down';
+    case 'maintenance': return 'Maintenance';
+  }
+}
+
 export function formatSeverityDisplay(severity: CanonicalSeverity): string {
   switch (severity) {
     case 'critical': return 'CRITICAL';

@@ -320,6 +320,70 @@ async function seed() {
     { key: "mixpanel", name: "Mixpanel", statusUrl: "https://status.mixpanel.com", parser: "statuspage_json", status: 'operational' },
     { key: "amplitude", name: "Amplitude", statusUrl: "https://status.amplitude.com", parser: "statuspage_json", status: 'operational' },
     { key: "snowflake", name: "Snowflake", statusUrl: "https://status.snowflake.com", parser: "statuspage_json", status: 'operational' },
+    // Developer Tools & APIs
+    { key: "vercel", name: "Vercel", statusUrl: "https://www.vercel-status.com", parser: "statuspage_json", status: 'operational' },
+    { key: "netlify", name: "Netlify", statusUrl: "https://www.netlifystatus.com", parser: "statuspage_json", status: 'operational' },
+    { key: "render", name: "Render", statusUrl: "https://status.render.com", parser: "statuspage_json", status: 'operational' },
+    { key: "railway", name: "Railway", statusUrl: "https://status.railway.app", parser: "statuspage_json", status: 'operational' },
+    { key: "supabase", name: "Supabase", statusUrl: "https://status.supabase.com", parser: "statuspage_json", status: 'operational' },
+    { key: "prisma", name: "Prisma", statusUrl: "https://status.prisma.io", parser: "statuspage_json", status: 'operational' },
+    { key: "postman", name: "Postman", statusUrl: "https://status.postman.com", parser: "statuspage_json", status: 'operational' },
+    { key: "circleci", name: "CircleCI", statusUrl: "https://status.circleci.com", parser: "statuspage_json", status: 'operational' },
+    { key: "travisci", name: "Travis CI", statusUrl: "https://www.traviscistatus.com", parser: "statuspage_json", status: 'operational' },
+    { key: "jfrog", name: "JFrog", statusUrl: "https://status.jfrog.com", parser: "statuspage_json", status: 'operational' },
+    { key: "contentful", name: "Contentful", statusUrl: "https://www.contentfulstatus.com", parser: "statuspage_json", status: 'operational' },
+    { key: "sanity", name: "Sanity", statusUrl: "https://status.sanity.io", parser: "statuspage_json", status: 'operational' },
+    { key: "storyblok", name: "Storyblok", statusUrl: "https://status.storyblok.com", parser: "statuspage_json", status: 'operational' },
+    { key: "sentry", name: "Sentry", statusUrl: "https://status.sentry.io", parser: "statuspage_json", status: 'operational' },
+    { key: "snyk", name: "Snyk", statusUrl: "https://status.snyk.io", parser: "statuspage_json", status: 'operational' },
+    { key: "sonarcloud", name: "SonarCloud", statusUrl: "https://sonarcloud.statuspage.io", parser: "statuspage_json", status: 'operational' },
+    { key: "openai", name: "OpenAI", statusUrl: "https://status.openai.com", parser: "statuspage_json", status: 'operational' },
+    { key: "anthropic", name: "Anthropic", statusUrl: "https://status.anthropic.com", parser: "statuspage_json", status: 'operational' },
+    { key: "linear", name: "Linear", statusUrl: "https://status.linear.app", parser: "statuspage_json", status: 'operational' },
+    { key: "launchdarkly", name: "LaunchDarkly", statusUrl: "https://status.launchdarkly.com", parser: "statuspage_json", status: 'operational' },
+    // CMS & Content
+    { key: "webflow", name: "Webflow", statusUrl: "https://status.webflow.com", parser: "statuspage_json", status: 'operational' },
+    { key: "ghost", name: "Ghost", statusUrl: "https://status.ghost.org", parser: "statuspage_json", status: 'operational' },
+    // Collaboration & Productivity
+    { key: "notion", name: "Notion", statusUrl: "https://status.notion.so", parser: "statuspage_json", status: 'operational' },
+    { key: "airtable", name: "Airtable", statusUrl: "https://status.airtable.com", parser: "statuspage_json", status: 'operational' },
+    { key: "asana", name: "Asana", statusUrl: "https://trust.asana.com", parser: "statuspage_json", status: 'operational' },
+    { key: "trello", name: "Trello", statusUrl: "https://trello.status.atlassian.com", parser: "statuspage_json", status: 'operational' },
+    { key: "docusign", name: "DocuSign", statusUrl: "https://status.docusign.com", parser: "statuspage_json", status: 'operational' },
+    { key: "adobe", name: "Adobe Creative Cloud", statusUrl: "https://status.adobe.com", parser: "statuspage_json", status: 'operational' },
+    // Cloud & Infrastructure
+    { key: "flyio", name: "Fly.io", statusUrl: "https://status.flyio.net", parser: "statuspage_json", status: 'operational' },
+    { key: "mongodb", name: "MongoDB Atlas", statusUrl: "https://status.cloud.mongodb.com", parser: "statuspage_json", status: 'operational' },
+    { key: "elastic", name: "Elastic Cloud", statusUrl: "https://status.elastic.co", parser: "statuspage_json", status: 'operational' },
+    { key: "confluent", name: "Confluent", statusUrl: "https://status.confluent.cloud", parser: "statuspage_json", status: 'operational' },
+    { key: "cockroachdb", name: "CockroachDB", statusUrl: "https://status.cockroachlabs.cloud", parser: "statuspage_json", status: 'operational' },
+    { key: "planetscale", name: "PlanetScale", statusUrl: "https://www.planetscalestatus.com", parser: "statuspage_json", status: 'operational' },
+    { key: "neon", name: "Neon", statusUrl: "https://neonstatus.com", parser: "statuspage_json", status: 'operational' },
+    { key: "upstash", name: "Upstash", statusUrl: "https://status.upstash.com", parser: "statuspage_json", status: 'operational' },
+    { key: "hashicorp", name: "HashiCorp", statusUrl: "https://status.hashicorp.com", parser: "statuspage_json", status: 'operational' },
+    // Security & Identity
+    { key: "onepassword", name: "1Password", statusUrl: "https://status.1password.com", parser: "statuspage_json", status: 'operational' },
+    { key: "lastpass", name: "LastPass", statusUrl: "https://status.lastpass.com", parser: "statuspage_json", status: 'operational' },
+    // Payments & E-Commerce
+    { key: "coinbase", name: "Coinbase", statusUrl: "https://status.coinbase.com", parser: "statuspage_json", status: 'operational' },
+    { key: "shopify", name: "Shopify", statusUrl: "https://status.shopify.com", parser: "statuspage_json", status: 'operational' },
+    // Communication
+    { key: "twilio", name: "Twilio", statusUrl: "https://status.twilio.com", parser: "statuspage_json", status: 'operational' },
+    { key: "sendgrid", name: "SendGrid", statusUrl: "https://status.sendgrid.com", parser: "statuspage_json", status: 'operational' },
+    // Search & APIs
+    { key: "algolia", name: "Algolia", statusUrl: "https://status.algolia.com", parser: "statuspage_json", status: 'operational' },
+    { key: "cloudinary", name: "Cloudinary", statusUrl: "https://status.cloudinary.com", parser: "statuspage_json", status: 'operational' },
+    { key: "mapbox", name: "Mapbox", statusUrl: "https://status.mapbox.com", parser: "statuspage_json", status: 'operational' },
+    // Monitoring & Observability
+    { key: "grafana", name: "Grafana Cloud", statusUrl: "https://status.grafana.com", parser: "statuspage_json", status: 'operational' },
+    // Containers & Hosting
+    { key: "docker", name: "Docker", statusUrl: "https://www.dockerstatus.com", parser: "statuspage_json", status: 'operational' },
+    { key: "deno", name: "Deno Deploy", statusUrl: "https://www.denostatus.com", parser: "statuspage_json", status: 'operational' },
+    // Website Builders
+    { key: "wix", name: "Wix", statusUrl: "https://www.wixstatus.com", parser: "statuspage_json", status: 'operational' },
+    // Low-Code & Mobile
+    { key: "retool", name: "Retool", statusUrl: "https://status.retool.com", parser: "statuspage_json", status: 'operational' },
+    { key: "expo", name: "Expo", statusUrl: "https://status.expo.dev", parser: "statuspage_json", status: 'operational' },
   ];
 
   for (const vendor of vendorsData) {

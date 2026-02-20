@@ -70,6 +70,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { href: "/maintenance", icon: Wrench, label: "Maintenance", adminOnly: false, ownerOnly: false, requiresGrowth: false },
     { href: "/analytics", icon: BarChart3, label: "Analytics", adminOnly: false, ownerOnly: false, requiresGrowth: false },
     { href: "/sla", icon: Target, label: "SLA Dashboard", adminOnly: false, ownerOnly: false, requiresGrowth: false },
+    { href: "/monitoring", icon: Activity, label: "Website Monitoring", adminOnly: false, ownerOnly: false, requiresGrowth: false },
     { href: "/automation", icon: Bot, label: "Automation", adminOnly: false, ownerOnly: false, requiresGrowth: false },
     { href: "/integrations", icon: Settings2, label: "Integrations", adminOnly: false, ownerOnly: false, requiresGrowth: true },
     { href: "/clients", icon: Users, label: "Clients", adminOnly: false, ownerOnly: false, requiresGrowth: true },

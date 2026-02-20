@@ -237,6 +237,7 @@ export default function Vendors() {
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
   const [archiveSearchQuery, setArchiveSearchQuery] = useState("");
   const [archiveVendorFilter, setArchiveVendorFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [archiveDateRange, setArchiveDateRange] = useState<string>("all");
   const [requestForm, setRequestForm] = useState({ vendorName: "", statusPageUrl: "", integrationNotes: "" });
   const [directAddForm, setDirectAddForm] = useState({ key: "", name: "", statusUrl: "", parser: "statuspage_json" });
@@ -554,10 +555,12 @@ export default function Vendors() {
     return acknowledgements.some(a => a.incidentId === incidentId);
   };
 
-  const filteredVendors = vendors.filter(v => 
-    v.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    v.key.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredVendors = vendors.filter(v => {
+    const matchesSearch = v.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      v.key.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || (v as any).normalizedStatus === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   const getVendorIncidents = (vendorKey: string) => {
     return incidents
@@ -845,6 +848,28 @@ export default function Vendors() {
             ))}
           </div>
         )}
+      </div>
+
+      <div className="flex flex-wrap gap-2 items-center" data-testid="status-filter-bar">
+        <span className="text-xs text-muted-foreground font-medium mr-1">Filter:</span>
+        {[
+          { key: 'all', label: 'All', color: 'text-foreground' },
+          { key: 'up', label: 'Up', color: 'text-emerald-500' },
+          { key: 'warn', label: 'Warn', color: 'text-yellow-500' },
+          { key: 'down', label: 'Down', color: 'text-red-500' },
+          { key: 'maintenance', label: 'Maintenance', color: 'text-blue-500' },
+        ].map(f => (
+          <button
+            key={f.key}
+            onClick={() => setStatusFilter(f.key)}
+            className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${statusFilter === f.key ? 'bg-primary/10 border-primary/50 text-primary' : 'border-sidebar-border hover:border-primary/30 ' + f.color}`}
+            data-testid={`filter-status-${f.key}`}
+          >
+            {f.key !== 'all' && <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 ${f.key === 'up' ? 'bg-emerald-500' : f.key === 'warn' ? 'bg-yellow-500' : f.key === 'down' ? 'bg-red-500' : 'bg-blue-500'}`} />}
+            {f.label}
+            {f.key !== 'all' && <span className="ml-1 opacity-60">({vendors.filter(v => (v as any).normalizedStatus === f.key).length})</span>}
+          </button>
+        ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 flex-1 min-h-0">

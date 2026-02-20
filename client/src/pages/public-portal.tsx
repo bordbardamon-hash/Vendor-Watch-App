@@ -1,12 +1,12 @@
-import { useQuery } from "@tanstack/react-query";
 import { useRoute } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, AlertTriangle, XCircle, Bell, Mail, Clock, History } from "lucide-react";
-import { useState } from "react";
+import { CheckCircle, AlertTriangle, XCircle, Bell, Mail, Clock, History, Lock, ShieldOff } from "lucide-react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { Label } from "@/components/ui/label";
 
 interface PortalResource {
   type: string;
@@ -55,6 +55,13 @@ interface PortalData {
   recentIncidents: RecentIncident[];
 }
 
+type AccessState =
+  | { type: 'loading' }
+  | { type: 'public'; data: PortalData }
+  | { type: 'password_required'; portalName?: string; portalLogo?: string; primaryColor?: string; backgroundColor?: string }
+  | { type: 'private' }
+  | { type: 'not_found' };
+
 const STATUS_CONFIG = {
   operational: { icon: CheckCircle, color: "text-green-500", bg: "bg-green-500/10", text: "All Systems Operational" },
   partial_outage: { icon: AlertTriangle, color: "text-yellow-500", bg: "bg-yellow-500/10", text: "Partial System Outage" },
@@ -74,11 +81,69 @@ export default function PublicPortal() {
   const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [subscribing, setSubscribing] = useState(false);
+  const [accessState, setAccessState] = useState<AccessState>({ type: 'loading' });
+  const [password, setPassword] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
 
-  const { data, isLoading, error } = useQuery<PortalData>({
-    queryKey: [`/api/status/${slug}`],
-    enabled: !!slug,
-  });
+  useEffect(() => {
+    if (!slug) return;
+    fetchPortalData();
+  }, [slug]);
+
+  const fetchPortalData = async () => {
+    try {
+      const res = await fetch(`/api/status/${slug}`);
+      if (res.ok) {
+        const data = await res.json();
+        setAccessState({ type: 'public', data });
+      } else if (res.status === 403) {
+        const body = await res.json();
+        if (body.accessType === 'private') {
+          setAccessState({ type: 'private' });
+        } else if (body.accessType === 'password') {
+          setAccessState({
+            type: 'password_required',
+            portalName: body.portalName,
+            portalLogo: body.portalLogo,
+            primaryColor: body.primaryColor,
+            backgroundColor: body.backgroundColor,
+          });
+        } else {
+          setAccessState({ type: 'not_found' });
+        }
+      } else {
+        setAccessState({ type: 'not_found' });
+      }
+    } catch {
+      setAccessState({ type: 'not_found' });
+    }
+  };
+
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!password || !slug) return;
+    setVerifying(true);
+    setPasswordError("");
+    try {
+      const res = await fetch(`/api/portals/${slug}/data`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAccessState({ type: 'public', data });
+        setPassword("");
+      } else {
+        const err = await res.json();
+        setPasswordError(err.error || "Invalid password");
+      }
+    } catch {
+      setPasswordError("Failed to verify password");
+    }
+    setVerifying(false);
+  };
 
   const handleSubscribe = async () => {
     if (!email) return;
@@ -102,24 +167,92 @@ export default function PublicPortal() {
     setSubscribing(false);
   };
 
-  if (isLoading) {
+  if (accessState.type === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-[#0f172a]">
         <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
       </div>
     );
   }
 
-  if (error || !data) {
+  if (accessState.type === 'private') {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4">
-        <h1 className="text-2xl font-bold mb-2">Portal Not Found</h1>
-        <p className="text-muted-foreground">This status page doesn't exist or is not accessible.</p>
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-[#0f172a]" data-testid="portal-private">
+        <div className="text-center max-w-md">
+          <ShieldOff className="h-16 w-16 text-red-500 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-white mb-2">Portal Not Accessible</h1>
+          <p className="text-gray-400">This status portal is not publicly accessible. Contact the administrator for access.</p>
+        </div>
       </div>
     );
   }
 
-  const { portal, overallStatus, resources, recentIncidents = [] } = data;
+  if (accessState.type === 'password_required') {
+    const bgColor = accessState.backgroundColor || "#0f172a";
+    const primary = accessState.primaryColor || "#3b82f6";
+    return (
+      <div
+        className="min-h-screen flex flex-col items-center justify-center p-4"
+        style={{ backgroundColor: bgColor }}
+        data-testid="portal-password-gate"
+      >
+        <div className="w-full max-w-sm">
+          <div className="text-center mb-8">
+            {accessState.portalLogo && (
+              <img src={accessState.portalLogo} alt="" className="h-12 mx-auto mb-4" />
+            )}
+            <Lock className="h-12 w-12 mx-auto mb-4" style={{ color: primary }} />
+            <h1 className="text-2xl font-bold text-white mb-2">
+              {accessState.portalName || "Status Portal"}
+            </h1>
+            <p className="text-gray-400">This portal is password protected. Enter the password to view the status page.</p>
+          </div>
+          <Card className="border-0" style={{ backgroundColor: "#1e293b" }}>
+            <CardContent className="p-6">
+              <form onSubmit={handlePasswordSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="portal-password" className="text-gray-300">Password</Label>
+                  <Input
+                    id="portal-password"
+                    type="password"
+                    placeholder="Enter portal password"
+                    value={password}
+                    onChange={(e) => { setPassword(e.target.value); setPasswordError(""); }}
+                    className="bg-gray-800 border-gray-700 text-white"
+                    data-testid="portal-password-input"
+                    autoFocus
+                  />
+                  {passwordError && (
+                    <p className="text-sm text-red-500" data-testid="password-error">{passwordError}</p>
+                  )}
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={verifying || !password}
+                  style={{ backgroundColor: primary }}
+                  data-testid="portal-password-submit"
+                >
+                  {verifying ? "Verifying..." : "Access Portal"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  if (accessState.type === 'not_found' || !accessState.data) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-[#0f172a]">
+        <h1 className="text-2xl font-bold text-white mb-2">Portal Not Found</h1>
+        <p className="text-gray-400">This status page doesn't exist or is not accessible.</p>
+      </div>
+    );
+  }
+
+  const { portal, overallStatus, resources, recentIncidents = [] } = accessState.data;
   const statusConfig = STATUS_CONFIG[overallStatus];
   const StatusIcon = statusConfig.icon;
 

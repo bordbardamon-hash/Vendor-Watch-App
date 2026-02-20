@@ -1050,6 +1050,8 @@ export const clientPortals = pgTable("client_portals", {
   isActive: boolean("is_active").notNull().default(true),
   isPublic: boolean("is_public").notNull().default(true), // Public access or require token
   accessToken: text("access_token"), // Optional token for private portals
+  accessType: text("access_type").notNull().default('public'), // 'public' | 'password' | 'private'
+  accessPassword: text("access_password"), // Hashed password for password-protected portals
   // Branding
   logoUrl: text("logo_url"),
   primaryColor: text("primary_color").default('#3b82f6'), // Blue default
@@ -1402,10 +1404,12 @@ export const uptimeReports = pgTable("uptime_reports", {
   organizationId: varchar("organization_id", { length: 36 }),
   reportType: varchar("report_type", { length: 50 }).notNull().default("weekly"),
   name: varchar("name", { length: 255 }).notNull(),
+  period: varchar("period", { length: 20 }),
   vendorKeys: text("vendor_keys").array(),
   chainKeys: text("chain_keys").array(),
   startDate: timestamp("start_date").notNull(),
   endDate: timestamp("end_date").notNull(),
+  data: text("data"),
   status: varchar("status", { length: 50 }).notNull().default("pending"),
   fileUrl: text("file_url"),
   fileSize: integer("file_size"),

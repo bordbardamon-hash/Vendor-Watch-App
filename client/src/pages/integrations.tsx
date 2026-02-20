@@ -13,6 +13,7 @@ import {
   Mail, 
   Globe, 
   Ticket,
+  Bell,
   Plus,
   Trash2,
   TestTube,
@@ -59,6 +60,15 @@ const INTEGRATION_TYPES = [
     description: 'Send incident alerts to Teams channels',
     placeholder: 'https://outlook.office.com/webhook/...',
     helpUrl: 'https://learn.microsoft.com/en-us/microsoftteams/platform/webhooks-and-connectors/how-to/add-incoming-webhook'
+  },
+  { 
+    value: 'pagerduty', 
+    label: 'PagerDuty', 
+    icon: Bell, 
+    color: 'text-emerald-400',
+    description: 'Auto-create and resolve PagerDuty incidents',
+    placeholder: 'Enter your PagerDuty Integration Key (routing key)',
+    helpUrl: 'https://support.pagerduty.com/docs/services-and-integrations'
   },
   { 
     value: 'psa', 
@@ -225,6 +235,8 @@ export default function Integrations() {
     
     if (newIntegration.integrationType === 'escalation_phone') {
       data.phoneNumber = newIntegration.phoneNumber;
+    } else if (newIntegration.integrationType === 'pagerduty') {
+      data.apiKey = newIntegration.webhookUrl;
     } else {
       data.webhookUrl = newIntegration.webhookUrl;
     }

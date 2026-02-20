@@ -424,6 +424,21 @@ app.use((req, res, next) => {
       setInterval(runDataRetention, DATA_RETENTION_INTERVAL_MS);
       
       console.log(`[retention] Data retention configured: telemetry ${TELEMETRY_RETENTION_DAYS} days, predictions ${PREDICTION_RETENTION_DAYS} days, activity ${ACTIVITY_RETENTION_DAYS} days (runs daily)`);
+
+      // Synthetic probe monitoring: run every minute
+      const PROBE_INTERVAL_MS = 60 * 1000;
+      setInterval(async () => {
+        try {
+          const { runAllActiveProbes } = await import('./syntheticMonitor');
+          const result = await runAllActiveProbes();
+          if (result.total > 0) {
+            console.log(`[probes] Ran ${result.total} probes: ${result.healthy} healthy, ${result.degraded} degraded, ${result.down} down`);
+          }
+        } catch (err) {
+          console.error('[probes] Probe execution failed:', err);
+        }
+      }, PROBE_INTERVAL_MS);
+      console.log(`[probes] Synthetic monitoring configured: every 1 minute`);
     },
   );
 })();

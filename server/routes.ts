@@ -8,6 +8,7 @@ import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClie
 import { sendSMS } from "./twilioClient";
 import { sendWelcomeEmail, notifyOwnerNewSignup } from "./emailClient";
 import { syncVendorStatus, resolveStaleIncidents } from "./statusSync";
+import { normalizeToSimpleStatus } from "./statusNormalizer";
 import { syncAllBlockchainChains, resolveStaleBlockchainIncidents } from "./blockchainSync";
 import { setupTwoFactor, verifyTOTP, verifyRecoveryCode, generateRecoveryCodes } from "./twoFactor";
 import { z } from "zod";
@@ -717,7 +718,11 @@ export async function registerRoutes(
   app.get("/api/vendors", isAuthenticated, async (req, res) => {
     try {
       const vendors = await storage.getVendors();
-      res.json(vendors);
+      const enriched = vendors.map(v => ({
+        ...v,
+        normalizedStatus: normalizeToSimpleStatus(v.status),
+      }));
+      res.json(enriched);
     } catch (error) {
       console.error("Error fetching vendors:", error);
       res.status(500).json({ error: "Failed to fetch vendors" });
@@ -731,7 +736,7 @@ export async function registerRoutes(
       if (!vendor) {
         return res.status(404).json({ error: "Vendor not found" });
       }
-      res.json(vendor);
+      res.json({ ...vendor, normalizedStatus: normalizeToSimpleStatus(vendor.status) });
     } catch (error) {
       console.error("Error fetching vendor:", error);
       res.status(500).json({ error: "Failed to fetch vendor" });
@@ -5755,6 +5760,40 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
         } catch (e) {
           message = "Failed to connect to PSA webhook";
         }
+      } else if (existing.integrationType === 'pagerduty' && existing.apiKey) {
+        try {
+          const pdPayload = {
+            routing_key: existing.apiKey,
+            event_action: 'trigger' as const,
+            dedup_key: `vendorwatch-test-${Date.now()}`,
+            payload: {
+              summary: 'VendorWatch Test - PagerDuty Integration Connected',
+              source: 'VendorWatch',
+              severity: 'info' as const,
+              custom_details: { test: true, timestamp: new Date().toISOString() }
+            }
+          };
+          const response = await fetch('https://events.pagerduty.com/v2/enqueue', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(pdPayload),
+          });
+          success = response.ok;
+          message = success ? "PagerDuty test event sent successfully!" : "Failed to send PagerDuty event - check your integration key";
+          if (success) {
+            await fetch('https://events.pagerduty.com/v2/enqueue', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                routing_key: existing.apiKey,
+                event_action: 'resolve',
+                dedup_key: pdPayload.dedup_key
+              }),
+            }).catch(() => {});
+          }
+        } catch (e) {
+          message = "Failed to connect to PagerDuty Events API";
+        }
       } else if (existing.integrationType === 'escalation_phone' && existing.phoneNumber) {
         success = true;
         message = "Phone number saved. Escalation calls will use Twilio when triggered.";
@@ -6644,6 +6683,156 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
     }
   });
   
+  // Update portal access control settings
+  app.put("/api/portals/:slug/access", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const portal = await storage.getClientPortalBySlug(req.params.slug);
+      if (!portal || portal.userId !== userId) {
+        return res.status(404).json({ error: "Portal not found" });
+      }
+      
+      const { accessType, password } = req.body;
+      if (!accessType || !['public', 'password', 'private'].includes(accessType)) {
+        return res.status(400).json({ error: "Invalid accessType. Must be 'public', 'password', or 'private'" });
+      }
+      
+      const updateData: any = {
+        accessType,
+        isPublic: accessType === 'public',
+      };
+      
+      if (accessType === 'password' && password) {
+        const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+        updateData.accessPassword = hashedPassword;
+      } else if (accessType !== 'password') {
+        updateData.accessPassword = null;
+      }
+      
+      const updated = await storage.updateClientPortal(portal.id, updateData);
+      res.json({ success: true, accessType: updated?.accessType });
+    } catch (error) {
+      console.error("Error updating portal access:", error);
+      res.status(500).json({ error: "Failed to update portal access settings" });
+    }
+  });
+  
+  // Verify password for a password-protected portal (public, no auth)
+  app.post("/api/portals/:slug/verify", async (req: any, res) => {
+    try {
+      const portal = await storage.getClientPortalBySlug(req.params.slug);
+      if (!portal || !portal.isActive) {
+        return res.status(404).json({ error: "Portal not found" });
+      }
+      
+      if (portal.accessType !== 'password') {
+        return res.status(400).json({ error: "Portal is not password-protected" });
+      }
+      
+      const { password } = req.body;
+      if (!password || !portal.accessPassword) {
+        return res.status(401).json({ error: "Invalid password" });
+      }
+      
+      const isValid = await bcrypt.compare(password, portal.accessPassword);
+      if (!isValid) {
+        return res.status(401).json({ error: "Invalid password" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error verifying portal password:", error);
+      res.status(500).json({ error: "Failed to verify password" });
+    }
+  });
+  
+  // Fetch portal data with password (for password-protected portals, public, no auth)
+  app.post("/api/portals/:slug/data", async (req: any, res) => {
+    try {
+      const portal = await storage.getClientPortalBySlug(req.params.slug);
+      if (!portal || !portal.isActive) {
+        return res.status(404).json({ error: "Portal not found" });
+      }
+      
+      if (portal.accessType === 'private') {
+        return res.status(403).json({ error: "This portal is not publicly accessible" });
+      }
+      
+      if (portal.accessType === 'password') {
+        const { password } = req.body;
+        if (!password || !portal.accessPassword) {
+          return res.status(401).json({ error: "Invalid password" });
+        }
+        const isValid = await bcrypt.compare(password, portal.accessPassword);
+        if (!isValid) {
+          return res.status(401).json({ error: "Invalid password" });
+        }
+      }
+      
+      await storage.incrementPortalViewCount(portal.id);
+      
+      const assignments = await storage.getPortalVendorAssignments(portal.id);
+      const allVendors = await storage.getVendors();
+      const chains = await storage.getBlockchainChains();
+      const vendorIncidents = await storage.getIncidents();
+      const chainIncidents = await storage.getBlockchainIncidents();
+      
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      
+      const assignedVendorKeys = new Set(assignments.filter(a => a.resourceType === 'vendor' && a.vendorKey).map(a => a.vendorKey));
+      const assignedChainKeys = new Set(assignments.filter(a => a.resourceType === 'blockchain' && a.chainKey).map(a => a.chainKey));
+      
+      const recentVendorIncidents = vendorIncidents.filter(i => {
+        const incidentDate = new Date(i.startedAt);
+        return assignedVendorKeys.has(i.vendorKey) && incidentDate >= sevenDaysAgo;
+      }).map(i => {
+        const vendor = allVendors.find(v => v.key === i.vendorKey);
+        return { id: i.id, type: 'vendor', resourceName: vendor?.name || i.vendorKey, title: i.title, status: i.status, severity: i.severity, impact: i.impact, startedAt: i.startedAt, updatedAt: i.updatedAt };
+      });
+      
+      const recentChainIncidents = chainIncidents.filter(i => {
+        const incidentDate = new Date(i.startedAt);
+        return assignedChainKeys.has(i.chainKey) && incidentDate >= sevenDaysAgo;
+      }).map(i => {
+        const chain = chains.find(c => c.key === i.chainKey);
+        return { id: i.id, type: 'blockchain', resourceName: chain?.name || i.chainKey, title: i.title, status: i.status, severity: i.severity, impact: i.impact, startedAt: i.startedAt, updatedAt: i.updatedAt };
+      });
+      
+      const recentIncidents = [...recentVendorIncidents, ...recentChainIncidents]
+        .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
+        .slice(0, 20);
+      
+      const resources = assignments.filter(a => a.showOnPortal).map(a => {
+        if (a.resourceType === 'vendor' && a.vendorKey) {
+          const vendor = allVendors.find(v => v.key === a.vendorKey);
+          const activeIncidents = vendorIncidents.filter(i => i.vendorKey === a.vendorKey && i.status !== 'resolved');
+          return { type: 'vendor', key: a.vendorKey, name: a.displayName || vendor?.name || a.vendorKey, status: vendor?.status || 'operational', hasActiveIncidents: activeIncidents.length > 0, activeIncidents: activeIncidents.map(i => ({ title: i.title, status: i.status, severity: i.severity, startedAt: i.startedAt })), customSlaTarget: a.customSlaTarget };
+        } else if (a.resourceType === 'blockchain' && a.chainKey) {
+          const chain = chains.find(c => c.key === a.chainKey);
+          const activeIncidents = chainIncidents.filter(i => i.chainKey === a.chainKey && i.status !== 'resolved');
+          return { type: 'blockchain', key: a.chainKey, name: a.displayName || chain?.name || a.chainKey, status: chain?.status || 'operational', hasActiveIncidents: activeIncidents.length > 0, activeIncidents: activeIncidents.map(i => ({ title: i.title, status: i.status, severity: i.severity, startedAt: i.startedAt })), customSlaTarget: a.customSlaTarget };
+        }
+        return null;
+      }).filter(Boolean);
+      
+      const hasIssues = resources.some((r: any) => r.hasActiveIncidents);
+      const hasCritical = resources.some((r: any) => r.activeIncidents?.some((i: any) => i.severity === 'critical'));
+      
+      res.json({
+        portal: { name: portal.name, logoUrl: portal.logoUrl, primaryColor: portal.primaryColor, secondaryColor: portal.secondaryColor, backgroundColor: portal.backgroundColor, accentColor: portal.accentColor, fontFamily: portal.fontFamily, headerText: portal.headerText, footerText: portal.footerText, showIncidentHistory: portal.showIncidentHistory, showUptimeStats: portal.showUptimeStats, showSubscribeOption: portal.showSubscribeOption },
+        overallStatus: hasCritical ? 'major_outage' : hasIssues ? 'partial_outage' : 'operational',
+        resources,
+        recentIncidents,
+      });
+    } catch (error) {
+      console.error("Error fetching portal data with password:", error);
+      res.status(500).json({ error: "Failed to fetch portal data" });
+    }
+  });
+  
   // Update portal vendor assignments
   app.put("/api/portals/:id/vendors", isAuthenticated, async (req: any, res) => {
     try {
@@ -6692,8 +6881,17 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
         return res.status(404).json({ error: "Portal not found" });
       }
       
-      // Check access token if portal is not public
-      if (!portal.isPublic) {
+      // Check access type
+      if (portal.accessType === 'private') {
+        return res.status(403).json({ error: "This portal is not publicly accessible", accessType: 'private' });
+      }
+      
+      if (portal.accessType === 'password') {
+        return res.status(403).json({ error: "Password required", accessType: 'password' });
+      }
+      
+      // Legacy: Check access token if portal is not public
+      if (!portal.isPublic && portal.accessType === 'public') {
         const token = req.query.token || req.headers['x-portal-token'];
         if (token !== portal.accessToken) {
           return res.status(403).json({ error: "Access denied" });
@@ -6826,8 +7024,17 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
         return res.status(404).json({ error: "Portal not found" });
       }
       
-      // Check access token if portal is not public
-      if (!portal.isPublic) {
+      // Check access type
+      if (portal.accessType === 'private') {
+        return res.status(403).json({ error: "This portal is not publicly accessible", accessType: 'private' });
+      }
+      
+      if (portal.accessType === 'password') {
+        return res.status(403).json({ error: "Password required", accessType: 'password', portalName: portal.name, portalLogo: portal.logoUrl, primaryColor: portal.primaryColor, backgroundColor: portal.backgroundColor });
+      }
+      
+      // Legacy: Check access token if portal is not public
+      if (!portal.isPublic && portal.accessType === 'public') {
         const token = req.query.token || req.headers['x-portal-token'];
         if (token !== portal.accessToken) {
           return res.status(403).json({ error: "Access denied" });
@@ -7214,7 +7421,7 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
 
   // ============ PREDICTIVE ANALYTICS API ============
   
-  // Get active predictions
+  // Get active predictions (enhanced with source info)
   app.get("/api/predictions", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user?.id;
@@ -7225,11 +7432,72 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
         return res.status(403).json({ error: "Predictive analytics requires Enterprise plan" });
       }
       
-      const predictions = await storage.getActivePredictions();
-      res.json(predictions);
+      const predictions = await storage.getAllOutagePredictions();
+      const enriched = predictions.map(p => ({
+        ...p,
+        source: p.predictionType.startsWith('crowdsourced') ? 'crowdsourced' : 'ai',
+      }));
+      res.json(enriched);
     } catch (error) {
       console.error("Error fetching predictions:", error);
       res.status(500).json({ error: "Failed to fetch predictions" });
+    }
+  });
+
+  // Submit a crowdsourced report
+  app.post("/api/predictions/report", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+      const reportSchema = z.object({
+        vendorKey: z.string().min(1),
+        issueType: z.enum(['degradation', 'outage', 'intermittent']),
+        description: z.string().min(1).max(1000),
+        severity: z.enum(['low', 'medium', 'high', 'critical']),
+      });
+
+      const parsed = reportSchema.parse(req.body);
+
+      const recentCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const allPredictions = await storage.getAllOutagePredictions();
+      const recentSameVendor = allPredictions.filter(p =>
+        p.vendorKey === parsed.vendorKey &&
+        p.predictionType.startsWith('crowdsourced') &&
+        p.createdAt >= recentCutoff
+      );
+      const reportCount = recentSameVendor.length;
+      const confidence = Math.min(0.3 + reportCount * 0.15, 0.95).toFixed(2);
+
+      const prediction = await storage.createOutagePrediction({
+        vendorKey: parsed.vendorKey,
+        chainKey: null,
+        resourceType: 'vendor',
+        predictionType: `crowdsourced_${parsed.issueType}`,
+        severity: parsed.severity,
+        confidence,
+        title: `Crowdsourced: ${parsed.issueType} reported for ${parsed.vendorKey}`,
+        description: parsed.description,
+        predictedStartAt: new Date(),
+        predictedEndAt: null,
+        patternBasis: JSON.stringify({ reportedBy: userId, issueType: parsed.issueType, recentReportCount: reportCount + 1 }),
+        historicalIncidents: null,
+        status: 'active',
+        acknowledgedBy: null,
+        acknowledgedAt: null,
+        actualIncidentId: null,
+        feedbackScore: null,
+        feedbackNotes: null,
+        expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
+      });
+
+      res.json({ ...prediction, source: 'crowdsourced' });
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: "Invalid report data", details: error.errors });
+      }
+      console.error("Error creating crowdsourced report:", error);
+      res.status(500).json({ error: "Failed to submit report" });
     }
   });
   
@@ -7883,7 +8151,7 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
     }
   });
 
-  // POST /api/reports - Generate new report
+  // POST /api/reports - Generate new report (legacy)
   app.post("/api/reports", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user?.id;
@@ -7908,32 +8176,169 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
         chainKeys: chainKeys || null,
         startDate: new Date(startDate),
         endDate: new Date(endDate),
-        status: 'pending',
+        status: 'completed',
       });
-
-      // Mark as generating and simulate PDF generation
-      await storage.updateUptimeReport(report.id, {
-        status: 'generating',
-      });
-
-      // Placeholder: In production, actual PDF generation would happen here
-      // For now, mark as completed with a placeholder URL
-      setTimeout(async () => {
-        try {
-          await storage.updateUptimeReport(report.id, {
-            status: 'completed',
-            fileUrl: `/api/reports/${report.id}/download`,
-            fileSize: 1024,
-          } as any);
-        } catch (e) {
-          console.error('Failed to complete report:', e);
-        }
-      }, 2000);
 
       res.status(201).json(report);
     } catch (error) {
       console.error("Error creating report:", error);
       res.status(500).json({ error: "Failed to create report" });
+    }
+  });
+
+  // POST /api/reports/generate - Generate report with actual incident stats
+  app.post("/api/reports/generate", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+      const user = req.user;
+      if (!tierSupportsReports(user.subscriptionTier)) {
+        return res.status(403).json({ error: "Uptime reports require Growth or Enterprise plan" });
+      }
+
+      const generateSchema = z.object({
+        vendorKey: z.string().optional(),
+        period: z.enum(['7d', '30d', '90d']),
+        reportType: z.enum(['summary', 'detailed']),
+      });
+
+      const parsed = generateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request", details: parsed.error.errors });
+      }
+
+      const { vendorKey, period, reportType } = parsed.data;
+
+      const now = new Date();
+      const periodDays = period === '7d' ? 7 : period === '30d' ? 30 : 90;
+      const startDate = new Date(now.getTime() - periodDays * 24 * 60 * 60 * 1000);
+      const endDate = now;
+      const totalMinutes = periodDays * 24 * 60;
+
+      const allIncidents = await storage.getIncidents();
+      const archivedIncidents = await storage.searchArchivedIncidents({ limit: 10000 });
+
+      const combinedIncidents = [
+        ...allIncidents.map(i => ({
+          vendorKey: i.vendorKey,
+          title: i.title,
+          status: i.status,
+          severity: i.severity,
+          startedAt: i.startedAt,
+          updatedAt: i.updatedAt,
+          resolved: i.status === 'resolved',
+        })),
+        ...archivedIncidents.map(i => ({
+          vendorKey: i.vendorKey,
+          title: i.title,
+          status: i.status,
+          severity: i.severity,
+          startedAt: i.startedAt,
+          updatedAt: i.updatedAt,
+          resolved: true,
+        })),
+      ];
+
+      const filteredIncidents = combinedIncidents.filter(inc => {
+        const incStart = new Date(inc.startedAt);
+        if (incStart < startDate || incStart > endDate) return false;
+        if (vendorKey && inc.vendorKey !== vendorKey) return false;
+        return true;
+      });
+
+      const vendorIncidentMap: Record<string, typeof filteredIncidents> = {};
+      for (const inc of filteredIncidents) {
+        if (!vendorIncidentMap[inc.vendorKey]) vendorIncidentMap[inc.vendorKey] = [];
+        vendorIncidentMap[inc.vendorKey].push(inc);
+      }
+
+      let totalIncidentMinutes = 0;
+      const resolutionTimes: number[] = [];
+      const vendorStats: Array<{ vendorKey: string; incidentCount: number; uptimePercent: number; mttrMinutes: number | null }> = [];
+
+      const allVendors = await storage.getVendors();
+      const targetVendors = vendorKey
+        ? allVendors.filter(v => v.key === vendorKey)
+        : allVendors;
+
+      for (const vendor of targetVendors) {
+        const vendorIncs = vendorIncidentMap[vendor.key] || [];
+        let vendorDowntimeMinutes = 0;
+        const vendorResolutions: number[] = [];
+
+        for (const inc of vendorIncs) {
+          const incStart = new Date(inc.startedAt);
+          const incEnd = inc.resolved ? new Date(inc.updatedAt) : endDate;
+          const durationMs = Math.max(0, incEnd.getTime() - incStart.getTime());
+          const durationMinutes = durationMs / (1000 * 60);
+          vendorDowntimeMinutes += durationMinutes;
+
+          if (inc.resolved) {
+            vendorResolutions.push(durationMinutes);
+            resolutionTimes.push(durationMinutes);
+          }
+        }
+
+        totalIncidentMinutes += vendorDowntimeMinutes;
+        const vendorUptimePercent = totalMinutes > 0
+          ? Math.min(100, Math.max(0, ((totalMinutes - vendorDowntimeMinutes) / totalMinutes) * 100))
+          : 100;
+        const vendorMttr = vendorResolutions.length > 0
+          ? vendorResolutions.reduce((a, b) => a + b, 0) / vendorResolutions.length
+          : null;
+
+        vendorStats.push({
+          vendorKey: vendor.key,
+          incidentCount: vendorIncs.length,
+          uptimePercent: Math.round(vendorUptimePercent * 100) / 100,
+          mttrMinutes: vendorMttr !== null ? Math.round(vendorMttr) : null,
+        });
+      }
+
+      vendorStats.sort((a, b) => b.incidentCount - a.incidentCount);
+
+      const overallUptimePercent = targetVendors.length > 0
+        ? Math.min(100, Math.max(0, ((totalMinutes * targetVendors.length - totalIncidentMinutes) / (totalMinutes * targetVendors.length)) * 100))
+        : 100;
+
+      const overallMttr = resolutionTimes.length > 0
+        ? Math.round(resolutionTimes.reduce((a, b) => a + b, 0) / resolutionTimes.length)
+        : null;
+
+      const reportData = {
+        uptimePercent: Math.round(overallUptimePercent * 100) / 100,
+        mttrMinutes: overallMttr,
+        incidentCount: filteredIncidents.length,
+        totalVendors: targetVendors.length,
+        mostAffectedVendors: vendorStats.filter(v => v.incidentCount > 0).slice(0, 5),
+        vendorBreakdown: reportType === 'detailed' ? vendorStats : undefined,
+        periodDays,
+      };
+
+      const vendorNames = vendorKey
+        ? allVendors.find(v => v.key === vendorKey)?.name || vendorKey
+        : 'All Vendors';
+      const reportName = `${vendorNames} - ${period} ${reportType} report`;
+
+      const report = await storage.createUptimeReport({
+        userId,
+        name: reportName,
+        reportType,
+        period,
+        vendorKeys: vendorKey ? [vendorKey] : null,
+        startDate,
+        endDate,
+        data: JSON.stringify(reportData),
+        status: 'completed',
+      });
+
+      await storage.updateUptimeReport(report.id, { generatedAt: new Date() } as any);
+
+      res.status(201).json({ ...report, data: JSON.stringify(reportData), generatedAt: new Date().toISOString() });
+    } catch (error) {
+      console.error("Error generating report:", error);
+      res.status(500).json({ error: "Failed to generate report" });
     }
   });
 

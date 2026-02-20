@@ -49,6 +49,7 @@ import ApiKeysPage from "@/pages/api-keys";
 import AuditLogsPage from "@/pages/audit-logs";
 import Reports from "@/pages/reports";
 import SsoPage from "@/pages/sso";
+import Monitoring from "@/pages/monitoring";
 import Onboarding from "@/pages/onboarding";
 import BillingSuccess from "@/pages/billing-success";
 import { Loader2 } from "lucide-react";
@@ -147,6 +148,7 @@ function AuthenticatedRouter() {
         <Route path="/audit-logs" component={AuditLogsPage} />
         <Route path="/reports" component={Reports} />
         <Route path="/sso" component={SsoPage} />
+        <Route path="/monitoring" component={Monitoring} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
