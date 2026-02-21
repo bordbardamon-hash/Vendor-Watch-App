@@ -218,7 +218,7 @@ export default function Landing() {
                 <div className="text-sm text-muted-foreground">Blockchain Networks</div>
               </div>
               <div data-testid="stat-uptime">
-                <div className="text-4xl font-bold text-primary mb-1">5min</div>
+                <div className="text-4xl font-bold text-primary mb-1">1min</div>
                 <div className="text-sm text-muted-foreground">Polling Interval</div>
               </div>
             </div>
