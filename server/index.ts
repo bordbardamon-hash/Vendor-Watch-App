@@ -263,7 +263,7 @@ app.use((req, res, next) => {
       // Run initial sync after short delay to let server stabilize
       setTimeout(() => runSync('initial'), 5000);
       
-      // Set up recurring sync every 5 minutes
+      // Set up recurring sync every 1 minute
       setInterval(async () => {
         await runSync('scheduled');
         

@@ -237,7 +237,7 @@ export default function Landing() {
                 <Activity className="h-10 w-10 text-primary mb-2" />
                 <CardTitle>Real-time Monitoring</CardTitle>
                 <CardDescription>
-                  Continuously monitor 400+ vendor status pages every 5 minutes. Detect incidents as they happen with automatic status normalization.
+                  Continuously monitor 400+ vendor status pages every 1 minute. Detect incidents as they happen with automatic status normalization.
                 </CardDescription>
               </CardHeader>
             </Card>

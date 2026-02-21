@@ -408,7 +408,7 @@ async function seed() {
     { 
       name: "AWS Status Monitor", 
       target: "status.aws.amazon.com", 
-      schedule: "Every 5m", 
+      schedule: "Every 1m", 
       status: "running",
       lastRun: new Date(Date.now() - 300000),
       nextRun: new Date(Date.now() + 300000),
