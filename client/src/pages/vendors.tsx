@@ -155,10 +155,12 @@ function VendorComponentsSection({ vendorKey }: { vendorKey: string }) {
   const { data: components = [], isLoading } = useQuery<VendorComponent[]>({
     queryKey: [`/api/vendors/${vendorKey}/components`],
     queryFn: async () => {
-      const res = await fetch(`/api/vendors/${vendorKey}/components`);
+      const res = await fetch(`/api/vendors/${vendorKey}/components`, { credentials: 'include' });
       if (!res.ok) return [];
       return res.json();
     },
+    staleTime: 30000,
+    refetchOnWindowFocus: true,
   });
 
   if (!isLoading && components.length === 0) return null;
@@ -609,16 +611,6 @@ export default function Vendors() {
           <p className="text-muted-foreground mt-1 text-sm md:text-base">Monitor third-party service incidents and health</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input 
-              placeholder="Search vendors..." 
-              className="pl-8 bg-sidebar border-sidebar-border" 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              data-testid="input-search-vendors"
-            />
-          </div>
           <Button 
             variant="outline" 
             onClick={() => syncMutation.mutate()}
@@ -920,8 +912,39 @@ export default function Vendors() {
               Archive {archiveCount?.count ? `(${archiveCount.count})` : ''}
             </Button>
           </div>
+          <div className="relative mb-3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input 
+              placeholder="Search vendors by name..." 
+              className="pl-9 bg-sidebar/30 border-sidebar-border h-10" 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              data-testid="input-search-vendors-inline"
+            />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                data-testid="button-clear-search"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          {searchTerm && (
+            <div className="text-xs text-muted-foreground mb-2" data-testid="text-search-results-count">
+              {filteredVendors.length} result{filteredVendors.length !== 1 ? 's' : ''} for "{searchTerm}"
+            </div>
+          )}
           <div className="pr-4">
             <div className="space-y-4">
+              {filteredVendors.length === 0 && searchTerm ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Search className="w-10 h-10 mx-auto mb-3 opacity-20" />
+                  <p className="font-medium">No vendors found</p>
+                  <p className="text-sm opacity-50 mt-1">Try a different search term</p>
+                </div>
+              ) : null}
               {filteredVendors.map((vendor, index) => (
                 <Card 
                   key={vendor.key}
