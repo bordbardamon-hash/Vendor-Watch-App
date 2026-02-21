@@ -602,7 +602,7 @@ export default function Vendors() {
   }
 
   return (
-    <div className="p-4 md:p-8 space-y-4 md:space-y-8 h-full flex flex-col">
+    <div className="p-4 md:p-8 space-y-4 md:space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Vendor Status</h1>
@@ -879,9 +879,9 @@ export default function Vendors() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 flex-1 min-h-0">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 flex-1">
         {/* Vendor List */}
-        <div className="lg:col-span-5 flex flex-col gap-4 overflow-hidden">
+        <div className="lg:col-span-5 flex flex-col gap-4">
           {/* Subscription Limit Indicator */}
           {subscriptionData && (
             <div className="bg-sidebar/30 border border-sidebar-border rounded-lg p-3 flex items-center justify-between">
@@ -920,7 +920,7 @@ export default function Vendors() {
               Archive {archiveCount?.count ? `(${archiveCount.count})` : ''}
             </Button>
           </div>
-          <ScrollArea className="h-full pr-4">
+          <div className="pr-4">
             <div className="space-y-4">
               {filteredVendors.map((vendor, index) => (
                 <Card 
@@ -991,14 +991,14 @@ export default function Vendors() {
                 </Card>
               ))}
             </div>
-          </ScrollArea>
+          </div>
         </div>
 
         {/* Detail View */}
-        <div className="lg:col-span-7 h-full">
+        <div className="lg:col-span-7 lg:sticky lg:top-4 lg:self-start" style={{ maxHeight: 'calc(100vh - 2rem)' }}>
           {showAllIncidents ? (
-            <Card className="h-full border-sidebar-border bg-sidebar/10 flex flex-col animate-fade-in-scale">
-              <CardHeader className="border-b border-sidebar-border bg-sidebar/20">
+            <Card className="border-sidebar-border bg-sidebar/10 flex flex-col animate-fade-in-scale" style={{ maxHeight: 'calc(100vh - 2rem)' }}>
+              <CardHeader className="border-b border-sidebar-border bg-sidebar/20 shrink-0">
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
                     <CardTitle className="flex items-center gap-2 text-2xl">
@@ -1011,8 +1011,7 @@ export default function Vendors() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="flex-1 p-0 overflow-hidden">
-                <ScrollArea className="h-full">
+              <CardContent className="flex-1 min-h-0 p-0 overflow-y-auto">
                   <div className="p-3 sm:p-6 space-y-4">
                     {getAllIncidentsSorted().length > 0 ? (
                       getAllIncidentsSorted().map((incident) => (
@@ -1090,11 +1089,10 @@ export default function Vendors() {
                       </div>
                     )}
                   </div>
-                </ScrollArea>
               </CardContent>
             </Card>
           ) : selectedVendor ? (
-            <Card className="h-full border-sidebar-border bg-sidebar/10 flex flex-col overflow-hidden animate-fade-in-scale">
+            <Card className="border-sidebar-border bg-sidebar/10 flex flex-col overflow-hidden animate-fade-in-scale" style={{ maxHeight: 'calc(100vh - 2rem)' }}>
               <CardHeader className="border-b border-sidebar-border bg-sidebar/20 shrink-0">
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
@@ -1114,7 +1112,7 @@ export default function Vendors() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent ref={detailPanelRef} className="flex-1 p-0 overflow-y-auto flex flex-col" data-testid="vendor-detail-content">
+              <CardContent ref={detailPanelRef} className="flex-1 min-h-0 p-0 overflow-y-auto" data-testid="vendor-detail-content">
                 <div className="p-6 border-b border-sidebar-border">
                   <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                     <AlertTriangle className="w-5 h-5 text-amber-500" />
@@ -1197,7 +1195,7 @@ export default function Vendors() {
                 
                 <VendorComponentsSection vendorKey={selectedVendor.key} />
 
-                <div className="p-6 bg-sidebar/30 flex-1">
+                <div className="p-6 bg-sidebar/30">
                   <h4 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wider">Configuration</h4>
                   <div className="bg-black/50 p-4 rounded-md border border-sidebar-border font-mono text-xs text-muted-foreground overflow-x-auto">
                     <div className="grid grid-cols-[100px_1fr] gap-2">
@@ -1213,7 +1211,7 @@ export default function Vendors() {
               </CardContent>
             </Card>
           ) : (
-            <div className="h-full flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed border-sidebar-border rounded-lg bg-sidebar/10">
+            <div className="flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed border-sidebar-border rounded-lg bg-sidebar/10" style={{ minHeight: '400px' }}>
               <Server className="w-16 h-16 mb-4 opacity-20" />
               <p className="text-lg font-medium">Select a Vendor</p>
               <p className="text-sm opacity-50">View incidents and detailed status metrics</p>
