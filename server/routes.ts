@@ -996,11 +996,20 @@ export async function registerRoutes(
   // Get all parser health data (owner only)
   app.get("/api/parser-health", isAuthenticated, isOwner, async (req, res) => {
     try {
-      const { getAllParserHealth } = await import('./parserHealthTracker');
+      const { getAllParserHealth, recordParseResult } = await import('./parserHealthTracker');
       const healthData = await getAllParserHealth();
       const vendors = await storage.getVendors();
       
-      const enrichedData = healthData.map(h => {
+      const healthMap = new Map(healthData.map(h => [h.vendorKey, h]));
+      
+      const missingVendors = vendors.filter(v => !healthMap.has(v.key));
+      for (const v of missingVendors) {
+        await recordParseResult(v.key, { success: true, httpStatus: 0, incidentsParsed: 0 });
+      }
+      
+      const finalHealthData = missingVendors.length > 0 ? await getAllParserHealth() : healthData;
+      
+      const enrichedData = finalHealthData.map(h => {
         const vendor = vendors.find(v => v.key === h.vendorKey);
         return {
           ...h,
@@ -1008,7 +1017,6 @@ export async function registerRoutes(
         };
       });
       
-      // Sort by health status (unhealthy first) then by consecutive failures
       enrichedData.sort((a, b) => {
         if (a.isHealthy !== b.isHealthy) return a.isHealthy ? 1 : -1;
         return b.consecutiveFailures - a.consecutiveFailures;
