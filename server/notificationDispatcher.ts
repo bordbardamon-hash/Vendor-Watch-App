@@ -6,6 +6,7 @@ import { formatSeverityDisplay, formatStatusDisplay } from './statusNormalizer';
 import { generateCustomerSummary, generateCustomerSummarySms } from './customerSummaryGenerator';
 import { dispatchSlackTeamsForAllSubscribedUsers } from './notifications/slack-teams';
 import { dispatchPagerDutyForAllSubscribedUsers } from './notifications/pagerduty';
+import { dispatchDiscordForAllSubscribedUsers } from './notifications/discord';
 import { dispatchWebhooksForIncident, dispatchWebhooksForBlockchainIncident } from './webhookDispatcher';
 import type { Incident, Vendor, User, LifecycleEvent, CanonicalSeverity, CanonicalStatus, BlockchainIncident, BlockchainChain } from '@shared/schema';
 
@@ -283,6 +284,9 @@ export async function notifyNewIncident(incident: Incident, vendor: Vendor): Pro
     console.log(`[notify] Sent ${slackTeamsResult.slack} Slack, ${slackTeamsResult.teams} Teams notifications for new incident`);
   }
 
+  dispatchDiscordForAllSubscribedUsers(incident, vendor, 'new').catch(err =>
+    console.error('[notify] Discord dispatch error for new incident:', err));
+
   dispatchPagerDutyForAllSubscribedUsers(incident, vendor, 'new').catch(err =>
     console.error('[notify] PagerDuty dispatch error for new incident:', err));
 
@@ -303,6 +307,9 @@ export async function notifyIncidentUpdate(incident: Incident, vendor: Vendor, p
     console.log(`[notify] Sent ${slackTeamsResult.slack} Slack, ${slackTeamsResult.teams} Teams notifications for incident update`);
   }
 
+  dispatchDiscordForAllSubscribedUsers(incident, vendor, 'update').catch(err =>
+    console.error('[notify] Discord dispatch error for incident update:', err));
+
   dispatchPagerDutyForAllSubscribedUsers(incident, vendor, 'update').catch(err =>
     console.error('[notify] PagerDuty dispatch error for incident update:', err));
 
@@ -322,6 +329,9 @@ export async function notifyIncidentResolved(incident: Incident, vendor: Vendor)
   if (slackTeamsResult.slack > 0 || slackTeamsResult.teams > 0) {
     console.log(`[notify] Sent ${slackTeamsResult.slack} Slack, ${slackTeamsResult.teams} Teams notifications for resolved incident`);
   }
+
+  dispatchDiscordForAllSubscribedUsers(incident, vendor, 'resolved').catch(err =>
+    console.error('[notify] Discord dispatch error for resolved incident:', err));
 
   dispatchPagerDutyForAllSubscribedUsers(incident, vendor, 'resolved').catch(err =>
     console.error('[notify] PagerDuty dispatch error for resolved incident:', err));
@@ -925,6 +935,8 @@ export async function dispatchBlockchainNotification(notification: BlockchainNot
 
 export async function notifyNewBlockchainIncident(incident: BlockchainIncident, chain: BlockchainChain): Promise<void> {
   await dispatchBlockchainNotification({ incident, chain, eventType: 'new' });
+  dispatchDiscordForAllSubscribedUsers(incident, chain, 'new').catch(err =>
+    console.error('[notify] Discord dispatch error for new blockchain incident:', err));
   dispatchPagerDutyForAllSubscribedUsers(incident, chain, 'new').catch(err =>
     console.error('[notify] PagerDuty dispatch error for new blockchain incident:', err));
   dispatchWebhooksForBlockchainIncident(incident, chain, 'new').catch(err =>
@@ -933,6 +945,8 @@ export async function notifyNewBlockchainIncident(incident: BlockchainIncident, 
 
 export async function notifyBlockchainIncidentUpdate(incident: BlockchainIncident, chain: BlockchainChain, previousStatus: string): Promise<void> {
   await dispatchBlockchainNotification({ incident, chain, eventType: 'update', previousStatus });
+  dispatchDiscordForAllSubscribedUsers(incident, chain, 'update').catch(err =>
+    console.error('[notify] Discord dispatch error for blockchain incident update:', err));
   dispatchPagerDutyForAllSubscribedUsers(incident, chain, 'update').catch(err =>
     console.error('[notify] PagerDuty dispatch error for blockchain incident update:', err));
   dispatchWebhooksForBlockchainIncident(incident, chain, 'update').catch(err =>
@@ -941,6 +955,8 @@ export async function notifyBlockchainIncidentUpdate(incident: BlockchainInciden
 
 export async function notifyBlockchainIncidentResolved(incident: BlockchainIncident, chain: BlockchainChain): Promise<void> {
   await dispatchBlockchainNotification({ incident, chain, eventType: 'resolved' });
+  dispatchDiscordForAllSubscribedUsers(incident, chain, 'resolved').catch(err =>
+    console.error('[notify] Discord dispatch error for resolved blockchain incident:', err));
   dispatchPagerDutyForAllSubscribedUsers(incident, chain, 'resolved').catch(err =>
     console.error('[notify] PagerDuty dispatch error for resolved blockchain incident:', err));
   dispatchWebhooksForBlockchainIncident(incident, chain, 'resolved').catch(err =>

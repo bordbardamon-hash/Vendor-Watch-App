@@ -237,7 +237,7 @@ app.use((req, res, next) => {
       log(`serving on port ${port}`);
       
       // Start automatic vendor status sync
-      const SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+      const SYNC_INTERVAL_MS = 1 * 60 * 1000; // 1 minute
       let syncRunning = false;
       
       async function runSync(label: string) {

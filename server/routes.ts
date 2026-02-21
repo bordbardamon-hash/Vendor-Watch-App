@@ -5752,6 +5752,33 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
         } catch (e) {
           message = "Failed to connect to Teams webhook";
         }
+      } else if (existing.integrationType === 'discord' && existing.webhookUrl) {
+        try {
+          const discordPayload = {
+            embeds: [
+              {
+                title: '✅ VendorWatch Test Message',
+                description: 'Your Discord integration is configured correctly. Incident alerts will appear here.',
+                color: 0x00BCB4,
+                fields: [
+                  { name: 'Status', value: 'Connection Successful', inline: true },
+                  { name: 'Integration', value: 'Discord Webhook', inline: true },
+                ],
+                footer: { text: 'VendorWatch' },
+                timestamp: new Date().toISOString(),
+              },
+            ],
+          };
+          const response = await fetch(existing.webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(discordPayload),
+          });
+          success = response.ok || response.status === 204;
+          message = success ? "Discord message sent successfully!" : "Failed to send Discord message";
+        } catch (e) {
+          message = "Failed to connect to Discord webhook";
+        }
       } else if (existing.integrationType === 'webhook' && existing.webhookUrl) {
         try {
           const response = await fetch(existing.webhookUrl, {

@@ -62,6 +62,15 @@ const INTEGRATION_TYPES = [
     helpUrl: 'https://learn.microsoft.com/en-us/microsoftteams/platform/webhooks-and-connectors/how-to/add-incoming-webhook'
   },
   { 
+    value: 'discord', 
+    label: 'Discord', 
+    icon: MessageSquare, 
+    color: 'text-indigo-400',
+    description: 'Send incident alerts to Discord channels',
+    placeholder: 'https://discord.com/api/webhooks/...',
+    helpUrl: 'https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks'
+  },
+  { 
     value: 'pagerduty', 
     label: 'PagerDuty', 
     icon: Bell, 
@@ -214,7 +223,7 @@ export default function Integrations() {
             <Settings2 className="w-12 h-12 mx-auto mb-4 text-gray-600" />
             <h3 className="font-semibold mb-2 text-white text-lg">Growth Plan Required</h3>
             <p className="text-gray-400 mb-4">
-              Upgrade to Growth or Enterprise to configure integrations for Slack, Teams, PSA systems, and webhooks.
+              Upgrade to Growth or Enterprise to configure integrations for Slack, Teams, Discord, PSA systems, and webhooks.
             </p>
             <Button className="bg-cyan-600 hover:bg-cyan-700">Upgrade Now</Button>
           </CardContent>
