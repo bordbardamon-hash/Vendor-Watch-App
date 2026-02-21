@@ -3895,15 +3895,12 @@ const BASE_VENDORS: InsertVendor[] = [
   { key: "vercel", name: "Vercel", statusUrl: "https://www.vercel-status.com/", parser: "statuspage_json", status: "operational" },
   { key: "netlify", name: "Netlify", statusUrl: "https://www.netlifystatus.com/", parser: "statuspage_json", status: "operational" },
   { key: "render", name: "Render", statusUrl: "https://status.render.com/", parser: "statuspage_json", status: "operational" },
-  { key: "railway", name: "Railway", statusUrl: "https://status.railway.app/", parser: "statuspage_json", status: "operational" },
   { key: "supabase", name: "Supabase", statusUrl: "https://status.supabase.com/", parser: "statuspage_json", status: "operational" },
   { key: "prisma", name: "Prisma", statusUrl: "https://status.prisma.io/", parser: "statuspage_json", status: "operational" },
   { key: "postman", name: "Postman", statusUrl: "https://status.postman.com/", parser: "statuspage_json", status: "operational" },
   { key: "circleci", name: "CircleCI", statusUrl: "https://status.circleci.com/", parser: "statuspage_json", status: "operational" },
   { key: "travisci", name: "Travis CI", statusUrl: "https://www.traviscistatus.com/", parser: "statuspage_json", status: "operational" },
-  { key: "jfrog", name: "JFrog", statusUrl: "https://status.jfrog.com/", parser: "statuspage_json", status: "operational" },
   { key: "sanity", name: "Sanity", statusUrl: "https://status.sanity.io/", parser: "statuspage_json", status: "operational" },
-  { key: "storyblok", name: "Storyblok", statusUrl: "https://status.storyblok.com/", parser: "statuspage_json", status: "operational" },
   { key: "sentry", name: "Sentry", statusUrl: "https://status.sentry.io/", parser: "statuspage_json", status: "operational" },
   { key: "snyk", name: "Snyk", statusUrl: "https://status.snyk.io/", parser: "statuspage_json", status: "operational" },
   { key: "sonarcloud", name: "SonarCloud", statusUrl: "https://sonarcloud.statuspage.io/", parser: "statuspage_json", status: "operational" },
@@ -3918,32 +3915,25 @@ const BASE_VENDORS: InsertVendor[] = [
   { key: "confluent", name: "Confluent", statusUrl: "https://status.confluent.cloud/", parser: "statuspage_json", status: "operational" },
   { key: "cockroachdb", name: "CockroachDB", statusUrl: "https://status.cockroachlabs.cloud/", parser: "statuspage_json", status: "operational" },
   { key: "planetscale", name: "PlanetScale", statusUrl: "https://www.planetscalestatus.com/", parser: "statuspage_json", status: "operational" },
-  { key: "neon", name: "Neon", statusUrl: "https://neonstatus.com/", parser: "statuspage_json", status: "operational" },
   { key: "upstash", name: "Upstash", statusUrl: "https://status.upstash.com/", parser: "statuspage_json", status: "operational" },
   { key: "grafana", name: "Grafana Cloud", statusUrl: "https://status.grafana.com/", parser: "statuspage_json", status: "operational" },
-  { key: "deno", name: "Deno Deploy", statusUrl: "https://www.denostatus.com/", parser: "statuspage_json", status: "operational" },
   // Expanded Directory - Security & Identity
   { key: "onepassword", name: "1Password", statusUrl: "https://status.1password.com/", parser: "statuspage_json", status: "operational" },
   { key: "lastpass", name: "LastPass", statusUrl: "https://status.lastpass.com/", parser: "statuspage_json", status: "operational" },
   // Expanded Directory - Payments & E-Commerce
   { key: "coinbase", name: "Coinbase", statusUrl: "https://status.coinbase.com/", parser: "statuspage_json", status: "operational" },
   { key: "shopify", name: "Shopify", statusUrl: "https://status.shopify.com/", parser: "statuspage_json", status: "operational" },
-  { key: "wix", name: "Wix", statusUrl: "https://www.wixstatus.com/", parser: "statuspage_json", status: "operational" },
   // Expanded Directory - Collaboration & Productivity
   { key: "asana", name: "Asana", statusUrl: "https://trust.asana.com/", parser: "statuspage_json", status: "operational" },
   { key: "trello", name: "Trello", statusUrl: "https://trello.status.atlassian.com/", parser: "statuspage_json", status: "operational" },
-  { key: "adobe", name: "Adobe Creative Cloud", statusUrl: "https://status.adobe.com/", parser: "statuspage_json", status: "operational" },
   { key: "retool", name: "Retool", statusUrl: "https://status.retool.com/", parser: "statuspage_json", status: "operational" },
   // Expanded Directory - Communication
   { key: "sendgrid", name: "SendGrid", statusUrl: "https://status.sendgrid.com/", parser: "statuspage_json", status: "operational" },
   // Expanded Directory - Other
   { key: "hashicorp", name: "HashiCorp", statusUrl: "https://status.hashicorp.com/", parser: "statuspage_json", status: "operational" },
-  { key: "algolia", name: "Algolia", statusUrl: "https://status.algolia.com/", parser: "statuspage_json", status: "operational" },
-  { key: "docker", name: "Docker", statusUrl: "https://www.dockerstatus.com/", parser: "statuspage_json", status: "operational" },
   { key: "cloudinary", name: "Cloudinary", statusUrl: "https://status.cloudinary.com/", parser: "statuspage_json", status: "operational" },
   { key: "mapbox", name: "Mapbox", statusUrl: "https://status.mapbox.com/", parser: "statuspage_json", status: "operational" },
   { key: "webflow", name: "Webflow", statusUrl: "https://status.webflow.com/", parser: "statuspage_json", status: "operational" },
-  { key: "ghost", name: "Ghost", statusUrl: "https://status.ghost.org/", parser: "statuspage_json", status: "operational" },
   { key: "expo", name: "Expo", statusUrl: "https://status.expo.dev/", parser: "statuspage_json", status: "operational" },
 ];
 

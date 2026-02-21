@@ -28,7 +28,7 @@ const PLANS: PlanInfo[] = [
     price: 89,
     icon: Building,
     features: [
-      "Up to 25 vendors (600+ catalog)",
+      "Up to 25 vendors (400+ catalog)",
       "Email alerts",
       "Component-level monitoring",
     ],

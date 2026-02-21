@@ -35,7 +35,7 @@ function DashboardPreview() {
       <div className="p-6">
         <div className="grid grid-cols-3 gap-4 mb-6">
           <div className="bg-background/50 rounded-lg p-4 border">
-            <div className="text-2xl font-bold text-green-500">600+</div>
+            <div className="text-2xl font-bold text-green-500">400+</div>
             <div className="text-xs text-muted-foreground">Services Monitored</div>
           </div>
           <div className="bg-background/50 rounded-lg p-4 border">
@@ -108,14 +108,14 @@ function DashboardPreview() {
 }
 
 const SERVICE_CATEGORIES = [
-  { name: "Cloud & Infrastructure", count: 45, color: "text-blue-400" },
-  { name: "Security & Identity", count: 52, color: "text-red-400" },
-  { name: "Payments & E-Commerce", count: 38, color: "text-green-400" },
-  { name: "AI & Machine Learning", count: 28, color: "text-purple-400" },
-  { name: "DevOps & CI/CD", count: 42, color: "text-orange-400" },
-  { name: "Communication", count: 35, color: "text-cyan-400" },
-  { name: "Databases", count: 30, color: "text-yellow-400" },
-  { name: "Observability", count: 25, color: "text-pink-400" },
+  { name: "Cloud & Infrastructure", count: 30, color: "text-blue-400" },
+  { name: "Security & Identity", count: 35, color: "text-red-400" },
+  { name: "Payments & Fintech", count: 25, color: "text-green-400" },
+  { name: "AI & Machine Learning", count: 15, color: "text-purple-400" },
+  { name: "DevOps & CI/CD", count: 30, color: "text-orange-400" },
+  { name: "Communication", count: 25, color: "text-cyan-400" },
+  { name: "Databases & Storage", count: 20, color: "text-yellow-400" },
+  { name: "Observability & APM", count: 20, color: "text-pink-400" },
 ];
 
 const TRUSTED_LOGOS = [
@@ -154,14 +154,14 @@ export default function Landing() {
         <section className="container mx-auto px-4 pt-20 pb-12 text-center">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6 border border-primary/20" data-testid="badge-service-count">
             <MonitorCheck className="h-4 w-4" />
-            Now monitoring 600+ services across 44 categories
+            Now monitoring 400+ services across 30+ categories
           </div>
           <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-6" data-testid="text-hero-title">
             Monitor Every Vendor.<br />
             <span className="text-primary">Detect Outages First.</span>
           </h1>
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-10" data-testid="text-hero-description">
-            {APP_NAME} monitors 600+ cloud services, SaaS platforms, and blockchain networks in real-time.
+            {APP_NAME} monitors 400+ cloud services, SaaS platforms, and blockchain networks in real-time.
             Get instant alerts via email, SMS, Slack, Teams, PagerDuty, and webhooks before your customers notice.
           </p>
           <div className="flex items-center justify-center gap-4 flex-wrap">
@@ -186,7 +186,7 @@ export default function Landing() {
             {TRUSTED_LOGOS.map((name) => (
               <span key={name} className="text-sm text-muted-foreground/60 font-medium">{name}</span>
             ))}
-            <span className="text-sm text-primary font-medium">+590 more</span>
+            <span className="text-sm text-primary font-medium">+380 more</span>
           </div>
         </section>
 
@@ -206,11 +206,11 @@ export default function Landing() {
           <div className="container mx-auto px-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
               <div data-testid="stat-services">
-                <div className="text-4xl font-bold text-primary mb-1">600+</div>
+                <div className="text-4xl font-bold text-primary mb-1">400+</div>
                 <div className="text-sm text-muted-foreground">Services Monitored</div>
               </div>
               <div data-testid="stat-categories">
-                <div className="text-4xl font-bold text-primary mb-1">44</div>
+                <div className="text-4xl font-bold text-primary mb-1">30+</div>
                 <div className="text-sm text-muted-foreground">Service Categories</div>
               </div>
               <div data-testid="stat-blockchains">
@@ -237,7 +237,7 @@ export default function Landing() {
                 <Activity className="h-10 w-10 text-primary mb-2" />
                 <CardTitle>Real-time Monitoring</CardTitle>
                 <CardDescription>
-                  Continuously monitor 600+ vendor status pages every 5 minutes. Detect incidents as they happen with automatic status normalization.
+                  Continuously monitor 400+ vendor status pages every 5 minutes. Detect incidents as they happen with automatic status normalization.
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -271,7 +271,7 @@ export default function Landing() {
               <Globe className="h-4 w-4" />
               Massive Service Directory
             </div>
-            <h2 className="text-3xl font-bold mb-4">600+ Services Across 44 Categories</h2>
+            <h2 className="text-3xl font-bold mb-4">400+ Services Across 30+ Categories</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
               The most comprehensive vendor monitoring directory available. From cloud infrastructure to AI platforms, 
               we track the services your business depends on.
@@ -545,7 +545,7 @@ export default function Landing() {
               <div className="absolute top-8 left-[60%] w-[80%] h-0.5 bg-gradient-to-r from-primary/50 to-transparent hidden md:block" />
               <h3 className="font-semibold text-lg mb-2">2. Select Your Vendors</h3>
               <p className="text-sm text-muted-foreground">
-                Choose from 600+ pre-configured vendors and 110+ blockchain networks, or request custom additions.
+                Choose from 400+ pre-configured vendors and 110+ blockchain networks, or request custom additions.
               </p>
             </div>
 
@@ -671,7 +671,7 @@ export default function Landing() {
                 <span className="text-lg font-bold">{APP_NAME}</span>
               </div>
               <p className="text-sm text-muted-foreground mb-4">
-                Enterprise-grade vendor status monitoring for MSPs and IT teams. 600+ services, 110+ blockchains.
+                Enterprise-grade vendor status monitoring for MSPs and IT teams. 400+ services, 110+ blockchains.
               </p>
               <div className="flex items-center gap-3">
                 <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="h-8 w-8 rounded-full bg-muted/50 flex items-center justify-center hover:bg-muted transition-colors" data-testid="link-twitter">

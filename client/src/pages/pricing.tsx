@@ -28,8 +28,8 @@ const featureCategories: FeatureCategory[] = [
   {
     name: "Vendor Monitoring",
     features: [
-      { name: "Vendors monitored", tooltip: "Choose from our catalog of 600+ pre-configured services", essential: "Up to 25", growth: "Up to 100", enterprise: "Unlimited" },
-      { name: "Service catalog", tooltip: "600+ services across 44 categories including cloud, SaaS, security, payments, AI, and more", essential: "600+ services", growth: "600+ services", enterprise: "600+ services" },
+      { name: "Vendors monitored", tooltip: "Choose from our catalog of 400+ pre-configured services", essential: "Up to 25", growth: "Up to 100", enterprise: "Unlimited" },
+      { name: "Service catalog", tooltip: "400+ services across 30+ categories including cloud, SaaS, security, payments, AI, and more", essential: "400+ services", growth: "400+ services", enterprise: "400+ services" },
       { name: "Real-time status updates", essential: true, growth: true, enterprise: true },
       { name: "Component-level monitoring", tooltip: "Track individual service components like AWS EC2, S3, Lambda", essential: true, growth: true, enterprise: true },
       { name: "Incident tracking", essential: true, growth: true, enterprise: true },
@@ -169,7 +169,7 @@ export default function Pricing() {
               Simple, Transparent Pricing
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Choose the plan that fits your needs. All plans include access to our catalog of 600+ services and a 7-day free trial.
+              Choose the plan that fits your needs. All plans include access to our catalog of 400+ services and a 7-day free trial.
             </p>
           </div>
 
