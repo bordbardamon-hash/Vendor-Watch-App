@@ -8,6 +8,7 @@ import { scrapeJsVendorStatus } from "./puppeteerScraper";
 import { confirmVendorIncident, cleanupStalePendingIncidents } from "./incidentConfirmation";
 import type { CanonicalSeverity, CanonicalStatus, LifecycleEvent } from "@shared/schema";
 import { NEW_STATUSPAGE_URLS } from "./newVendors";
+import { gunzipSync } from "zlib";
 
 function isValidIncident(incident: { name: string; id: string }): boolean {
   const title = incident.name || '';
@@ -254,13 +255,13 @@ async function fetchStatuspageJson(vendor: { key: string; statusUrl: string }): 
   }
 }
 
-async function syncVendorComponents(vendorKey: string, components: Array<{ id: string; name: string; description?: string; group_id?: string; status: string; position?: number; group?: boolean }>) {
+async function syncVendorComponents(vendorKey: string, components: Array<{ id: string; name: string; description?: string; group_id?: string | null; status: string; position?: number; group?: boolean }>) {
   if (!components || components.length === 0) return;
   
-  const groups = components.filter(c => c.group === true || c.group_id === null);
+  const groups = components.filter(c => c.group === true);
   const groupMap = new Map(groups.map(g => [g.id, g.name]));
   
-  const serviceComponents = components.filter(c => c.group !== true && c.group_id !== null);
+  const serviceComponents = components.filter(c => c.group !== true);
   
   for (const comp of serviceComponents) {
     try {
@@ -275,6 +276,60 @@ async function syncVendorComponents(vendorKey: string, components: Array<{ id: s
       });
     } catch (err) {
     }
+  }
+}
+
+async function syncAwsComponents(vendorKey: string, incidents: any[]) {
+  const awsServices = [
+    { id: 'aws-ec2', name: 'Amazon EC2', group: 'Compute', position: 1 },
+    { id: 'aws-lambda', name: 'AWS Lambda', group: 'Compute', position: 2 },
+    { id: 'aws-ecs', name: 'Amazon ECS', group: 'Compute', position: 3 },
+    { id: 'aws-eks', name: 'Amazon EKS', group: 'Compute', position: 4 },
+    { id: 'aws-fargate', name: 'AWS Fargate', group: 'Compute', position: 5 },
+    { id: 'aws-s3', name: 'Amazon S3', group: 'Storage', position: 6 },
+    { id: 'aws-ebs', name: 'Amazon EBS', group: 'Storage', position: 7 },
+    { id: 'aws-efs', name: 'Amazon EFS', group: 'Storage', position: 8 },
+    { id: 'aws-glacier', name: 'Amazon S3 Glacier', group: 'Storage', position: 9 },
+    { id: 'aws-rds', name: 'Amazon RDS', group: 'Database', position: 10 },
+    { id: 'aws-dynamodb', name: 'Amazon DynamoDB', group: 'Database', position: 11 },
+    { id: 'aws-aurora', name: 'Amazon Aurora', group: 'Database', position: 12 },
+    { id: 'aws-redshift', name: 'Amazon Redshift', group: 'Database', position: 13 },
+    { id: 'aws-elasticache', name: 'Amazon ElastiCache', group: 'Database', position: 14 },
+    { id: 'aws-vpc', name: 'Amazon VPC', group: 'Networking', position: 15 },
+    { id: 'aws-cloudfront', name: 'Amazon CloudFront', group: 'Networking', position: 16 },
+    { id: 'aws-route53', name: 'Amazon Route 53', group: 'Networking', position: 17 },
+    { id: 'aws-elb', name: 'Elastic Load Balancing', group: 'Networking', position: 18 },
+    { id: 'aws-apigateway', name: 'Amazon API Gateway', group: 'Networking', position: 19 },
+    { id: 'aws-iam', name: 'AWS IAM', group: 'Security & Identity', position: 20 },
+    { id: 'aws-cognito', name: 'Amazon Cognito', group: 'Security & Identity', position: 21 },
+    { id: 'aws-kms', name: 'AWS KMS', group: 'Security & Identity', position: 22 },
+    { id: 'aws-cloudwatch', name: 'Amazon CloudWatch', group: 'Management', position: 23 },
+    { id: 'aws-cloudformation', name: 'AWS CloudFormation', group: 'Management', position: 24 },
+    { id: 'aws-sns', name: 'Amazon SNS', group: 'Application Integration', position: 25 },
+    { id: 'aws-sqs', name: 'Amazon SQS', group: 'Application Integration', position: 26 },
+    { id: 'aws-ses', name: 'Amazon SES', group: 'Application Integration', position: 27 },
+    { id: 'aws-eventbridge', name: 'Amazon EventBridge', group: 'Application Integration', position: 28 },
+    { id: 'aws-sagemaker', name: 'Amazon SageMaker', group: 'AI & ML', position: 29 },
+    { id: 'aws-bedrock', name: 'Amazon Bedrock', group: 'AI & ML', position: 30 },
+  ];
+
+  const affectedServiceNames: string[] = incidents.map((i: any) => (i.name || '').toLowerCase());
+
+  for (const svc of awsServices) {
+    const isAffected = affectedServiceNames.some(name =>
+      name.includes(svc.name.toLowerCase()) || name.includes(svc.id.replace('aws-', ''))
+    );
+    try {
+      await storage.upsertVendorComponent({
+        vendorKey,
+        componentId: svc.id,
+        name: svc.name,
+        description: null,
+        groupName: svc.group,
+        status: isAffected ? 'degraded_performance' : 'operational',
+        position: svc.position,
+      });
+    } catch (err) {}
   }
 }
 
@@ -305,11 +360,25 @@ async function fetchAwsStatus(vendor: { key: string; statusUrl: string }): Promi
       return { status: 'unknown', incidents: [], maintenances: [], success: false, httpStatus: response.status };
     }
     
-    // Read as text first to handle potential encoding issues
-    const text = await response.text();
+    // AWS returns UTF-16 BE encoded JSON (BOM: 0xFE 0xFF)
+    let text: string;
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (buffer.length >= 2 && buffer[0] === 0xFE && buffer[1] === 0xFF) {
+      const swapped = Buffer.from(buffer);
+      swapped.swap16();
+      text = swapped.toString('utf16le').replace(/^\uFEFF/, '');
+    } else if (buffer.length >= 2 && buffer[0] === 0xFF && buffer[1] === 0xFE) {
+      text = buffer.toString('utf16le').replace(/^\uFEFF/, '');
+    } else if (buffer.length > 2 && buffer[0] === 0x1f && buffer[1] === 0x8b) {
+      text = gunzipSync(buffer).toString('utf-8');
+    } else {
+      text = buffer.toString('utf-8').replace(/^\uFEFF/, '');
+    }
     
     // Handle empty response - AWS returns [] when there are no issues
     if (!text || text.trim() === '' || text.trim() === '[]') {
+      console.log(`[aws] Empty response, syncing ${vendor.key} components...`);
+      await syncAwsComponents(vendor.key, []);
       await recordParseResult(vendor.key, { 
         success: true, 
         httpStatus: 200, 
@@ -364,6 +433,8 @@ async function fetchAwsStatus(vendor: { key: string; statusUrl: string }): Promi
       if (incidents.length > 0) overallStatus = 'degraded';
     }
     
+    await syncAwsComponents(vendor.key, incidents);
+
     await recordParseResult(vendor.key, { 
       success: true, 
       httpStatus: 200, 
@@ -462,7 +533,7 @@ export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: nu
     try {
       // Use appropriate parser based on vendor configuration
       let result;
-      if (vendor.parser === 'aws_json') {
+      if (vendor.parser === 'aws_json' || vendor.key === 'aws' || vendor.key === 'aws-govcloud') {
         result = await fetchAwsStatus(vendor);
       } else if (vendor.parser === 'slack_json') {
         result = await fetchSlackStatus(vendor);
