@@ -175,12 +175,15 @@ const requireOnboardingComplete = async (req: any, res: any, next: any) => {
       return res.status(401).json({ message: "User not found" });
     }
     
-    if (!user.profileCompleted || !user.billingCompleted) {
+    const hasActiveTrial = user.trialEndsAt && new Date(user.trialEndsAt) > new Date();
+    const effectiveBillingCompleted = user.billingCompleted || hasActiveTrial;
+    
+    if (!user.profileCompleted || !effectiveBillingCompleted) {
       return res.status(403).json({ 
         message: "Onboarding required", 
         needsOnboarding: true,
         profileCompleted: user.profileCompleted,
-        billingCompleted: user.billingCompleted
+        billingCompleted: effectiveBillingCompleted
       });
     }
     
