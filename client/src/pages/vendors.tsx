@@ -37,7 +37,7 @@ import {
   Copy,
   ChevronDown
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
@@ -242,6 +242,13 @@ export default function Vendors() {
   const [requestForm, setRequestForm] = useState({ vendorName: "", statusPageUrl: "", integrationNotes: "" });
   const [directAddForm, setDirectAddForm] = useState({ key: "", name: "", statusUrl: "", parser: "statuspage_json" });
   const { toast } = useToast();
+  const detailPanelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (selectedVendor && detailPanelRef.current) {
+      detailPanelRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [selectedVendor]);
   const queryClient = useQueryClient();
 
   // Fetch archived incidents when dialog is open
@@ -1087,8 +1094,8 @@ export default function Vendors() {
               </CardContent>
             </Card>
           ) : selectedVendor ? (
-            <Card className="h-full border-sidebar-border bg-sidebar/10 flex flex-col animate-fade-in-scale">
-              <CardHeader className="border-b border-sidebar-border bg-sidebar/20">
+            <Card className="h-full border-sidebar-border bg-sidebar/10 flex flex-col overflow-hidden animate-fade-in-scale">
+              <CardHeader className="border-b border-sidebar-border bg-sidebar/20 shrink-0">
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
                     <CardTitle className="flex items-center gap-2 text-2xl">
@@ -1107,7 +1114,7 @@ export default function Vendors() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="flex-1 p-0 overflow-hidden flex flex-col">
+              <CardContent ref={detailPanelRef} className="flex-1 p-0 overflow-y-auto flex flex-col" data-testid="vendor-detail-content">
                 <div className="p-6 border-b border-sidebar-border">
                   <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                     <AlertTriangle className="w-5 h-5 text-amber-500" />
