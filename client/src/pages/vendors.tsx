@@ -35,7 +35,8 @@ import {
   Bot,
   Sparkles,
   Copy,
-  ChevronDown
+  ChevronDown,
+  ArrowLeft
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -872,8 +873,8 @@ export default function Vendors() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 flex-1">
-        {/* Vendor List */}
-        <div className="lg:col-span-5 flex flex-col gap-4">
+        {/* Vendor List - hidden on mobile when vendor is selected */}
+        <div className={`lg:col-span-5 flex flex-col gap-4 ${selectedVendor || showAllIncidents ? 'hidden lg:flex' : ''}`}>
           {/* Subscription Limit Indicator */}
           {subscriptionData && (
             <div className="bg-sidebar/30 border border-sidebar-border rounded-lg p-3 flex items-center justify-between">
@@ -1017,11 +1018,19 @@ export default function Vendors() {
           </div>
         </div>
 
-        {/* Detail View */}
-        <div className="lg:col-span-7 lg:sticky lg:top-4 lg:self-start" style={{ maxHeight: 'calc(100vh - 2rem)' }}>
+        {/* Detail View - shown on mobile only when vendor selected */}
+        <div className={`lg:col-span-7 lg:sticky lg:top-4 lg:self-start ${!selectedVendor && !showAllIncidents ? 'hidden lg:block' : ''}`} style={{ maxHeight: 'calc(100vh - 2rem)' }}>
           {showAllIncidents ? (
             <Card className="border-sidebar-border bg-sidebar/10 flex flex-col animate-fade-in-scale" style={{ maxHeight: 'calc(100vh - 2rem)' }}>
               <CardHeader className="border-b border-sidebar-border bg-sidebar/20 shrink-0">
+                <button
+                  onClick={() => setShowAllIncidents(false)}
+                  className="lg:hidden flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-2 -mt-1"
+                  data-testid="button-back-from-incidents"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Back to vendors
+                </button>
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
                     <CardTitle className="flex items-center gap-2 text-2xl">
@@ -1117,6 +1126,14 @@ export default function Vendors() {
           ) : selectedVendor ? (
             <Card className="border-sidebar-border bg-sidebar/10 flex flex-col overflow-hidden animate-fade-in-scale" style={{ maxHeight: 'calc(100vh - 2rem)' }}>
               <CardHeader className="border-b border-sidebar-border bg-sidebar/20 shrink-0">
+                <button
+                  onClick={() => setSelectedVendor(null)}
+                  className="lg:hidden flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-2 -mt-1"
+                  data-testid="button-back-to-list"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Back to vendors
+                </button>
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
                     <CardTitle className="flex items-center gap-2 text-2xl">
