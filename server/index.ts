@@ -247,12 +247,19 @@ app.use((req, res, next) => {
         }
         syncRunning = true;
         try {
-          console.log(`[sync] Starting ${label} status sync...`);
-          const result = await syncVendorStatus();
-          console.log(`[sync] ${label} vendor sync complete: ${result.synced} synced, ${result.skipped} skipped`);
-          
-          await syncAllBlockchainChains();
-          console.log(`[sync] ${label} blockchain sync complete`);
+          console.log(`[sync] Starting ${label} status sync (vendors + blockchain in parallel)...`);
+          const [vendorResult] = await Promise.allSettled([
+            syncVendorStatus().then(result => {
+              console.log(`[sync] ${label} vendor sync complete: ${result.synced} synced, ${result.skipped} skipped`);
+              return result;
+            }),
+            syncAllBlockchainChains().then(() => {
+              console.log(`[sync] ${label} blockchain sync complete`);
+            }),
+          ]);
+          if (vendorResult.status === 'rejected') {
+            console.error(`[sync] ${label} vendor sync failed:`, vendorResult.reason);
+          }
         } catch (err) {
           console.error(`[sync] ${label} sync failed:`, err);
         } finally {

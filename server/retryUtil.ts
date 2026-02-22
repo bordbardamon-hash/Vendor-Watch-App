@@ -7,15 +7,14 @@ interface RetryOptions {
 }
 
 const DEFAULT_OPTIONS: Required<RetryOptions> = {
-  maxRetries: 2,
-  baseDelayMs: 1000,
-  maxDelayMs: 5000,
-  jitterMs: 500,
+  maxRetries: 1,
+  baseDelayMs: 800,
+  maxDelayMs: 3000,
+  jitterMs: 400,
   retryOn: (error, statusCode) => {
-    if (statusCode === 429 || (statusCode && statusCode >= 500)) return true;
+    if (statusCode === 429 || statusCode === 503) return true;
     if (error.message.includes('ECONNRESET') || 
-        error.message.includes('ETIMEDOUT') ||
-        error.message.includes('fetch failed')) return true;
+        error.message.includes('ETIMEDOUT')) return true;
     return false;
   },
 };
@@ -44,7 +43,7 @@ export async function fetchWithRetry(
     try {
       const response = await fetch(url, {
         ...init,
-        signal: init?.signal || AbortSignal.timeout(10000),
+        signal: init?.signal || AbortSignal.timeout(7000),
       });
 
       if (!response.ok) {
