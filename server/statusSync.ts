@@ -511,6 +511,15 @@ async function fetchSlackStatus(vendor: { key: string; statusUrl: string }): Pro
   }
 }
 
+const SYNC_BATCH_SIZE = 25;
+
+async function processBatch<T>(items: T[], batchSize: number, fn: (item: T) => Promise<void>): Promise<void> {
+  for (let i = 0; i < items.length; i += batchSize) {
+    const batch = items.slice(i, i + batchSize);
+    await Promise.allSettled(batch.map(fn));
+  }
+}
+
 export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: number; errors: string[]; skipped: number }> {
   const vendors = vendorKey 
     ? [await storage.getVendor(vendorKey)].filter(Boolean)
@@ -520,28 +529,27 @@ export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: nu
   let skipped = 0;
   const errors: string[] = [];
   
-  for (const vendor of vendors) {
-    if (!vendor) continue;
-    
-    const validParsers = ['statuspage_json', 'aws_json', 'slack_json', 'manual', 'generic_html', 'html_scrape', 'puppeteer_js'];
-    if (!validParsers.includes(vendor.parser)) {
-      console.log(`⊘ ${vendor.name}: skipped (unknown parser: ${vendor.parser})`);
+  const validParsers = ['statuspage_json', 'aws_json', 'slack_json', 'manual', 'generic_html', 'html_scrape', 'puppeteer_js'];
+  const syncableVendors = vendors.filter(v => {
+    if (!v) return false;
+    if (!validParsers.includes(v.parser)) {
       skipped++;
-      continue;
+      return false;
     }
-    
+    return true;
+  });
+
+  async function syncSingleVendor(vendor: typeof vendors[0]) {
+    if (!vendor) return;
     try {
-      // Use appropriate parser based on vendor configuration
       let result;
       if (vendor.parser === 'aws_json' || vendor.key === 'aws' || vendor.key === 'aws-govcloud') {
         result = await fetchAwsStatus(vendor);
       } else if (vendor.parser === 'slack_json') {
         result = await fetchSlackStatus(vendor);
       } else if (vendor.parser === 'puppeteer_js') {
-        // Use Puppeteer for JavaScript-rendered pages
         result = await scrapeJsVendorStatus(vendor);
       } else if (vendor.parser === 'manual' || vendor.parser === 'generic_html' || vendor.parser === 'html_scrape') {
-        // Use HTML scraping for vendors without public APIs
         result = await scrapeVendorStatus(vendor);
       } else {
         result = await fetchStatuspageJson(vendor);
@@ -739,8 +747,11 @@ export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: nu
       const msg = `Failed to sync ${vendor.name}: ${error instanceof Error ? error.message : 'Unknown'}`;
       errors.push(msg);
       console.error(`✗ ${msg}`);
+      try { await storage.updateVendor(vendor.key, { lastChecked: new Date() }); } catch {}
     }
   }
+
+  await processBatch(syncableVendors, SYNC_BATCH_SIZE, syncSingleVendor);
   
   cleanupStalePendingIncidents();
   

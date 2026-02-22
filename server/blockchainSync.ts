@@ -211,7 +211,7 @@ async function syncBlockchainChain(chainData: { key: string; name: string; sourc
   
   const hasStatuspageUrl = BLOCKCHAIN_STATUSPAGE_URLS[chainData.key] !== undefined;
   
-  if (chainData.sourceType === 'statuspage' || hasStatuspageUrl) {
+  if (chainData.sourceType === 'statuspage' || chainData.sourceType === 'statuspage_json' || hasStatuspageUrl) {
     result = await fetchStatuspageStatus(chainData);
     
     if (!result.success && hasStatuspageUrl && chainData.sourceType !== 'statuspage') {
@@ -234,6 +234,7 @@ async function syncBlockchainChain(chainData: { key: string; name: string; sourc
   
   if (!result.success) {
     console.log(`[blockchain:${chainData.key}] Sync failed: ${result.errorMessage}`);
+    await storage.updateBlockchainChain(chainData.key, { lastChecked: new Date() });
     return;
   }
   
@@ -380,23 +381,27 @@ async function syncBlockchainChain(chainData: { key: string; name: string; sourc
   }
 }
 
+const BLOCKCHAIN_BATCH_SIZE = 25;
+
 export async function syncAllBlockchainChains(): Promise<void> {
   console.log('[blockchain] Starting blockchain status sync...');
   
   const chains = await storage.getBlockchainChains();
   const supportedChains = chains.filter(c => 
-    c.sourceType === 'statuspage' || c.sourceType === 'manual' || c.sourceType === 'api'
+    c.sourceType === 'statuspage' || c.sourceType === 'statuspage_json' || c.sourceType === 'manual' || c.sourceType === 'api'
   );
   
   console.log(`[blockchain] Found ${supportedChains.length} chains to sync`);
   
-  for (const chain of supportedChains) {
-    try {
-      await syncBlockchainChain(chain);
-    } catch (error) {
-      console.error(`[blockchain:${chain.key}] Sync error:`, error);
-    }
-    await new Promise(resolve => setTimeout(resolve, 200));
+  for (let i = 0; i < supportedChains.length; i += BLOCKCHAIN_BATCH_SIZE) {
+    const batch = supportedChains.slice(i, i + BLOCKCHAIN_BATCH_SIZE);
+    await Promise.allSettled(batch.map(async (chain) => {
+      try {
+        await syncBlockchainChain(chain);
+      } catch (error) {
+        console.error(`[blockchain:${chain.key}] Sync error:`, error);
+      }
+    }));
   }
   
   cleanupStalePendingIncidents();

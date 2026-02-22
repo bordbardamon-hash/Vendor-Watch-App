@@ -7,10 +7,10 @@ interface RetryOptions {
 }
 
 const DEFAULT_OPTIONS: Required<RetryOptions> = {
-  maxRetries: 3,
-  baseDelayMs: 2000,
-  maxDelayMs: 30000,
-  jitterMs: 1000,
+  maxRetries: 2,
+  baseDelayMs: 1000,
+  maxDelayMs: 5000,
+  jitterMs: 500,
   retryOn: (error, statusCode) => {
     if (statusCode === 429 || (statusCode && statusCode >= 500)) return true;
     if (error.message.includes('ECONNRESET') || 
@@ -44,7 +44,7 @@ export async function fetchWithRetry(
     try {
       const response = await fetch(url, {
         ...init,
-        signal: init?.signal || AbortSignal.timeout(15000),
+        signal: init?.signal || AbortSignal.timeout(10000),
       });
 
       if (!response.ok) {
