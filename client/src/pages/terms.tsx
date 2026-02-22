@@ -80,8 +80,8 @@ export default function Terms() {
                 Vendor Watch offers the following subscription tiers:
               </p>
               <ul className="list-disc list-inside space-y-2 ml-4">
-                <li><strong>Essential Plan ($89/month):</strong> Monitor up to 10 vendors with email alerts</li>
-                <li><strong>Growth Plan ($129/month):</strong> Monitor up to 25 vendors with email & SMS alerts, 10 blockchain networks, basic automation</li>
+                <li><strong>Essential Plan ($89/month):</strong> Monitor up to 25 vendors with email alerts</li>
+                <li><strong>Growth Plan ($129/month):</strong> Monitor up to 100 vendors with email & SMS alerts, 25 blockchain networks, basic automation</li>
                 <li><strong>Enterprise Plan ($189/month):</strong> Unlimited vendor and blockchain monitoring with AI Copilot and full automation</li>
               </ul>
               <p>

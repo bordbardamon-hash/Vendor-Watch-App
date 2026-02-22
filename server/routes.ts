@@ -1608,9 +1608,24 @@ export async function registerRoutes(
       if (!Array.isArray(vendorKeys)) {
         return res.status(400).json({ error: "vendorKeys must be an array" });
       }
+
+      const uniqueKeys = [...new Set(vendorKeys.filter((k: any) => typeof k === 'string' && k.length > 0))];
+
+      const user = await storage.getUser(userId);
+      const tier = user?.subscriptionTier as keyof typeof SUBSCRIPTION_TIERS | null;
+      const tierInfo = tier && SUBSCRIPTION_TIERS[tier] ? SUBSCRIPTION_TIERS[tier] : SUBSCRIPTION_TIERS.essential;
+      const limit = tierInfo.vendorLimit;
+      if (limit !== null && uniqueKeys.length > limit) {
+        return res.status(403).json({ 
+          error: `Your ${tierInfo.name} plan allows up to ${limit} vendors. You selected ${uniqueKeys.length}.`,
+          limit,
+          selected: uniqueKeys.length,
+          tier: tier || 'essential'
+        });
+      }
       
-      await storage.setUserVendorSubscriptions(userId, vendorKeys);
-      res.json({ success: true, vendorKeys });
+      await storage.setUserVendorSubscriptions(userId, uniqueKeys);
+      res.json({ success: true, vendorKeys: uniqueKeys });
     } catch (error) {
       console.error("Error updating vendor subscriptions:", error);
       res.status(500).json({ error: "Failed to update vendor subscriptions" });
@@ -1649,9 +1664,24 @@ export async function registerRoutes(
       if (!Array.isArray(chainKeys)) {
         return res.status(400).json({ error: "chainKeys must be an array" });
       }
+
+      const uniqueKeys = [...new Set(chainKeys.filter((k: any) => typeof k === 'string' && k.length > 0))];
+
+      const user = await storage.getUser(userId);
+      const tier = user?.subscriptionTier as keyof typeof SUBSCRIPTION_TIERS | null;
+      const tierInfo = tier && SUBSCRIPTION_TIERS[tier] ? SUBSCRIPTION_TIERS[tier] : SUBSCRIPTION_TIERS.essential;
+      const limit = tierInfo.blockchainLimit;
+      if (limit !== null && uniqueKeys.length > limit) {
+        return res.status(403).json({ 
+          error: `Your ${tierInfo.name} plan allows up to ${limit} blockchain networks. You selected ${uniqueKeys.length}.`,
+          limit,
+          selected: uniqueKeys.length,
+          tier: tier || 'essential'
+        });
+      }
       
-      await storage.setUserBlockchainSubscriptions(userId, chainKeys);
-      res.json({ success: true, chainKeys });
+      await storage.setUserBlockchainSubscriptions(userId, uniqueKeys);
+      res.json({ success: true, chainKeys: uniqueKeys });
     } catch (error) {
       console.error("Error updating blockchain subscriptions:", error);
       res.status(500).json({ error: "Failed to update blockchain subscriptions" });

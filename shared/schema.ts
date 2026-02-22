@@ -496,7 +496,7 @@ export const SUBSCRIPTION_TIERS = {
   essential: { 
     name: 'Essential', 
     price: 89, 
-    vendorLimit: 10, 
+    vendorLimit: 25, 
     customVendorRequests: 0, 
     blockchainLimit: 0,
     smsEnabled: false,
@@ -510,9 +510,9 @@ export const SUBSCRIPTION_TIERS = {
   growth: { 
     name: 'Growth', 
     price: 129, 
-    vendorLimit: 25, 
-    customVendorRequests: 3, 
-    blockchainLimit: 10,
+    vendorLimit: 100, 
+    customVendorRequests: 5, 
+    blockchainLimit: 25,
     smsEnabled: true,
     automationEnabled: true,
     aiCopilotEnabled: false,

@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Vendor } from "@shared/schema";
+import { SUBSCRIPTION_TIERS } from "@shared/schema";
 import {
   DndContext,
   closestCenter,
@@ -250,6 +251,11 @@ export default function Settings() {
     }
   };
   
+  const userTier = user?.subscriptionTier as keyof typeof SUBSCRIPTION_TIERS | null;
+  const tierConfig = userTier && SUBSCRIPTION_TIERS[userTier] ? SUBSCRIPTION_TIERS[userTier] : null;
+  const vendorLimit = tierConfig?.vendorLimit ?? null;
+  const blockchainLimit = tierConfig?.blockchainLimit ?? null;
+
   const saveVendorSubscriptions = useMutation({
     mutationFn: async (vendorKeys: string[]) => {
       const res = await fetch("/api/vendor-subscriptions", {
@@ -257,7 +263,10 @@ export default function Settings() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ vendorKeys }),
       });
-      if (!res.ok) throw new Error("Failed to save subscriptions");
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to save subscriptions");
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -270,10 +279,10 @@ export default function Settings() {
         className: "bg-emerald-500 border-emerald-500 text-white"
       });
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({
         title: "Save Failed",
-        description: "Could not save vendor subscriptions.",
+        description: error.message || "Could not save vendor subscriptions.",
         variant: "destructive"
       });
     },
@@ -323,7 +332,10 @@ export default function Settings() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ chainKeys }),
       });
-      if (!res.ok) throw new Error("Failed to save blockchain subscriptions");
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to save blockchain subscriptions");
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -335,10 +347,10 @@ export default function Settings() {
         className: "bg-emerald-500 border-emerald-500 text-white"
       });
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({
         title: "Save Failed",
-        description: "Could not save blockchain subscriptions.",
+        description: error.message || "Could not save blockchain subscriptions.",
         variant: "destructive"
       });
     },
@@ -1115,6 +1127,14 @@ CONFIG = AppConfig(
                             isSelected={selectedVendors.includes(vendor.key)}
                             onToggle={(checked) => {
                               if (checked) {
+                                if (vendorLimit !== null && selectedVendors.length >= vendorLimit) {
+                                  toast({
+                                    title: "Vendor Limit Reached",
+                                    description: `Your ${tierConfig?.name || ''} plan allows up to ${vendorLimit} vendors. Upgrade to monitor more.`,
+                                    variant: "destructive"
+                                  });
+                                  return;
+                                }
                                 setSelectedVendors(prev => [...prev, vendor.key]);
                               } else {
                                 setSelectedVendors(prev => prev.filter(k => k !== vendor.key));
@@ -1135,16 +1155,29 @@ CONFIG = AppConfig(
                           ? "Monitoring all vendors (default)" 
                           : selectedVendors.length === 0 
                           ? "No vendors selected" 
+                          : vendorLimit !== null
+                          ? `${selectedVendors.length} / ${vendorLimit} vendors selected`
                           : `${selectedVendors.length} of ${allVendors.length} vendors selected`}
+                        {vendorLimit !== null && selectedVendors.length > vendorLimit && (
+                          <span className="text-red-400 ml-2">
+                            (over limit by {selectedVendors.length - vendorLimit})
+                          </span>
+                        )}
                       </div>
                       <div className="flex gap-2">
                         <Button 
                           variant="outline" 
                           size="sm"
-                          onClick={() => setSelectedVendors(allVendors.map(v => v.key))}
+                          onClick={() => {
+                            if (vendorLimit !== null) {
+                              setSelectedVendors(allVendors.slice(0, vendorLimit).map(v => v.key));
+                            } else {
+                              setSelectedVendors(allVendors.map(v => v.key));
+                            }
+                          }}
                           data-testid="button-select-all-vendors"
                         >
-                          Select All
+                          {vendorLimit !== null ? `Select Up to ${vendorLimit}` : 'Select All'}
                         </Button>
                         <Button 
                           variant="outline" 
@@ -1195,15 +1228,26 @@ CONFIG = AppConfig(
                     </p>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-muted-foreground">
-                        {selectedChains.length} of {allChains.length} selected
+                        {blockchainLimit !== null 
+                          ? `${selectedChains.length} / ${blockchainLimit} selected`
+                          : `${selectedChains.length} of ${allChains.length} selected`}
+                        {blockchainLimit !== null && selectedChains.length > blockchainLimit && (
+                          <span className="text-red-400 ml-1">(over limit)</span>
+                        )}
                       </span>
                       <Button 
                         variant="outline" 
                         size="sm"
-                        onClick={() => setSelectedChains(allChains.map((c: any) => c.key))}
+                        onClick={() => {
+                          if (blockchainLimit !== null) {
+                            setSelectedChains(allChains.slice(0, blockchainLimit).map((c: any) => c.key));
+                          } else {
+                            setSelectedChains(allChains.map((c: any) => c.key));
+                          }
+                        }}
                         data-testid="button-select-all-chains-top"
                       >
-                        Select All
+                        {blockchainLimit !== null ? `Select Up to ${blockchainLimit}` : 'Select All'}
                       </Button>
                       <Button 
                         variant="outline" 
@@ -1226,6 +1270,14 @@ CONFIG = AppConfig(
                           checked={selectedChains.includes(chain.key)}
                           onCheckedChange={(checked) => {
                             if (checked) {
+                              if (blockchainLimit !== null && selectedChains.length >= blockchainLimit) {
+                                toast({
+                                  title: "Blockchain Limit Reached",
+                                  description: `Your ${tierConfig?.name || ''} plan allows up to ${blockchainLimit} blockchain networks. Upgrade to monitor more.`,
+                                  variant: "destructive"
+                                });
+                                return;
+                              }
                               setSelectedChains(prev => [...prev, chain.key]);
                             } else {
                               setSelectedChains(prev => prev.filter(k => k !== chain.key));
@@ -1263,16 +1315,27 @@ CONFIG = AppConfig(
                           ? "Monitoring all chains (default)" 
                           : selectedChains.length === 0 
                           ? "No chains selected" 
+                          : blockchainLimit !== null
+                          ? `${selectedChains.length} / ${blockchainLimit} chains selected`
                           : `${selectedChains.length} of ${allChains.length} chains selected`}
+                        {blockchainLimit !== null && selectedChains.length > blockchainLimit && (
+                          <span className="text-red-400 ml-2">(over limit)</span>
+                        )}
                       </div>
                       <div className="flex gap-2">
                         <Button 
                           variant="outline" 
                           size="sm"
-                          onClick={() => setSelectedChains(allChains.map((c: any) => c.key))}
+                          onClick={() => {
+                            if (blockchainLimit !== null) {
+                              setSelectedChains(allChains.slice(0, blockchainLimit).map((c: any) => c.key));
+                            } else {
+                              setSelectedChains(allChains.map((c: any) => c.key));
+                            }
+                          }}
                           data-testid="button-select-all-chains"
                         >
-                          Select All
+                          {blockchainLimit !== null ? `Select Up to ${blockchainLimit}` : 'Select All'}
                         </Button>
                         <Button 
                           variant="outline" 
