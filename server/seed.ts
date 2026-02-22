@@ -1,5 +1,6 @@
 import { storage } from "./storage";
 import { NEW_VENDORS } from "./newVendors";
+import { VENDOR_CATEGORIES } from "./vendorCategories";
 
 async function seed() {
   console.log("Seeding database...");
@@ -377,7 +378,10 @@ async function seed() {
     { key: "expo", name: "Expo", statusUrl: "https://status.expo.dev", parser: "statuspage_json", status: 'operational' },
   ];
 
-  const allVendors = [...vendorsData, ...NEW_VENDORS];
+  const allVendors = [...vendorsData, ...NEW_VENDORS].map(v => ({
+    ...v,
+    category: VENDOR_CATEGORIES[v.key] || 'Other',
+  }));
   
   let created = 0;
   let existing = 0;

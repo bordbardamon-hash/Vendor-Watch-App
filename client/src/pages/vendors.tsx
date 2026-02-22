@@ -241,6 +241,7 @@ export default function Vendors() {
   const [archiveSearchQuery, setArchiveSearchQuery] = useState("");
   const [archiveVendorFilter, setArchiveVendorFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [archiveDateRange, setArchiveDateRange] = useState<string>("all");
   const [requestForm, setRequestForm] = useState({ vendorName: "", statusPageUrl: "", integrationNotes: "" });
   const [directAddForm, setDirectAddForm] = useState({ key: "", name: "", statusUrl: "", parser: "statuspage_json" });
@@ -458,6 +459,36 @@ export default function Vendors() {
     },
   });
 
+  // Fetch user's vendor favorites
+  const { data: favoritesData } = useQuery<{ favorites: string[] }>({
+    queryKey: ["vendor-favorites"],
+    queryFn: async () => {
+      const res = await fetch("/api/vendor-favorites", { credentials: "include" });
+      if (!res.ok) return { favorites: [] };
+      return res.json();
+    },
+  });
+  const favorites = favoritesData?.favorites || [];
+
+  // Toggle favorite mutation
+  const toggleFavoriteMutation = useMutation({
+    mutationFn: async (vendorKey: string) => {
+      const res = await fetch(`/api/vendor-favorites/${vendorKey}`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to toggle favorite");
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["vendor-favorites"] });
+      toast({
+        title: data.isFavorite ? "Added to Favorites" : "Removed from Favorites",
+        description: data.isFavorite ? "Vendor pinned to top of list" : "Vendor unpinned",
+      });
+    },
+  });
+
   // Fetch all incidents
   const { data: incidents = [] } = useQuery<Incident[]>({
     queryKey: ["incidents"],
@@ -565,11 +596,19 @@ export default function Vendors() {
     return acknowledgements.some(a => a.incidentId === incidentId);
   };
 
+  const categories = [...new Set(vendors.map(v => (v as any).category || 'Other'))].sort();
+
   const filteredVendors = vendors.filter(v => {
     const matchesSearch = v.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
       v.key.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || (v as any).normalizedStatus === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesCategory = categoryFilter === 'all' || (v as any).category === categoryFilter;
+    return matchesSearch && matchesStatus && matchesCategory;
+  }).sort((a, b) => {
+    const aFav = favorites.includes(a.key) ? 0 : 1;
+    const bFav = favorites.includes(b.key) ? 0 : 1;
+    if (aFav !== bFav) return aFav - bFav;
+    return a.name.localeCompare(b.name);
   });
 
   const getVendorIncidents = (vendorKey: string) => {
@@ -850,26 +889,48 @@ export default function Vendors() {
         )}
       </div>
 
-      <div className="flex flex-wrap gap-2 items-center" data-testid="status-filter-bar">
-        <span className="text-xs text-muted-foreground font-medium mr-1">Filter:</span>
-        {[
-          { key: 'all', label: 'All', color: 'text-foreground' },
-          { key: 'up', label: 'Up', color: 'text-emerald-500' },
-          { key: 'warn', label: 'Warn', color: 'text-yellow-500' },
-          { key: 'down', label: 'Down', color: 'text-red-500' },
-          { key: 'maintenance', label: 'Maintenance', color: 'text-blue-500' },
-        ].map(f => (
+      <div className="space-y-2">
+        <div className="flex flex-wrap gap-2 items-center" data-testid="status-filter-bar">
+          <span className="text-xs text-muted-foreground font-medium mr-1">Status:</span>
+          {[
+            { key: 'all', label: 'All', color: 'text-foreground' },
+            { key: 'up', label: 'Up', color: 'text-emerald-500' },
+            { key: 'warn', label: 'Warn', color: 'text-yellow-500' },
+            { key: 'down', label: 'Down', color: 'text-red-500' },
+            { key: 'maintenance', label: 'Maintenance', color: 'text-blue-500' },
+          ].map(f => (
+            <button
+              key={f.key}
+              onClick={() => setStatusFilter(f.key)}
+              className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${statusFilter === f.key ? 'bg-primary/10 border-primary/50 text-primary' : 'border-sidebar-border hover:border-primary/30 ' + f.color}`}
+              data-testid={`filter-status-${f.key}`}
+            >
+              {f.key !== 'all' && <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 ${f.key === 'up' ? 'bg-emerald-500' : f.key === 'warn' ? 'bg-yellow-500' : f.key === 'down' ? 'bg-red-500' : 'bg-blue-500'}`} />}
+              {f.label}
+              {f.key !== 'all' && <span className="ml-1 opacity-60">({vendors.filter(v => (v as any).normalizedStatus === f.key).length})</span>}
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-1.5 items-center" data-testid="category-filter-bar">
+          <span className="text-xs text-muted-foreground font-medium mr-1">Category:</span>
           <button
-            key={f.key}
-            onClick={() => setStatusFilter(f.key)}
-            className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${statusFilter === f.key ? 'bg-primary/10 border-primary/50 text-primary' : 'border-sidebar-border hover:border-primary/30 ' + f.color}`}
-            data-testid={`filter-status-${f.key}`}
+            onClick={() => setCategoryFilter('all')}
+            className={`px-2.5 py-0.5 rounded-full text-xs font-medium border transition-all ${categoryFilter === 'all' ? 'bg-primary/10 border-primary/50 text-primary' : 'border-sidebar-border hover:border-primary/30 text-muted-foreground'}`}
+            data-testid="filter-category-all"
           >
-            {f.key !== 'all' && <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 ${f.key === 'up' ? 'bg-emerald-500' : f.key === 'warn' ? 'bg-yellow-500' : f.key === 'down' ? 'bg-red-500' : 'bg-blue-500'}`} />}
-            {f.label}
-            {f.key !== 'all' && <span className="ml-1 opacity-60">({vendors.filter(v => (v as any).normalizedStatus === f.key).length})</span>}
+            All ({vendors.length})
           </button>
-        ))}
+          {categories.map(cat => (
+            <button
+              key={cat}
+              onClick={() => setCategoryFilter(cat)}
+              className={`px-2.5 py-0.5 rounded-full text-xs font-medium border transition-all ${categoryFilter === cat ? 'bg-primary/10 border-primary/50 text-primary' : 'border-sidebar-border hover:border-primary/30 text-muted-foreground'}`}
+              data-testid={`filter-category-${cat.toLowerCase().replace(/[\s&]+/g, '-')}`}
+            >
+              {cat} ({vendors.filter(v => (v as any).category === cat).length})
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 flex-1">
@@ -957,6 +1018,13 @@ export default function Vendors() {
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleFavoriteMutation.mutate(vendor.key); }}
+                          className={`transition-colors ${favorites.includes(vendor.key) ? 'text-yellow-500' : 'text-muted-foreground/30 hover:text-yellow-500/50'}`}
+                          data-testid={`button-favorite-${vendor.key}`}
+                        >
+                          <Star className="w-3.5 h-3.5" fill={favorites.includes(vendor.key) ? 'currentColor' : 'none'} />
+                        </button>
                         <LogoAvatar src={vendor.logoUrl} name={vendor.name} size="sm" />
                         <span className="font-semibold" data-testid={`text-vendor-name-${vendor.key}`}>{vendor.name}</span>
                         {isMonitored(vendor.key) && (
@@ -997,6 +1065,13 @@ export default function Vendors() {
                         </Button>
                       </div>
                     </div>
+                    {(vendor as any).category && (
+                      <div className="mb-2">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-sidebar border border-sidebar-border text-muted-foreground">
+                          {(vendor as any).category}
+                        </span>
+                      </div>
+                    )}
                     <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground font-mono mt-3">
                       <div className="flex items-center gap-1.5" title={vendor.parser === 'statuspage_json' ? "Real-time API sync enabled" : "Manual check only"}>
                         <Code className="w-3 h-3" />

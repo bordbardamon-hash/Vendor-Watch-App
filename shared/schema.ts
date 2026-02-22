@@ -26,11 +26,19 @@ export const vendors = pgTable("vendors", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   key: text("key").notNull().unique(),
   name: text("name").notNull(),
-  logoUrl: text("logo_url"),                    // URL to vendor logo image
+  logoUrl: text("logo_url"),
   statusUrl: text("status_url").notNull(),
   parser: text("parser").notNull(),
+  category: text("category").default('Other'),
   status: text("status").notNull().default('operational'),
   lastChecked: timestamp("last_checked"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const userVendorFavorites = pgTable("user_vendor_favorites", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: text("user_id").notNull(),
+  vendorKey: text("vendor_key").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -427,9 +435,17 @@ export const insertBlockchainMaintenanceSchema = createInsertSchema(blockchainMa
   updatedAt: true,
 });
 
+export const insertUserVendorFavoriteSchema = createInsertSchema(userVendorFavorites).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type InsertVendor = z.infer<typeof insertVendorSchema>;
 export type Vendor = typeof vendors.$inferSelect;
+
+export type InsertUserVendorFavorite = z.infer<typeof insertUserVendorFavoriteSchema>;
+export type UserVendorFavorite = typeof userVendorFavorites.$inferSelect;
 
 export type InsertIncident = z.infer<typeof insertIncidentSchema>;
 export type Incident = typeof incidents.$inferSelect;

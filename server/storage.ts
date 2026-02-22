@@ -1,5 +1,5 @@
 import { 
-  users, vendors, incidents, incidentArchive, jobs, config, feedback, notificationConsents, incidentAlerts, userVendorSubscriptions, userVendorOrder, customVendorRequests, parserHealth,
+  users, vendors, incidents, incidentArchive, jobs, config, feedback, notificationConsents, incidentAlerts, userVendorSubscriptions, userVendorOrder, userVendorFavorites, customVendorRequests, parserHealth,
   blockchainChains, blockchainIncidents, blockchainIncidentArchive, userBlockchainSubscriptions, incidentAcknowledgements, maintenanceAcknowledgements,
   vendorMaintenances, blockchainMaintenances, userActivityEvents, vendorDailyMetrics, psaWebhooks,
   slaContracts, slaBreaches, syntheticProbes, syntheticProbeResults,
@@ -173,6 +173,10 @@ export interface IStorage {
   getIncidentsForUser(userId: string): Promise<Incident[]>;
   getBlockchainIncidentsForUser(userId: string): Promise<BlockchainIncident[]>;
   
+  // Vendor Favorites
+  getUserVendorFavorites(userId: string): Promise<string[]>;
+  toggleVendorFavorite(userId: string, vendorKey: string): Promise<boolean>;
+
   // Vendor Ordering
   getUserVendorOrder(userId: string): Promise<UserVendorOrder[]>;
   setUserVendorOrder(userId: string, vendorKeys: string[]): Promise<void>;
@@ -1313,6 +1317,29 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(blockchainIncidents.createdAt));
   }
   
+  // Vendor Favorites
+  async getUserVendorFavorites(userId: string): Promise<string[]> {
+    const rows = await db
+      .select({ vendorKey: userVendorFavorites.vendorKey })
+      .from(userVendorFavorites)
+      .where(eq(userVendorFavorites.userId, userId));
+    return rows.map(r => r.vendorKey);
+  }
+
+  async toggleVendorFavorite(userId: string, vendorKey: string): Promise<boolean> {
+    const existing = await db
+      .select()
+      .from(userVendorFavorites)
+      .where(and(eq(userVendorFavorites.userId, userId), eq(userVendorFavorites.vendorKey, vendorKey)));
+    if (existing.length > 0) {
+      await db.delete(userVendorFavorites).where(and(eq(userVendorFavorites.userId, userId), eq(userVendorFavorites.vendorKey, vendorKey)));
+      return false;
+    } else {
+      await db.insert(userVendorFavorites).values({ userId, vendorKey });
+      return true;
+    }
+  }
+
   // Vendor Ordering
   async getUserVendorOrder(userId: string): Promise<UserVendorOrder[]> {
     return await db

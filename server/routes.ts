@@ -1740,6 +1740,46 @@ export async function registerRoutes(
     }
   });
 
+  // Vendor Favorites
+  app.get("/api/vendor-favorites", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const favorites = await storage.getUserVendorFavorites(userId);
+      res.json({ favorites });
+    } catch (error) {
+      console.error("Error fetching vendor favorites:", error);
+      res.status(500).json({ error: "Failed to fetch favorites" });
+    }
+  });
+
+  app.post("/api/vendor-favorites/:vendorKey", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { vendorKey } = req.params;
+      const isFavorite = await storage.toggleVendorFavorite(userId, vendorKey);
+      res.json({ vendorKey, isFavorite });
+    } catch (error) {
+      console.error("Error toggling vendor favorite:", error);
+      res.status(500).json({ error: "Failed to toggle favorite" });
+    }
+  });
+
+  // Vendor categories list
+  app.get("/api/vendor-categories", isAuthenticated, async (req: any, res) => {
+    try {
+      const allVendors = await storage.getVendors();
+      const categories: Record<string, number> = {};
+      for (const v of allVendors) {
+        const cat = v.category || 'Other';
+        categories[cat] = (categories[cat] || 0) + 1;
+      }
+      res.json({ categories });
+    } catch (error) {
+      console.error("Error fetching vendor categories:", error);
+      res.status(500).json({ error: "Failed to fetch categories" });
+    }
+  });
+
   app.get("/api/my-incidents", isAuthenticated, requireOnboardingComplete, async (req: any, res) => {
     try {
       const userId = req.user.id;
