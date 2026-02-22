@@ -511,7 +511,7 @@ async function fetchSlackStatus(vendor: { key: string; statusUrl: string }): Pro
   }
 }
 
-const SYNC_BATCH_SIZE = 25;
+const SYNC_BATCH_SIZE = 75;
 
 async function processBatch<T>(items: T[], batchSize: number, fn: (item: T) => Promise<void>): Promise<void> {
   for (let i = 0; i < items.length; i += batchSize) {

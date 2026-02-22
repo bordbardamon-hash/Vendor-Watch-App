@@ -239,22 +239,29 @@ app.use((req, res, next) => {
       // Start automatic vendor status sync
       const SYNC_INTERVAL_MS = 1 * 60 * 1000; // 1 minute
       let syncRunning = false;
+      let lastSyncStart = 0;
       
       async function runSync(label: string) {
         if (syncRunning) {
-          console.log(`[sync] Skipping ${label} sync - previous sync still running`);
-          return;
+          const elapsed = Date.now() - lastSyncStart;
+          if (elapsed < 90000) {
+            console.log(`[sync] Skipping ${label} sync - previous sync still running (${Math.round(elapsed/1000)}s elapsed)`);
+            return;
+          }
+          console.log(`[sync] Previous sync exceeded 90s, allowing new sync to start`);
         }
         syncRunning = true;
+        lastSyncStart = Date.now();
+        const startTime = Date.now();
         try {
           console.log(`[sync] Starting ${label} status sync (vendors + blockchain in parallel)...`);
           const [vendorResult] = await Promise.allSettled([
             syncVendorStatus().then(result => {
-              console.log(`[sync] ${label} vendor sync complete: ${result.synced} synced, ${result.skipped} skipped`);
+              console.log(`[sync] ${label} vendor sync complete in ${Math.round((Date.now()-startTime)/1000)}s: ${result.synced} synced, ${result.skipped} skipped`);
               return result;
             }),
             syncAllBlockchainChains().then(() => {
-              console.log(`[sync] ${label} blockchain sync complete`);
+              console.log(`[sync] ${label} blockchain sync complete in ${Math.round((Date.now()-startTime)/1000)}s`);
             }),
           ]);
           if (vendorResult.status === 'rejected') {
@@ -264,11 +271,16 @@ app.use((req, res, next) => {
           console.error(`[sync] ${label} sync failed:`, err);
         } finally {
           syncRunning = false;
+          const totalTime = Math.round((Date.now() - startTime) / 1000);
+          console.log(`[sync] ${label} total sync completed in ${totalTime}s`);
+          if (totalTime > 50) {
+            console.warn(`[sync] WARNING: Sync took ${totalTime}s, approaching 60s interval limit`);
+          }
         }
       }
       
       // Run initial sync after short delay to let server stabilize
-      setTimeout(() => runSync('initial'), 5000);
+      setTimeout(() => runSync('initial'), 3000);
       
       // Set up recurring sync every 1 minute
       setInterval(async () => {
