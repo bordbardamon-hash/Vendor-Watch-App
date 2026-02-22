@@ -12,6 +12,7 @@ import Jobs from "@/pages/jobs";
 import Logs from "@/pages/logs";
 import Settings from "@/pages/settings";
 import Vendors from "@/pages/vendors";
+import Incidents from "@/pages/incidents";
 import Blockchain from "@/pages/blockchain";
 import Consents from "@/pages/consents";
 import FeedbackAdmin from "@/pages/feedback";
@@ -123,6 +124,7 @@ function AuthenticatedRouter() {
         <Route path="/" component={Dashboard} />
         <Route path="/dashboard" component={Dashboard} />
         <Route path="/vendors" component={Vendors} />
+        <Route path="/incidents" component={Incidents} />
         <Route path="/blockchain" component={Blockchain} />
         <Route path="/maintenance" component={Maintenance} />
         <Route path="/analytics" component={Analytics} />

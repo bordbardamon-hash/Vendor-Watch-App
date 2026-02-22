@@ -33,6 +33,7 @@ import {
   Lock,
   UsersRound,
   ClipboardList,
+  AlertTriangle,
 } from "lucide-react";
 import { LogoAvatar } from "@/components/ui/logo-avatar";
 
@@ -54,7 +55,8 @@ interface BlockchainChain {
 
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard, keywords: "home overview" },
-  { href: "/vendors", label: "Vendors & Incidents", icon: Shield, keywords: "services monitoring status" },
+  { href: "/vendors", label: "Vendors", icon: Shield, keywords: "services monitoring status" },
+  { href: "/incidents", label: "Incidents", icon: AlertTriangle, keywords: "alerts outages issues" },
   { href: "/blockchain", label: "Blockchain", icon: Boxes, keywords: "crypto chains networks" },
   { href: "/maintenance", label: "Maintenance", icon: Wrench, keywords: "scheduled downtime" },
   { href: "/monitoring", label: "Website Monitoring", icon: Activity, keywords: "synthetic probes uptime" },

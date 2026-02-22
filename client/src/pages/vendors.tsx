@@ -2,7 +2,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,8 +15,6 @@ import {
   Search, 
   Activity,
   Server,
-  Code,
-  Hash,
   Loader2,
   RefreshCw,
   Plus,
@@ -25,16 +22,7 @@ import {
   Star,
   BellOff,
   Bell,
-  Archive,
-  Clock,
-  Calendar,
-  Filter,
   X,
-  Users,
-  User,
-  Bot,
-  Sparkles,
-  Copy,
   ChevronDown,
   ArrowLeft
 } from "lucide-react";
@@ -97,20 +85,6 @@ interface Acknowledgement {
   incidentId: string;
   incidentType: string;
   acknowledgedAt: string;
-}
-
-interface ArchivedIncident {
-  id: string;
-  incidentId: string;
-  vendorKey: string;
-  title: string;
-  status: string;
-  severity: string;
-  impact: string;
-  url: string;
-  startedAt: string;
-  resolvedAt: string;
-  archivedAt: string;
 }
 
 interface VendorComponent {
@@ -236,13 +210,8 @@ export default function Vendors() {
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddDialog, setShowAddDialog] = useState(false);
-  const [showAllIncidents, setShowAllIncidents] = useState(false);
-  const [showArchiveDialog, setShowArchiveDialog] = useState(false);
-  const [archiveSearchQuery, setArchiveSearchQuery] = useState("");
-  const [archiveVendorFilter, setArchiveVendorFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
-  const [archiveDateRange, setArchiveDateRange] = useState<string>("all");
   const [requestForm, setRequestForm] = useState({ vendorName: "", statusPageUrl: "", integrationNotes: "" });
   const [directAddForm, setDirectAddForm] = useState({ key: "", name: "", statusUrl: "", parser: "statuspage_json" });
   const { toast } = useToast();
@@ -254,31 +223,6 @@ export default function Vendors() {
     }
   }, [selectedVendor]);
   const queryClient = useQueryClient();
-
-  // Fetch archived incidents when dialog is open
-  const { data: archivedIncidents = [], isLoading: archiveLoading } = useQuery<ArchivedIncident[]>({
-    queryKey: ["archived-incidents", archiveSearchQuery, archiveVendorFilter, archiveDateRange],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      if (archiveSearchQuery) params.set("query", archiveSearchQuery);
-      if (archiveVendorFilter && archiveVendorFilter !== "all") params.set("vendorKey", archiveVendorFilter);
-      if (archiveDateRange && archiveDateRange !== "all") params.set("dateRange", archiveDateRange);
-      params.set("limit", "100");
-      const res = await fetch(`/api/incidents/archive?${params}`);
-      if (!res.ok) throw new Error("Failed to fetch archived incidents");
-      return res.json();
-    },
-    enabled: showArchiveDialog,
-  });
-
-  const { data: archiveCount } = useQuery<{ count: number }>({
-    queryKey: ["archived-incidents-count"],
-    queryFn: async () => {
-      const res = await fetch("/api/incidents/archive/count");
-      if (!res.ok) throw new Error("Failed to fetch count");
-      return res.json();
-    },
-  });
 
   // Fetch vendor limit info
   const { data: vendorLimit } = useQuery<VendorLimit>({
@@ -545,52 +489,6 @@ export default function Vendors() {
     },
   });
 
-  // AI Copilot state
-  const [showAiCopilotDialog, setShowAiCopilotDialog] = useState(false);
-  const [selectedIncidentForAi, setSelectedIncidentForAi] = useState<string | null>(null);
-  const [aiDraft, setAiDraft] = useState<{ subject: string; body: string; summary: string } | null>(null);
-  const [aiAudience, setAiAudience] = useState<'client' | 'executive' | 'technical'>('client');
-
-  // AI Copilot mutation
-  const generateAiDraftMutation = useMutation({
-    mutationFn: async ({ incidentId, audience }: { incidentId: string; audience: string }) => {
-      const res = await fetch("/api/ai-copilot/incident-update", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ incidentId, audience, tone: 'formal', includeNextSteps: true }),
-      });
-      if (!res.ok) throw new Error("Failed to generate AI draft");
-      return res.json();
-    },
-    onSuccess: (data) => {
-      setAiDraft(data);
-    },
-    onError: () => {
-      toast({
-        title: "AI Draft Failed",
-        description: "Could not generate incident update. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const openAiCopilot = (incidentId: string) => {
-    setSelectedIncidentForAi(incidentId);
-    setAiDraft(null);
-    setShowAiCopilotDialog(true);
-  };
-
-  const handleGenerateAiDraft = () => {
-    if (selectedIncidentForAi) {
-      generateAiDraftMutation.mutate({ incidentId: selectedIncidentForAi, audience: aiAudience });
-    }
-  };
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast({ title: "Copied to clipboard" });
-  };
-
   // Helper to check if an incident is acknowledged
   const isAcknowledged = (incidentId: string) => {
     return acknowledgements.some(a => a.incidentId === incidentId);
@@ -617,14 +515,6 @@ export default function Vendors() {
       .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
   };
 
-  const getAllIncidentsSorted = () => {
-    return [...incidents].sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
-  };
-
-  const getVendorName = (vendorKey: string) => {
-    const vendor = vendors.find(v => v.key === vendorKey);
-    return vendor?.name || vendorKey;
-  };
 
   const getSeverityColor = (severity: string) => {
     switch(severity.toLowerCase()) {
@@ -935,7 +825,7 @@ export default function Vendors() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 flex-1">
         {/* Vendor List - hidden on mobile when vendor is selected */}
-        <div className={`lg:col-span-5 flex flex-col gap-4 ${selectedVendor || showAllIncidents ? 'hidden lg:flex' : ''}`}>
+        <div className={`lg:col-span-5 flex flex-col gap-4 ${selectedVendor ? 'hidden lg:flex' : ''}`}>
           {/* Subscription Limit Indicator */}
           {subscriptionData && (
             <div className="bg-sidebar/30 border border-sidebar-border rounded-lg p-3 flex items-center justify-between">
@@ -951,29 +841,6 @@ export default function Vendors() {
               </div>
             </div>
           )}
-          <div className="flex gap-2 mb-4">
-            <Button
-              variant={showAllIncidents ? "default" : "outline"}
-              className="flex-1"
-              onClick={() => {
-                setShowAllIncidents(!showAllIncidents);
-                if (!showAllIncidents) setSelectedVendor(null);
-              }}
-              data-testid="button-view-all-incidents"
-            >
-              <AlertTriangle className="w-4 h-4 mr-2" />
-              {showAllIncidents ? 'Back' : `Active (${incidents.length})`}
-            </Button>
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={() => setShowArchiveDialog(true)}
-              data-testid="button-search-archive"
-            >
-              <Archive className="w-4 h-4 mr-2" />
-              Archive {archiveCount?.count ? `(${archiveCount.count})` : ''}
-            </Button>
-          </div>
           <div className="relative mb-3">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
@@ -1072,20 +939,21 @@ export default function Vendors() {
                         </span>
                       </div>
                     )}
-                    <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground font-mono mt-3">
-                      <div className="flex items-center gap-1.5" title={vendor.parser === 'statuspage_json' ? "Real-time API sync enabled" : "Manual check only"}>
-                        <Code className="w-3 h-3" />
-                        <span className={`truncate ${vendor.parser === 'statuspage_json' ? 'text-primary' : ''}`}>
-                          {vendor.parser === 'statuspage_json' ? 'Live API' : 'Static'}
-                        </span>
+                    {vendor.statusUrl && (
+                      <div className="mt-3 flex items-center gap-2">
+                        <Button variant="ghost" size="sm" className="h-7 text-xs" asChild>
+                          <a href={vendor.statusUrl} target="_blank" rel="noopener noreferrer" data-testid={`link-status-${vendor.key}`}>
+                            <Activity className="w-3 h-3 mr-1" />
+                            Status
+                          </a>
+                        </Button>
                       </div>
-                      <div className="flex items-center gap-1.5 justify-end" title="Status Page URL">
-                        <Activity className="w-3 h-3" />
-                        <a href={vendor.statusUrl} target="_blank" rel="noopener noreferrer" className="hover:text-primary truncate max-w-[120px]">
-                          {new URL(vendor.statusUrl).hostname}
-                        </a>
+                    )}
+                    {vendor.lastChecked && (
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        Last checked: {formatShortDateInTimezone(vendor.lastChecked, timezone)}
                       </div>
-                    </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}
@@ -1094,111 +962,8 @@ export default function Vendors() {
         </div>
 
         {/* Detail View - shown on mobile only when vendor selected */}
-        <div className={`lg:col-span-7 lg:sticky lg:top-4 lg:self-start ${!selectedVendor && !showAllIncidents ? 'hidden lg:block' : ''}`} style={{ maxHeight: 'calc(100vh - 2rem)' }}>
-          {showAllIncidents ? (
-            <Card className="border-sidebar-border bg-sidebar/10 flex flex-col animate-fade-in-scale" style={{ maxHeight: 'calc(100vh - 2rem)' }}>
-              <CardHeader className="border-b border-sidebar-border bg-sidebar/20 shrink-0">
-                <button
-                  onClick={() => setShowAllIncidents(false)}
-                  className="lg:hidden flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-2 -mt-1"
-                  data-testid="button-back-from-incidents"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                  Back to vendors
-                </button>
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <CardTitle className="flex items-center gap-2 text-2xl">
-                      <AlertTriangle className="w-6 h-6 text-amber-500" />
-                      All Incidents
-                    </CardTitle>
-                    <CardDescription className="font-mono text-xs">
-                      Showing <span className="text-primary">{incidents.length}</span> incidents across all vendors (newest first)
-                    </CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="flex-1 min-h-0 p-0 overflow-y-auto">
-                  <div className="p-3 sm:p-6 space-y-4">
-                    {getAllIncidentsSorted().length > 0 ? (
-                      getAllIncidentsSorted().map((incident) => (
-                        <div key={incident.id} className="border border-sidebar-border rounded-lg bg-background/50 p-3 sm:p-4 transition-all hover:border-primary/30 overflow-hidden" data-testid={`card-incident-all-${incident.incidentId}`}>
-                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2">
-                            <div className="min-w-0 flex-1">
-                              <span className="text-xs text-primary font-medium bg-primary/10 px-2 py-0.5 rounded inline-block mb-1">
-                                {getVendorName(incident.vendorKey)}
-                              </span>
-                              <h4 className="font-semibold text-base sm:text-lg break-words">{incident.title}</h4>
-                            </div>
-                            <Badge className={`${getSeverityColor(incident.severity)} shrink-0`}>
-                              {incident.severity.toUpperCase()}
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground mb-3 break-words">{incident.impact}</p>
-                          <div className="text-xs font-mono text-muted-foreground/70 bg-sidebar/50 p-2 rounded mb-3">
-                            <div className="truncate">ID: {incident.incidentId}</div>
-                            <div className="text-[10px] mt-1">{formatShortDateInTimezone(incident.startedAt, timezone)}</div>
-                          </div>
-                          <div className="flex items-center gap-2 flex-wrap mb-2">
-                            <Badge variant="outline" className="text-xs">Status: {incident.status}</Badge>
-                            {isAcknowledged(incident.id) && (
-                              <Badge variant="secondary" className="text-xs bg-emerald-500/10 text-emerald-500">
-                                <BellOff className="w-3 h-3 mr-1" />
-                                Ack'd
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant={isAcknowledged(incident.id) ? "secondary" : "outline"}
-                              size="sm"
-                              className="text-xs h-8 flex-1"
-                              onClick={() => isAcknowledged(incident.id) 
-                                ? unacknowledgeMutation.mutate(incident.id)
-                                : acknowledgeMutation.mutate(incident.id)
-                              }
-                              disabled={acknowledgeMutation.isPending || unacknowledgeMutation.isPending}
-                              data-testid={`button-acknowledge-${incident.id}`}
-                            >
-                              {isAcknowledged(incident.id) ? (
-                                <>
-                                  <Bell className="w-3 h-3 mr-1" />
-                                  Resume
-                                </>
-                              ) : (
-                                <>
-                                  <BellOff className="w-3 h-3 mr-1" />
-                                  Acknowledge
-                                </>
-                              )}
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-xs h-8 text-cyan-500 border-cyan-500/30 hover:bg-cyan-500/10"
-                              onClick={() => openAiCopilot(incident.id)}
-                              data-testid={`button-ai-draft-${incident.id}`}
-                            >
-                              <Sparkles className="w-3 h-3 mr-1" />
-                              AI Draft
-                            </Button>
-                            <a href={incident.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1 px-2 py-1.5 border border-primary/30 rounded shrink-0">
-                              View <ExternalLink className="w-3 h-3" />
-                            </a>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-12 text-muted-foreground">
-                        <CheckCircle2 className="w-12 h-12 mx-auto mb-4 text-emerald-500/20" />
-                        <p>No incidents reported.</p>
-                        <p className="text-sm opacity-50">All systems appear to be operational.</p>
-                      </div>
-                    )}
-                  </div>
-              </CardContent>
-            </Card>
-          ) : selectedVendor ? (
+        <div className={`lg:col-span-7 lg:sticky lg:top-4 lg:self-start ${!selectedVendor ? 'hidden lg:block' : ''}`} style={{ maxHeight: 'calc(100vh - 2rem)' }}>
+          {selectedVendor ? (
             <Card className="border-sidebar-border bg-sidebar/10 flex flex-col overflow-hidden animate-fade-in-scale" style={{ maxHeight: 'calc(100vh - 2rem)' }}>
               <CardHeader className="border-b border-sidebar-border bg-sidebar/20 shrink-0">
                 <button
@@ -1213,9 +978,11 @@ export default function Vendors() {
                   <div className="space-y-1">
                     <CardTitle className="flex items-center gap-2 text-2xl">
                       {selectedVendor.name}
-                      <a href={selectedVendor.statusUrl} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="w-4 h-4 text-muted-foreground hover:text-primary transition-colors" />
-                      </a>
+                      {selectedVendor.statusUrl && (
+                        <a href={selectedVendor.statusUrl} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="w-4 h-4 text-muted-foreground hover:text-primary transition-colors" />
+                        </a>
+                      )}
                     </CardTitle>
                     <CardDescription className="font-mono text-xs">
                       KEY: <span className="text-primary">{selectedVendor.key}</span>
@@ -1282,16 +1049,6 @@ export default function Vendors() {
                                 </>
                               )}
                             </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-xs h-8 text-cyan-500 border-cyan-500/30 hover:bg-cyan-500/10"
-                              onClick={() => openAiCopilot(incident.id)}
-                              data-testid={`button-ai-draft-vendor-${incident.id}`}
-                            >
-                              <Sparkles className="w-3 h-3 mr-1" />
-                              AI Draft
-                            </Button>
                             <a href={incident.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1 px-2 py-1.5 border border-primary/30 rounded shrink-0">
                               View <ExternalLink className="w-3 h-3" />
                             </a>
@@ -1335,233 +1092,6 @@ export default function Vendors() {
         </div>
       </div>
 
-      {/* Archive Search Dialog */}
-      <Dialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
-        <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Archive className="w-5 h-5" />
-              Incident Archive
-            </DialogTitle>
-            <DialogDescription>
-              Search past incidents resolved more than 3 days ago. Archives are kept for 1 year.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-3 mb-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by title or description..."
-                value={archiveSearchQuery}
-                onChange={(e) => setArchiveSearchQuery(e.target.value)}
-                className="pl-10"
-                data-testid="input-archive-search"
-              />
-            </div>
-            
-            <div className="flex gap-2 flex-wrap">
-              <Select value={archiveVendorFilter} onValueChange={setArchiveVendorFilter}>
-                <SelectTrigger className="w-[180px]" data-testid="select-archive-vendor">
-                  <Filter className="w-4 h-4 mr-2" />
-                  <SelectValue placeholder="All Vendors" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Vendors</SelectItem>
-                  {vendors.map((v) => (
-                    <SelectItem key={v.key} value={v.key}>{v.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              
-              <Select value={archiveDateRange} onValueChange={setArchiveDateRange}>
-                <SelectTrigger className="w-[160px]" data-testid="select-archive-date">
-                  <Calendar className="w-4 h-4 mr-2" />
-                  <SelectValue placeholder="All Time" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Time</SelectItem>
-                  <SelectItem value="7d">Last 7 Days</SelectItem>
-                  <SelectItem value="30d">Last 30 Days</SelectItem>
-                  <SelectItem value="90d">Last 90 Days</SelectItem>
-                  <SelectItem value="6m">Last 6 Months</SelectItem>
-                  <SelectItem value="1y">Last Year</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              {(archiveSearchQuery || archiveVendorFilter !== "all" || archiveDateRange !== "all") && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setArchiveSearchQuery("");
-                    setArchiveVendorFilter("all");
-                    setArchiveDateRange("all");
-                  }}
-                  className="text-muted-foreground"
-                  data-testid="button-clear-archive-filters"
-                >
-                  <X className="w-4 h-4 mr-1" />
-                  Clear
-                </Button>
-              )}
-            </div>
-          </div>
-          
-          <div className="flex-1 overflow-y-auto overscroll-contain -webkit-overflow-scrolling-touch" style={{ maxHeight: '50vh', WebkitOverflowScrolling: 'touch' }}>
-            {archiveLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : archivedIncidents.length > 0 ? (
-              <div className="space-y-3 pr-2">
-                {archivedIncidents.map((incident) => (
-                  <div
-                    key={incident.id}
-                    className="border border-sidebar-border rounded-lg bg-background/50 p-3"
-                    data-testid={`card-archive-${incident.incidentId}`}
-                  >
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <div className="min-w-0 flex-1">
-                        <span className="text-xs text-primary font-medium bg-primary/10 px-2 py-0.5 rounded inline-block mb-1">
-                          {incident.vendorKey}
-                        </span>
-                        <h4 className="font-semibold text-sm break-words">{incident.title}</h4>
-                      </div>
-                      <Badge className={getSeverityColor(incident.severity)} variant="secondary">
-                        {incident.severity.toUpperCase()}
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground mb-2 break-words line-clamp-2">{incident.impact}</p>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground/70 font-mono">
-                      <div className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {formatShortDateInTimezone(incident.startedAt, timezone)}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                        Resolved: {formatShortDateInTimezone(incident.resolvedAt, timezone)}
-                      </div>
-                    </div>
-                    <div className="mt-2">
-                      <a
-                        href={incident.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-primary hover:underline flex items-center gap-1 w-fit"
-                      >
-                        View details <ExternalLink className="w-3 h-3" />
-                      </a>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12 text-muted-foreground">
-                <Archive className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                <p>No archived incidents found.</p>
-                <p className="text-sm opacity-50">
-                  {archiveSearchQuery 
-                    ? "Try a different search term." 
-                    : "Resolved incidents older than 3 days appear here."}
-                </p>
-              </div>
-            )}
-          </div>
-          
-          <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={() => setShowArchiveDialog(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* AI Copilot Dialog */}
-      <Dialog open={showAiCopilotDialog} onOpenChange={setShowAiCopilotDialog}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-cyan-500" />
-              AI Communication Copilot
-            </DialogTitle>
-            <DialogDescription>
-              Generate professional incident updates for your clients
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 mt-4">
-            <div className="flex items-center gap-3">
-              <Label htmlFor="audience" className="w-24">Audience:</Label>
-              <Select value={aiAudience} onValueChange={(v) => setAiAudience(v as 'client' | 'executive' | 'technical')}>
-                <SelectTrigger className="w-48" data-testid="select-ai-audience">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="client">Client (Non-technical)</SelectItem>
-                  <SelectItem value="executive">Executive Summary</SelectItem>
-                  <SelectItem value="technical">Technical Team</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button 
-                onClick={handleGenerateAiDraft}
-                disabled={generateAiDraftMutation.isPending}
-                className="bg-cyan-600 hover:bg-cyan-700"
-                data-testid="button-generate-ai-draft"
-              >
-                {generateAiDraftMutation.isPending ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    Generate Draft
-                  </>
-                )}
-              </Button>
-            </div>
-            
-            {aiDraft && (
-              <div className="space-y-4 border border-sidebar-border rounded-lg p-4 bg-background/50">
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <Label className="text-xs text-muted-foreground">Subject Line</Label>
-                    <Button variant="ghost" size="sm" onClick={() => copyToClipboard(aiDraft.subject)} className="h-6 px-2" data-testid="button-copy-subject">
-                      <Copy className="w-3 h-3 mr-1" /> Copy
-                    </Button>
-                  </div>
-                  <div className="bg-sidebar/50 p-2 rounded text-sm font-medium">{aiDraft.subject}</div>
-                </div>
-                
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <Label className="text-xs text-muted-foreground">Message Body</Label>
-                    <Button variant="ghost" size="sm" onClick={() => copyToClipboard(aiDraft.body)} className="h-6 px-2" data-testid="button-copy-body">
-                      <Copy className="w-3 h-3 mr-1" /> Copy
-                    </Button>
-                  </div>
-                  <ScrollArea className="h-48">
-                    <div className="bg-sidebar/50 p-3 rounded text-sm whitespace-pre-wrap">{aiDraft.body}</div>
-                  </ScrollArea>
-                </div>
-                
-                <div className="flex items-center gap-2 pt-2 border-t border-sidebar-border">
-                  <Bot className="w-4 h-4 text-cyan-500" />
-                  <span className="text-xs text-muted-foreground">Quick Summary: {aiDraft.summary}</span>
-                </div>
-              </div>
-            )}
-          </div>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAiCopilotDialog(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

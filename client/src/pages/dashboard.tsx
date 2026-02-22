@@ -369,7 +369,7 @@ export default function Dashboard() {
             clickable
           />
         </Link>
-        <Link href="/vendors" data-testid="link-incidents-metric" className="animate-fade-in-up opacity-0 stagger-2">
+        <Link href="/incidents" data-testid="link-incidents-metric" className="animate-fade-in-up opacity-0 stagger-2">
           <MetricCard 
             title={UI_LABELS.cards.activeIncidents}
             value={incidentCount.toString()} 

@@ -33,7 +33,8 @@ import {
   FileText,
   ClipboardList,
   Lock,
-  Search
+  Search,
+  AlertTriangle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
@@ -89,7 +90,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       title: "Monitoring",
       items: [
         { href: "/", icon: LayoutDashboard, label: UI_LABELS.nav.overview, adminOnly: false, ownerOnly: false },
-        { href: "/vendors", icon: Shield, label: UI_LABELS.nav.vendorsIncidents, adminOnly: false, ownerOnly: false },
+        { href: "/vendors", icon: Shield, label: UI_LABELS.nav.vendors, adminOnly: false, ownerOnly: false },
+        { href: "/incidents", icon: AlertTriangle, label: UI_LABELS.nav.incidents, adminOnly: false, ownerOnly: false },
         { href: "/blockchain", icon: Boxes, label: "Blockchain", adminOnly: false, ownerOnly: false },
         { href: "/maintenance", icon: Wrench, label: "Maintenance", adminOnly: false, ownerOnly: false },
         { href: "/monitoring", icon: Activity, label: "Website Monitoring", adminOnly: false, ownerOnly: false },
