@@ -115,6 +115,19 @@ export const NEW_VENDORS = [
   { key: "wiz", name: "Wiz", statusUrl: "https://status.wiz.io", parser: "statuspage_json", status: "operational" },
 
   // ═══════════════════════════════════════════════════════════════
+  // EMAIL SECURITY & PHISHING DEFENSE
+  // ═══════════════════════════════════════════════════════════════
+  { key: "barracuda", name: "Barracuda Networks", statusUrl: "https://status.barracuda.com", parser: "statuspage_json", status: "operational" },
+  { key: "abnormal-security", name: "Abnormal AI", statusUrl: "https://status.abnormalsecurity.com", parser: "statuspage_json", status: "operational" },
+  { key: "ironscales", name: "IRONSCALES", statusUrl: "https://status.ironscales.com", parser: "statuspage_json", status: "operational" },
+  { key: "checkpoint", name: "Check Point", statusUrl: "https://status.checkpoint.com", parser: "statuspage_json", status: "operational" },
+  { key: "valimail", name: "Valimail", statusUrl: "https://status.valimail.com", parser: "statuspage_json", status: "operational" },
+  { key: "mailgun", name: "Mailgun", statusUrl: "https://status.mailgun.com", parser: "statuspage_json", status: "operational" },
+  { key: "perception-point", name: "Perception Point", statusUrl: "https://status.perception-point.io", parser: "statuspage_json", status: "operational" },
+  { key: "greynoise", name: "GreyNoise", statusUrl: "https://status.greynoise.io", parser: "statuspage_json", status: "operational" },
+  { key: "hoxhunt", name: "Hoxhunt", statusUrl: "https://status.hoxhunt.com", parser: "statuspage_json", status: "operational" },
+
+  // ═══════════════════════════════════════════════════════════════
   // IDENTITY & ACCESS MANAGEMENT
   // ═══════════════════════════════════════════════════════════════
   { key: "jumpcloud", name: "JumpCloud", statusUrl: "https://status.jumpcloud.com", parser: "statuspage_json", status: "operational" },
