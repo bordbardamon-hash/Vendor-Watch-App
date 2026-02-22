@@ -30,7 +30,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { formatShortDateInTimezone } from "@/lib/utils";
+import { formatShortDateInTimezone, getBrowserTimezone } from "@/lib/utils";
 
 interface BlockchainChain {
   key: string;
@@ -128,7 +128,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 export default function Blockchain() {
   const { user } = useAuth();
-  const timezone = user?.timezone || 'UTC';
+  const timezone = user?.timezone || getBrowserTimezone();
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);

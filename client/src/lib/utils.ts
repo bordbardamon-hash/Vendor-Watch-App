@@ -12,7 +12,15 @@ export function normalizeTierDisplay(tier: string | null | undefined): string {
   return tier.charAt(0).toUpperCase() + tier.slice(1);
 }
 
-export function formatDateInTimezone(date: Date | string, timezone: string = 'UTC'): string {
+export function getBrowserTimezone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch {
+    return 'UTC';
+  }
+}
+
+export function formatDateInTimezone(date: Date | string, timezone: string = getBrowserTimezone()): string {
   const d = typeof date === 'string' ? new Date(date) : date;
   try {
     return d.toLocaleString('en-US', {
@@ -29,7 +37,7 @@ export function formatDateInTimezone(date: Date | string, timezone: string = 'UT
   }
 }
 
-export function formatShortDateInTimezone(date: Date | string, timezone: string = 'UTC'): string {
+export function formatShortDateInTimezone(date: Date | string, timezone: string = getBrowserTimezone()): string {
   const d = typeof date === 'string' ? new Date(date) : date;
   try {
     return d.toLocaleString('en-US', {

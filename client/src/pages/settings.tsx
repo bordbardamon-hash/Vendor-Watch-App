@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Bell, Database, Mail, Save, Server, Shield, Clock, Code, Copy, Check, CheckCircle2, Smartphone, MessageSquare, GripVertical, AlertTriangle, AlertCircle, Info, Users, Crown, ShieldCheck, Link2 } from "lucide-react";
+import { getBrowserTimezone } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
@@ -418,7 +419,7 @@ export default function Settings() {
     notificationEmail: "",
     smsPhone: "",
     enableBackup: true,
-    timezone: "UTC"
+    timezone: getBrowserTimezone()
   });
 
   const [emailConsentChecked, setEmailConsentChecked] = useState(false);
@@ -443,7 +444,7 @@ export default function Settings() {
         smsPhone: notifPrefs.phone || "",
         enableEmail: notifPrefs.notifyEmail ?? false,
         enableSms: notifPrefs.notifySms ?? false,
-        timezone: notifPrefs.timezone || "UTC",
+        timezone: notifPrefs.timezone || getBrowserTimezone(),
       }));
       if (originalEmailEnabled === null) {
         setOriginalEmailEnabled(notifPrefs.notifyEmail ?? false);
