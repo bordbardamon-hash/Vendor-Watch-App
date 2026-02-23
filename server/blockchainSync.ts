@@ -164,7 +164,7 @@ async function fetchStatuspageStatus(chain: { key: string; statusUrl?: string | 
     
     let incidents: BlockchainIncidentData[] = [];
     try {
-      const incidentsUrl = `${apiBase}/api/v2/incidents/unresolved.json`;
+      const incidentsUrl = `${apiBase}/api/v2/incidents.json`;
       const incidentsRes = await fetchWithRetry(incidentsUrl, {
         headers: {
           'Accept': 'application/json',
@@ -173,7 +173,14 @@ async function fetchStatuspageStatus(chain: { key: string; statusUrl?: string | 
       });
       if (incidentsRes.ok) {
         const incidentsData = await incidentsRes.json();
-        incidents = incidentsData.incidents || [];
+        const allIncidents: BlockchainIncidentData[] = incidentsData.incidents || [];
+        const now = Date.now();
+        const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+        incidents = allIncidents.filter(inc => {
+          if (inc.status !== 'resolved' && inc.status !== 'postmortem') return true;
+          const resolvedAt = new Date(inc.updated_at).getTime();
+          return (now - resolvedAt) < TWO_HOURS_MS;
+        });
       }
     } catch (e) {
       console.log(`[blockchain:${chain.key}] Could not fetch incidents`);
@@ -313,10 +320,13 @@ async function syncBlockchainChain(chainData: { key: string; name: string; sourc
         }
       }
     } else {
-      const isConfirmed = confirmBlockchainIncident(chainData.key, incident.id, incident);
-      if (!isConfirmed) {
-        console.log(`[blockchain:${chainData.key}] Pending confirmation: ${incident.name}`);
-        continue;
+      const hasStatuspageUrl = chainData.statuspageUrl && chainData.statuspageUrl.length > 0;
+      if (!hasStatuspageUrl) {
+        const isConfirmed = confirmBlockchainIncident(chainData.key, incident.id, incident);
+        if (!isConfirmed) {
+          console.log(`[blockchain:${chainData.key}] Pending confirmation: ${incident.name}`);
+          continue;
+        }
       }
 
       const newIncident = await storage.createBlockchainIncident({
@@ -330,7 +340,7 @@ async function syncBlockchainChain(chainData: { key: string; name: string; sourc
         startedAt: incident.created_at,
         updatedAt: incident.updated_at,
       });
-      console.log(`[blockchain:${chainData.key}] Created incident (confirmed): ${incident.name}`);
+      console.log(`[blockchain:${chainData.key}] Created incident: ${incident.name}`);
       
       await notifyNewBlockchainIncident(newIncident, fullChain);
       await orchestrator.processBlockchainIncident(newIncident, 'newBlockchainIncident');

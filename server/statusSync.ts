@@ -203,9 +203,9 @@ async function fetchStatuspageJson(vendor: { key: string; statusUrl: string }): 
     let incidents: any[] = [];
     let maintenances: MaintenanceData[] = [];
     
-    // Fetch incidents
+    // Fetch incidents - use incidents.json (includes recently resolved) to catch short-lived incidents
     try {
-      const incidentsUrl = `${apiBase}/api/v2/incidents/unresolved.json`;
+      const incidentsUrl = `${apiBase}/api/v2/incidents.json`;
       const incidentsRes = await fetchWithRetry(incidentsUrl, {
         headers: { 
           'Accept': 'application/json',
@@ -214,7 +214,14 @@ async function fetchStatuspageJson(vendor: { key: string; statusUrl: string }): 
       });
       if (incidentsRes.ok) {
         const incidentsData: IncidentsResponse = await incidentsRes.json();
-        incidents = incidentsData.incidents || [];
+        const allIncidents = incidentsData.incidents || [];
+        const now = Date.now();
+        const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+        incidents = allIncidents.filter(inc => {
+          if (inc.status !== 'resolved' && inc.status !== 'postmortem') return true;
+          const resolvedAt = new Date(inc.updated_at).getTime();
+          return (now - resolvedAt) < TWO_HOURS_MS;
+        });
       }
     } catch (e) {
       console.log(`[${vendor.key}] Could not fetch incidents`);
@@ -604,10 +611,13 @@ export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: nu
           const affectedComponents = incident.components?.map((c: { id: string; name: string; status: string }) => c.name).join(', ') || '';
           
           if (!exists) {
-            const isConfirmed = confirmVendorIncident(vendor.key, incident.id, incident);
-            if (!isConfirmed) {
-              console.log(`  ⏳ Pending confirmation: ${incident.name} [${normalizedSeverity}/${normalizedStatus}]`);
-              continue;
+            const isAuthoritativeSource = vendor.parser === 'statuspage_json' || vendor.parser === 'aws_json' || vendor.parser === 'slack_json';
+            if (!isAuthoritativeSource) {
+              const isConfirmed = confirmVendorIncident(vendor.key, incident.id, incident);
+              if (!isConfirmed) {
+                console.log(`  ⏳ Pending confirmation: ${incident.name} [${normalizedSeverity}/${normalizedStatus}]`);
+                continue;
+              }
             }
 
             const newIncident = await storage.createIncident({
@@ -622,7 +632,7 @@ export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: nu
               updatedAt: incident.updated_at,
               rawHash: null
             });
-            console.log(`  → New incident (confirmed): ${incident.name} [${normalizedSeverity}/${normalizedStatus}]`);
+            console.log(`  → New incident: ${incident.name} [${normalizedSeverity}/${normalizedStatus}]`);
             
             const lifecycleEvent = determineLifecycleEvent(null, null, normalizedStatus, normalizedSeverity, true);
             
