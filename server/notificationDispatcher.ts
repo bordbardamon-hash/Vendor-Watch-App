@@ -235,6 +235,8 @@ export async function dispatchIncidentNotification(notification: IncidentNotific
           const errMsg = error instanceof Error ? error.message : 'Unknown';
           errors.push(`SMS error for ${user.phone}: ${errMsg}`);
         }
+      } else {
+        console.log(`[notify] SMS already sent to ${user.phone} for incident ${incident.incidentId} (dedup)`);
       }
     }
     
@@ -264,6 +266,8 @@ export async function dispatchIncidentNotification(notification: IncidentNotific
           const errMsg = error instanceof Error ? error.message : 'Unknown';
           errors.push(`Email error for ${targetEmail}: ${errMsg}`);
         }
+      } else {
+        console.log(`[notify] Email already sent to ${targetEmail} for incident ${incident.incidentId} (dedup)`);
       }
     }
   }
@@ -580,6 +584,8 @@ export async function dispatchLifecycleNotification(notification: LifecycleNotif
         } catch (error: unknown) {
           errors.push(`SMS error for ${user.phone}: ${error instanceof Error ? error.message : 'Unknown'}`);
         }
+      } else {
+        console.log(`[notify] SMS already sent to ${user.phone} for incident ${incident.incidentId} (dedup)`);
       }
     }
     
@@ -614,6 +620,8 @@ export async function dispatchLifecycleNotification(notification: LifecycleNotif
         } catch (error: unknown) {
           errors.push(`Email error for ${targetEmail}: ${error instanceof Error ? error.message : 'Unknown'}`);
         }
+      } else {
+        console.log(`[notify] Email already sent to ${targetEmail} for incident ${incident.incidentId} (dedup)`);
       }
     }
   }
@@ -892,6 +900,8 @@ export async function dispatchBlockchainNotification(notification: BlockchainNot
         } catch (error) {
           errors.push(`Blockchain SMS error for ${user.phone}: ${error instanceof Error ? error.message : 'Unknown'}`);
         }
+      } else {
+        console.log(`[notify] Blockchain SMS already sent to ${user.phone} for incident ${incident.incidentId} (dedup)`);
       }
     }
     
@@ -921,6 +931,8 @@ export async function dispatchBlockchainNotification(notification: BlockchainNot
         } catch (error) {
           errors.push(`Blockchain email error for ${targetEmail}: ${error instanceof Error ? error.message : 'Unknown'}`);
         }
+      } else {
+        console.log(`[notify] Blockchain email already sent to ${targetEmail} for incident ${incident.incidentId} (dedup)`);
       }
     }
   }

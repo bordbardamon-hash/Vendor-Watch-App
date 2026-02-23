@@ -52,11 +52,28 @@ export async function getTwilioFromPhoneNumber() {
   return phoneNumber;
 }
 
+function formatPhoneE164(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.startsWith('1') && digits.length === 11) {
+    return '+' + digits;
+  }
+  if (digits.length === 10) {
+    return '+1' + digits;
+  }
+  if (phone.startsWith('+')) {
+    return phone;
+  }
+  return '+' + digits;
+}
+
 export async function sendSMS(to: string, message: string): Promise<boolean> {
   if (isCircuitOpen(SMS_CIRCUIT)) {
     console.warn(`[twilio] Circuit breaker OPEN for Twilio - skipping SMS to ${to}`);
     return false;
   }
+
+  const formattedTo = formatPhoneE164(to);
+  console.log(`[twilio] Attempting SMS to ${formattedTo} (original: ${to})`);
 
   try {
     const client = await getTwilioClient();
@@ -65,14 +82,15 @@ export async function sendSMS(to: string, message: string): Promise<boolean> {
     await client.messages.create({
       body: message,
       from: fromNumber,
-      to: to
+      to: formattedTo
     });
     
-    console.log(`[twilio] SMS sent to ${to}`);
+    console.log(`[twilio] SMS sent successfully to ${formattedTo}`);
     recordSuccess(SMS_CIRCUIT);
     return true;
-  } catch (error) {
-    console.error('[twilio] Failed to send SMS:', error);
+  } catch (error: any) {
+    const errorMsg = error?.message || error?.code || String(error);
+    console.error(`[twilio] Failed to send SMS to ${formattedTo}:`, errorMsg);
     recordFailure(SMS_CIRCUIT);
     return false;
   }
