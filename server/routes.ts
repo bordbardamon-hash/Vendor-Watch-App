@@ -1044,9 +1044,8 @@ export async function registerRoutes(
   
   app.post("/api/parser-health/reset-all-unhealthy", isAuthenticated, isOwner, async (req, res) => {
     try {
-      const { getParserHealthStatus, recordParseResult } = await import('./parserHealthTracker');
-      const healthData = getParserHealthStatus();
-      const unhealthy = healthData.filter(p => !p.isHealthy);
+      const { getUnhealthyParsers, recordParseResult } = await import('./parserHealthTracker');
+      const unhealthy = await getUnhealthyParsers();
       let resetCount = 0;
       for (const parser of unhealthy) {
         await recordParseResult(parser.vendorKey, {
