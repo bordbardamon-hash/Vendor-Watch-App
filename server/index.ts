@@ -252,13 +252,18 @@ app.use((req, res, next) => {
         const startTime = Date.now();
         
         try {
-          console.log(`[sync] Starting ${label} status sync (blockchain first, then vendors)...`);
-          await syncAllBlockchainChains();
-          const bcTime = Math.round((Date.now()-startTime)/1000);
-          console.log(`[sync] ${label} blockchain sync complete in ${bcTime}s`);
-          const result = await syncVendorStatus();
-          const totalTime = Math.round((Date.now()-startTime)/1000);
-          console.log(`[sync] ${label} vendor sync complete in ${totalTime}s: ${result.synced} synced, ${result.skipped} skipped`);
+          console.log(`[sync] Starting ${label} status sync (blockchain + vendors in parallel)...`);
+          const [, result] = await Promise.all([
+            syncAllBlockchainChains().then(() => {
+              const bcTime = Math.round((Date.now()-startTime)/1000);
+              console.log(`[sync] ${label} blockchain sync complete in ${bcTime}s`);
+            }),
+            syncVendorStatus().then(r => {
+              const vTime = Math.round((Date.now()-startTime)/1000);
+              console.log(`[sync] ${label} vendor sync complete in ${vTime}s: ${r.synced} synced, ${r.skipped} skipped`);
+              return r;
+            }),
+          ]);
         } catch (err) {
           console.error(`[sync] ${label} sync failed:`, err);
         } finally {
