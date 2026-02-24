@@ -518,7 +518,16 @@ async function fetchSlackStatus(vendor: { key: string; statusUrl: string }): Pro
   }
 }
 
-const SYNC_BATCH_SIZE = 75;
+const SYNC_BATCH_SIZE = 50;
+
+function shuffleArray<T>(arr: T[]): T[] {
+  const shuffled = [...arr];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
 
 async function processBatch<T>(items: T[], batchSize: number, fn: (item: T) => Promise<void>): Promise<void> {
   for (let i = 0; i < items.length; i += batchSize) {
@@ -537,7 +546,7 @@ export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: nu
   const errors: string[] = [];
   
   const validParsers = ['statuspage_json', 'aws_json', 'slack_json', 'manual', 'generic_html', 'html_scrape', 'puppeteer_js'];
-  const syncableVendors = vendors.filter(v => {
+  const filteredVendors = vendors.filter(v => {
     if (!v) return false;
     if (!validParsers.includes(v.parser)) {
       skipped++;
@@ -545,6 +554,7 @@ export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: nu
     }
     return true;
   });
+  const syncableVendors = vendorKey ? filteredVendors : shuffleArray(filteredVendors);
 
   async function syncSingleVendor(vendor: typeof vendors[0]) {
     if (!vendor) return;
