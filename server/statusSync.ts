@@ -473,7 +473,7 @@ async function fetchSlackStatus(vendor: { key: string; statusUrl: string }): Pro
     const response = await fetchWithRetry("https://status.slack.com/api/v2.0.0/current", {
       headers: { 
         'Accept': 'application/json',
-        'User-Agent': 'VendorWatch/1.0'
+        'User-Agent': 'Mozilla/5.0 (compatible; VendorWatch/1.0)'
       },
     }, { maxRetries: 0 });
     
@@ -759,7 +759,7 @@ export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: nu
         }
         
         let finalStatus = result.status;
-        if (result.incidents.length === 0) {
+        if (result.incidents.length === 0 && finalStatus !== 'degraded' && finalStatus !== 'partial_outage' && finalStatus !== 'major_outage') {
           finalStatus = 'operational';
         }
         
