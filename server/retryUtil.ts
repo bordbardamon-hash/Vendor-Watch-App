@@ -7,16 +7,11 @@ interface RetryOptions {
 }
 
 const DEFAULT_OPTIONS: Required<RetryOptions> = {
-  maxRetries: 1,
+  maxRetries: 0,
   baseDelayMs: 500,
   maxDelayMs: 1500,
   jitterMs: 200,
-  retryOn: (error, statusCode) => {
-    if (statusCode === 429 || statusCode === 503) return true;
-    if (error.message.includes('ECONNRESET') || 
-        error.message.includes('ETIMEDOUT')) return true;
-    return false;
-  },
+  retryOn: () => false,
 };
 
 function sleep(ms: number): Promise<void> {
@@ -43,7 +38,7 @@ export async function fetchWithRetry(
     try {
       const response = await fetch(url, {
         ...init,
-        signal: init?.signal || AbortSignal.timeout(2500),
+        signal: init?.signal || AbortSignal.timeout(5000),
       });
 
       if (!response.ok) {

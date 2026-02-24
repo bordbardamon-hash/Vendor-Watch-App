@@ -498,9 +498,9 @@ async function fetchSlackStatus(vendor: { key: string; statusUrl: string }): Pro
   }
 }
 
-const SYNC_BATCH_SIZE = 2;
-const SYNC_TIME_BUDGET_MS = 90000; // 90s budget (blockchain finishes first, then vendors)
-const PER_VENDOR_TIMEOUT_MS = 6000;
+const SYNC_BATCH_SIZE = 1;
+const SYNC_TIME_BUDGET_MS = 240000; // 240s budget with 5-minute interval
+const PER_VENDOR_TIMEOUT_MS = 10000;
 
 function shuffleArray<T>(arr: T[]): T[] {
   const shuffled = [...arr];

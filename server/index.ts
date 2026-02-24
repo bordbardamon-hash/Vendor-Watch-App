@@ -237,7 +237,7 @@ app.use((req, res, next) => {
       log(`serving on port ${port}`);
       
       // Start automatic vendor status sync
-      const SYNC_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes (sequential blockchain + vendor sync)
+      const SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes (sequential blockchain + vendor sync)
       let syncRunning = false;
       let lastSyncStart = 0;
       
