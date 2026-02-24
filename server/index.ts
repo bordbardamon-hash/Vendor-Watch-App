@@ -236,10 +236,10 @@ app.use((req, res, next) => {
     () => {
       log(`serving on port ${port}`);
       
-      // Start automatic vendor status sync
-      const SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes (sequential blockchain + vendor sync)
+      const SYNC_INTERVAL_MS = 5 * 60 * 1000;
       let syncRunning = false;
       let lastSyncStart = 0;
+      let initialSyncDone = false;
       
       async function runSync(label: string) {
         if (syncRunning) {
@@ -265,17 +265,20 @@ app.use((req, res, next) => {
           syncRunning = false;
           const totalTime = Math.round((Date.now() - startTime) / 1000);
           console.log(`[sync] ${label} total sync completed in ${totalTime}s`);
+          
+          if (!initialSyncDone) {
+            initialSyncDone = true;
+            console.log('[sync] Initial sync finished, starting background tasks...');
+            startBackgroundTasks();
+          }
         }
       }
       
-      // Run initial sync after short delay to let server stabilize
       setTimeout(() => runSync('initial'), 3000);
       
-      // Set up recurring sync every 1 minute
       setInterval(async () => {
         await runSync('scheduled');
         
-        // Auto-resolve stale incidents (not updated in 7 days)
         try {
           const staleVendor = await resolveStaleIncidents(7);
           const staleBlockchain = await resolveStaleBlockchainIncidents(7);
@@ -289,164 +292,132 @@ app.use((req, res, next) => {
       
       console.log(`[sync] Automatic sync configured: every ${SYNC_INTERVAL_MS / 60000} minutes (vendors + blockchain)`);
       
-      // Incident archival cleanup: runs every hour
-      const ARCHIVE_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
-      const ARCHIVE_AFTER_DAYS = 1; // Archive resolved incidents after 1 day
-      const PURGE_AFTER_DAYS = 365; // Purge archived incidents after 1 year
-      
-      setInterval(async () => {
-        console.log('[archive] Starting incident archival cleanup...');
-        try {
-          // Archive vendor incidents
-          const archived = await storage.archiveResolvedIncidents(ARCHIVE_AFTER_DAYS);
-          if (archived > 0) {
-            console.log(`[archive] Archived ${archived} resolved vendor incidents older than ${ARCHIVE_AFTER_DAYS} days`);
+      function startBackgroundTasks() {
+        const ARCHIVE_INTERVAL_MS = 60 * 60 * 1000;
+        const ARCHIVE_AFTER_DAYS = 1;
+        const PURGE_AFTER_DAYS = 365;
+        
+        setInterval(async () => {
+          console.log('[archive] Starting incident archival cleanup...');
+          try {
+            const archived = await storage.archiveResolvedIncidents(ARCHIVE_AFTER_DAYS);
+            if (archived > 0) console.log(`[archive] Archived ${archived} resolved vendor incidents`);
+            const purged = await storage.purgeOldArchivedIncidents(PURGE_AFTER_DAYS);
+            if (purged > 0) console.log(`[archive] Purged ${purged} archived vendor incidents`);
+            const blockchainArchived = await storage.archiveResolvedBlockchainIncidents(ARCHIVE_AFTER_DAYS);
+            if (blockchainArchived > 0) console.log(`[archive] Archived ${blockchainArchived} resolved blockchain incidents`);
+            const blockchainPurged = await storage.purgeOldArchivedBlockchainIncidents(PURGE_AFTER_DAYS);
+            if (blockchainPurged > 0) console.log(`[archive] Purged ${blockchainPurged} archived blockchain incidents`);
+          } catch (err) {
+            console.error('[archive] Archival cleanup failed:', err);
           }
-          
-          const purged = await storage.purgeOldArchivedIncidents(PURGE_AFTER_DAYS);
-          if (purged > 0) {
-            console.log(`[archive] Purged ${purged} archived vendor incidents older than ${PURGE_AFTER_DAYS} days`);
+        }, ARCHIVE_INTERVAL_MS);
+        console.log(`[archive] Automatic archival configured: resolved incidents archived after ${ARCHIVE_AFTER_DAYS} days, purged after ${PURGE_AFTER_DAYS} days`);
+        
+        const TELEMETRY_INTERVAL_MS = 60 * 60 * 1000;
+        const PREDICTION_INTERVAL_MS = 6 * 60 * 60 * 1000;
+        
+        setTimeout(async () => {
+          console.log('[predictions] Starting initial telemetry collection...');
+          try {
+            await collectTelemetryMetrics();
+            console.log('[predictions] Initial telemetry collection complete');
+          } catch (err) {
+            console.error('[predictions] Initial telemetry collection failed:', err);
           }
-          
-          // Archive blockchain incidents
-          const blockchainArchived = await storage.archiveResolvedBlockchainIncidents(ARCHIVE_AFTER_DAYS);
-          if (blockchainArchived > 0) {
-            console.log(`[archive] Archived ${blockchainArchived} resolved blockchain incidents older than ${ARCHIVE_AFTER_DAYS} days`);
+        }, 5000);
+        
+        setInterval(async () => {
+          console.log('[predictions] Collecting hourly telemetry...');
+          try {
+            await collectTelemetryMetrics();
+            console.log('[predictions] Hourly telemetry collection complete');
+          } catch (err) {
+            console.error('[predictions] Hourly telemetry collection failed:', err);
           }
-          
-          const blockchainPurged = await storage.purgeOldArchivedBlockchainIncidents(PURGE_AFTER_DAYS);
-          if (blockchainPurged > 0) {
-            console.log(`[archive] Purged ${blockchainPurged} archived blockchain incidents older than ${PURGE_AFTER_DAYS} days`);
+        }, TELEMETRY_INTERVAL_MS);
+        
+        setInterval(async () => {
+          console.log('[predictions] Generating predictions from patterns...');
+          try {
+            await generatePredictions();
+            console.log('[predictions] Prediction generation complete');
+          } catch (err) {
+            console.error('[predictions] Prediction generation failed:', err);
           }
-        } catch (err) {
-          console.error('[archive] Archival cleanup failed:', err);
-        }
-      }, ARCHIVE_INTERVAL_MS);
-      
-      console.log(`[archive] Automatic archival configured: resolved incidents archived after ${ARCHIVE_AFTER_DAYS} days, purged after ${PURGE_AFTER_DAYS} days`);
-      
-      // Predictive Analytics: Telemetry collection and prediction generation
-      const TELEMETRY_INTERVAL_MS = 60 * 60 * 1000; // Collect telemetry every hour
-      const PREDICTION_INTERVAL_MS = 6 * 60 * 60 * 1000; // Generate predictions every 6 hours
-      
-      // Initial telemetry collection after server stabilizes
-      setTimeout(async () => {
-        console.log('[predictions] Starting initial telemetry collection...');
-        try {
-          await collectTelemetryMetrics();
-          console.log('[predictions] Initial telemetry collection complete');
-        } catch (err) {
-          console.error('[predictions] Initial telemetry collection failed:', err);
-        }
-      }, 10000); // 10 seconds after startup
-      
-      // Hourly telemetry collection
-      setInterval(async () => {
-        console.log('[predictions] Collecting hourly telemetry...');
-        try {
-          await collectTelemetryMetrics();
-          console.log('[predictions] Hourly telemetry collection complete');
-        } catch (err) {
-          console.error('[predictions] Hourly telemetry collection failed:', err);
-        }
-      }, TELEMETRY_INTERVAL_MS);
-      
-      // Generate predictions every 6 hours
-      setInterval(async () => {
-        console.log('[predictions] Generating predictions from patterns...');
-        try {
-          await generatePredictions();
-          console.log('[predictions] Prediction generation complete');
-        } catch (err) {
-          console.error('[predictions] Prediction generation failed:', err);
-        }
-      }, PREDICTION_INTERVAL_MS);
-      
-      // Initial prediction generation after 30 seconds (allow telemetry to build up)
-      setTimeout(async () => {
-        console.log('[predictions] Running initial prediction generation...');
-        try {
-          await generatePredictions();
-          console.log('[predictions] Initial prediction generation complete');
-        } catch (err) {
-          console.error('[predictions] Initial prediction generation failed:', err);
-        }
-      }, 30000);
-      
-      // Prediction maintenance every hour (clean up expired, validate against actual incidents)
-      const MAINTENANCE_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
-      setInterval(async () => {
-        console.log('[predictions] Running prediction maintenance...');
-        try {
-          const result = await maintainPredictions();
-          console.log(`[predictions] Maintenance complete: expired=${result.expired}, validated=${result.validated}, invalidated=${result.invalidated}`);
-          
-          // Also update confidence levels based on new telemetry
-          const confidenceUpdates = await updatePredictionConfidence();
-          if (confidenceUpdates > 0) {
-            console.log(`[predictions] Updated confidence for ${confidenceUpdates} predictions`);
+        }, PREDICTION_INTERVAL_MS);
+        
+        setTimeout(async () => {
+          console.log('[predictions] Running initial prediction generation...');
+          try {
+            await generatePredictions();
+            console.log('[predictions] Initial prediction generation complete');
+          } catch (err) {
+            console.error('[predictions] Initial prediction generation failed:', err);
           }
-        } catch (err) {
-          console.error('[predictions] Prediction maintenance failed:', err);
-        }
-      }, MAINTENANCE_INTERVAL_MS);
-      
-      // Run initial maintenance after 2 minutes (after initial predictions are created)
-      setTimeout(async () => {
-        console.log('[predictions] Running initial prediction maintenance...');
-        try {
-          await maintainPredictions();
-          await updatePredictionConfidence();
-          console.log('[predictions] Initial maintenance complete');
-        } catch (err) {
-          console.error('[predictions] Initial maintenance failed:', err);
-        }
-      }, 120000);
-      
-      console.log(`[predictions] Predictive analytics configured: telemetry every ${TELEMETRY_INTERVAL_MS / 60000} minutes, predictions every ${PREDICTION_INTERVAL_MS / 3600000} hours, maintenance hourly`);
-      
-      // Data retention - run daily at startup and then every 24 hours
-      // Uses the LONGEST retention period to ensure data availability for all tiers
-      // Tier-based access restrictions are enforced at the API level, not storage level
-      const DATA_RETENTION_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
-      const TELEMETRY_RETENTION_DAYS = 90;  // Enterprise tier (longest)
-      const PREDICTION_RETENTION_DAYS = 30; // Enterprise tier (longest)
-      const ACTIVITY_RETENTION_DAYS = 90;   // Same for all tiers
-      
-      const runDataRetention = async () => {
-        console.log('[retention] Running data retention cleanup...');
-        try {
-          const telemetryPurged = await storage.purgeOldTelemetry(TELEMETRY_RETENTION_DAYS);
-          const predictionsPurged = await storage.purgeOldPredictions(PREDICTION_RETENTION_DAYS);
-          const activityPurged = await storage.purgeOldActivityEvents(ACTIVITY_RETENTION_DAYS);
-          console.log(`[retention] Cleanup complete: telemetry=${telemetryPurged}, predictions=${predictionsPurged}, activity=${activityPurged}`);
-        } catch (err) {
-          console.error('[retention] Data retention cleanup failed:', err);
-        }
-      };
-      
-      // Run initial cleanup after 5 minutes
-      setTimeout(runDataRetention, 5 * 60 * 1000);
-      
-      // Then run daily
-      setInterval(runDataRetention, DATA_RETENTION_INTERVAL_MS);
-      
-      console.log(`[retention] Data retention configured: telemetry ${TELEMETRY_RETENTION_DAYS} days, predictions ${PREDICTION_RETENTION_DAYS} days, activity ${ACTIVITY_RETENTION_DAYS} days (runs daily)`);
+        }, 30000);
+        
+        const MAINTENANCE_INTERVAL_MS = 60 * 60 * 1000;
+        setInterval(async () => {
+          console.log('[predictions] Running prediction maintenance...');
+          try {
+            const result = await maintainPredictions();
+            console.log(`[predictions] Maintenance complete: expired=${result.expired}, validated=${result.validated}, invalidated=${result.invalidated}`);
+            const confidenceUpdates = await updatePredictionConfidence();
+            if (confidenceUpdates > 0) console.log(`[predictions] Updated confidence for ${confidenceUpdates} predictions`);
+          } catch (err) {
+            console.error('[predictions] Prediction maintenance failed:', err);
+          }
+        }, MAINTENANCE_INTERVAL_MS);
+        
+        setTimeout(async () => {
+          console.log('[predictions] Running initial prediction maintenance...');
+          try {
+            await maintainPredictions();
+            await updatePredictionConfidence();
+            console.log('[predictions] Initial maintenance complete');
+          } catch (err) {
+            console.error('[predictions] Initial maintenance failed:', err);
+          }
+        }, 120000);
+        
+        console.log(`[predictions] Predictive analytics configured: telemetry every 60 minutes, predictions every 6 hours, maintenance hourly`);
+        
+        const DATA_RETENTION_INTERVAL_MS = 24 * 60 * 60 * 1000;
+        const TELEMETRY_RETENTION_DAYS = 90;
+        const PREDICTION_RETENTION_DAYS = 30;
+        const ACTIVITY_RETENTION_DAYS = 90;
+        
+        const runDataRetention = async () => {
+          console.log('[retention] Running data retention cleanup...');
+          try {
+            const telemetryPurged = await storage.purgeOldTelemetry(TELEMETRY_RETENTION_DAYS);
+            const predictionsPurged = await storage.purgeOldPredictions(PREDICTION_RETENTION_DAYS);
+            const activityPurged = await storage.purgeOldActivityEvents(ACTIVITY_RETENTION_DAYS);
+            console.log(`[retention] Cleanup complete: telemetry=${telemetryPurged}, predictions=${predictionsPurged}, activity=${activityPurged}`);
+          } catch (err) {
+            console.error('[retention] Data retention cleanup failed:', err);
+          }
+        };
+        
+        setTimeout(runDataRetention, 5 * 60 * 1000);
+        setInterval(runDataRetention, DATA_RETENTION_INTERVAL_MS);
+        console.log(`[retention] Data retention configured: telemetry ${TELEMETRY_RETENTION_DAYS} days, predictions ${PREDICTION_RETENTION_DAYS} days, activity ${ACTIVITY_RETENTION_DAYS} days (runs daily)`);
 
-      // Synthetic probe monitoring: run every minute
-      const PROBE_INTERVAL_MS = 60 * 1000;
-      setInterval(async () => {
-        try {
-          const { runAllActiveProbes } = await import('./syntheticMonitor');
-          const result = await runAllActiveProbes();
-          if (result.total > 0) {
-            console.log(`[probes] Ran ${result.total} probes: ${result.healthy} healthy, ${result.degraded} degraded, ${result.down} down`);
+        const PROBE_INTERVAL_MS = 60 * 1000;
+        setInterval(async () => {
+          try {
+            const { runAllActiveProbes } = await import('./syntheticMonitor');
+            const result = await runAllActiveProbes();
+            if (result.total > 0) {
+              console.log(`[probes] Ran ${result.total} probes: ${result.healthy} healthy, ${result.degraded} degraded, ${result.down} down`);
+            }
+          } catch (err) {
+            console.error('[probes] Probe execution failed:', err);
           }
-        } catch (err) {
-          console.error('[probes] Probe execution failed:', err);
-        }
-      }, PROBE_INTERVAL_MS);
-      console.log(`[probes] Synthetic monitoring configured: every 1 minute`);
+        }, PROBE_INTERVAL_MS);
+        console.log(`[probes] Synthetic monitoring configured: every 1 minute`);
+      }
     },
   );
 })();

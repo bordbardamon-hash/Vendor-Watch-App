@@ -391,7 +391,16 @@ async function syncBlockchainChain(chainData: { key: string; name: string; sourc
   }
 }
 
-const BLOCKCHAIN_BATCH_SIZE = 2;
+const BLOCKCHAIN_BATCH_SIZE = 1;
+const BLOCKCHAIN_TIME_BUDGET_MS = 120000;
+const PER_CHAIN_TIMEOUT_MS = 15000;
+
+function withChainTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms))
+  ]);
+}
 
 export async function syncAllBlockchainChains(): Promise<void> {
   console.log('[blockchain] Starting blockchain status sync...');
@@ -403,15 +412,24 @@ export async function syncAllBlockchainChains(): Promise<void> {
   
   console.log(`[blockchain] Found ${supportedChains.length} chains to sync`);
   
+  const startTime = Date.now();
+  let processed = 0;
+  
   for (let i = 0; i < supportedChains.length; i += BLOCKCHAIN_BATCH_SIZE) {
+    if ((Date.now() - startTime) > BLOCKCHAIN_TIME_BUDGET_MS) {
+      console.log(`[blockchain] Time budget exhausted after ${Math.round((Date.now()-startTime)/1000)}s, processed ${processed}/${supportedChains.length} chains`);
+      break;
+    }
     const batch = supportedChains.slice(i, i + BLOCKCHAIN_BATCH_SIZE);
     await Promise.allSettled(batch.map(async (chain) => {
       try {
-        await syncBlockchainChain(chain);
+        await withChainTimeout(syncBlockchainChain(chain), PER_CHAIN_TIMEOUT_MS, `blockchain:${chain.key}`);
       } catch (error) {
-        console.error(`[blockchain:${chain.key}] Sync error:`, error);
+        const msg = error instanceof Error ? error.message : String(error);
+        console.error(`[blockchain:${chain.key}] Sync error: ${msg}`);
       }
     }));
+    processed += batch.length;
   }
   
   cleanupStalePendingIncidents();
