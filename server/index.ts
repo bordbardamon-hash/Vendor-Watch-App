@@ -237,11 +237,11 @@ app.use((req, res, next) => {
       log(`serving on port ${port}`);
       
       // Start automatic vendor status sync
-      const SYNC_INTERVAL_MS = 1 * 60 * 1000; // 1 minute
+      const SYNC_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes (sequential blockchain + vendor sync)
       let syncRunning = false;
       let lastSyncStart = 0;
       
-      const HARD_SYNC_TIMEOUT = 55000;
+      const HARD_SYNC_TIMEOUT = 110000; // 110s for sequential blockchain + vendor
       
       async function runSync(label: string) {
         if (syncRunning) {
@@ -262,17 +262,14 @@ app.use((req, res, next) => {
         );
         
         try {
-          console.log(`[sync] Starting ${label} status sync (vendors + blockchain in parallel)...`);
+          console.log(`[sync] Starting ${label} status sync (blockchain first, then vendors)...`);
           await Promise.race([
-            Promise.allSettled([
-              syncVendorStatus().then(result => {
-                console.log(`[sync] ${label} vendor sync complete in ${Math.round((Date.now()-startTime)/1000)}s: ${result.synced} synced, ${result.skipped} skipped`);
-                return result;
-              }),
-              syncAllBlockchainChains().then(() => {
-                console.log(`[sync] ${label} blockchain sync complete in ${Math.round((Date.now()-startTime)/1000)}s`);
-              }),
-            ]),
+            (async () => {
+              await syncAllBlockchainChains();
+              console.log(`[sync] ${label} blockchain sync complete in ${Math.round((Date.now()-startTime)/1000)}s`);
+              const result = await syncVendorStatus();
+              console.log(`[sync] ${label} vendor sync complete in ${Math.round((Date.now()-startTime)/1000)}s: ${result.synced} synced, ${result.skipped} skipped`);
+            })(),
             hardTimeout,
           ]);
         } catch (err) {

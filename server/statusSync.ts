@@ -182,29 +182,25 @@ async function fetchStatuspageJson(vendor: { key: string; statusUrl: string }): 
     const headers = { 'Accept': 'application/json', 'User-Agent': 'VendorWatch/1.0' };
     const fetchOpts = { maxRetries: 0 };
     
-    const [summaryResult, incidentsResult, maintenancesResult] = await Promise.allSettled([
-      fetchWithRetry(`${apiBase}/api/v2/summary.json`, { headers }, fetchOpts),
-      fetchWithRetry(`${apiBase}/api/v2/incidents.json`, { headers }, fetchOpts),
-      fetchWithRetry(`${apiBase}/api/v2/scheduled_maintenances.json`, { headers }, fetchOpts),
-    ]);
+    const statusUrl = `${apiBase}/api/v2/summary.json`;
+    const response = await fetchWithRetry(statusUrl, { headers }, fetchOpts);
     
-    if (summaryResult.status === 'rejected' || !summaryResult.value.ok) {
-      const httpStatus = summaryResult.status === 'fulfilled' ? summaryResult.value.status : undefined;
-      const errorMessage = summaryResult.status === 'rejected' ? summaryResult.reason?.message : `HTTP ${httpStatus}`;
-      console.log(`[${vendor.key}] Status page returned ${httpStatus || 'error'}`);
-      await recordParseResult(vendor.key, { success: false, httpStatus, errorMessage });
-      return { status: 'unknown', incidents: [], maintenances: [], success: false, httpStatus };
+    if (!response.ok) {
+      console.log(`[${vendor.key}] Status page returned ${response.status}`);
+      await recordParseResult(vendor.key, { success: false, httpStatus: response.status, errorMessage: `HTTP ${response.status}` });
+      return { status: 'unknown', incidents: [], maintenances: [], success: false, httpStatus: response.status };
     }
     
-    const data: StatusPageResponse = await summaryResult.value.json();
+    const data: StatusPageResponse = await response.json();
     const status = mapStatusIndicator(data.status?.indicator);
     
     let incidents: any[] = [];
     let maintenances: MaintenanceData[] = [];
     
-    if (incidentsResult.status === 'fulfilled' && incidentsResult.value.ok) {
-      try {
-        const incidentsData: IncidentsResponse = await incidentsResult.value.json();
+    try {
+      const incidentsRes = await fetchWithRetry(`${apiBase}/api/v2/incidents.json`, { headers }, fetchOpts);
+      if (incidentsRes.ok) {
+        const incidentsData: IncidentsResponse = await incidentsRes.json();
         const allIncidents = incidentsData.incidents || [];
         const now = Date.now();
         const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
@@ -213,18 +209,19 @@ async function fetchStatuspageJson(vendor: { key: string; statusUrl: string }): 
           const resolvedAt = new Date(inc.updated_at).getTime();
           return (now - resolvedAt) < TWO_HOURS_MS;
         });
-      } catch (e) {
-        console.log(`[${vendor.key}] Could not parse incidents`);
       }
+    } catch (e) {
+      console.log(`[${vendor.key}] Could not fetch incidents`);
     }
     
-    if (maintenancesResult.status === 'fulfilled' && maintenancesResult.value.ok) {
-      try {
-        const maintenancesData = await maintenancesResult.value.json();
+    try {
+      const maintenancesRes = await fetchWithRetry(`${apiBase}/api/v2/scheduled_maintenances.json`, { headers }, fetchOpts);
+      if (maintenancesRes.ok) {
+        const maintenancesData = await maintenancesRes.json();
         maintenances = maintenancesData.scheduled_maintenances || [];
-      } catch (e) {
-        console.log(`[${vendor.key}] Could not parse maintenances`);
       }
+    } catch (e) {
+      console.log(`[${vendor.key}] Could not fetch maintenances`);
     }
     
     await recordParseResult(vendor.key, { 
@@ -502,7 +499,7 @@ async function fetchSlackStatus(vendor: { key: string; statusUrl: string }): Pro
 }
 
 const SYNC_BATCH_SIZE = 4;
-const SYNC_TIME_BUDGET_MS = 50000;
+const SYNC_TIME_BUDGET_MS = 90000; // 90s budget (blockchain finishes first, then vendors)
 const PER_VENDOR_TIMEOUT_MS = 8000;
 
 function shuffleArray<T>(arr: T[]): T[] {
