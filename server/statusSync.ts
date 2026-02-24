@@ -530,16 +530,31 @@ function shuffleArray<T>(arr: T[]): T[] {
   return shuffled;
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Batch timeout')), ms)),
+  ]);
+}
+
 async function processBatch<T>(items: T[], batchSize: number, fn: (item: T) => Promise<void>, timeBudgetMs?: number): Promise<number> {
   const startTime = Date.now();
   let processed = 0;
+  const PER_BATCH_TIMEOUT = 10000;
   for (let i = 0; i < items.length; i += batchSize) {
     if (timeBudgetMs && (Date.now() - startTime) > timeBudgetMs) {
       console.log(`[sync] Time budget exhausted after ${Math.round((Date.now()-startTime)/1000)}s, processed ${processed}/${items.length} items`);
       break;
     }
     const batch = items.slice(i, i + batchSize);
-    await Promise.allSettled(batch.map(fn));
+    try {
+      await withTimeout(
+        Promise.allSettled(batch.map(fn)),
+        PER_BATCH_TIMEOUT
+      );
+    } catch (e) {
+      console.log(`[sync] Batch ${Math.floor(i/batchSize)+1} timed out after ${PER_BATCH_TIMEOUT/1000}s, moving on`);
+    }
     processed += batch.length;
   }
   return processed;

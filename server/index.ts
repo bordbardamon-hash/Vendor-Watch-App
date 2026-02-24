@@ -241,34 +241,47 @@ app.use((req, res, next) => {
       let syncRunning = false;
       let lastSyncStart = 0;
       
+      const HARD_SYNC_TIMEOUT = 55000;
+      
       async function runSync(label: string) {
         if (syncRunning) {
           const elapsed = Date.now() - lastSyncStart;
-          if (elapsed < 90000) {
+          if (elapsed < HARD_SYNC_TIMEOUT + 5000) {
             console.log(`[sync] Skipping ${label} sync - previous sync still running (${Math.round(elapsed/1000)}s elapsed)`);
             return;
           }
-          console.log(`[sync] Previous sync exceeded 90s, allowing new sync to start`);
+          console.warn(`[sync] Previous sync exceeded ${HARD_SYNC_TIMEOUT/1000}s hard limit, force-resetting lock`);
+          syncRunning = false;
         }
         syncRunning = true;
         lastSyncStart = Date.now();
         const startTime = Date.now();
+        
+        const hardTimeout = new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('Hard sync timeout')), HARD_SYNC_TIMEOUT)
+        );
+        
         try {
           console.log(`[sync] Starting ${label} status sync (vendors + blockchain in parallel)...`);
-          const [vendorResult] = await Promise.allSettled([
-            syncVendorStatus().then(result => {
-              console.log(`[sync] ${label} vendor sync complete in ${Math.round((Date.now()-startTime)/1000)}s: ${result.synced} synced, ${result.skipped} skipped`);
-              return result;
-            }),
-            syncAllBlockchainChains().then(() => {
-              console.log(`[sync] ${label} blockchain sync complete in ${Math.round((Date.now()-startTime)/1000)}s`);
-            }),
+          await Promise.race([
+            Promise.allSettled([
+              syncVendorStatus().then(result => {
+                console.log(`[sync] ${label} vendor sync complete in ${Math.round((Date.now()-startTime)/1000)}s: ${result.synced} synced, ${result.skipped} skipped`);
+                return result;
+              }),
+              syncAllBlockchainChains().then(() => {
+                console.log(`[sync] ${label} blockchain sync complete in ${Math.round((Date.now()-startTime)/1000)}s`);
+              }),
+            ]),
+            hardTimeout,
           ]);
-          if (vendorResult.status === 'rejected') {
-            console.error(`[sync] ${label} vendor sync failed:`, vendorResult.reason);
-          }
         } catch (err) {
-          console.error(`[sync] ${label} sync failed:`, err);
+          const msg = err instanceof Error ? err.message : String(err);
+          if (msg === 'Hard sync timeout') {
+            console.warn(`[sync] ${label} sync hit ${HARD_SYNC_TIMEOUT/1000}s hard timeout, aborting`);
+          } else {
+            console.error(`[sync] ${label} sync failed:`, err);
+          }
         } finally {
           syncRunning = false;
           const totalTime = Math.round((Date.now() - startTime) / 1000);
