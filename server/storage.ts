@@ -3836,7 +3836,7 @@ const BASE_VENDORS: InsertVendor[] = [
   // Collaboration & Communication
   { key: "zoom", name: "Zoom", statusUrl: "https://status.zoom.us", parser: "statuspage_json", status: "operational" },
   { key: "atlassian", name: "Atlassian", statusUrl: "https://status.atlassian.com", parser: "statuspage_json", status: "operational" },
-  { key: "slack", name: "Slack", statusUrl: "https://status.slack.com/", parser: "statuspage_json", status: "operational" },
+  { key: "slack", name: "Slack", statusUrl: "https://status.slack.com/", parser: "slack_json", status: "operational" },
   { key: "salesforce", name: "Salesforce", statusUrl: "https://status.salesforce.com", parser: "generic_html", status: "operational" },
   { key: "notion", name: "Notion", statusUrl: "https://status.notion.so/", parser: "statuspage_json", status: "operational" },
   { key: "asana", name: "Asana", statusUrl: "https://status.asana.com/", parser: "statuspage_json", status: "operational" },

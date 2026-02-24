@@ -88,7 +88,7 @@ async function seed() {
       key: "slack", 
       name: "Slack", 
       statusUrl: "https://status.slack.com", 
-      parser: "statuspage_json",
+      parser: "slack_json",
       status: 'operational'
     },
     // Payment & Revenue Critical
