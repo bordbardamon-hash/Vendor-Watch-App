@@ -401,6 +401,7 @@ export default function Vendors() {
       if (!res.ok) throw new Error("Failed to fetch vendors");
       return res.json();
     },
+    refetchInterval: 60000,
   });
 
   // Fetch user's vendor favorites
@@ -441,6 +442,7 @@ export default function Vendors() {
       if (!res.ok) throw new Error("Failed to fetch incidents");
       return res.json();
     },
+    refetchInterval: 60000,
   });
 
   // Fetch user's acknowledged incidents

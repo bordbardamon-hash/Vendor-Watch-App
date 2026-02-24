@@ -95,6 +95,7 @@ export default function Incidents() {
       if (!res.ok) throw new Error("Failed to fetch vendors");
       return res.json();
     },
+    refetchInterval: 60000,
   });
 
   const { data: incidents = [], isLoading: incidentsLoading } = useQuery<Incident[]>({
@@ -104,6 +105,7 @@ export default function Incidents() {
       if (!res.ok) throw new Error("Failed to fetch incidents");
       return res.json();
     },
+    refetchInterval: 60000,
   });
 
   const { data: acknowledgements = [] } = useQuery<Acknowledgement[]>({

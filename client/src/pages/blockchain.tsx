@@ -204,6 +204,7 @@ export default function Blockchain() {
       if (!res.ok) throw new Error("Failed to fetch blockchain chains");
       return res.json();
     },
+    refetchInterval: 60000,
   });
 
   // Manual refresh mutation
@@ -231,6 +232,7 @@ export default function Blockchain() {
       if (!res.ok) throw new Error("Failed to fetch stats");
       return res.json();
     },
+    refetchInterval: 60000,
   });
 
   const { data: activeIncidents = [] } = useQuery<BlockchainIncident[]>({
@@ -240,6 +242,7 @@ export default function Blockchain() {
       if (!res.ok) throw new Error("Failed to fetch incidents");
       return res.json();
     },
+    refetchInterval: 60000,
   });
 
   // Fetch user's acknowledged incidents

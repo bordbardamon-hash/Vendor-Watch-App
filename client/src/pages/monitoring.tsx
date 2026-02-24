@@ -243,6 +243,7 @@ export default function Monitoring() {
       if (!res.ok) throw new Error("Failed to fetch probes");
       return res.json();
     },
+    refetchInterval: 60000,
   });
 
   const createMutation = useMutation({
