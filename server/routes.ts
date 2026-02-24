@@ -1042,6 +1042,27 @@ export async function registerRoutes(
     }
   });
   
+  app.post("/api/parser-health/reset-all-unhealthy", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const { getParserHealthStatus, recordParseResult } = await import('./parserHealthTracker');
+      const healthData = getParserHealthStatus();
+      const unhealthy = healthData.filter(p => !p.isHealthy);
+      let resetCount = 0;
+      for (const parser of unhealthy) {
+        await recordParseResult(parser.vendorKey, {
+          success: true,
+          httpStatus: 200,
+          incidentsParsed: 0,
+        });
+        resetCount++;
+      }
+      res.json({ success: true, resetCount, message: `Reset ${resetCount} unhealthy parsers` });
+    } catch (error) {
+      console.error("Error resetting all unhealthy parsers:", error);
+      res.status(500).json({ error: "Failed to reset unhealthy parsers" });
+    }
+  });
+
   // Reset parser health for a specific vendor (owner only)
   app.post("/api/parser-health/:vendorKey/reset", isAuthenticated, isOwner, async (req, res) => {
     try {

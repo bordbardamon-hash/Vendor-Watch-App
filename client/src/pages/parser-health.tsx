@@ -76,6 +76,30 @@ export default function ParserHealthPage() {
     },
   });
 
+  const resetAllMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/parser-health/reset-all-unhealthy", {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error("Failed to reset");
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "All Unhealthy Parsers Reset",
+        description: `Successfully reset ${data.resetCount} unhealthy parsers.`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/parser-health"] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to reset unhealthy parsers.",
+        variant: "destructive",
+      });
+    },
+  });
+
   if (error) {
     return (
       <div className="flex flex-col h-full p-6 space-y-4">
@@ -107,18 +131,31 @@ export default function ParserHealthPage() {
           <Server className="w-6 h-6 text-primary" />
           Parser Health Monitor
         </h1>
-        <Button
-          variant="outline"
-          onClick={async () => {
-            await refetch();
-            toast({ title: "Refreshed", description: "Parser health data updated" });
-          }}
-          disabled={isLoading}
-          data-testid="button-refresh-parser-health"
-        >
-          <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          {data && data.summary.unhealthy > 0 && (
+            <Button
+              variant="destructive"
+              onClick={() => resetAllMutation.mutate()}
+              disabled={resetAllMutation.isPending}
+              data-testid="button-reset-all-unhealthy"
+            >
+              <RotateCcw className={`w-4 h-4 mr-2 ${resetAllMutation.isPending ? "animate-spin" : ""}`} />
+              Reset All Unhealthy ({data.summary.unhealthy})
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            onClick={async () => {
+              await refetch();
+              toast({ title: "Refreshed", description: "Parser health data updated" });
+            }}
+            disabled={isLoading}
+            data-testid="button-refresh-parser-health"
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
