@@ -499,8 +499,7 @@ async function fetchSlackStatus(vendor: { key: string; statusUrl: string }): Pro
 }
 
 const SYNC_BATCH_SIZE = 1;
-const SYNC_TIME_BUDGET_MS = 240000; // 240s budget with 5-minute interval
-const PER_VENDOR_TIMEOUT_MS = 10000;
+const PER_VENDOR_TIMEOUT_MS = 15000;
 
 function shuffleArray<T>(arr: T[]): T[] {
   const shuffled = [...arr];
@@ -518,14 +517,9 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   ]);
 }
 
-async function processBatch<T>(items: T[], batchSize: number, fn: (item: T) => Promise<void>, timeBudgetMs?: number): Promise<number> {
-  const startTime = Date.now();
+async function processBatch<T>(items: T[], batchSize: number, fn: (item: T) => Promise<void>): Promise<number> {
   let processed = 0;
   for (let i = 0; i < items.length; i += batchSize) {
-    if (timeBudgetMs && (Date.now() - startTime) > timeBudgetMs) {
-      console.log(`[sync] Time budget exhausted after ${Math.round((Date.now()-startTime)/1000)}s, processed ${processed}/${items.length} items`);
-      break;
-    }
     const batch = items.slice(i, i + batchSize);
     await Promise.allSettled(batch.map(item => withTimeout(fn(item), PER_VENDOR_TIMEOUT_MS, 'vendor-sync')));
     processed += batch.length;
@@ -772,8 +766,7 @@ export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: nu
     }
   }
 
-  const timeBudget = vendorKey ? undefined : SYNC_TIME_BUDGET_MS;
-  const processed = await processBatch(syncableVendors, SYNC_BATCH_SIZE, syncSingleVendor, timeBudget);
+  const processed = await processBatch(syncableVendors, SYNC_BATCH_SIZE, syncSingleVendor);
   const totalVendors = syncableVendors.length;
   const coverage = totalVendors > 0 ? Math.round((processed / totalVendors) * 100) : 100;
   
