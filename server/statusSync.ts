@@ -518,8 +518,8 @@ async function fetchSlackStatus(vendor: { key: string; statusUrl: string }): Pro
   }
 }
 
-const SYNC_BATCH_SIZE = 25;
-const SYNC_TIME_BUDGET_MS = 45000;
+const SYNC_BATCH_SIZE = 8;
+const SYNC_TIME_BUDGET_MS = 50000;
 
 function shuffleArray<T>(arr: T[]): T[] {
   const shuffled = [...arr];
@@ -530,31 +530,16 @@ function shuffleArray<T>(arr: T[]): T[] {
   return shuffled;
 }
 
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Batch timeout')), ms)),
-  ]);
-}
-
 async function processBatch<T>(items: T[], batchSize: number, fn: (item: T) => Promise<void>, timeBudgetMs?: number): Promise<number> {
   const startTime = Date.now();
   let processed = 0;
-  const PER_BATCH_TIMEOUT = 10000;
   for (let i = 0; i < items.length; i += batchSize) {
     if (timeBudgetMs && (Date.now() - startTime) > timeBudgetMs) {
       console.log(`[sync] Time budget exhausted after ${Math.round((Date.now()-startTime)/1000)}s, processed ${processed}/${items.length} items`);
       break;
     }
     const batch = items.slice(i, i + batchSize);
-    try {
-      await withTimeout(
-        Promise.allSettled(batch.map(fn)),
-        PER_BATCH_TIMEOUT
-      );
-    } catch (e) {
-      console.log(`[sync] Batch ${Math.floor(i/batchSize)+1} timed out after ${PER_BATCH_TIMEOUT/1000}s, moving on`);
-    }
+    await Promise.allSettled(batch.map(fn));
     processed += batch.length;
   }
   return processed;
