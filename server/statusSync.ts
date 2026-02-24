@@ -185,7 +185,7 @@ async function fetchStatuspageJson(vendor: { key: string; statusUrl: string }): 
         'Accept': 'application/json',
         'User-Agent': 'VendorWatch/1.0'
       },
-    });
+    }, { maxRetries: 0 });
     
     if (!response.ok) {
       console.log(`[${vendor.key}] Status page returned ${response.status}`);
@@ -211,7 +211,7 @@ async function fetchStatuspageJson(vendor: { key: string; statusUrl: string }): 
           'Accept': 'application/json',
           'User-Agent': 'VendorWatch/1.0'
         },
-      });
+      }, { maxRetries: 0 });
       if (incidentsRes.ok) {
         const incidentsData: IncidentsResponse = await incidentsRes.json();
         const allIncidents = incidentsData.incidents || [];
@@ -235,7 +235,7 @@ async function fetchStatuspageJson(vendor: { key: string; statusUrl: string }): 
           'Accept': 'application/json',
           'User-Agent': 'VendorWatch/1.0'
         },
-      });
+      }, { maxRetries: 0 });
       if (maintenancesRes.ok) {
         const maintenancesData = await maintenancesRes.json();
         maintenances = maintenancesData.scheduled_maintenances || [];
@@ -355,7 +355,7 @@ async function fetchAwsStatus(vendor: { key: string; statusUrl: string }): Promi
         'Accept': 'application/json',
         'User-Agent': 'VendorWatch/1.0'
       },
-    });
+    }, { maxRetries: 0 });
     
     if (!response.ok) {
       console.log(`[aws] Status page returned ${response.status}`);
@@ -475,7 +475,7 @@ async function fetchSlackStatus(vendor: { key: string; statusUrl: string }): Pro
         'Accept': 'application/json',
         'User-Agent': 'VendorWatch/1.0'
       },
-    });
+    }, { maxRetries: 0 });
     
     if (!response.ok) {
       console.log(`[slack] Status page returned ${response.status}`);
@@ -518,7 +518,8 @@ async function fetchSlackStatus(vendor: { key: string; statusUrl: string }): Pro
   }
 }
 
-const SYNC_BATCH_SIZE = 50;
+const SYNC_BATCH_SIZE = 25;
+const SYNC_TIME_BUDGET_MS = 45000;
 
 function shuffleArray<T>(arr: T[]): T[] {
   const shuffled = [...arr];
@@ -529,11 +530,19 @@ function shuffleArray<T>(arr: T[]): T[] {
   return shuffled;
 }
 
-async function processBatch<T>(items: T[], batchSize: number, fn: (item: T) => Promise<void>): Promise<void> {
+async function processBatch<T>(items: T[], batchSize: number, fn: (item: T) => Promise<void>, timeBudgetMs?: number): Promise<number> {
+  const startTime = Date.now();
+  let processed = 0;
   for (let i = 0; i < items.length; i += batchSize) {
+    if (timeBudgetMs && (Date.now() - startTime) > timeBudgetMs) {
+      console.log(`[sync] Time budget exhausted after ${Math.round((Date.now()-startTime)/1000)}s, processed ${processed}/${items.length} items`);
+      break;
+    }
     const batch = items.slice(i, i + batchSize);
     await Promise.allSettled(batch.map(fn));
+    processed += batch.length;
   }
+  return processed;
 }
 
 export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: number; errors: string[]; skipped: number }> {
@@ -554,7 +563,11 @@ export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: nu
     }
     return true;
   });
-  const syncableVendors = vendorKey ? filteredVendors : shuffleArray(filteredVendors);
+  const syncableVendors = vendorKey ? filteredVendors : filteredVendors.sort((a, b) => {
+    const aTime = a?.lastChecked ? new Date(a.lastChecked).getTime() : 0;
+    const bTime = b?.lastChecked ? new Date(b.lastChecked).getTime() : 0;
+    return aTime - bTime;
+  });
 
   async function syncSingleVendor(vendor: typeof vendors[0]) {
     if (!vendor) return;
@@ -771,7 +784,10 @@ export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: nu
     }
   }
 
-  await processBatch(syncableVendors, SYNC_BATCH_SIZE, syncSingleVendor);
+  const timeBudget = vendorKey ? undefined : SYNC_TIME_BUDGET_MS;
+  const processed = await processBatch(syncableVendors, SYNC_BATCH_SIZE, syncSingleVendor, timeBudget);
+  const totalVendors = syncableVendors.length;
+  const coverage = totalVendors > 0 ? Math.round((processed / totalVendors) * 100) : 100;
   
   cleanupStalePendingIncidents();
   
@@ -783,7 +799,7 @@ export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: nu
       lastErrorAt: errors.length > 0 ? new Date() : undefined,
       lastErrorMessage: errors.length > 0 ? errors.slice(0, 3).join('; ') : undefined,
       consecutiveFailures: errors.length,
-      metadata: JSON.stringify({ synced, skipped, errorCount: errors.length }),
+      metadata: JSON.stringify({ synced, skipped, errorCount: errors.length, processed, totalVendors, coverage }),
     });
   } catch (e) {
     console.error('[health] Failed to update vendor_sync health state:', e);
