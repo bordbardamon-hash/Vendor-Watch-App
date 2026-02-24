@@ -391,7 +391,7 @@ async function syncBlockchainChain(chainData: { key: string; name: string; sourc
   }
 }
 
-const BLOCKCHAIN_BATCH_SIZE = 10;
+const BLOCKCHAIN_BATCH_SIZE = 5;
 
 export async function syncAllBlockchainChains(): Promise<void> {
   console.log('[blockchain] Starting blockchain status sync...');

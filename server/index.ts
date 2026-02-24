@@ -241,51 +241,30 @@ app.use((req, res, next) => {
       let syncRunning = false;
       let lastSyncStart = 0;
       
-      const HARD_SYNC_TIMEOUT = 110000; // 110s for sequential blockchain + vendor
-      
       async function runSync(label: string) {
         if (syncRunning) {
           const elapsed = Date.now() - lastSyncStart;
-          if (elapsed < HARD_SYNC_TIMEOUT + 5000) {
-            console.log(`[sync] Skipping ${label} sync - previous sync still running (${Math.round(elapsed/1000)}s elapsed)`);
-            return;
-          }
-          console.warn(`[sync] Previous sync exceeded ${HARD_SYNC_TIMEOUT/1000}s hard limit, force-resetting lock`);
-          syncRunning = false;
+          console.log(`[sync] Skipping ${label} sync - previous sync still running (${Math.round(elapsed/1000)}s elapsed)`);
+          return;
         }
         syncRunning = true;
         lastSyncStart = Date.now();
         const startTime = Date.now();
         
-        const hardTimeout = new Promise<never>((_, reject) => 
-          setTimeout(() => reject(new Error('Hard sync timeout')), HARD_SYNC_TIMEOUT)
-        );
-        
         try {
           console.log(`[sync] Starting ${label} status sync (blockchain first, then vendors)...`);
-          await Promise.race([
-            (async () => {
-              await syncAllBlockchainChains();
-              console.log(`[sync] ${label} blockchain sync complete in ${Math.round((Date.now()-startTime)/1000)}s`);
-              const result = await syncVendorStatus();
-              console.log(`[sync] ${label} vendor sync complete in ${Math.round((Date.now()-startTime)/1000)}s: ${result.synced} synced, ${result.skipped} skipped`);
-            })(),
-            hardTimeout,
-          ]);
+          await syncAllBlockchainChains();
+          const bcTime = Math.round((Date.now()-startTime)/1000);
+          console.log(`[sync] ${label} blockchain sync complete in ${bcTime}s`);
+          const result = await syncVendorStatus();
+          const totalTime = Math.round((Date.now()-startTime)/1000);
+          console.log(`[sync] ${label} vendor sync complete in ${totalTime}s: ${result.synced} synced, ${result.skipped} skipped`);
         } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          if (msg === 'Hard sync timeout') {
-            console.warn(`[sync] ${label} sync hit ${HARD_SYNC_TIMEOUT/1000}s hard timeout, aborting`);
-          } else {
-            console.error(`[sync] ${label} sync failed:`, err);
-          }
+          console.error(`[sync] ${label} sync failed:`, err);
         } finally {
           syncRunning = false;
           const totalTime = Math.round((Date.now() - startTime) / 1000);
           console.log(`[sync] ${label} total sync completed in ${totalTime}s`);
-          if (totalTime > 50) {
-            console.warn(`[sync] WARNING: Sync took ${totalTime}s, approaching 60s interval limit`);
-          }
         }
       }
       
