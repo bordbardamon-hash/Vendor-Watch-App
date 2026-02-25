@@ -51,6 +51,7 @@ export async function sendEmail(
         html: htmlBody,
         text: textBody || htmlBody.replace(/<[^>]*>/g, ''),
       }),
+      signal: AbortSignal.timeout(15000),
     });
 
     if (!response.ok) {
@@ -275,11 +276,24 @@ export async function notifyOwnerNewSignup(
 </body>
 </html>`;
     
-    try {
-      await sendEmail(OWNER_EMAIL, subject, htmlBody);
-      console.log(`[notify] Email sent to owner about new signup: ${userEmail}`);
-    } catch (error) {
-      console.error('[notify] Failed to send email to owner:', error);
-    }
+    const sendWithRetry = async (attempts: number) => {
+      for (let i = 0; i < attempts; i++) {
+        try {
+          const result = await sendEmail(OWNER_EMAIL!, subject, htmlBody);
+          if (result) {
+            console.log(`[notify] Email sent to owner about new signup: ${userEmail} (attempt ${i + 1})`);
+            return;
+          }
+          console.warn(`[notify] Email send returned false for signup: ${userEmail} (attempt ${i + 1})`);
+        } catch (error) {
+          console.error(`[notify] Failed to send signup email (attempt ${i + 1}):`, error);
+        }
+        if (i < attempts - 1) {
+          await new Promise(r => setTimeout(r, 5000));
+        }
+      }
+      console.error(`[notify] All ${attempts} email attempts failed for signup: ${userEmail}`);
+    };
+    sendWithRetry(3).catch(() => {});
   }
 }
