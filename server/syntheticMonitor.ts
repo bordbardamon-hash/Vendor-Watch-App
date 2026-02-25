@@ -2,6 +2,7 @@ import { db } from './db';
 import { syntheticProbes, syntheticProbeResults, incidents, type SyntheticProbe } from '@shared/schema';
 import { eq, and, gte, desc } from 'drizzle-orm';
 import { storage } from './storage';
+import { dispatchProbeAlert } from './notificationDispatcher';
 
 interface ProbeResult {
   status: 'healthy' | 'degraded' | 'down';
@@ -9,6 +10,26 @@ interface ProbeResult {
   statusCode: number | null;
   errorMessage: string | null;
   correlatedIncidentId: string | null;
+}
+
+const CONSECUTIVE_FAILURES_THRESHOLD = 3;
+
+interface ProbeAlertState {
+  consecutiveDown: number;
+  consecutiveDegraded: number;
+  alerted: boolean;
+  alertedStatus: 'down' | 'degraded' | null;
+}
+
+const probeAlertStates = new Map<string, ProbeAlertState>();
+
+function getAlertState(probeId: string): ProbeAlertState {
+  let state = probeAlertStates.get(probeId);
+  if (!state) {
+    state = { consecutiveDown: 0, consecutiveDegraded: 0, alerted: false, alertedStatus: null };
+    probeAlertStates.set(probeId, state);
+  }
+  return state;
 }
 
 function normalizeUrl(url: string): string {
@@ -98,7 +119,93 @@ export async function runSyntheticProbe(probeId: string): Promise<ProbeResult> {
     })
     .where(eq(syntheticProbes.id, probeId));
   
+  await evaluateProbeAlerts(probe, status, latencyMs, statusCode, errorMessage);
+  
   return { status, latencyMs, statusCode, errorMessage, correlatedIncidentId };
+}
+
+async function evaluateProbeAlerts(
+  probe: SyntheticProbe,
+  status: 'healthy' | 'degraded' | 'down',
+  latencyMs: number | null,
+  statusCode: number | null,
+  errorMessage: string | null
+): Promise<void> {
+  const state = getAlertState(probe.id);
+
+  if (status === 'down') {
+    state.consecutiveDown++;
+    state.consecutiveDegraded = 0;
+  } else if (status === 'degraded') {
+    state.consecutiveDegraded++;
+    state.consecutiveDown = 0;
+  } else {
+    if (state.alerted) {
+      console.log(`[probe-alert] Probe "${probe.name}" recovered to healthy`);
+      dispatchProbeAlert({
+        probe,
+        alertType: 'recovery',
+        currentStatus: 'healthy',
+        previousStatus: state.alertedStatus || 'down',
+        latencyMs,
+        statusCode,
+        errorMessage: null,
+        consecutiveFailures: 0,
+      }).catch(err => console.error('[probe-alert] Recovery dispatch error:', err));
+    }
+    state.consecutiveDown = 0;
+    state.consecutiveDegraded = 0;
+    state.alerted = false;
+    state.alertedStatus = null;
+    return;
+  }
+
+  if (status === 'down' && state.consecutiveDown >= CONSECUTIVE_FAILURES_THRESHOLD && !state.alerted) {
+    console.log(`[probe-alert] Probe "${probe.name}" DOWN for ${state.consecutiveDown} consecutive checks`);
+    state.alerted = true;
+    state.alertedStatus = 'down';
+    dispatchProbeAlert({
+      probe,
+      alertType: 'down',
+      currentStatus: 'down',
+      previousStatus: 'healthy',
+      latencyMs,
+      statusCode,
+      errorMessage,
+      consecutiveFailures: state.consecutiveDown,
+    }).catch(err => console.error('[probe-alert] Down dispatch error:', err));
+  }
+
+  if (status === 'degraded' && state.consecutiveDegraded >= CONSECUTIVE_FAILURES_THRESHOLD && !state.alerted) {
+    console.log(`[probe-alert] Probe "${probe.name}" DEGRADED for ${state.consecutiveDegraded} consecutive checks`);
+    state.alerted = true;
+    state.alertedStatus = 'degraded';
+    dispatchProbeAlert({
+      probe,
+      alertType: 'degraded',
+      currentStatus: 'degraded',
+      previousStatus: 'healthy',
+      latencyMs,
+      statusCode,
+      errorMessage,
+      consecutiveFailures: state.consecutiveDegraded,
+    }).catch(err => console.error('[probe-alert] Degraded dispatch error:', err));
+  }
+
+  if (state.alerted && state.alertedStatus === 'degraded' && status === 'down' && state.consecutiveDown >= CONSECUTIVE_FAILURES_THRESHOLD) {
+    console.log(`[probe-alert] Probe "${probe.name}" ESCALATED from degraded to down`);
+    state.alertedStatus = 'down';
+    dispatchProbeAlert({
+      probe,
+      alertType: 'down',
+      currentStatus: 'down',
+      previousStatus: 'degraded',
+      latencyMs,
+      statusCode,
+      errorMessage,
+      consecutiveFailures: state.consecutiveDown,
+    }).catch(err => console.error('[probe-alert] Escalation dispatch error:', err));
+  }
 }
 
 export async function runAllActiveProbes(): Promise<{ total: number; healthy: number; degraded: number; down: number }> {

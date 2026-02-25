@@ -8,7 +8,7 @@ import { dispatchSlackTeamsForAllSubscribedUsers } from './notifications/slack-t
 import { dispatchPagerDutyForAllSubscribedUsers } from './notifications/pagerduty';
 import { dispatchDiscordForAllSubscribedUsers } from './notifications/discord';
 import { dispatchWebhooksForIncident, dispatchWebhooksForBlockchainIncident } from './webhookDispatcher';
-import type { Incident, Vendor, User, LifecycleEvent, CanonicalSeverity, CanonicalStatus, BlockchainIncident, BlockchainChain } from '@shared/schema';
+import type { Incident, Vendor, User, LifecycleEvent, CanonicalSeverity, CanonicalStatus, BlockchainIncident, BlockchainChain, SyntheticProbe } from '@shared/schema';
 
 type EventType = 'new' | 'update' | 'resolved';
 
@@ -973,4 +973,212 @@ export async function notifyBlockchainIncidentResolved(incident: BlockchainIncid
     console.error('[notify] PagerDuty dispatch error for resolved blockchain incident:', err));
   dispatchWebhooksForBlockchainIncident(incident, chain, 'resolved').catch(err =>
     console.error('[notify] Webhook dispatch error for resolved blockchain incident:', err));
+}
+
+interface ProbeAlertNotification {
+  probe: SyntheticProbe;
+  alertType: 'down' | 'degraded' | 'recovery';
+  currentStatus: string;
+  previousStatus: string;
+  latencyMs: number | null;
+  statusCode: number | null;
+  errorMessage: string | null;
+  consecutiveFailures: number;
+}
+
+function formatProbeAlertSms(notification: ProbeAlertNotification): string {
+  const { probe, alertType, currentStatus, latencyMs, errorMessage, consecutiveFailures } = notification;
+
+  if (alertType === 'recovery') {
+    return `✅ PROBE RECOVERED: "${probe.name}" (${probe.targetUrl}) is back to healthy.${latencyMs ? ` Latency: ${latencyMs}ms.` : ''}`;
+  }
+
+  const emoji = alertType === 'down' ? '🔴' : '🟡';
+  const label = alertType === 'down' ? 'DOWN' : 'DEGRADED';
+  let msg = `${emoji} PROBE ${label}: "${probe.name}" (${probe.targetUrl}) is ${currentStatus}. ${consecutiveFailures} consecutive failures.`;
+  if (errorMessage) msg += ` Error: ${errorMessage}`;
+  if (latencyMs) msg += ` Latency: ${latencyMs}ms.`;
+  return msg;
+}
+
+function formatProbeAlertEmailSubject(notification: ProbeAlertNotification): string {
+  const { probe, alertType } = notification;
+
+  if (alertType === 'recovery') {
+    return sanitizeSubject(`✅ [RECOVERED] Probe: ${probe.name} is back online`);
+  }
+
+  const prefix = alertType === 'down' ? '🔴 [DOWN]' : '🟡 [DEGRADED]';
+  return sanitizeSubject(`${prefix} Probe: ${probe.name}`);
+}
+
+function formatProbeAlertEmailHtml(notification: ProbeAlertNotification, timezone: string = 'UTC'): string {
+  const { probe, alertType, currentStatus, previousStatus, latencyMs, statusCode, errorMessage, consecutiveFailures } = notification;
+
+  const statusColor = alertType === 'recovery' ? '#22c55e' : alertType === 'down' ? '#ef4444' : '#eab308';
+
+  const eventTitle = alertType === 'recovery'
+    ? '✅ Probe Recovered'
+    : alertType === 'down'
+    ? '🔴 Probe Down'
+    : '🟡 Probe Degraded';
+
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; margin: 0; padding: 20px; }
+    .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .header { background: ${statusColor}; color: white; padding: 20px; text-align: center; }
+    .header h1 { margin: 0; font-size: 18px; }
+    .content { padding: 24px; }
+    .probe-name { font-size: 24px; font-weight: bold; color: #333; margin-bottom: 8px; }
+    .probe-url { font-size: 14px; color: #666; margin-bottom: 16px; word-break: break-all; }
+    .details { background: #f9f9f9; border-radius: 6px; padding: 16px; margin: 16px 0; }
+    .detail-row { display: flex; margin-bottom: 8px; }
+    .detail-label { font-weight: 600; width: 140px; color: #666; }
+    .detail-value { color: #333; }
+    .status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; background: ${statusColor}; color: white; font-size: 12px; font-weight: 600; text-transform: uppercase; }
+    .footer { padding: 16px 24px; background: #f9f9f9; text-align: center; font-size: 12px; color: #999; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>${eventTitle}</h1>
+    </div>
+    <div class="content">
+      <div class="probe-name">${probe.name}</div>
+      <div class="probe-url">${probe.targetUrl}</div>
+
+      <div class="details">
+        <div class="detail-row">
+          <span class="detail-label">Current Status:</span>
+          <span class="detail-value"><span class="status-badge">${currentStatus}</span></span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Previous Status:</span>
+          <span class="detail-value">${previousStatus}</span>
+        </div>
+        ${statusCode ? `<div class="detail-row">
+          <span class="detail-label">HTTP Status:</span>
+          <span class="detail-value">${statusCode}</span>
+        </div>` : ''}
+        ${latencyMs ? `<div class="detail-row">
+          <span class="detail-label">Latency:</span>
+          <span class="detail-value">${latencyMs}ms</span>
+        </div>` : ''}
+        ${errorMessage ? `<div class="detail-row">
+          <span class="detail-label">Error:</span>
+          <span class="detail-value">${errorMessage}</span>
+        </div>` : ''}
+        ${consecutiveFailures > 0 ? `<div class="detail-row">
+          <span class="detail-label">Consecutive Failures:</span>
+          <span class="detail-value">${consecutiveFailures}</span>
+        </div>` : ''}
+        <div class="detail-row">
+          <span class="detail-label">Checked At:</span>
+          <span class="detail-value">${formatDateInTimezone(new Date(), timezone)}</span>
+        </div>
+      </div>
+    </div>
+    <div class="footer">
+      <p>You received this alert because you have synthetic monitoring configured in Vendor Watch.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+export async function dispatchProbeAlert(notification: ProbeAlertNotification): Promise<void> {
+  const { probe, alertType } = notification;
+  const errors: string[] = [];
+  let smsSent = 0;
+  let emailSent = 0;
+
+  console.log(`[probe-notify] Dispatching ${alertType.toUpperCase()} alert for probe "${probe.name}" (${probe.targetUrl})`);
+
+  const probeOwner = await storage.getUser(probe.userId);
+  if (!probeOwner) {
+    console.log(`[probe-notify] Probe owner ${probe.userId} not found, skipping notification`);
+    return;
+  }
+
+  const usersToNotify = [probeOwner];
+
+  for (const user of usersToNotify) {
+    if (user.notifySms && user.phone) {
+      try {
+        const message = formatProbeAlertSms(notification);
+        const success = await sendSMS(user.phone, message);
+        if (success) {
+          smsSent++;
+          console.log(`[probe-notify] SMS sent to ${user.phone} for probe ${alertType}`);
+        }
+      } catch (error) {
+        const errMsg = error instanceof Error ? error.message : 'Unknown';
+        errors.push(`SMS error for ${user.phone}: ${errMsg}`);
+      }
+    }
+
+    const targetEmail = user.notificationEmail || user.email;
+    if (user.notifyEmail && targetEmail) {
+      try {
+        const subject = formatProbeAlertEmailSubject(notification);
+        const html = formatProbeAlertEmailHtml(notification, user.timezone || 'UTC');
+        const success = await sendEmail(targetEmail, subject, html);
+        if (success) {
+          emailSent++;
+          console.log(`[probe-notify] Email sent to ${targetEmail} for probe ${alertType}`);
+        }
+      } catch (error) {
+        const errMsg = error instanceof Error ? error.message : 'Unknown';
+        errors.push(`Email error for ${targetEmail}: ${errMsg}`);
+      }
+    }
+  }
+
+  const dummyIncident = {
+    id: `probe-${probe.id}`,
+    incidentId: `probe-${probe.id}-${Date.now()}`,
+    vendorKey: probe.vendorKey,
+    title: `Probe ${alertType}: ${probe.name}`,
+    status: alertType === 'recovery' ? 'resolved' : 'investigating',
+    severity: alertType === 'down' ? 'major' : alertType === 'degraded' ? 'minor' : 'info',
+    impact: alertType === 'recovery' ? 'none' : alertType === 'down' ? 'major' : 'minor',
+    url: probe.targetUrl,
+    startedAt: new Date(),
+    updatedAt: new Date(),
+    source: 'synthetic_monitor',
+  } as any;
+
+  const dummyVendor = {
+    key: probe.vendorKey,
+    name: probe.name,
+    statusUrl: probe.targetUrl,
+  } as any;
+
+  const eventType: EventType = alertType === 'recovery' ? 'resolved' : 'new';
+
+  try {
+    const slackResult = await dispatchSlackTeamsForAllSubscribedUsers(dummyIncident, dummyVendor, eventType);
+    if (slackResult.slack > 0 || slackResult.teams > 0) {
+      console.log(`[probe-notify] Sent ${slackResult.slack} Slack, ${slackResult.teams} Teams for probe ${alertType}`);
+    }
+  } catch (err) {
+    console.error('[probe-notify] Slack/Teams dispatch error:', err);
+  }
+
+  dispatchDiscordForAllSubscribedUsers(dummyIncident, dummyVendor, eventType).catch(err =>
+    console.error('[probe-notify] Discord dispatch error:', err));
+
+  dispatchPagerDutyForAllSubscribedUsers(dummyIncident, dummyVendor, eventType).catch(err =>
+    console.error('[probe-notify] PagerDuty dispatch error:', err));
+
+  console.log(`[probe-notify] Probe alert complete: ${smsSent} SMS, ${emailSent} emails sent`);
+  if (errors.length > 0) {
+    console.warn('[probe-notify] Errors:', errors);
+  }
 }
