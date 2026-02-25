@@ -12,16 +12,14 @@ interface ProbeResult {
   correlatedIncidentId: string | null;
 }
 
-const CONSECUTIVE_FAILURES_THRESHOLD = 3;
-const CONSECUTIVE_RECOVERY_THRESHOLD = 3;
-const ALERT_COOLDOWN_MS = 30 * 60 * 1000;
+const CONSECUTIVE_DOWN_THRESHOLD = 5;
+const CONSECUTIVE_RECOVERY_THRESHOLD = 5;
+const ALERT_COOLDOWN_MS = 4 * 60 * 60 * 1000;
 
 interface ProbeAlertState {
   consecutiveDown: number;
-  consecutiveDegraded: number;
   consecutiveHealthy: number;
   alerted: boolean;
-  alertedStatus: 'down' | 'degraded' | null;
   lastAlertTime: number;
 }
 
@@ -32,14 +30,48 @@ function getAlertState(probeId: string): ProbeAlertState {
   if (!state) {
     state = {
       consecutiveDown: 0,
-      consecutiveDegraded: 0,
       consecutiveHealthy: 0,
       alerted: false,
-      alertedStatus: null,
       lastAlertTime: 0,
     };
     probeAlertStates.set(probeId, state);
   }
+  return state;
+}
+
+async function initAlertStateFromHistory(probeId: string): Promise<ProbeAlertState> {
+  const state = getAlertState(probeId);
+  if (state.consecutiveDown > 0 || state.consecutiveHealthy > 0) {
+    return state;
+  }
+
+  try {
+    const recentResults = await db.select().from(syntheticProbeResults)
+      .where(eq(syntheticProbeResults.probeId, probeId))
+      .orderBy(desc(syntheticProbeResults.createdAt))
+      .limit(CONSECUTIVE_DOWN_THRESHOLD + 1);
+
+    if (recentResults.length === 0) return state;
+
+    let consecutiveDown = 0;
+    for (const r of recentResults) {
+      if (r.status === 'down') {
+        consecutiveDown++;
+      } else {
+        break;
+      }
+    }
+
+    if (consecutiveDown >= CONSECUTIVE_DOWN_THRESHOLD) {
+      state.consecutiveDown = consecutiveDown;
+      state.alerted = true;
+      state.lastAlertTime = Date.now();
+      console.log(`[probe-alert] Initialized probe ${probeId} as already down (${consecutiveDown} recent failures), suppressing re-alert`);
+    }
+  } catch (err) {
+    console.error(`[probe-alert] Error initializing alert state for probe ${probeId}:`, err);
+  }
+
   return state;
 }
 
@@ -142,21 +174,15 @@ async function evaluateProbeAlerts(
   statusCode: number | null,
   errorMessage: string | null
 ): Promise<void> {
-  const state = getAlertState(probe.id);
+  const state = await initAlertStateFromHistory(probe.id);
   const now = Date.now();
 
   if (status === 'down') {
     state.consecutiveDown++;
-    state.consecutiveDegraded = 0;
-    state.consecutiveHealthy = 0;
-  } else if (status === 'degraded') {
-    state.consecutiveDegraded++;
-    state.consecutiveDown = 0;
     state.consecutiveHealthy = 0;
   } else {
     state.consecutiveHealthy++;
     state.consecutiveDown = 0;
-    state.consecutiveDegraded = 0;
 
     if (state.alerted && state.consecutiveHealthy >= CONSECUTIVE_RECOVERY_THRESHOLD) {
       const timeSinceLastAlert = now - state.lastAlertTime;
@@ -167,7 +193,7 @@ async function evaluateProbeAlerts(
           probe,
           alertType: 'recovery',
           currentStatus: 'healthy',
-          previousStatus: state.alertedStatus || 'down',
+          previousStatus: 'down',
           latencyMs,
           statusCode,
           errorMessage: null,
@@ -175,17 +201,15 @@ async function evaluateProbeAlerts(
         }).catch(err => console.error('[probe-alert] Recovery dispatch error:', err));
       }
       state.alerted = false;
-      state.alertedStatus = null;
     }
     return;
   }
 
-  if (status === 'down' && state.consecutiveDown >= CONSECUTIVE_FAILURES_THRESHOLD && !state.alerted) {
+  if (state.consecutiveDown >= CONSECUTIVE_DOWN_THRESHOLD && !state.alerted) {
     const timeSinceLastAlert = now - state.lastAlertTime;
     if (timeSinceLastAlert >= ALERT_COOLDOWN_MS) {
       console.log(`[probe-alert] Probe "${probe.name}" DOWN for ${state.consecutiveDown} consecutive checks`);
       state.alerted = true;
-      state.alertedStatus = 'down';
       state.lastAlertTime = now;
       dispatchProbeAlert({
         probe,
@@ -199,49 +223,6 @@ async function evaluateProbeAlerts(
       }).catch(err => console.error('[probe-alert] Down dispatch error:', err));
     } else {
       state.alerted = true;
-      state.alertedStatus = 'down';
-    }
-  }
-
-  if (status === 'degraded' && state.consecutiveDegraded >= CONSECUTIVE_FAILURES_THRESHOLD && !state.alerted) {
-    const timeSinceLastAlert = now - state.lastAlertTime;
-    if (timeSinceLastAlert >= ALERT_COOLDOWN_MS) {
-      console.log(`[probe-alert] Probe "${probe.name}" DEGRADED for ${state.consecutiveDegraded} consecutive checks`);
-      state.alerted = true;
-      state.alertedStatus = 'degraded';
-      state.lastAlertTime = now;
-      dispatchProbeAlert({
-        probe,
-        alertType: 'degraded',
-        currentStatus: 'degraded',
-        previousStatus: 'healthy',
-        latencyMs,
-        statusCode,
-        errorMessage,
-        consecutiveFailures: state.consecutiveDegraded,
-      }).catch(err => console.error('[probe-alert] Degraded dispatch error:', err));
-    } else {
-      state.alerted = true;
-      state.alertedStatus = 'degraded';
-    }
-  }
-
-  if (state.alerted && state.alertedStatus === 'degraded' && status === 'down' && state.consecutiveDown >= CONSECUTIVE_FAILURES_THRESHOLD) {
-    const timeSinceLastAlert = now - state.lastAlertTime;
-    if (timeSinceLastAlert >= ALERT_COOLDOWN_MS) {
-      console.log(`[probe-alert] Probe "${probe.name}" ESCALATED from degraded to down`);
-      state.alertedStatus = 'down';
-      state.lastAlertTime = now;
-      dispatchProbeAlert({
-        probe,
-        alertType: 'down',
-        currentStatus: 'down',
-        previousStatus: 'degraded',
-        latencyMs,
-        statusCode,
-        errorMessage,
-        consecutiveFailures: state.consecutiveDown,
-      }).catch(err => console.error('[probe-alert] Escalation dispatch error:', err));
     }
   }
 }
