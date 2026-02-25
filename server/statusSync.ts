@@ -10,6 +10,10 @@ import type { CanonicalSeverity, CanonicalStatus, LifecycleEvent } from "@shared
 import { NEW_STATUSPAGE_URLS } from "./newVendors";
 import { gunzipSync } from "zlib";
 
+function isTimeoutError(msg: string): boolean {
+  return msg.includes('timed out') || msg.includes('aborted due to timeout') || msg.includes('timeout');
+}
+
 function isValidIncident(incident: { name: string; id: string }): boolean {
   const title = incident.name || '';
   if (title.startsWith('_system') || title.startsWith('_metadata')) return false;
@@ -236,7 +240,8 @@ async function fetchStatuspageJson(vendor: { key: string; statusUrl: string }): 
     console.log(`[${vendor.key}] Failed to fetch status:`, errorMessage);
     await recordParseResult(vendor.key, { 
       success: false, 
-      errorMessage 
+      errorMessage,
+      isTimeout: isTimeoutError(errorMessage),
     });
     return { status: 'unknown', incidents: [], maintenances: [], success: false, errorMessage };
   }
@@ -434,7 +439,8 @@ async function fetchAwsStatus(vendor: { key: string; statusUrl: string }): Promi
     console.log(`[aws] Failed to fetch status:`, errorMessage);
     await recordParseResult(vendor.key, { 
       success: false, 
-      errorMessage 
+      errorMessage,
+      isTimeout: isTimeoutError(errorMessage),
     });
     return { status: 'unknown', incidents: [], maintenances: [], success: false, errorMessage };
   }
@@ -492,7 +498,8 @@ async function fetchSlackStatus(vendor: { key: string; statusUrl: string }): Pro
     console.log(`[slack] Failed to fetch status:`, errorMessage);
     await recordParseResult(vendor.key, { 
       success: false, 
-      errorMessage 
+      errorMessage,
+      isTimeout: isTimeoutError(errorMessage),
     });
     return { status: 'unknown', incidents: [], maintenances: [], success: false, errorMessage };
   }

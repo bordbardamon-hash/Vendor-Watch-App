@@ -2,13 +2,14 @@ import { db } from './db';
 import { parserHealth, vendors } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 
-const CONSECUTIVE_FAILURE_THRESHOLD = 5;
+const CONSECUTIVE_FAILURE_THRESHOLD = 10;
 
 interface ParseResult {
   success: boolean;
   httpStatus?: number;
   errorMessage?: string;
   incidentsParsed?: number;
+  isTimeout?: boolean;
 }
 
 export async function recordParseResult(vendorKey: string, result: ParseResult): Promise<void> {
@@ -31,33 +32,35 @@ export async function recordParseResult(vendorKey: string, result: ParseResult):
 
   const now = new Date();
 
+  const isTimeout = result.isTimeout || false;
+
   if (existing.length === 0) {
     await db.insert(parserHealth).values({
       vendorKey,
       lastSuccessAt: result.success ? now : null,
       lastFailureAt: result.success ? null : now,
-      consecutiveFailures: result.success ? 0 : 1,
+      consecutiveFailures: result.success ? 0 : (isTimeout ? 0 : 1),
       totalSuccesses: result.success ? 1 : 0,
-      totalFailures: result.success ? 0 : 1,
+      totalFailures: result.success ? 0 : (isTimeout ? 0 : 1),
       lastHttpStatus: result.httpStatus || null,
       lastErrorMessage: result.errorMessage || null,
       incidentsParsed: result.incidentsParsed || 0,
-      isHealthy: result.success,
+      isHealthy: true,
     });
   } else {
     const record = existing[0];
-    const newConsecutiveFailures = result.success ? 0 : record.consecutiveFailures + 1;
+    const newConsecutiveFailures = result.success ? 0 : (isTimeout ? record.consecutiveFailures : record.consecutiveFailures + 1);
     const isHealthy = newConsecutiveFailures < CONSECUTIVE_FAILURE_THRESHOLD;
 
     await db.update(parserHealth)
       .set({
         lastSuccessAt: result.success ? now : record.lastSuccessAt,
-        lastFailureAt: result.success ? record.lastFailureAt : now,
+        lastFailureAt: result.success ? record.lastFailureAt : (isTimeout ? record.lastFailureAt : now),
         consecutiveFailures: newConsecutiveFailures,
         totalSuccesses: result.success ? record.totalSuccesses + 1 : record.totalSuccesses,
-        totalFailures: result.success ? record.totalFailures : record.totalFailures + 1,
+        totalFailures: result.success ? record.totalFailures : (isTimeout ? record.totalFailures : record.totalFailures + 1),
         lastHttpStatus: result.httpStatus || record.lastHttpStatus,
-        lastErrorMessage: result.errorMessage || (result.success ? null : record.lastErrorMessage),
+        lastErrorMessage: isTimeout ? record.lastErrorMessage : (result.errorMessage || (result.success ? null : record.lastErrorMessage)),
         incidentsParsed: result.incidentsParsed ?? record.incidentsParsed,
         isHealthy,
         updatedAt: now,
