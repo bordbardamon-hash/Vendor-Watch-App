@@ -3845,6 +3845,7 @@ const BASE_VENDORS: InsertVendor[] = [
   { key: "duo", name: "Duo Security", statusUrl: "https://status.duo.com", parser: "statuspage_json", status: "operational" },
   { key: "1password", name: "1Password", statusUrl: "https://status.1password.com/", parser: "statuspage_json", status: "operational" },
   { key: "lastpass", name: "LastPass", statusUrl: "https://status.lastpass.com/", parser: "statuspage_json", status: "operational" },
+  { key: "mimecast", name: "Mimecast", statusUrl: "https://status.mimecast.com", parser: "generic_html", status: "operational", category: "Security" },
   // Payments & Revenue
   { key: "paypal", name: "PayPal", statusUrl: "https://www.paypal-status.com", parser: "generic_html", status: "operational" },
   { key: "quickbooks", name: "QuickBooks Online", statusUrl: "https://status.quickbooks.intuit.com/", parser: "statuspage_json", status: "operational" },
