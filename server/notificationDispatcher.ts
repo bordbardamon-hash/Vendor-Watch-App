@@ -191,19 +191,16 @@ export async function dispatchIncidentNotification(notification: IncidentNotific
     }
     
     const userSubscriptions = await storage.getUserVendorSubscriptions(user.id);
-    const hasSetSubs = await storage.hasUserSetSubscriptions(user.id);
     
-    let isSubscribed: boolean;
-    if (!hasSetSubs) {
-      isSubscribed = true;
-    } else if (userSubscriptions.length > 0) {
-      isSubscribed = userSubscriptions.includes(vendor.key);
-    } else {
-      isSubscribed = false;
-    }
+    const isSubscribed = userSubscriptions.includes(vendor.key);
     
     if (!isSubscribed) {
       console.log(`[notify] Skipping ${user.email} - not subscribed to vendor ${vendor.key}`);
+      continue;
+    }
+    
+    if (!user.notifyEmail && !user.notifySms) {
+      console.log(`[notify] Skipping ${user.email} - no notification channels enabled`);
       continue;
     }
     
@@ -534,19 +531,16 @@ export async function dispatchLifecycleNotification(notification: LifecycleNotif
     }
     
     const userSubscriptions = await storage.getUserVendorSubscriptions(user.id);
-    const hasSetSubs = await storage.hasUserSetSubscriptions(user.id);
     
-    let isSubscribed: boolean;
-    if (!hasSetSubs) {
-      isSubscribed = true;
-    } else if (userSubscriptions.length > 0) {
-      isSubscribed = userSubscriptions.includes(vendor.key);
-    } else {
-      isSubscribed = false;
-    }
+    const isSubscribed = userSubscriptions.includes(vendor.key);
     
     if (!isSubscribed) {
       console.log(`[notify] Skipping ${user.email} - not subscribed to vendor ${vendor.key}`);
+      continue;
+    }
+    
+    if (!user.notifyEmail && !user.notifySms) {
+      console.log(`[notify] Skipping ${user.email} - no notification channels enabled`);
       continue;
     }
     
@@ -862,19 +856,16 @@ export async function dispatchBlockchainNotification(notification: BlockchainNot
     }
     
     const userSubscriptions = await storage.getUserBlockchainSubscriptions(user.id);
-    const hasSetChainSubs = await storage.hasUserSetBlockchainSubscriptions(user.id);
     
-    let isSubscribed: boolean;
-    if (!hasSetChainSubs) {
-      isSubscribed = true;
-    } else if (userSubscriptions.length > 0) {
-      isSubscribed = userSubscriptions.includes(chain.key);
-    } else {
-      isSubscribed = false;
-    }
+    const isSubscribed = userSubscriptions.includes(chain.key);
     
     if (!isSubscribed) {
       console.log(`[notify] Skipping ${user.email} - not subscribed to blockchain ${chain.key}`);
+      continue;
+    }
+    
+    if (!user.notifyEmail && !user.notifySms) {
+      console.log(`[notify] Skipping ${user.email} - no notification channels enabled`);
       continue;
     }
     
