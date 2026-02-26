@@ -191,9 +191,12 @@ export async function dispatchIncidentNotification(notification: IncidentNotific
     }
     
     const userSubscriptions = await storage.getUserVendorSubscriptions(user.id);
+    const hasSetSubs = await storage.hasUserSetSubscriptions(user.id);
     
     let isSubscribed: boolean;
-    if (userSubscriptions.length > 0) {
+    if (!hasSetSubs) {
+      isSubscribed = true;
+    } else if (userSubscriptions.length > 0) {
       isSubscribed = userSubscriptions.includes(vendor.key);
     } else {
       isSubscribed = false;
@@ -531,9 +534,12 @@ export async function dispatchLifecycleNotification(notification: LifecycleNotif
     }
     
     const userSubscriptions = await storage.getUserVendorSubscriptions(user.id);
+    const hasSetSubs = await storage.hasUserSetSubscriptions(user.id);
     
     let isSubscribed: boolean;
-    if (userSubscriptions.length > 0) {
+    if (!hasSetSubs) {
+      isSubscribed = true;
+    } else if (userSubscriptions.length > 0) {
       isSubscribed = userSubscriptions.includes(vendor.key);
     } else {
       isSubscribed = false;
@@ -856,9 +862,12 @@ export async function dispatchBlockchainNotification(notification: BlockchainNot
     }
     
     const userSubscriptions = await storage.getUserBlockchainSubscriptions(user.id);
+    const hasSetChainSubs = await storage.hasUserSetBlockchainSubscriptions(user.id);
     
     let isSubscribed: boolean;
-    if (userSubscriptions.length > 0) {
+    if (!hasSetChainSubs) {
+      isSubscribed = true;
+    } else if (userSubscriptions.length > 0) {
       isSubscribed = userSubscriptions.includes(chain.key);
     } else {
       isSubscribed = false;
