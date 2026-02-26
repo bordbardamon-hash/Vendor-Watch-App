@@ -9,6 +9,7 @@ import { WebhookHandlers } from './webhookHandlers';
 import { seedVendorsIfEmpty, seedBlockchainChainsIfEmpty, storage } from './storage';
 import { syncVendorStatus, resolveStaleIncidents } from './statusSync';
 import { syncAllBlockchainChains, resolveStaleBlockchainIncidents } from './blockchainSync';
+import { setSyncRunning } from './syntheticMonitor';
 import { collectTelemetryMetrics, generatePredictions, maintainPredictions, updatePredictionConfidence } from './predictionEngine';
 import { apiLimiter, authLimiter, strictLimiter } from './rateLimiter';
 import { registerEmbedRoutes } from './embedRoutes';
@@ -248,6 +249,7 @@ app.use((req, res, next) => {
           return;
         }
         syncRunning = true;
+        setSyncRunning(true);
         lastSyncStart = Date.now();
         const startTime = Date.now();
         
@@ -268,6 +270,7 @@ app.use((req, res, next) => {
           console.error(`[sync] ${label} sync failed:`, err);
         } finally {
           syncRunning = false;
+          setSyncRunning(false);
           const totalTime = Math.round((Date.now() - startTime) / 1000);
           console.log(`[sync] ${label} total sync completed in ${totalTime}s`);
           
