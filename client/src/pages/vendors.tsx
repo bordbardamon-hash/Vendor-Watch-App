@@ -210,7 +210,9 @@ export default function Vendors() {
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddDialog, setShowAddDialog] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const urlParams = new URLSearchParams(window.location.search);
+  const initialFilter = urlParams.get('filter') === 'monitored' ? 'monitored' : 'all';
+  const [statusFilter, setStatusFilter] = useState<string>(initialFilter);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [requestForm, setRequestForm] = useState({ vendorName: "", statusPageUrl: "", integrationNotes: "" });
   const [directAddForm, setDirectAddForm] = useState({ key: "", name: "", statusUrl: "", parser: "statuspage_json" });
@@ -501,7 +503,8 @@ export default function Vendors() {
   const filteredVendors = vendors.filter(v => {
     const matchesSearch = v.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
       v.key.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || (v as any).normalizedStatus === statusFilter;
+    const matchesStatus = statusFilter === 'all' || 
+      (statusFilter === 'monitored' ? isMonitored(v.key) : (v as any).normalizedStatus === statusFilter);
     const matchesCategory = categoryFilter === 'all' || (v as any).category === categoryFilter;
     return matchesSearch && matchesStatus && matchesCategory;
   }).sort((a, b) => {
@@ -786,6 +789,7 @@ export default function Vendors() {
           <span className="text-xs text-muted-foreground font-medium mr-1">Status:</span>
           {[
             { key: 'all', label: 'All', color: 'text-foreground' },
+            { key: 'monitored', label: 'Monitored', color: 'text-primary' },
             { key: 'up', label: 'Up', color: 'text-emerald-500' },
             { key: 'warn', label: 'Warn', color: 'text-yellow-500' },
             { key: 'down', label: 'Down', color: 'text-red-500' },
@@ -797,9 +801,11 @@ export default function Vendors() {
               className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${statusFilter === f.key ? 'bg-primary/10 border-primary/50 text-primary' : 'border-sidebar-border hover:border-primary/30 ' + f.color}`}
               data-testid={`filter-status-${f.key}`}
             >
-              {f.key !== 'all' && <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 ${f.key === 'up' ? 'bg-emerald-500' : f.key === 'warn' ? 'bg-yellow-500' : f.key === 'down' ? 'bg-red-500' : 'bg-blue-500'}`} />}
+              {f.key === 'monitored' && <span className="inline-block w-1.5 h-1.5 rounded-full mr-1.5 bg-primary" />}
+              {f.key !== 'all' && f.key !== 'monitored' && <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 ${f.key === 'up' ? 'bg-emerald-500' : f.key === 'warn' ? 'bg-yellow-500' : f.key === 'down' ? 'bg-red-500' : 'bg-blue-500'}`} />}
               {f.label}
-              {f.key !== 'all' && <span className="ml-1 opacity-60">({vendors.filter(v => (v as any).normalizedStatus === f.key).length})</span>}
+              {f.key === 'monitored' && <span className="ml-1 opacity-60">({vendors.filter(v => isMonitored(v.key)).length})</span>}
+              {f.key !== 'all' && f.key !== 'monitored' && <span className="ml-1 opacity-60">({vendors.filter(v => (v as any).normalizedStatus === f.key).length})</span>}
             </button>
           ))}
         </div>

@@ -131,7 +131,9 @@ export default function Blockchain() {
   const timezone = user?.timezone || getBrowserTimezone();
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("all");
-  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const urlParams = new URLSearchParams(window.location.search);
+  const initialStatusFilter = urlParams.get('filter') === 'monitored' ? 'monitored' : null;
+  const [statusFilter, setStatusFilter] = useState<string | null>(initialStatusFilter);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -303,6 +305,7 @@ export default function Blockchain() {
     
     if (!matchesSearch) return false;
     
+    if (statusFilter === 'monitored') return isMonitored(c.key);
     if (statusFilter === 'operational') return c.status === 'operational';
     if (statusFilter === 'degraded') return c.status === 'degraded' || c.status === 'partial_outage';
     if (statusFilter === 'outage') return c.status === 'major_outage';
@@ -558,6 +561,16 @@ export default function Blockchain() {
                 <CardContent className="p-4">
                   <div className="text-2xl font-bold">{stats.totalChains}</div>
                   <div className="text-sm text-muted-foreground">Total Chains</div>
+                </CardContent>
+              </Card>
+              <Card 
+                className={`bg-sidebar border-sidebar-border cursor-pointer transition-all hover:border-primary/50 ${statusFilter === 'monitored' ? 'ring-1 ring-primary/50' : ''}`}
+                onClick={() => setStatusFilter(statusFilter === 'monitored' ? null : 'monitored')}
+                data-testid="stat-monitored"
+              >
+                <CardContent className="p-4">
+                  <div className="text-2xl font-bold text-primary">{chains.filter(c => isMonitored(c.key)).length}</div>
+                  <div className="text-sm text-muted-foreground">Monitored</div>
                 </CardContent>
               </Card>
               <Card 

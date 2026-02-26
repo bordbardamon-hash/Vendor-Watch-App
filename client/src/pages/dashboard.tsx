@@ -359,7 +359,7 @@ export default function Dashboard() {
       </Dialog>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Link href="/vendors" data-testid="link-vendors-metric" className="animate-fade-in-up opacity-0 stagger-1">
+        <Link href="/vendors?filter=monitored" data-testid="link-vendors-metric" className="animate-fade-in-up opacity-0 stagger-1">
           <MetricCard 
             title={UI_LABELS.cards.monitoredVendors}
             value={vendorCount.toString()} 
@@ -391,7 +391,7 @@ export default function Dashboard() {
             />
           </div>
         )}
-        <Link href="/blockchain" data-testid="link-blockchain-metric" className="animate-fade-in-up opacity-0 stagger-4">
+        <Link href="/blockchain?filter=monitored" data-testid="link-blockchain-metric" className="animate-fade-in-up opacity-0 stagger-4">
           <MetricCard 
             title="Blockchains"
             value={blockchainCount.toString()} 
