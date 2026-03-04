@@ -1424,6 +1424,111 @@ export async function registerRoutes(
     }
   });
   
+  // Admin: Send password reset email to a user
+  app.post("/api/admin/users/:userId/send-reset-email", isAuthenticated, isOwner, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const targetUser = await storage.getUser(userId);
+      if (!targetUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const crypto = await import('crypto');
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      const resetExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+      await db.update(users).set({
+        passwordResetToken: resetToken,
+        passwordResetExpires: resetExpires,
+      }).where(eq(users.id, userId));
+
+      const baseUrl = process.env.REPLIT_DOMAINS 
+        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
+        : 'http://localhost:5000';
+      const resetUrl = `${baseUrl}/reset-password?token=${resetToken}`;
+
+      const { sendEmail } = await import('./emailClient');
+      const emailSent = await sendEmail(
+        targetUser.email,
+        'Reset Your Vendor Watch Password',
+        `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #0f172a;">Reset Your Password</h2>
+          <p>Hello ${targetUser.firstName || 'there'},</p>
+          <p>Your account administrator has requested a password reset for your Vendor Watch account.</p>
+          <p>Click the button below to set a new password. This link will expire in 24 hours.</p>
+          <p style="margin: 30px 0;">
+            <a href="${resetUrl}" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+              Reset Password
+            </a>
+          </p>
+          <p>Or copy and paste this link into your browser:</p>
+          <p style="word-break: break-all; color: #6b7280;">${resetUrl}</p>
+          <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">
+            If you did not expect this email, please contact your administrator.
+          </p>
+        </div>
+        `,
+        `Reset Your Password
+
+Hello ${targetUser.firstName || 'there'},
+
+Your account administrator has requested a password reset for your Vendor Watch account.
+
+Click this link to set a new password (expires in 24 hours):
+${resetUrl}
+
+If you did not expect this email, please contact your administrator.`
+      );
+
+      if (emailSent) {
+        console.log(`[admin] Password reset email sent to ${targetUser.email} by admin ${req.user.email}`);
+        res.json({ success: true, message: `Password reset email sent to ${targetUser.email}` });
+      } else {
+        await db.update(users).set({
+          passwordResetToken: null,
+          passwordResetExpires: null,
+        }).where(eq(users.id, userId));
+        res.status(500).json({ error: "Failed to send password reset email" });
+      }
+    } catch (error) {
+      console.error("[admin] Error sending password reset email:", error);
+      res.status(500).json({ error: "Failed to send password reset email" });
+    }
+  });
+
+  // Admin: Directly reset a user's password
+  app.post("/api/admin/users/:userId/reset-password", isAuthenticated, isOwner, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const { newPassword } = req.body;
+
+      if (!newPassword || newPassword.length < 8) {
+        return res.status(400).json({ error: "Password must be at least 8 characters" });
+      }
+
+      const targetUser = await storage.getUser(userId);
+      if (!targetUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const bcrypt = await import('bcryptjs');
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      await db.update(users).set({
+        password: hashedPassword,
+        passwordResetToken: null,
+        passwordResetExpires: null,
+      }).where(eq(users.id, userId));
+
+      console.log(`[admin] Password directly reset for ${targetUser.email} by admin ${req.user.email}`);
+      res.json({ success: true, message: `Password has been reset for ${targetUser.email}` });
+    } catch (error) {
+      console.error("[admin] Error resetting password:", error);
+      res.status(500).json({ error: "Failed to reset password" });
+    }
+  });
+
   // Get job by id (admin only)
   app.get("/api/jobs/:id", isAuthenticated, isAdmin, async (req, res) => {
     try {

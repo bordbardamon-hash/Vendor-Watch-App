@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Users, RefreshCw, Trash2, UserPlus, Crown, Shield, Mail, Phone, Building, Clock } from "lucide-react";
+import { Users, RefreshCw, Trash2, UserPlus, Crown, Shield, Mail, Phone, Building, Clock, KeyRound, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { normalizeTierDisplay } from "@/lib/utils";
 import { useState } from "react";
@@ -71,6 +71,10 @@ export default function UsersPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isPromoDialogOpen, setIsPromoDialogOpen] = useState(false);
   const [isExtendDialogOpen, setIsExtendDialogOpen] = useState(false);
+  const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
+  const [resetPasswordUserId, setResetPasswordUserId] = useState<string | null>(null);
+  const [resetPasswordUserEmail, setResetPasswordUserEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [extendDays, setExtendDays] = useState(30);
   const [extendTier, setExtendTier] = useState<string>("");
@@ -275,6 +279,62 @@ export default function UsersPage() {
       toast({
         title: "Delete Failed",
         description: error.message || "Could not delete user.",
+        variant: "destructive"
+      });
+    },
+  });
+
+  const sendResetEmailMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const res = await fetch(`/api/admin/users/${userId}/send-reset-email`, { method: "POST" });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to send reset email");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Reset Email Sent",
+        description: data.message || "Password reset email has been sent.",
+        className: "bg-emerald-500 border-emerald-500 text-white"
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to Send Email",
+        description: error.message || "Could not send password reset email.",
+        variant: "destructive"
+      });
+    },
+  });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: async ({ userId, newPassword }: { userId: string; newPassword: string }) => {
+      const res = await fetch(`/api/admin/users/${userId}/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newPassword }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to reset password");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setIsResetPasswordDialogOpen(false);
+      setNewPassword("");
+      toast({
+        title: "Password Reset",
+        description: data.message || "Password has been reset successfully.",
+        className: "bg-emerald-500 border-emerald-500 text-white"
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Reset Failed",
+        description: error.message || "Could not reset password.",
         variant: "destructive"
       });
     },
@@ -681,8 +741,35 @@ export default function UsersPage() {
                           setIsExtendDialogOpen(true);
                         }}
                         data-testid={`button-extend-trial-${user.id}`}
+                        title="Extend trial"
                       >
                         <Clock className="w-4 h-4" />
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => sendResetEmailMutation.mutate(user.id)}
+                        disabled={sendResetEmailMutation.isPending}
+                        data-testid={`button-send-reset-email-${user.id}`}
+                        title="Send password reset email"
+                      >
+                        <Send className="w-4 h-4" />
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setResetPasswordUserId(user.id);
+                          setResetPasswordUserEmail(user.email);
+                          setNewPassword("");
+                          setIsResetPasswordDialogOpen(true);
+                        }}
+                        data-testid={`button-reset-password-${user.id}`}
+                        title="Set new password"
+                      >
+                        <KeyRound className="w-4 h-4" />
                       </Button>
 
                       {!user.isOwner && (
@@ -782,6 +869,46 @@ export default function UsersPage() {
               data-testid="button-extend-submit"
             >
               {extendTrialMutation.isPending ? "Extending..." : "Extend Trial"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isResetPasswordDialogOpen} onOpenChange={setIsResetPasswordDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Set New Password</DialogTitle>
+            <DialogDescription>
+              Set a new password for {resetPasswordUserEmail}. The user will be able to log in with this password immediately.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-password">New Password</Label>
+              <Input
+                id="new-password"
+                type="password"
+                placeholder="Minimum 8 characters"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                data-testid="input-new-password"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsResetPasswordDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (resetPasswordUserId && newPassword.length >= 8) {
+                  resetPasswordMutation.mutate({ userId: resetPasswordUserId, newPassword });
+                }
+              }}
+              disabled={newPassword.length < 8 || resetPasswordMutation.isPending}
+              data-testid="button-reset-password-submit"
+            >
+              {resetPasswordMutation.isPending ? "Resetting..." : "Set Password"}
             </Button>
           </DialogFooter>
         </DialogContent>
