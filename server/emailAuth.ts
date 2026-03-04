@@ -406,10 +406,9 @@ export async function setupEmailAuth(app: Express) {
         passwordResetExpires: resetExpires,
       }).where(eq(users.id, user.id));
 
-      // Generate reset URL
-      const baseUrl = process.env.REPLIT_DOMAINS 
-        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
-        : 'http://localhost:5000';
+      const protocol = req.headers['x-forwarded-proto'] || 'https';
+      const host = req.headers['x-forwarded-host'] || req.headers.host || (process.env.REPLIT_DOMAINS ? process.env.REPLIT_DOMAINS.split(',')[0] : 'localhost:5000');
+      const baseUrl = `${protocol}://${host}`;
       const resetUrl = `${baseUrl}/reset-password?token=${resetToken}`;
 
       // Send email
