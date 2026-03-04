@@ -1425,7 +1425,7 @@ export async function registerRoutes(
   });
   
   // Admin: Send password reset email to a user
-  app.post("/api/admin/users/:userId/send-reset-email", isAuthenticated, isOwner, async (req: any, res) => {
+  app.post("/api/admin/users/:userId/send-reset-email", isAuthenticated, isAdmin, async (req: any, res) => {
     try {
       const { userId } = req.params;
       const targetUser = await storage.getUser(userId);
@@ -1498,7 +1498,7 @@ If you did not expect this email, please contact your administrator.`
   });
 
   // Admin: Directly reset a user's password
-  app.post("/api/admin/users/:userId/reset-password", isAuthenticated, isOwner, async (req: any, res) => {
+  app.post("/api/admin/users/:userId/reset-password", isAuthenticated, isAdmin, async (req: any, res) => {
     try {
       const { userId } = req.params;
       const { newPassword } = req.body;
