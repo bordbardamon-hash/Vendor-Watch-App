@@ -217,7 +217,14 @@ export const userVendorSubscriptions = pgTable("user_vendor_subscriptions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: text("user_id").notNull(),
   vendorKey: text("vendor_key").notNull(),
-  customerImpact: text("customer_impact").notNull().default('medium'), // 'high', 'medium', 'low'
+  customerImpact: text("customer_impact").notNull().default('medium'),
+  componentFilters: text("component_filters").array(),
+  alertOnNew: boolean("alert_on_new").notNull().default(true),
+  alertOnUpdate: boolean("alert_on_update").notNull().default(true),
+  alertOnResolved: boolean("alert_on_resolved").notNull().default(true),
+  alertOnMaintenance: boolean("alert_on_maintenance").notNull().default(true),
+  maintenanceReminder: boolean("maintenance_reminder").notNull().default(false),
+  maintenanceReminderMinutes: integer("maintenance_reminder_minutes").notNull().default(60),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -324,7 +331,16 @@ export const blockchainMaintenances = pgTable("blockchain_maintenances", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-// Insert schemas
+// Maintenance Reminder Tracking - prevent duplicate reminders
+export const maintenanceRemindersSent = pgTable("maintenance_reminders_sent", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: text("user_id").notNull(),
+  maintenanceId: text("maintenance_id").notNull(),
+  vendorKey: text("vendor_key").notNull(),
+  sentAt: timestamp("sent_at").notNull().defaultNow(),
+});
+
+// Insert schemas for core tables
 export const insertVendorSchema = createInsertSchema(vendors).omit({
   id: true,
   createdAt: true,

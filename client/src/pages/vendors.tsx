@@ -24,12 +24,14 @@ import {
   Bell,
   X,
   ChevronDown,
-  ArrowLeft
+  ArrowLeft,
+  Settings2
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { AlertPreferencesDialog } from "@/components/alert-preferences-dialog";
 import { formatShortDateInTimezone, getBrowserTimezone } from "@/lib/utils";
 
 interface VendorLimit {
@@ -208,6 +210,9 @@ export default function Vendors() {
   const { user } = useAuth();
   const timezone = user?.timezone || getBrowserTimezone();
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
+  const [alertPrefsOpen, setAlertPrefsOpen] = useState(false);
+  const [alertPrefsVendorKey, setAlertPrefsVendorKey] = useState("");
+  const [alertPrefsVendorName, setAlertPrefsVendorName] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddDialog, setShowAddDialog] = useState(false);
   const urlParams = new URLSearchParams(window.location.search);
@@ -938,6 +943,23 @@ export default function Vendors() {
                         >
                           {isMonitored(vendor.key) ? <CheckCircle2 className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
                         </Button>
+                        {isMonitored(vendor.key) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setAlertPrefsVendorKey(vendor.key);
+                              setAlertPrefsVendorName(vendor.name);
+                              setAlertPrefsOpen(true);
+                            }}
+                            title="Configure alert preferences"
+                            data-testid={`button-alert-prefs-${vendor.key}`}
+                          >
+                            <Settings2 className="w-4 h-4" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                     {(vendor as any).category && (
@@ -996,9 +1018,27 @@ export default function Vendors() {
                       KEY: <span className="text-primary">{selectedVendor.key}</span>
                     </CardDescription>
                   </div>
-                  <div className={`px-4 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 ${selectedVendor.status === 'operational' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
-                    <div className={`w-2 h-2 rounded-full ${selectedVendor.status === 'operational' ? 'bg-emerald-500 animate-pulse' : 'bg-red-500 animate-pulse'}`} />
-                    {selectedVendor.status.toUpperCase()}
+                  <div className="flex items-center gap-2">
+                    {isMonitored(selectedVendor.key) && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs"
+                        onClick={() => {
+                          setAlertPrefsVendorKey(selectedVendor.key);
+                          setAlertPrefsVendorName(selectedVendor.name);
+                          setAlertPrefsOpen(true);
+                        }}
+                        data-testid="button-detail-alert-prefs"
+                      >
+                        <Settings2 className="w-3.5 h-3.5 mr-1" />
+                        Alerts
+                      </Button>
+                    )}
+                    <div className={`px-4 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 ${selectedVendor.status === 'operational' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+                      <div className={`w-2 h-2 rounded-full ${selectedVendor.status === 'operational' ? 'bg-emerald-500 animate-pulse' : 'bg-red-500 animate-pulse'}`} />
+                      {selectedVendor.status.toUpperCase()}
+                    </div>
                   </div>
                 </div>
               </CardHeader>
@@ -1100,6 +1140,12 @@ export default function Vendors() {
         </div>
       </div>
 
+      <AlertPreferencesDialog
+        vendorKey={alertPrefsVendorKey}
+        vendorName={alertPrefsVendorName}
+        open={alertPrefsOpen}
+        onOpenChange={setAlertPrefsOpen}
+      />
     </div>
   );
 }

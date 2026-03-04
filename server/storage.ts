@@ -8,7 +8,7 @@ import {
   clientPortals, portalVendorAssignments, portalSubscribers,
   psaIntegrations, psaTicketRules, psaTicketLinks,
   vendorTelemetryMetrics, outagePredictions, predictionPatterns,
-  vendorComponents,
+  vendorComponents, maintenanceRemindersSent,
   userWebhooks, webhookLogs, apiKeys, apiRequestLogs, auditLogs, ssoConfigurations,
   uptimeReports, reportSchedules,
   notificationQueue, systemHealthState,
@@ -165,6 +165,12 @@ export interface IStorage {
   
   // Vendor Subscriptions
   getUserVendorSubscriptions(userId: string): Promise<string[]>;
+  getUserVendorSubscriptionPreferences(userId: string, vendorKey: string): Promise<any | null>;
+  updateVendorSubscriptionPreferences(userId: string, vendorKey: string, prefs: any): Promise<void>;
+  getSubscriptionsWithPreferencesForVendor(vendorKey: string): Promise<any[]>;
+  getSubscriptionsWithMaintenanceReminders(vendorKey: string): Promise<any[]>;
+  hasMaintenanceReminderBeenSent(userId: string, maintenanceId: string): Promise<boolean>;
+  recordMaintenanceReminderSent(userId: string, maintenanceId: string, vendorKey: string): Promise<void>;
   setUserVendorSubscriptions(userId: string, vendorKeys: string[]): Promise<void>;
   hasUserSetSubscriptions(userId: string): Promise<boolean>;
   resetUserSubscriptions(userId: string): Promise<void>;
@@ -1245,6 +1251,79 @@ export class DatabaseStorage implements IStorage {
     await this.setConfig(`vendor_subscriptions_set:${userId}`, 'true');
   }
   
+  async getUserVendorSubscriptionPreferences(userId: string, vendorKey: string): Promise<any | null> {
+    const [sub] = await db
+      .select()
+      .from(userVendorSubscriptions)
+      .where(and(
+        eq(userVendorSubscriptions.userId, userId),
+        eq(userVendorSubscriptions.vendorKey, vendorKey)
+      ))
+      .limit(1);
+    if (!sub) return null;
+    return {
+      componentFilters: sub.componentFilters,
+      alertOnNew: sub.alertOnNew,
+      alertOnUpdate: sub.alertOnUpdate,
+      alertOnResolved: sub.alertOnResolved,
+      alertOnMaintenance: sub.alertOnMaintenance,
+      maintenanceReminder: sub.maintenanceReminder,
+      maintenanceReminderMinutes: sub.maintenanceReminderMinutes,
+    };
+  }
+
+  async updateVendorSubscriptionPreferences(userId: string, vendorKey: string, prefs: any): Promise<void> {
+    const updateData: any = {};
+    if (prefs.componentFilters !== undefined) updateData.componentFilters = prefs.componentFilters;
+    if (prefs.alertOnNew !== undefined) updateData.alertOnNew = prefs.alertOnNew;
+    if (prefs.alertOnUpdate !== undefined) updateData.alertOnUpdate = prefs.alertOnUpdate;
+    if (prefs.alertOnResolved !== undefined) updateData.alertOnResolved = prefs.alertOnResolved;
+    if (prefs.alertOnMaintenance !== undefined) updateData.alertOnMaintenance = prefs.alertOnMaintenance;
+    if (prefs.maintenanceReminder !== undefined) updateData.maintenanceReminder = prefs.maintenanceReminder;
+    if (prefs.maintenanceReminderMinutes !== undefined) updateData.maintenanceReminderMinutes = prefs.maintenanceReminderMinutes;
+
+    await db.update(userVendorSubscriptions)
+      .set(updateData)
+      .where(and(
+        eq(userVendorSubscriptions.userId, userId),
+        eq(userVendorSubscriptions.vendorKey, vendorKey)
+      ));
+  }
+
+  async getSubscriptionsWithPreferencesForVendor(vendorKey: string): Promise<any[]> {
+    return db
+      .select()
+      .from(userVendorSubscriptions)
+      .where(eq(userVendorSubscriptions.vendorKey, vendorKey));
+  }
+
+  async getSubscriptionsWithMaintenanceReminders(vendorKey: string): Promise<any[]> {
+    return db
+      .select()
+      .from(userVendorSubscriptions)
+      .where(and(
+        eq(userVendorSubscriptions.vendorKey, vendorKey),
+        eq(userVendorSubscriptions.maintenanceReminder, true),
+        eq(userVendorSubscriptions.alertOnMaintenance, true)
+      ));
+  }
+
+  async hasMaintenanceReminderBeenSent(userId: string, maintenanceId: string): Promise<boolean> {
+    const [existing] = await db
+      .select()
+      .from(maintenanceRemindersSent)
+      .where(and(
+        eq(maintenanceRemindersSent.userId, userId),
+        eq(maintenanceRemindersSent.maintenanceId, maintenanceId)
+      ))
+      .limit(1);
+    return !!existing;
+  }
+
+  async recordMaintenanceReminderSent(userId: string, maintenanceId: string, vendorKey: string): Promise<void> {
+    await db.insert(maintenanceRemindersSent).values({ userId, maintenanceId, vendorKey });
+  }
+
   async hasUserSetSubscriptions(userId: string): Promise<boolean> {
     const configEntry = await this.getConfig(`vendor_subscriptions_set:${userId}`);
     return configEntry?.value === 'true';

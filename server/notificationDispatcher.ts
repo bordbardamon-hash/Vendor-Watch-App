@@ -204,6 +204,32 @@ export async function dispatchIncidentNotification(notification: IncidentNotific
       continue;
     }
     
+    const subPrefs = await storage.getUserVendorSubscriptionPreferences(user.id, vendor.key);
+    if (subPrefs) {
+      if (eventType === 'new' && !subPrefs.alertOnNew) {
+        console.log(`[notify] Skipping ${user.email} - alertOnNew disabled for ${vendor.key}`);
+        continue;
+      }
+      if (eventType === 'update' && !subPrefs.alertOnUpdate) {
+        console.log(`[notify] Skipping ${user.email} - alertOnUpdate disabled for ${vendor.key}`);
+        continue;
+      }
+      if (eventType === 'resolved' && !subPrefs.alertOnResolved) {
+        console.log(`[notify] Skipping ${user.email} - alertOnResolved disabled for ${vendor.key}`);
+        continue;
+      }
+      if (subPrefs.componentFilters && subPrefs.componentFilters.length > 0) {
+        const affectedText = incident.title + ' ' + (incident.impact || '');
+        const hasOverlap = subPrefs.componentFilters.some((f: string) => 
+          affectedText.toLowerCase().includes(f.toLowerCase())
+        );
+        if (!hasOverlap) {
+          console.log(`[notify] Skipping ${user.email} - incident doesn't match component filters for ${vendor.key}`);
+          continue;
+        }
+      }
+    }
+
     // Check if user has acknowledged this incident - skip notifications if so
     const isAcknowledged = await storage.isIncidentAcknowledged(user.id, incident.id);
     if (isAcknowledged) {
@@ -543,7 +569,34 @@ export async function dispatchLifecycleNotification(notification: LifecycleNotif
       console.log(`[notify] Skipping ${user.email} - no notification channels enabled`);
       continue;
     }
-    
+
+    const subPrefs = await storage.getUserVendorSubscriptionPreferences(user.id, vendor.key);
+    if (subPrefs) {
+      const lcEvent = lifecycleEvent;
+      if (lcEvent === 'new' && !subPrefs.alertOnNew) {
+        console.log(`[notify] Skipping ${user.email} - alertOnNew disabled for ${vendor.key}`);
+        continue;
+      }
+      if ((lcEvent === 'update' || lcEvent === 'escalation' || lcEvent === 'long_running') && !subPrefs.alertOnUpdate) {
+        console.log(`[notify] Skipping ${user.email} - alertOnUpdate disabled for ${vendor.key}`);
+        continue;
+      }
+      if (lcEvent === 'resolved' && !subPrefs.alertOnResolved) {
+        console.log(`[notify] Skipping ${user.email} - alertOnResolved disabled for ${vendor.key}`);
+        continue;
+      }
+      if (subPrefs.componentFilters && subPrefs.componentFilters.length > 0 && notification.affectedServices) {
+        const affectedList = notification.affectedServices.split(',').map((c: string) => c.trim().toLowerCase());
+        const hasOverlap = subPrefs.componentFilters.some((f: string) => 
+          affectedList.some((a: string) => a.includes(f.toLowerCase()) || f.toLowerCase().includes(a))
+        );
+        if (!hasOverlap) {
+          console.log(`[notify] Skipping ${user.email} - lifecycle components don't match filters for ${vendor.key}`);
+          continue;
+        }
+      }
+    }
+
     const canSend = await shouldSendAlert(
       incident.incidentId,
       user.id,

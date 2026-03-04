@@ -1768,6 +1768,54 @@ If you did not expect this email, please contact your administrator.`
     }
   });
 
+  app.get("/api/vendor-subscriptions/:vendorKey/preferences", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { vendorKey } = req.params;
+      const prefs = await storage.getUserVendorSubscriptionPreferences(userId, vendorKey);
+      if (!prefs) {
+        return res.status(404).json({ error: "Not subscribed to this vendor" });
+      }
+      res.json(prefs);
+    } catch (error) {
+      console.error("Error fetching subscription preferences:", error);
+      res.status(500).json({ error: "Failed to fetch preferences" });
+    }
+  });
+
+  app.put("/api/vendor-subscriptions/:vendorKey/preferences", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { vendorKey } = req.params;
+      const body = req.body;
+
+      const prefs: any = {};
+      if (typeof body.alertOnNew === 'boolean') prefs.alertOnNew = body.alertOnNew;
+      if (typeof body.alertOnUpdate === 'boolean') prefs.alertOnUpdate = body.alertOnUpdate;
+      if (typeof body.alertOnResolved === 'boolean') prefs.alertOnResolved = body.alertOnResolved;
+      if (typeof body.alertOnMaintenance === 'boolean') prefs.alertOnMaintenance = body.alertOnMaintenance;
+      if (typeof body.maintenanceReminder === 'boolean') prefs.maintenanceReminder = body.maintenanceReminder;
+      if (typeof body.maintenanceReminderMinutes === 'number' && [15, 30, 60, 120, 240, 1440].includes(body.maintenanceReminderMinutes)) {
+        prefs.maintenanceReminderMinutes = body.maintenanceReminderMinutes;
+      }
+      if (body.componentFilters === null || (Array.isArray(body.componentFilters) && body.componentFilters.every((c: any) => typeof c === 'string'))) {
+        prefs.componentFilters = body.componentFilters;
+      }
+
+      const existing = await storage.getUserVendorSubscriptionPreferences(userId, vendorKey);
+      if (!existing) {
+        return res.status(404).json({ error: "Not subscribed to this vendor" });
+      }
+
+      await storage.updateVendorSubscriptionPreferences(userId, vendorKey, prefs);
+      const updated = await storage.getUserVendorSubscriptionPreferences(userId, vendorKey);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating subscription preferences:", error);
+      res.status(500).json({ error: "Failed to update preferences" });
+    }
+  });
+
   // Blockchain subscriptions
   app.get("/api/blockchain-subscriptions", isAuthenticated, async (req: any, res) => {
     try {

@@ -9,6 +9,7 @@ import { WebhookHandlers } from './webhookHandlers';
 import { seedVendorsIfEmpty, seedBlockchainChainsIfEmpty, storage } from './storage';
 import { syncVendorStatus, resolveStaleIncidents } from './statusSync';
 import { syncAllBlockchainChains, resolveStaleBlockchainIncidents } from './blockchainSync';
+import { checkAndSendMaintenanceReminders } from './maintenanceReminder';
 import { setSyncRunning } from './syntheticMonitor';
 import { collectTelemetryMetrics, generatePredictions, maintainPredictions, updatePredictionConfidence } from './predictionEngine';
 import { apiLimiter, authLimiter, strictLimiter } from './rateLimiter';
@@ -295,6 +296,12 @@ app.use((req, res, next) => {
           }
         } catch (err) {
           console.error('[sync] Stale incident cleanup failed:', err);
+        }
+
+        try {
+          await checkAndSendMaintenanceReminders();
+        } catch (err) {
+          console.error('[sync] Maintenance reminder check failed:', err);
         }
       }, SYNC_INTERVAL_MS);
       
