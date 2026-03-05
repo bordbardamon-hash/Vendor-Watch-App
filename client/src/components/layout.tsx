@@ -10,13 +10,11 @@ import {
   PanelLeftClose,
   PanelLeft,
   LogOut,
-  User,
   FileCheck,
   Boxes,
   MessageSquare,
   Wrench,
   Menu,
-  X,
   BarChart3,
   Target,
   Server,
@@ -34,10 +32,12 @@ import {
   ClipboardList,
   Lock,
   Search,
-  AlertTriangle
+  AlertTriangle,
+  ChevronDown,
+  Bell
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { UI_LABELS, APP_NAME } from "@/lib/labels";
 import { useAuth } from "@/hooks/use-auth";
@@ -52,6 +52,8 @@ type NavItem = { href: string; icon: any; label: string; adminOnly: boolean; own
 type NavSection = {
   title: string;
   items: NavItem[];
+  collapsible?: boolean;
+  defaultCollapsed?: boolean;
 };
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -59,7 +61,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const { user } = useAuth();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollPositionRef = useRef(0);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -71,6 +76,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  const saveScrollPosition = useCallback(() => {
+    if (scrollRef.current) {
+      scrollPositionRef.current = scrollRef.current.scrollTop;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollPositionRef.current;
+    }
+  }, [location]);
 
   const getInitials = () => {
     if (user?.firstName && user?.lastName) {
@@ -84,6 +101,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const isGrowthOrHigher = user?.subscriptionTier === 'growth' || user?.subscriptionTier === 'enterprise';
   const isEnterprise = user?.subscriptionTier === 'enterprise';
+
+  const toggleSection = (title: string) => {
+    setCollapsedSections(prev => ({ ...prev, [title]: !prev[title] }));
+  };
 
   const navSections: NavSection[] = [
     {
@@ -106,6 +127,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         { href: "/reports", icon: FileText, label: "Reports", adminOnly: false, ownerOnly: false, requiresGrowth: true },
         { href: "/automation", icon: Bot, label: "Automation", adminOnly: false, ownerOnly: false },
       ],
+      collapsible: true,
+      defaultCollapsed: false,
     },
     {
       title: "MSP Tools",
@@ -115,6 +138,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         { href: "/portals", icon: Globe, label: "Client Portals", adminOnly: false, ownerOnly: false, requiresGrowth: true },
         { href: "/mobile-status", icon: Smartphone, label: "Mobile Status", adminOnly: false, ownerOnly: false, requiresGrowth: true },
       ],
+      collapsible: true,
+      defaultCollapsed: true,
     },
     {
       title: "Integrations",
@@ -124,15 +149,19 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         { href: "/psa-integrations", icon: Ticket, label: "PSA Ticketing", adminOnly: false, ownerOnly: false, requiresGrowth: true },
         { href: "/api-keys", icon: Key, label: "API Access", adminOnly: false, ownerOnly: false, requiresEnterprise: true },
       ],
+      collapsible: true,
+      defaultCollapsed: true,
     },
     {
       title: "Settings",
       items: [
-        { href: "/team", icon: UsersRound, label: "Team", adminOnly: false, ownerOnly: false },
         { href: "/settings", icon: Settings, label: UI_LABELS.nav.config, adminOnly: false, ownerOnly: false },
+        { href: "/team", icon: UsersRound, label: "Team", adminOnly: false, ownerOnly: false },
         { href: "/sso", icon: Lock, label: "SSO", adminOnly: false, ownerOnly: false, requiresEnterprise: true },
         { href: "/audit-logs", icon: ClipboardList, label: "Audit Logs", adminOnly: true, ownerOnly: false },
       ],
+      collapsible: true,
+      defaultCollapsed: false,
     },
     {
       title: "Admin",
@@ -144,6 +173,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         { href: "/parser-health", icon: Server, label: "Parser Health", adminOnly: false, ownerOnly: true },
         { href: "/users", icon: Users, label: "Users", adminOnly: false, ownerOnly: true },
       ],
+      collapsible: true,
+      defaultCollapsed: true,
     },
   ];
 
@@ -156,12 +187,17 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   });
 
   const handleNavClick = () => {
+    saveScrollPosition();
     setMobileMenuOpen(false);
+  };
+
+  const sectionHasActiveItem = (items: NavItem[]) => {
+    return items.some(item => location === item.href);
   };
 
   const NavContent = ({ isMobile = false }: { isMobile?: boolean }) => (
     <>
-      <nav className="flex-1 p-2 overflow-y-auto">
+      <nav ref={isMobile ? undefined : scrollRef} className="flex-1 p-2 overflow-y-auto">
         <button
           onClick={() => { setCommandOpen(true); handleNavClick(); }}
           className={cn(
@@ -184,33 +220,50 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {navSections.map((section) => {
           const visibleItems = filterItems(section.items);
           if (visibleItems.length === 0) return null;
+          
+          const sectionIsCollapsed = section.title in collapsedSections ? collapsedSections[section.title] : !!section.defaultCollapsed;
+          const isCollapsed = section.collapsible && (sidebarOpen || isMobile) && sectionIsCollapsed && !sectionHasActiveItem(visibleItems);
+          const canCollapse = section.collapsible && (sidebarOpen || isMobile);
+
           return (
-            <div key={section.title} className="mb-3">
-              {(sidebarOpen || isMobile) && (
-                <h3 className="px-3 py-1 text-[11px] font-semibold text-muted-foreground/60 uppercase tracking-wider">
-                  {section.title}
-                </h3>
+            <div key={section.title} className="mb-1">
+              {(sidebarOpen || isMobile) ? (
+                <button
+                  onClick={canCollapse ? () => toggleSection(section.title) : undefined}
+                  className={cn(
+                    "w-full flex items-center justify-between px-3 py-1.5 text-[11px] font-semibold text-muted-foreground/60 uppercase tracking-wider",
+                    canCollapse && "hover:text-muted-foreground cursor-pointer"
+                  )}
+                >
+                  <span>{section.title}</span>
+                  {canCollapse && (
+                    <ChevronDown size={12} className={cn("transition-transform", isCollapsed && "-rotate-90")} />
+                  )}
+                </button>
+              ) : (
+                <div className="h-px bg-border/30 mx-2 my-1" />
               )}
-              {!sidebarOpen && !isMobile && <div className="h-px bg-border/30 mx-2 my-1" />}
-              <div className="space-y-0.5">
-                {visibleItems.map((item) => (
-                  <Link key={item.href} href={item.href} onClick={handleNavClick}>
-                    <div
-                      className={cn(
-                        "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 cursor-pointer",
-                        location === item.href
-                          ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                          : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground",
-                        !sidebarOpen && !isMobile && "justify-center px-2"
-                      )}
-                      data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
-                    >
-                      <item.icon size={18} className="shrink-0" />
-                      {(sidebarOpen || isMobile) && item.label}
-                    </div>
-                  </Link>
-                ))}
-              </div>
+              {!isCollapsed && (
+                <div className="space-y-0.5">
+                  {visibleItems.map((item) => (
+                    <Link key={item.href} href={item.href} onClick={handleNavClick}>
+                      <div
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 cursor-pointer",
+                          location === item.href
+                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                            : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground",
+                          !sidebarOpen && !isMobile && "justify-center px-2"
+                        )}
+                        data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+                      >
+                        <item.icon size={18} className="shrink-0" />
+                        {(sidebarOpen || isMobile) && item.label}
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}
@@ -302,22 +355,29 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <VendorWatchLogo size={32} />
             <span className="font-bold text-lg tracking-tight">Vendor Watch</span>
           </div>
-          <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" data-testid="button-mobile-menu">
-                <Menu size={24} />
+          <div className="flex items-center gap-1">
+            <Link href="/settings">
+              <Button variant="ghost" size="icon" className="text-muted-foreground" data-testid="button-mobile-notifications">
+                <Bell size={20} />
               </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="w-72 p-0 bg-sidebar border-sidebar-border">
-              <div className="p-4 flex items-center gap-3 border-b border-sidebar-border">
-                <VendorWatchLogo size={32} />
-                <span className="font-bold text-lg tracking-tight">Vendor Watch</span>
-              </div>
-              <div className="flex flex-col h-[calc(100vh-65px)]">
-                <NavContent isMobile={true} />
-              </div>
-            </SheetContent>
-          </Sheet>
+            </Link>
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" data-testid="button-mobile-menu">
+                  <Menu size={24} />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-72 p-0 bg-sidebar border-sidebar-border">
+                <div className="p-4 flex items-center gap-3 border-b border-sidebar-border">
+                  <VendorWatchLogo size={32} />
+                  <span className="font-bold text-lg tracking-tight">Vendor Watch</span>
+                </div>
+                <div className="flex flex-col h-[calc(100vh-65px)]">
+                  <NavContent isMobile={true} />
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
         </div>
       </div>
 
@@ -328,7 +388,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <div className="p-4 flex items-center gap-3 border-b border-sidebar-border">
           <VendorWatchLogo size={32} />
           {sidebarOpen && (
-            <span className="font-bold text-lg tracking-tight">Vendor Watch</span>
+            <>
+              <span className="font-bold text-lg tracking-tight flex-1">Vendor Watch</span>
+              <Link href="/settings">
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary" data-testid="button-desktop-notifications">
+                  <Bell size={16} />
+                </Button>
+              </Link>
+            </>
           )}
         </div>
         <NavContent />

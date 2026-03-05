@@ -78,6 +78,8 @@ export default function Incidents() {
   const queryClient = useQueryClient();
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [severityFilter, setSeverityFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
   const [archiveSearchQuery, setArchiveSearchQuery] = useState("");
   const [archiveVendorFilter, setArchiveVendorFilter] = useState<string>("all");
@@ -225,11 +227,29 @@ export default function Incidents() {
 
   const filteredIncidents = [...incidents]
     .filter(i => {
-      if (!searchTerm) return true;
-      const term = searchTerm.toLowerCase();
-      return i.title.toLowerCase().includes(term) || getVendorName(i.vendorKey).toLowerCase().includes(term);
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        if (!i.title.toLowerCase().includes(term) && !getVendorName(i.vendorKey).toLowerCase().includes(term)) return false;
+      }
+      if (severityFilter !== 'all' && i.severity.toLowerCase() !== severityFilter) return false;
+      if (statusFilter !== 'all' && i.status.toLowerCase() !== statusFilter.toLowerCase()) return false;
+      return true;
     })
     .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
+
+  const severityCounts = incidents.reduce((acc, i) => {
+    const sev = i.severity.toLowerCase();
+    acc[sev] = (acc[sev] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const statusCounts = incidents.reduce((acc, i) => {
+    const st = i.status.toLowerCase();
+    acc[st] = (acc[st] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const hasActiveFilters = severityFilter !== 'all' || statusFilter !== 'all' || searchTerm !== '';
 
   if (incidentsLoading) {
     return (
@@ -272,6 +292,69 @@ export default function Incidents() {
         />
       </div>
 
+      <div className="space-y-2" data-testid="incident-filters">
+        <div className="flex flex-wrap gap-1.5 items-center">
+          <span className="text-xs text-muted-foreground font-medium mr-1">Severity:</span>
+          {[
+            { key: 'all', label: 'All', color: '' },
+            { key: 'critical', label: 'Critical', color: 'text-red-500' },
+            { key: 'major', label: 'Major', color: 'text-orange-500' },
+            { key: 'minor', label: 'Minor', color: 'text-yellow-500' },
+          ].map(f => (
+            <button
+              key={f.key}
+              onClick={() => setSeverityFilter(f.key)}
+              className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
+                severityFilter === f.key 
+                  ? 'bg-primary/10 border-primary/50 text-primary' 
+                  : 'border-sidebar-border hover:border-primary/30 ' + (f.color || 'text-muted-foreground')
+              }`}
+              data-testid={`filter-severity-${f.key}`}
+            >
+              {f.key !== 'all' && <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 ${
+                f.key === 'critical' ? 'bg-red-500' : f.key === 'major' ? 'bg-orange-500' : 'bg-yellow-500'
+              }`} />}
+              {f.label}
+              {f.key !== 'all' && severityCounts[f.key] ? ` (${severityCounts[f.key]})` : ''}
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-1.5 items-center">
+          <span className="text-xs text-muted-foreground font-medium mr-1">Status:</span>
+          {[
+            { key: 'all', label: 'All' },
+            { key: 'investigating', label: 'Investigating' },
+            { key: 'identified', label: 'Identified' },
+            { key: 'monitoring', label: 'Monitoring' },
+            { key: 'update', label: 'Update' },
+          ].filter(f => f.key === 'all' || statusCounts[f.key]).map(f => (
+            <button
+              key={f.key}
+              onClick={() => setStatusFilter(f.key)}
+              className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
+                statusFilter === f.key 
+                  ? 'bg-primary/10 border-primary/50 text-primary' 
+                  : 'border-sidebar-border hover:border-primary/30 text-muted-foreground'
+              }`}
+              data-testid={`filter-status-${f.key}`}
+            >
+              {f.label}
+              {f.key !== 'all' && statusCounts[f.key] ? ` (${statusCounts[f.key]})` : ''}
+            </button>
+          ))}
+          {hasActiveFilters && (
+            <button
+              onClick={() => { setSeverityFilter('all'); setStatusFilter('all'); setSearchTerm(''); }}
+              className="px-2.5 py-1 rounded-full text-xs font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+              data-testid="button-clear-filters"
+            >
+              <X className="w-3 h-3" />
+              Clear filters
+            </button>
+          )}
+        </div>
+      </div>
+
       <Card className="border-sidebar-border bg-sidebar/10">
         <CardHeader className="border-b border-sidebar-border bg-sidebar/20">
           <div className="space-y-1">
@@ -301,12 +384,9 @@ export default function Incidents() {
                     </Badge>
                   </div>
                   <p className="text-sm text-muted-foreground mb-3 break-words">{incident.impact}</p>
-                  <div className="text-xs font-mono text-muted-foreground/70 bg-sidebar/50 p-2 rounded mb-3">
-                    <div className="truncate">ID: {incident.incidentId}</div>
-                    <div className="text-[10px] mt-1">{formatShortDateInTimezone(incident.startedAt, timezone)}</div>
-                  </div>
                   <div className="flex items-center gap-2 flex-wrap mb-2">
-                    <Badge variant="outline" className="text-xs">Status: {incident.status}</Badge>
+                    <Badge variant="outline" className="text-xs capitalize">{incident.status}</Badge>
+                    <span className="text-[10px] text-muted-foreground/60">{formatShortDateInTimezone(incident.startedAt, timezone)}</span>
                     {isAcknowledged(incident.id) && (
                       <Badge variant="secondary" className="text-xs bg-emerald-500/10 text-emerald-500">
                         <BellOff className="w-3 h-3 mr-1" />

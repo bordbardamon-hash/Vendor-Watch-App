@@ -260,8 +260,9 @@ export default function Vendors() {
         body: JSON.stringify(data),
       });
       if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || "Failed to submit request");
+        let msg = "Failed to submit request";
+        try { const e = await res.json(); msg = e.error || e.message || msg; } catch {}
+        throw new Error(msg);
       }
       return res.json();
     },
@@ -286,8 +287,9 @@ export default function Vendors() {
         body: JSON.stringify(data),
       });
       if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || "Failed to add vendor");
+        let msg = "Failed to add vendor";
+        try { const e = await res.json(); msg = e.error || e.message || msg; } catch {}
+        throw new Error(msg);
       }
       return res.json();
     },
@@ -328,8 +330,12 @@ export default function Vendors() {
         headers: { "Content-Type": "application/json" },
       });
       if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || "Failed to toggle vendor");
+        let msg = "Failed to toggle vendor";
+        try {
+          const error = await res.json();
+          msg = error.error || error.message || msg;
+        } catch {}
+        throw new Error(msg);
       }
       return res.json();
     },
@@ -969,16 +975,6 @@ export default function Vendors() {
                         </span>
                       </div>
                     )}
-                    {vendor.statusUrl && (
-                      <div className="mt-3 flex items-center gap-2">
-                        <Button variant="ghost" size="sm" className="h-7 text-xs" asChild>
-                          <a href={vendor.statusUrl} target="_blank" rel="noopener noreferrer" data-testid={`link-status-${vendor.key}`}>
-                            <Activity className="w-3 h-3 mr-1" />
-                            Status
-                          </a>
-                        </Button>
-                      </div>
-                    )}
                     {vendor.lastChecked && (
                       <div className="mt-2 text-xs text-muted-foreground">
                         Last checked: {formatShortDateInTimezone(vendor.lastChecked, timezone)}
@@ -1008,15 +1004,19 @@ export default function Vendors() {
                   <div className="space-y-1">
                     <CardTitle className="flex items-center gap-2 text-2xl">
                       {selectedVendor.name}
-                      {selectedVendor.statusUrl && (
-                        <a href={selectedVendor.statusUrl} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="w-4 h-4 text-muted-foreground hover:text-primary transition-colors" />
-                        </a>
-                      )}
                     </CardTitle>
-                    <CardDescription className="font-mono text-xs">
-                      KEY: <span className="text-primary">{selectedVendor.key}</span>
-                    </CardDescription>
+                    {selectedVendor.statusUrl && (
+                      <a 
+                        href={selectedVendor.statusUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+                        data-testid="link-vendor-status-page"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        View {selectedVendor.name} Status Page
+                      </a>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     {isMonitored(selectedVendor.key) && (
@@ -1060,12 +1060,9 @@ export default function Vendors() {
                             </Badge>
                           </div>
                           <p className="text-sm text-muted-foreground mb-3 break-words">{incident.impact}</p>
-                          <div className="text-xs font-mono text-muted-foreground/70 bg-sidebar/50 p-2 rounded mb-3">
-                            <div className="truncate">ID: {incident.incidentId}</div>
-                            <div className="text-[10px] mt-1">{formatShortDateInTimezone(incident.startedAt, timezone)}</div>
-                          </div>
                           <div className="flex items-center gap-2 flex-wrap mb-2">
-                            <Badge variant="outline" className="text-xs">Status: {incident.status}</Badge>
+                            <Badge variant="outline" className="text-xs capitalize">{incident.status}</Badge>
+                            <span className="text-[10px] text-muted-foreground/60">{formatShortDateInTimezone(incident.startedAt, timezone)}</span>
                             {isAcknowledged(incident.id) && (
                               <Badge variant="secondary" className="text-xs bg-emerald-500/10 text-emerald-500">
                                 <BellOff className="w-3 h-3 mr-1" />
@@ -1115,19 +1112,21 @@ export default function Vendors() {
                 
                 <VendorComponentsSection vendorKey={selectedVendor.key} />
 
-                <div className="p-6 bg-sidebar/30">
-                  <h4 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wider">Configuration</h4>
-                  <div className="bg-black/50 p-4 rounded-md border border-sidebar-border font-mono text-xs text-muted-foreground overflow-x-auto">
-                    <div className="grid grid-cols-[100px_1fr] gap-2">
-                      <span className="text-primary">parser_cls:</span>
-                      <span>{selectedVendor.parser}</span>
-                      <span className="text-primary">endpoint:</span>
-                      <span>{selectedVendor.statusUrl}</span>
-                      <span className="text-primary">last_sync:</span>
-                      <span>{selectedVendor.lastChecked || 'Never'}</span>
+                {user?.isAdmin && (
+                  <div className="p-6 bg-sidebar/30">
+                    <h4 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wider">Configuration</h4>
+                    <div className="bg-black/50 p-4 rounded-md border border-sidebar-border font-mono text-xs text-muted-foreground overflow-x-auto">
+                      <div className="grid grid-cols-[100px_1fr] gap-2">
+                        <span className="text-primary">parser_cls:</span>
+                        <span>{selectedVendor.parser}</span>
+                        <span className="text-primary">endpoint:</span>
+                        <span>{selectedVendor.statusUrl}</span>
+                        <span className="text-primary">last_sync:</span>
+                        <span>{selectedVendor.lastChecked || 'Never'}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
               </CardContent>
             </Card>
           ) : (

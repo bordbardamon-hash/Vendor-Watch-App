@@ -1,60 +1,34 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
-  Activity, 
   Globe, 
-  Database, 
   AlertTriangle,
-  ArrowUpRight,
   CheckCircle2,
-  Clock,
-  PlayCircle,
-  Terminal,
-  Server,
   Bell,
   Mail,
   MessageSquare,
   Boxes,
-  Wrench
+  Wrench,
+  ExternalLink,
+  Settings,
+  Shield,
+  AlertCircle,
+  Loader2
 } from "lucide-react";
-import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { UI_LABELS } from "@/lib/labels";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { useEffect } from "react";
-
-const data = [
-  { time: "00:00", requests: 120, errors: 2 },
-  { time: "04:00", requests: 450, errors: 5 },
-  { time: "08:00", requests: 1200, errors: 12 },
-  { time: "12:00", requests: 980, errors: 8 },
-  { time: "16:00", requests: 1500, errors: 24 },
-  { time: "20:00", requests: 850, errors: 4 },
-  { time: "23:59", requests: 320, errors: 1 },
-];
+import { LogoAvatar } from "@/components/ui/logo-avatar";
 
 export default function Dashboard() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
-  const [smsDialogOpen, setSmsDialogOpen] = useState(false);
-  const [emailAddress, setEmailAddress] = useState(user?.email || "");
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [notifyOnIncidents, setNotifyOnIncidents] = useState(true);
-  const [notifyOnUpdates, setNotifyOnUpdates] = useState(true);
-  const [notifyOnResolutions, setNotifyOnResolutions] = useState(true);
-  const [smsNotifyOnIncidents, setSmsNotifyOnIncidents] = useState(true);
-  const [smsNotifyOnUpdates, setSmsNotifyOnUpdates] = useState(true);
-  const [smsNotifyOnResolutions, setSmsNotifyOnResolutions] = useState(true);
 
   const syncMutation = useMutation({
     mutationFn: async () => {
@@ -68,7 +42,6 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/vendors"] });
       queryClient.invalidateQueries({ queryKey: ["/api/incidents"] });
       if (data.background) {
-        // Sync is running in background, refetch after delay
         setTimeout(() => {
           queryClient.invalidateQueries({ queryKey: ["/api/my-vendors"] });
           queryClient.invalidateQueries({ queryKey: ["/api/my-incidents"] });
@@ -76,7 +49,6 @@ export default function Dashboard() {
           queryClient.invalidateQueries({ queryKey: ["/api/incidents"] });
         }, 5000);
       }
-      console.log(`[sync] ${data.message}`);
     },
     onError: (error) => {
       console.log("[sync] Status sync failed:", error);
@@ -89,7 +61,7 @@ export default function Dashboard() {
     }
   }, [user]);
 
-  const { data: vendors = [] } = useQuery({
+  const { data: vendors = [], isLoading: vendorsLoading } = useQuery<any[]>({
     queryKey: ["/api/my-vendors"],
     queryFn: async () => {
       const res = await fetch("/api/my-vendors");
@@ -98,7 +70,7 @@ export default function Dashboard() {
     },
   });
 
-  const { data: incidents = [] } = useQuery({
+  const { data: incidents = [] } = useQuery<any[]>({
     queryKey: ["/api/my-incidents"],
     queryFn: async () => {
       const res = await fetch("/api/my-incidents");
@@ -135,426 +107,294 @@ export default function Dashboard() {
   });
 
   const vendorCount = vendors.length;
-  const incidentCount = incidents.filter((i: any) => i.status !== 'resolved').length;
+  const activeIncidents = incidents.filter((i: any) => i.status !== 'resolved');
+  const incidentCount = activeIncidents.length;
   const blockchainCount = blockchainStats?.totalChains || 0;
   const blockchainIncidentCount = blockchainStats?.activeIncidents || 0;
 
-  const handleSaveEmail = () => {
-    if (!emailAddress.trim()) {
-      toast({
-        title: "Email Required",
-        description: "Please enter a valid email address.",
-        variant: "destructive",
-      });
-      return;
-    }
-    toast({
-      title: "Preferences Saved",
-      description: `Alert notifications will be sent to ${emailAddress}`,
-    });
-    setEmailDialogOpen(false);
-  };
+  const degradedVendors = vendors.filter((v: any) => v.status !== 'operational');
+  const operationalVendors = vendors.filter((v: any) => v.status === 'operational');
 
-  const handleSaveSms = async () => {
-    if (!phoneNumber.trim()) {
-      toast({
-        title: "Phone Number Required",
-        description: "Please enter a valid phone number with country code.",
-        variant: "destructive",
-      });
-      return;
-    }
-    try {
-      const res = await fetch("/api/notifications/preferences", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: phoneNumber, notifyEmail: notifPrefs?.notifyEmail ?? true, notifySms: true }),
-      });
-      if (res.ok) {
-        queryClient.invalidateQueries({ queryKey: ["/api/notifications/preferences"] });
-        toast({
-          title: "SMS Preferences Saved",
-          description: `SMS alerts will be sent to ${phoneNumber}`,
-        });
-        setSmsDialogOpen(false);
-      } else {
-        throw new Error("Failed to save");
-      }
-    } catch {
-      toast({
-        title: "Error",
-        description: "Failed to save SMS preferences. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
+  const hasNotificationsSetup = notifPrefs?.notifyEmail || notifPrefs?.notifySms;
 
   return (
-    <div className="p-4 md:p-8 space-y-6 md:space-y-8">
+    <div className="p-4 md:p-8 space-y-6" data-testid="dashboard-page">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">System Overview</h1>
-          <p className="text-muted-foreground mt-1 text-sm md:text-base">Main control loop monitoring</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 text-sm bg-sidebar/50 px-3 md:px-4 py-2 rounded-full border border-sidebar-border">
-            <Bell size={14} className="text-primary" />
-            <span className="text-muted-foreground hidden sm:inline">{UI_LABELS.alerts.label}:</span>
-            <button 
-              onClick={() => setEmailDialogOpen(true)}
-              className={`flex items-center gap-1 transition-colors cursor-pointer font-semibold ${notifPrefs?.notifyEmail ? 'text-foreground hover:text-primary' : 'text-muted-foreground/60 hover:text-muted-foreground'}`}
-              data-testid="button-email-alerts"
-            >
-              <Mail size={14} />
-              <span className="hidden sm:inline">{UI_LABELS.alerts.email}</span>
-            </button>
-            <span className="text-muted-foreground/60">•</span>
-            <button 
-              onClick={() => setSmsDialogOpen(true)}
-              className={`flex items-center gap-1 transition-colors cursor-pointer font-semibold ${notifPrefs?.notifySms ? 'text-foreground hover:text-primary' : 'text-muted-foreground/60 hover:text-muted-foreground'}`}
-              data-testid="button-sms-alerts"
-            >
-              <MessageSquare size={14} />
-              <span className="hidden sm:inline">SMS</span>
-            </button>
-          </div>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight" data-testid="text-dashboard-title">Dashboard</h1>
+          <p className="text-muted-foreground mt-1 text-sm md:text-base">Your monitored services at a glance</p>
         </div>
       </div>
 
-      <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-email-subscription">
-          <DialogHeader>
-            <DialogTitle>Email Alert Subscription</DialogTitle>
-            <DialogDescription>
-              Configure your email notification preferences for vendor incidents.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="email">Email Address</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={emailAddress}
-                onChange={(e) => setEmailAddress(e.target.value)}
-                data-testid="input-email"
-              />
+      {!hasNotificationsSetup && vendorCount > 0 && (
+        <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3" data-testid="banner-setup-notifications">
+          <div className="flex items-center gap-3 flex-1">
+            <div className="p-2 rounded-full bg-amber-500/10">
+              <Bell className="w-5 h-5 text-amber-500" />
             </div>
-            <div className="space-y-3">
-              <Label>Notification Preferences</Label>
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="notify-incidents" 
-                  checked={notifyOnIncidents}
-                  onCheckedChange={(checked) => setNotifyOnIncidents(!!checked)}
-                  data-testid="checkbox-notify-incidents"
-                />
-                <Label htmlFor="notify-incidents" className="text-sm font-normal cursor-pointer">
-                  Notify me when incidents are detected
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="notify-updates" 
-                  checked={notifyOnUpdates}
-                  onCheckedChange={(checked) => setNotifyOnUpdates(!!checked)}
-                  data-testid="checkbox-notify-updates"
-                />
-                <Label htmlFor="notify-updates" className="text-sm font-normal cursor-pointer">
-                  Notify me when incidents are updated
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="notify-resolutions" 
-                  checked={notifyOnResolutions}
-                  onCheckedChange={(checked) => setNotifyOnResolutions(!!checked)}
-                  data-testid="checkbox-notify-resolutions"
-                />
-                <Label htmlFor="notify-resolutions" className="text-sm font-normal cursor-pointer">
-                  Notify me when incidents are resolved
-                </Label>
-              </div>
+            <div>
+              <p className="text-sm font-medium">Set up notifications</p>
+              <p className="text-xs text-muted-foreground">Get alerted via email or SMS when your monitored services have incidents.</p>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEmailDialogOpen(false)} data-testid="button-cancel-email">
-              Cancel
+          <Link href="/settings">
+            <Button size="sm" variant="outline" className="border-amber-500/30 text-amber-600 hover:bg-amber-500/10" data-testid="button-setup-notifications">
+              <Settings className="w-3.5 h-3.5 mr-1.5" />
+              Configure
             </Button>
-            <Button onClick={handleSaveEmail} data-testid="button-save-email">
-              Save Preferences
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </Link>
+        </div>
+      )}
 
-      <Dialog open={smsDialogOpen} onOpenChange={setSmsDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-sms-subscription">
-          <DialogHeader>
-            <DialogTitle>SMS Alert Subscription</DialogTitle>
-            <DialogDescription>
-              Configure your SMS notification preferences for vendor incidents.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="phone">Phone Number</Label>
-              <Input
-                id="phone"
-                type="tel"
-                placeholder="+1 555 123 4567"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                data-testid="input-phone"
-              />
-              <p className="text-xs text-muted-foreground">Include country code (e.g., +1 for US)</p>
-            </div>
-            <div className="space-y-3">
-              <Label>Notification Preferences</Label>
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="sms-notify-incidents" 
-                  checked={smsNotifyOnIncidents}
-                  onCheckedChange={(checked) => setSmsNotifyOnIncidents(!!checked)}
-                  data-testid="checkbox-sms-notify-incidents"
-                />
-                <Label htmlFor="sms-notify-incidents" className="text-sm font-normal cursor-pointer">
-                  Notify me when incidents are detected
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="sms-notify-updates" 
-                  checked={smsNotifyOnUpdates}
-                  onCheckedChange={(checked) => setSmsNotifyOnUpdates(!!checked)}
-                  data-testid="checkbox-sms-notify-updates"
-                />
-                <Label htmlFor="sms-notify-updates" className="text-sm font-normal cursor-pointer">
-                  Notify me when incidents are updated
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="sms-notify-resolutions" 
-                  checked={smsNotifyOnResolutions}
-                  onCheckedChange={(checked) => setSmsNotifyOnResolutions(!!checked)}
-                  data-testid="checkbox-sms-notify-resolutions"
-                />
-                <Label htmlFor="sms-notify-resolutions" className="text-sm font-normal cursor-pointer">
-                  Notify me when incidents are resolved
-                </Label>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSmsDialogOpen(false)} data-testid="button-cancel-sms">
-              Cancel
-            </Button>
-            <Button onClick={handleSaveSms} data-testid="button-save-sms">
-              Save Preferences
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Link href="/vendors?filter=monitored" data-testid="link-vendors-metric" className="animate-fade-in-up opacity-0 stagger-1">
-          <MetricCard 
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+        <Link href="/vendors?filter=monitored" data-testid="link-vendors-metric">
+          <StatCard 
             title={UI_LABELS.cards.monitoredVendors}
             value={vendorCount.toString()} 
-            change="" 
             icon={Globe}
-            trend="neutral"
-            clickable
+            subtitle={degradedVendors.length > 0 ? `${degradedVendors.length} degraded` : "All healthy"}
+            subtitleColor={degradedVendors.length > 0 ? "text-amber-500" : "text-emerald-500"}
           />
         </Link>
-        <Link href="/incidents" data-testid="link-incidents-metric" className="animate-fade-in-up opacity-0 stagger-2">
-          <MetricCard 
+        <Link href="/incidents" data-testid="link-incidents-metric">
+          <StatCard 
             title={UI_LABELS.cards.activeIncidents}
             value={incidentCount.toString()} 
-            change="" 
             icon={AlertTriangle}
-            trend="neutral"
-            primary
-            clickable
+            highlight={incidentCount > 0}
+            subtitle={incidentCount > 0 ? "Needs attention" : "No incidents"}
+            subtitleColor={incidentCount > 0 ? "text-red-500" : "text-emerald-500"}
           />
         </Link>
-        {user?.isOwner && (
-          <div className="animate-fade-in-up opacity-0 stagger-3">
-            <MetricCard 
-              title={UI_LABELS.cards.dbSize}
-              value="12.4 MB" 
-              change="+0.2 MB" 
-              icon={Database}
-              trend="up"
-            />
-          </div>
-        )}
-        <Link href="/blockchain?filter=monitored" data-testid="link-blockchain-metric" className="animate-fade-in-up opacity-0 stagger-4">
-          <MetricCard 
+        <Link href="/blockchain?filter=monitored" data-testid="link-blockchain-metric">
+          <StatCard 
             title="Blockchains"
             value={blockchainCount.toString()} 
-            change={blockchainIncidentCount > 0 ? `${blockchainIncidentCount} incidents` : ""} 
             icon={Boxes}
-            trend={blockchainIncidentCount > 0 ? "down" : "neutral"}
-            clickable
+            subtitle={blockchainIncidentCount > 0 ? `${blockchainIncidentCount} incidents` : "All healthy"}
+            subtitleColor={blockchainIncidentCount > 0 ? "text-amber-500" : "text-emerald-500"}
           />
         </Link>
-        <Link href="/maintenance" data-testid="link-maintenance-metric" className="animate-fade-in-up opacity-0 stagger-5">
-          <MetricCard 
+        <Link href="/maintenance" data-testid="link-maintenance-metric">
+          <StatCard 
             title="Maintenance"
             value={(maintenanceStats?.total ?? 0).toString()} 
-            change={((maintenanceStats?.vendorActive ?? 0) + (maintenanceStats?.blockchainActive ?? 0)) > 0 ? `${(maintenanceStats?.vendorActive ?? 0) + (maintenanceStats?.blockchainActive ?? 0)} active` : ""} 
             icon={Wrench}
-            trend="neutral"
-            clickable
+            subtitle={((maintenanceStats?.vendorActive ?? 0) + (maintenanceStats?.blockchainActive ?? 0)) > 0 
+              ? `${(maintenanceStats?.vendorActive ?? 0) + (maintenanceStats?.blockchainActive ?? 0)} active` 
+              : "None scheduled"}
+            subtitleColor="text-muted-foreground"
           />
         </Link>
       </div>
 
-      <div className="grid gap-4 grid-cols-1 lg:grid-cols-7">
-        <Card className="lg:col-span-4 border-sidebar-border bg-sidebar/50 backdrop-blur-sm animate-fade-in-up opacity-0 stagger-5">
-          <CardHeader>
-            <CardTitle>{UI_LABELS.cards.requestVolume24h}</CardTitle>
+      {degradedVendors.length > 0 && (
+        <Card className="border-red-500/20 bg-red-500/5" data-testid="card-services-attention">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-red-500" />
+              Services Needing Attention
+              <Badge variant="destructive" className="text-xs ml-auto">{degradedVendors.length}</Badge>
+            </CardTitle>
           </CardHeader>
-          <CardContent className="pl-2">
-            <div className="h-[300px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={data}>
-                  <defs>
-                    <linearGradient id="colorRequests" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                  <XAxis 
-                    dataKey="time" 
-                    stroke="hsl(var(--muted-foreground))" 
-                    fontSize={12} 
-                    tickLine={false} 
-                    axisLine={false}
-                  />
-                  <YAxis 
-                    stroke="hsl(var(--muted-foreground))" 
-                    fontSize={12} 
-                    tickLine={false} 
-                    axisLine={false}
-                    tickFormatter={(value) => `${value}`}
-                  />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'hsl(var(--card))', 
-                      borderColor: 'hsl(var(--border))',
-                      borderRadius: '8px'
-                    }}
-                    itemStyle={{ color: 'hsl(var(--foreground))' }}
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="requests" 
-                    stroke="hsl(var(--primary))" 
-                    strokeWidth={2}
-                    fillOpacity={1} 
-                    fill="url(#colorRequests)" 
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+          <CardContent>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {degradedVendors.map((vendor: any) => {
+                const vendorIncidents = incidents.filter((i: any) => i.vendorKey === vendor.key && i.status !== 'resolved');
+                return (
+                  <Link key={vendor.key} href="/vendors" onClick={() => {}}>
+                    <div className="flex items-center gap-3 p-3 rounded-lg border border-red-500/10 bg-background/50 hover:border-red-500/30 transition-colors cursor-pointer" data-testid={`degraded-vendor-${vendor.key}`}>
+                      <LogoAvatar src={vendor.logoUrl} name={vendor.name} size="sm" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{vendor.name}</p>
+                        <p className="text-xs text-red-500 capitalize">{vendor.status}</p>
+                      </div>
+                      {vendorIncidents.length > 0 && (
+                        <Badge variant="outline" className="text-xs border-red-500/30 text-red-500 shrink-0">
+                          {vendorIncidents.length} incident{vendorIncidents.length !== 1 ? 's' : ''}
+                        </Badge>
+                      )}
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           </CardContent>
         </Card>
+      )}
 
-        <div className="lg:col-span-3 space-y-4 animate-fade-in-up opacity-0 stagger-6">
-          {/* Main Loop Status */}
-          <Card className="border-sidebar-border bg-sidebar/50 backdrop-blur-sm hover-lift">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Terminal className="w-4 h-4" />
-                Main Process Status
+      {activeIncidents.length > 0 && (
+        <Card className="border-sidebar-border bg-sidebar/10" data-testid="card-active-incidents">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-amber-500" />
+                Active Incidents
               </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                    <span className="text-sm">Database Initialized</span>
-                  </div>
-                  <Badge variant="outline" className="text-[10px] text-emerald-500 border-emerald-500/30">DONE</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <PlayCircle className="w-4 h-4 text-emerald-500 animate-pulse" />
-                    <span className="text-sm">Scheduler Loop</span>
-                  </div>
-                  <Badge variant="outline" className="text-[10px] text-emerald-500 border-emerald-500/30">RUNNING</Badge>
-                </div>
-                
-                <div className="mt-4 pt-4 border-t border-sidebar-border/50">
-                  <p className="text-xs text-muted-foreground mb-2">Next Scheduled Batch:</p>
-                  <div className="flex items-center gap-2 bg-black/40 p-2 rounded border border-sidebar-border font-mono text-xs text-primary">
-                    <span className="animate-pulse">▶</span>
-                    <span>job(vendors=7)</span>
-                    <span className="ml-auto text-muted-foreground">in 04:12</span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-sidebar-border bg-sidebar/50 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle>Recent Activity</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                {[
-                  { type: "success", msg: "Monitored atlassian", time: "2m ago" },
-                  { type: "success", msg: "Monitored cloudflare", time: "2m ago" },
-                  { type: "pending", msg: "Analysis complete: 0 alerts", time: "2m ago" },
-                  { type: "success", msg: "DB Snapshot saved", time: "1h ago" },
-                ].map((item, i) => (
-                  <div key={i} className="flex items-start gap-4">
-                    <div className={`mt-1 h-2 w-2 rounded-full ${
-                      item.type === 'success' ? 'bg-emerald-500' : 
-                      item.type === 'error' ? 'bg-red-500' : 'bg-amber-500'
+              <Link href="/incidents">
+                <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" data-testid="link-view-all-incidents">
+                  View all
+                  <ExternalLink className="w-3 h-3 ml-1" />
+                </Button>
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {activeIncidents.slice(0, 5).map((incident: any) => {
+                const vendor = vendors.find((v: any) => v.key === incident.vendorKey);
+                return (
+                  <div key={incident.id} className="flex items-center gap-3 p-3 rounded-lg border border-sidebar-border bg-background/50" data-testid={`incident-row-${incident.id}`}>
+                    <div className={`w-2 h-2 rounded-full shrink-0 ${
+                      incident.severity === 'critical' ? 'bg-red-500' : 
+                      incident.severity === 'major' ? 'bg-orange-500' : 'bg-yellow-500'
                     }`} />
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium leading-none text-foreground">{item.msg}</p>
-                      <p className="text-xs text-muted-foreground">{item.time}</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{incident.title}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {vendor?.name || incident.vendorKey} &middot; {incident.severity}
+                      </p>
                     </div>
+                    <Badge variant="outline" className="text-[10px] shrink-0 capitalize">{incident.status}</Badge>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                );
+              })}
+              {activeIncidents.length > 5 && (
+                <p className="text-xs text-muted-foreground text-center pt-1">
+                  +{activeIncidents.length - 5} more incidents
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {vendorCount > 0 && degradedVendors.length === 0 && activeIncidents.length === 0 && (
+        <Card className="border-emerald-500/20 bg-emerald-500/5" data-testid="card-all-clear">
+          <CardContent className="py-8 text-center">
+            <CheckCircle2 className="w-12 h-12 mx-auto mb-3 text-emerald-500/40" />
+            <p className="text-lg font-medium text-emerald-600">All Systems Operational</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              All {vendorCount} monitored service{vendorCount !== 1 ? 's are' : ' is'} running normally.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {vendorCount > 0 && (
+        <Card className="border-sidebar-border bg-sidebar/10" data-testid="card-monitored-services">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Shield className="w-5 h-5 text-primary" />
+                Monitored Services
+              </CardTitle>
+              <Link href="/vendors?filter=monitored">
+                <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" data-testid="link-view-all-vendors">
+                  View all
+                  <ExternalLink className="w-3 h-3 ml-1" />
+                </Button>
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {vendors.slice(0, 12).map((vendor: any) => (
+                <Link key={vendor.key} href="/vendors">
+                  <div className="flex items-center gap-2.5 p-2.5 rounded-lg border border-sidebar-border bg-background/50 hover:border-primary/30 transition-colors cursor-pointer" data-testid={`monitored-vendor-${vendor.key}`}>
+                    <LogoAvatar src={vendor.logoUrl} name={vendor.name} size="sm" />
+                    <span className="text-sm font-medium truncate flex-1">{vendor.name}</span>
+                    <div className={`w-2 h-2 rounded-full shrink-0 ${
+                      vendor.status === 'operational' ? 'bg-emerald-500' : 
+                      vendor.status === 'degraded' ? 'bg-orange-500' : 'bg-red-500'
+                    }`} />
+                  </div>
+                </Link>
+              ))}
+            </div>
+            {vendors.length > 12 && (
+              <p className="text-xs text-muted-foreground text-center mt-3">
+                +{vendors.length - 12} more services
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {vendorCount === 0 && !vendorsLoading && (
+        <Card className="border-sidebar-border bg-sidebar/10" data-testid="card-empty-state">
+          <CardContent className="py-12 text-center">
+            <Shield className="w-12 h-12 mx-auto mb-3 text-muted-foreground/20" />
+            <p className="text-lg font-medium">No services monitored yet</p>
+            <p className="text-sm text-muted-foreground mt-1 mb-4">
+              Start by adding vendors and blockchains you want to track.
+            </p>
+            <Link href="/vendors">
+              <Button data-testid="button-go-to-vendors">
+                <Globe className="w-4 h-4 mr-2" />
+                Browse Vendors
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
+      {vendorsLoading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
-      </div>
+      )}
+
+      {hasNotificationsSetup && (
+        <div className="flex items-center gap-4 text-xs text-muted-foreground px-1" data-testid="notification-status">
+          <span className="flex items-center gap-1.5">
+            <Bell className="w-3.5 h-3.5" />
+            Notifications:
+          </span>
+          {notifPrefs?.notifyEmail && (
+            <span className="flex items-center gap-1 text-emerald-500">
+              <Mail className="w-3 h-3" />
+              Email active
+            </span>
+          )}
+          {notifPrefs?.notifySms && (
+            <span className="flex items-center gap-1 text-emerald-500">
+              <MessageSquare className="w-3 h-3" />
+              SMS active
+            </span>
+          )}
+          <Link href="/settings" className="ml-auto text-primary hover:underline" data-testid="link-notification-settings">
+            Manage
+          </Link>
+        </div>
+      )}
     </div>
   );
 }
 
-function MetricCard({ title, value, change, icon: Icon, trend, alert, primary, clickable }: any) {
+function StatCard({ title, value, icon: Icon, highlight, subtitle, subtitleColor }: {
+  title: string;
+  value: string;
+  icon: any;
+  highlight?: boolean;
+  subtitle?: string;
+  subtitleColor?: string;
+}) {
   return (
-    <Card className={`backdrop-blur-sm ${
-      primary 
-        ? 'border-primary/35 bg-primary/5 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.12)]' 
+    <Card className={`${
+      highlight 
+        ? 'border-red-500/30 bg-red-500/5' 
         : 'border-sidebar-border bg-sidebar/50'
-    } ${clickable ? 'cursor-pointer hover:border-primary/50 hover:bg-sidebar/70 transition-all' : ''}`}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className={`text-sm font-medium ${primary ? 'text-foreground/85' : 'text-muted-foreground'}`}>
-          {title}
-        </CardTitle>
-        <Icon className={`h-4 w-4 ${alert ? 'text-amber-500' : 'text-primary'}`} />
-      </CardHeader>
-      <CardContent>
+    } cursor-pointer hover:border-primary/40 transition-all`}>
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-medium text-muted-foreground">{title}</span>
+          <Icon className={`h-4 w-4 ${highlight ? 'text-red-500' : 'text-primary'}`} />
+        </div>
         <div className="text-2xl font-bold">{value}</div>
-        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-          {trend === 'up' && <span className="text-emerald-500 flex items-center"><ArrowUpRight className="h-3 w-3 mr-1"/>{change}</span>}
-          {trend === 'down' && <span className="text-emerald-500 flex items-center"><ArrowUpRight className="h-3 w-3 mr-1 rotate-180"/>{change}</span>}
-          {trend === 'neutral' && <span className="text-muted-foreground flex items-center">{change}</span>}
-        </p>
+        {subtitle && (
+          <p className={`text-xs mt-1 ${subtitleColor || 'text-muted-foreground'}`}>{subtitle}</p>
+        )}
       </CardContent>
     </Card>
   );
