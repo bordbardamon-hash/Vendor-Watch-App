@@ -1435,7 +1435,7 @@ export async function registerRoutes(
 
       const crypto = await import('crypto');
       const resetToken = crypto.randomBytes(32).toString('hex');
-      const resetExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      const resetExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
       await db.update(users).set({
         passwordResetToken: resetToken,
@@ -1456,7 +1456,7 @@ export async function registerRoutes(
           <h2 style="color: #0f172a;">Reset Your Password</h2>
           <p>Hello ${targetUser.firstName || 'there'},</p>
           <p>Your account administrator has requested a password reset for your Vendor Watch account.</p>
-          <p>Click the button below to set a new password. This link will expire in 24 hours.</p>
+          <p>Click the button below to set a new password. This link will expire in 7 days.</p>
           <p style="margin: 30px 0;">
             <a href="${resetUrl}" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
               Reset Password
@@ -1475,7 +1475,7 @@ Hello ${targetUser.firstName || 'there'},
 
 Your account administrator has requested a password reset for your Vendor Watch account.
 
-Click this link to set a new password (expires in 24 hours):
+Click this link to set a new password (expires in 7 days):
 ${resetUrl}
 
 If you did not expect this email, please contact your administrator.`
