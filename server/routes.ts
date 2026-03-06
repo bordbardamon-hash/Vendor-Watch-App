@@ -1237,6 +1237,10 @@ export async function registerRoutes(
         isAdmin: isAdmin || false,
       });
       
+      notifyOwnerNewSignup(email, firstName || null, lastName || null, 'admin_created', subscriptionTier || 'none').catch(err => {
+        console.error('[admin] Failed to notify owner about new user:', err);
+      });
+
       res.status(201).json({ 
         success: true, 
         user: { 

@@ -218,7 +218,7 @@ export async function notifyOwnerNewSignup(
   userEmail: string,
   firstName: string | null,
   lastName: string | null,
-  signupMethod: 'email' | 'replit_oauth' | 'promo_trial',
+  signupMethod: 'email' | 'replit_oauth' | 'promo_trial' | 'admin_created',
   tier?: string
 ): Promise<void> {
   const name = [firstName, lastName].filter(Boolean).join(' ') || 'Unknown';
@@ -231,7 +231,8 @@ export async function notifyOwnerNewSignup(
   const methodLabel = {
     'email': 'Email Registration',
     'replit_oauth': 'Google/GitHub Login',
-    'promo_trial': `Promotional Trial (${tier || 'Essential'})`
+    'promo_trial': `Promotional Trial (${tier || 'Essential'})`,
+    'admin_created': `Admin Created (${tier || 'None'})`
   }[signupMethod];
   
   const smsMessage = `🎉 New Signup!\n${name}\n${userEmail}\nVia: ${methodLabel}\n${timestamp}`;
