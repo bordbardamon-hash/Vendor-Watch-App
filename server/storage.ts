@@ -228,6 +228,7 @@ export interface IStorage {
   
   // Blockchain Subscriptions
   getUserBlockchainSubscriptions(userId: string): Promise<string[]>;
+  getUsersSubscribedToBlockchain(chainKey: string): Promise<User[]>;
   setUserBlockchainSubscriptions(userId: string, chainKeys: string[]): Promise<void>;
   hasUserSetBlockchainSubscriptions(userId: string): Promise<boolean>;
   resetUserBlockchainSubscriptions(userId: string): Promise<void>;
@@ -1708,6 +1709,19 @@ export class DatabaseStorage implements IStorage {
       .from(userBlockchainSubscriptions)
       .where(eq(userBlockchainSubscriptions.userId, userId));
     return subs.map(s => s.chainKey);
+  }
+
+  async getUsersSubscribedToBlockchain(chainKey: string): Promise<User[]> {
+    const subs = await db
+      .select()
+      .from(userBlockchainSubscriptions)
+      .where(eq(userBlockchainSubscriptions.chainKey, chainKey));
+    
+    if (subs.length === 0) return [];
+    
+    const userIds = subs.map(s => s.userId);
+    const allUsers = await db.select().from(users);
+    return allUsers.filter(u => userIds.includes(u.id));
   }
 
   async hasUserSetBlockchainSubscriptions(userId: string): Promise<boolean> {

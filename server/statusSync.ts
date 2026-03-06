@@ -505,8 +505,8 @@ async function fetchSlackStatus(vendor: { key: string; statusUrl: string }): Pro
   }
 }
 
-const SYNC_BATCH_SIZE = 25;
-const PER_VENDOR_TIMEOUT_MS = 10000;
+const SYNC_BATCH_SIZE = 50;
+const PER_VENDOR_TIMEOUT_MS = 8000;
 
 function shuffleArray<T>(arr: T[]): T[] {
   const shuffled = [...arr];

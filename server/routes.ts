@@ -802,7 +802,7 @@ export async function registerRoutes(
   // Returns immediately and runs sync in background to avoid timeout
   let fullSyncInProgress = false;
   let lastFullSyncTime = 0;
-  const FULL_SYNC_COOLDOWN_MS = 60_000;
+  const FULL_SYNC_COOLDOWN_MS = 30_000;
 
   app.post("/api/vendors/sync", isAuthenticated, async (req, res) => {
     try {

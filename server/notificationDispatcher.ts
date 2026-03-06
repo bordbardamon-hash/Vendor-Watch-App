@@ -177,30 +177,18 @@ export async function dispatchIncidentNotification(notification: IncidentNotific
   let smsSent = 0;
   let emailSent = 0;
   
-  const usersWithNotifications = await storage.getUsersWithNotificationsEnabled();
+  const subscribedUsers = await storage.getUsersSubscribedToVendor(vendor.key);
+  const eligibleUsers = subscribedUsers.filter(u => u.notifyEmail || u.notifySms);
   
   const assignedUserIds = await getAssignedUserIds('vendor', vendor.key);
   if (assignedUserIds) {
     console.log(`[notify] Alert assignments found for vendor ${vendor.key}: ${assignedUserIds.length} assigned users`);
   }
   
-  for (const user of usersWithNotifications) {
+  console.log(`[notify] ${vendor.key}: ${subscribedUsers.length} subscribed, ${eligibleUsers.length} with notifications enabled`);
+  
+  for (const user of eligibleUsers) {
     if (assignedUserIds && !assignedUserIds.includes(user.id)) {
-      console.log(`[notify] Skipping ${user.email} - vendor ${vendor.key} assigned to other team members`);
-      continue;
-    }
-    
-    const userSubscriptions = await storage.getUserVendorSubscriptions(user.id);
-    
-    const isSubscribed = userSubscriptions.includes(vendor.key);
-    
-    if (!isSubscribed) {
-      console.log(`[notify] Skipping ${user.email} - not subscribed to vendor ${vendor.key}`);
-      continue;
-    }
-    
-    if (!user.notifyEmail && !user.notifySms) {
-      console.log(`[notify] Skipping ${user.email} - no notification channels enabled`);
       continue;
     }
     
@@ -544,29 +532,18 @@ export async function dispatchLifecycleNotification(notification: LifecycleNotif
   
   console.log(`[notify] Dispatching ${lifecycleEvent.toUpperCase()} notification: ${vendor.name} - ${incident.title}`);
   
-  const usersWithNotifications = await storage.getUsersWithNotificationsEnabled();
+  const subscribedUsers = await storage.getUsersSubscribedToVendor(vendor.key);
+  const eligibleUsers = subscribedUsers.filter(u => u.notifyEmail || u.notifySms);
   
   const assignedUserIds = await getAssignedUserIds('vendor', vendor.key);
   if (assignedUserIds) {
     console.log(`[notify] Alert assignments found for lifecycle vendor ${vendor.key}: ${assignedUserIds.length} assigned users`);
   }
   
-  for (const user of usersWithNotifications) {
+  console.log(`[notify] ${vendor.key}: ${subscribedUsers.length} subscribed, ${eligibleUsers.length} with notifications enabled`);
+  
+  for (const user of eligibleUsers) {
     if (assignedUserIds && !assignedUserIds.includes(user.id)) {
-      continue;
-    }
-    
-    const userSubscriptions = await storage.getUserVendorSubscriptions(user.id);
-    
-    const isSubscribed = userSubscriptions.includes(vendor.key);
-    
-    if (!isSubscribed) {
-      console.log(`[notify] Skipping ${user.email} - not subscribed to vendor ${vendor.key}`);
-      continue;
-    }
-    
-    if (!user.notifyEmail && !user.notifySms) {
-      console.log(`[notify] Skipping ${user.email} - no notification channels enabled`);
       continue;
     }
 
@@ -895,30 +872,18 @@ export async function dispatchBlockchainNotification(notification: BlockchainNot
   
   console.log(`[notify] Dispatching blockchain ${eventType.toUpperCase()} notification: ${chain.name} - ${incident.title}`);
   
-  const usersWithNotifications = await storage.getUsersWithNotificationsEnabled();
+  const subscribedUsers = await storage.getUsersSubscribedToBlockchain(chain.key);
+  const eligibleUsers = subscribedUsers.filter(u => u.notifyEmail || u.notifySms);
   
   const assignedUserIds = await getAssignedUserIds('blockchain', chain.key);
   if (assignedUserIds) {
     console.log(`[notify] Alert assignments found for blockchain ${chain.key}: ${assignedUserIds.length} assigned users`);
   }
   
-  for (const user of usersWithNotifications) {
+  console.log(`[notify] ${chain.key}: ${subscribedUsers.length} subscribed, ${eligibleUsers.length} with notifications enabled`);
+  
+  for (const user of eligibleUsers) {
     if (assignedUserIds && !assignedUserIds.includes(user.id)) {
-      console.log(`[notify] Skipping ${user.email} - blockchain ${chain.key} assigned to other team members`);
-      continue;
-    }
-    
-    const userSubscriptions = await storage.getUserBlockchainSubscriptions(user.id);
-    
-    const isSubscribed = userSubscriptions.includes(chain.key);
-    
-    if (!isSubscribed) {
-      console.log(`[notify] Skipping ${user.email} - not subscribed to blockchain ${chain.key}`);
-      continue;
-    }
-    
-    if (!user.notifyEmail && !user.notifySms) {
-      console.log(`[notify] Skipping ${user.email} - no notification channels enabled`);
       continue;
     }
     

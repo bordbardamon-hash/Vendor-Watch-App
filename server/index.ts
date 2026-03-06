@@ -247,7 +247,7 @@ app.use((req, res, next) => {
     () => {
       log(`serving on port ${port}`);
       
-      const SYNC_INTERVAL_MS = 5 * 60 * 1000;
+      const SYNC_INTERVAL_MS = 2 * 60 * 1000;
       let syncRunning = false;
       let lastSyncStart = 0;
       let initialSyncDone = false;
