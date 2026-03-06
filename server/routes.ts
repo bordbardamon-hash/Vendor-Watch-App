@@ -800,12 +800,15 @@ export async function registerRoutes(
   
   // Sync vendor statuses from real status pages (protected)
   // Returns immediately and runs sync in background to avoid timeout
+  let fullSyncInProgress = false;
+  let lastFullSyncTime = 0;
+  const FULL_SYNC_COOLDOWN_MS = 60_000;
+
   app.post("/api/vendors/sync", isAuthenticated, async (req, res) => {
     try {
       const vendorKey = req.body?.vendorKey;
       console.log(`[sync] Manual sync requested${vendorKey ? ` for ${vendorKey}` : ' for all vendors'}...`);
       
-      // For single vendor sync, do it synchronously (fast)
       if (vendorKey) {
         const result = await syncVendorStatus(vendorKey);
         return res.json({ 
@@ -817,7 +820,22 @@ export async function registerRoutes(
         });
       }
       
-      // For full sync, respond immediately and run in background to avoid timeout
+      const now = Date.now();
+      if (fullSyncInProgress || (now - lastFullSyncTime) < FULL_SYNC_COOLDOWN_MS) {
+        return res.json({ 
+          success: true, 
+          synced: 0, 
+          skipped: 0,
+          errors: [],
+          message: "Sync already in progress or recently completed. Please wait.",
+          background: true,
+          throttled: true
+        });
+      }
+      
+      fullSyncInProgress = true;
+      lastFullSyncTime = now;
+
       res.json({ 
         success: true, 
         synced: 0, 
@@ -827,13 +845,15 @@ export async function registerRoutes(
         background: true
       });
       
-      // Run full sync in background (don't await)
       syncVendorStatus().then(result => {
         console.log(`[sync] Background sync complete: ${result.synced} synced, ${result.skipped} skipped`);
       }).catch(error => {
         console.error("[sync] Background sync failed:", error);
+      }).finally(() => {
+        fullSyncInProgress = false;
       });
     } catch (error) {
+      fullSyncInProgress = false;
       console.error("Error syncing vendor statuses:", error);
       res.status(500).json({ error: "Failed to sync vendor statuses" });
     }

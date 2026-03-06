@@ -20,46 +20,13 @@ import { Button } from "@/components/ui/button";
 import { UI_LABELS } from "@/lib/labels";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { useEffect } from "react";
 import { LogoAvatar } from "@/components/ui/logo-avatar";
 
 export default function Dashboard() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
-
-  const syncMutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetch("/api/vendors/sync", { method: "POST" });
-      if (!res.ok) throw new Error("Sync failed");
-      return res.json();
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/my-vendors"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/my-incidents"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/vendors"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/incidents"] });
-      if (data.background) {
-        setTimeout(() => {
-          queryClient.invalidateQueries({ queryKey: ["/api/my-vendors"] });
-          queryClient.invalidateQueries({ queryKey: ["/api/my-incidents"] });
-          queryClient.invalidateQueries({ queryKey: ["/api/vendors"] });
-          queryClient.invalidateQueries({ queryKey: ["/api/incidents"] });
-        }, 5000);
-      }
-    },
-    onError: (error) => {
-      console.log("[sync] Status sync failed:", error);
-    },
-  });
-
-  useEffect(() => {
-    if (user) {
-      syncMutation.mutate();
-    }
-  }, [user]);
 
   const { data: vendors = [], isLoading: vendorsLoading } = useQuery<any[]>({
     queryKey: ["/api/my-vendors"],

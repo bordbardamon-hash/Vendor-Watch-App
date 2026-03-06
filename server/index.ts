@@ -158,7 +158,11 @@ app.use((req, res, next) => {
 
   const originalResJson = res.json;
   res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
+    if (Array.isArray(bodyJson) && bodyJson.length > 10) {
+      capturedJsonResponse = { _arrayLength: bodyJson.length };
+    } else {
+      capturedJsonResponse = bodyJson;
+    }
     return originalResJson.apply(res, [bodyJson, ...args]);
   };
 
@@ -167,7 +171,12 @@ app.use((req, res, next) => {
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+        if (capturedJsonResponse._arrayLength) {
+          logLine += ` :: [${capturedJsonResponse._arrayLength} items]`;
+        } else {
+          const bodyStr = JSON.stringify(capturedJsonResponse);
+          logLine += bodyStr.length > 500 ? ` :: (${bodyStr.length} chars)` : ` :: ${bodyStr}`;
+        }
       }
 
       log(logLine);
