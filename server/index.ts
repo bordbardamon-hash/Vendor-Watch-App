@@ -180,6 +180,38 @@ app.use((req, res, next) => {
       }
 
       log(logLine);
+
+      const method = req.method;
+      if (
+        ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) &&
+        path.startsWith("/api/") &&
+        (req as any).user?.id &&
+        res.statusCode >= 200 &&
+        res.statusCode < 300
+      ) {
+        const skipPaths = ['/api/vendors/sync', '/api/blockchain/sync', '/api/auth/', '/api/sms/test', '/api/email/test', '/api/audit-logs'];
+        if (!skipPaths.some(sp => path.startsWith(sp))) {
+          const action = method === 'DELETE' ? 'delete' : method === 'POST' ? 'create' : 'update';
+          const segments = path.replace('/api/', '').split('/');
+          const resourceType = segments[0] || 'unknown';
+          const resourceId = segments[1] || undefined;
+          const user = (req as any).user;
+
+          storage.createAuditLog({
+            userId: user.id,
+            userEmail: user.email,
+            action,
+            resourceType,
+            resourceId,
+            resourceName: path,
+            details: null,
+            ipAddress: req.ip || req.headers['x-forwarded-for']?.toString() || null,
+            userAgent: req.headers['user-agent'] || null,
+            success: true,
+            errorMessage: null,
+          }).catch(() => {});
+        }
+      }
     }
   });
 

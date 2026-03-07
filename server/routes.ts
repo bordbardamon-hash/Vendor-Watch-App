@@ -20,6 +20,20 @@ import { eq, and, isNull, gt, sql } from "drizzle-orm";
 
 const SALT_ROUNDS = 10;
 
+async function logAudit(req: any, action: string, resourceType: string, resourceId?: string, resourceName?: string, details?: any, success = true, errorMessage?: string) {
+  try {
+    const userId = req.user?.id;
+    const userEmail = req.user?.email;
+    const ipAddress = req.ip || req.headers['x-forwarded-for'];
+    const userAgent = req.headers['user-agent'];
+    await storage.createAuditLog({
+      userId, userEmail, action, resourceType, resourceId, resourceName,
+      details: details ? JSON.stringify(details) : null,
+      ipAddress, userAgent, success, errorMessage
+    });
+  } catch (e) { console.error('Audit log failed:', e); }
+}
+
 // Unified isAuthenticated middleware that works with session, Replit OAuth, AND mobile bearer tokens
 const isAuthenticated: RequestHandler = async (req: any, res, next) => {
   // Check for email auth session
@@ -9199,21 +9213,6 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
   });
 
   // ============ AUDIT LOGS ============
-
-  // Helper function to create audit logs
-  async function logAudit(req: any, action: string, resourceType: string, resourceId?: string, resourceName?: string, details?: any, success = true, errorMessage?: string) {
-    try {
-      const userId = req.user?.id;
-      const userEmail = req.user?.email;
-      const ipAddress = req.ip || req.headers['x-forwarded-for'];
-      const userAgent = req.headers['user-agent'];
-      await storage.createAuditLog({
-        userId, userEmail, action, resourceType, resourceId, resourceName,
-        details: details ? JSON.stringify(details) : null,
-        ipAddress, userAgent, success, errorMessage
-      });
-    } catch (e) { console.error('Audit log failed:', e); }
-  }
 
   // GET /api/audit-logs - List audit logs (admin only)
   app.get("/api/audit-logs", isAuthenticated, isAdmin, async (req: any, res) => {

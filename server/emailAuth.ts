@@ -199,6 +199,12 @@ export async function setupEmailAuth(app: Express) {
         // Log login activity (don't await to avoid blocking redirect)
         storage.logUserActivity(user.userId, 'login', { method: 'replit_oauth' }).catch(console.error);
         
+        storage.createAuditLog({
+          userId: user.userId, userEmail: user.email, action: 'login', resourceType: 'session',
+          resourceId: null, resourceName: 'OAuth Login', details: JSON.stringify({ method: 'replit_oauth' }),
+          ipAddress: req.ip || null, userAgent: req.headers['user-agent'] || null, success: true, errorMessage: null,
+        }).catch(() => {});
+        
         return res.redirect('/');
       })(req, res, next);
     });
@@ -329,6 +335,13 @@ export async function setupEmailAuth(app: Express) {
       
       // Log login activity
       await storage.logUserActivity(user.id, 'login', { method: 'email' });
+      
+      // Audit log for login
+      storage.createAuditLog({
+        userId: user.id, userEmail: user.email, action: 'login', resourceType: 'session',
+        resourceId: null, resourceName: 'Email Login', details: JSON.stringify({ method: 'email' }),
+        ipAddress: clientIp, userAgent: req.headers['user-agent'] || null, success: true, errorMessage: null,
+      }).catch(() => {});
       
       res.json({ 
         id: user.id, 
