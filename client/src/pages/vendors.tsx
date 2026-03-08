@@ -343,12 +343,21 @@ export default function Vendors() {
       queryClient.invalidateQueries({ queryKey: ["subscriptions-vendors"] });
       queryClient.invalidateQueries({ queryKey: ["vendor-limit"] });
       queryClient.invalidateQueries({ queryKey: ["my-vendors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/my-vendors"] });
       toast({
         title: data.subscribed ? "Vendor Added" : "Vendor Removed",
         description: data.subscribed 
           ? `Added to monitoring (${data.current}/${data.limit === null ? '∞' : data.limit})`
           : "Removed from monitoring",
       });
+      if (data.subscribed && data.current === 1) {
+        setTimeout(() => {
+          toast({
+            title: "Set up notifications",
+            description: "Configure email or SMS alerts in Settings to get notified about incidents.",
+          });
+        }, 1500);
+      }
     },
     onError: (error: Error) => {
       toast({ title: "Failed", description: error.message, variant: "destructive" });
@@ -969,15 +978,10 @@ export default function Vendors() {
                       </div>
                     </div>
                     {(vendor as any).category && (
-                      <div className="mb-2">
+                      <div className="mt-1">
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-sidebar border border-sidebar-border text-muted-foreground">
                           {(vendor as any).category}
                         </span>
-                      </div>
-                    )}
-                    {vendor.lastChecked && (
-                      <div className="mt-2 text-xs text-muted-foreground">
-                        Last checked: {formatShortDateInTimezone(vendor.lastChecked, timezone)}
                       </div>
                     )}
                   </CardContent>
@@ -1001,7 +1005,7 @@ export default function Vendors() {
                   Back to vendors
                 </button>
                 <div className="flex items-center justify-between">
-                  <div className="space-y-1">
+                  <div className="space-y-2">
                     <CardTitle className="flex items-center gap-2 text-2xl">
                       {selectedVendor.name}
                     </CardTitle>
@@ -1010,10 +1014,10 @@ export default function Vendors() {
                         href={selectedVendor.statusUrl} 
                         target="_blank" 
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 transition-colors"
                         data-testid="link-vendor-status-page"
                       >
-                        <ExternalLink className="w-3 h-3" />
+                        <ExternalLink className="w-4 h-4" />
                         View {selectedVendor.name} Status Page
                       </a>
                     )}
@@ -1094,8 +1098,9 @@ export default function Vendors() {
                                 </>
                               )}
                             </Button>
-                            <a href={incident.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1 px-2 py-1.5 border border-primary/30 rounded shrink-0">
-                              View <ExternalLink className="w-3 h-3" />
+                            <a href={incident.url} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-primary hover:bg-primary/10 flex items-center gap-1.5 px-3 py-1.5 border border-primary/30 rounded transition-colors shrink-0" data-testid={`link-vendor-incident-status-${incident.id}`}>
+                              <ExternalLink className="w-3 h-3" />
+                              Status Page
                             </a>
                           </div>
                         </div>

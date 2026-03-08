@@ -428,8 +428,9 @@ export default function Incidents() {
                       <Sparkles className="w-3 h-3 mr-1" />
                       AI Draft
                     </Button>
-                    <a href={incident.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1 px-2 py-1.5 border border-primary/30 rounded shrink-0">
-                      View <ExternalLink className="w-3 h-3" />
+                    <a href={incident.url} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-primary hover:bg-primary/10 flex items-center gap-1.5 px-3 py-1.5 border border-primary/30 rounded transition-colors shrink-0" data-testid={`link-incident-status-${incident.id}`}>
+                      <ExternalLink className="w-3 h-3" />
+                      Status Page
                     </a>
                   </div>
                 </div>
@@ -558,9 +559,11 @@ export default function Incidents() {
                         href={incident.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-xs text-primary hover:underline flex items-center gap-1 w-fit"
+                        className="text-xs font-medium text-primary hover:bg-primary/10 flex items-center gap-1.5 px-3 py-1.5 border border-primary/30 rounded transition-colors w-fit"
+                        data-testid={`link-archive-status-${incident.incidentId}`}
                       >
-                        View details <ExternalLink className="w-3 h-3" />
+                        <ExternalLink className="w-3 h-3" />
+                        Status Page
                       </a>
                     </div>
                   </div>

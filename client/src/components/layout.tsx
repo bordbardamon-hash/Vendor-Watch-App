@@ -128,7 +128,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         { href: "/automation", icon: Bot, label: "Automation", adminOnly: false, ownerOnly: false },
       ],
       collapsible: true,
-      defaultCollapsed: false,
+      defaultCollapsed: true,
     },
     {
       title: "MSP Tools",
@@ -145,8 +145,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       title: "Integrations",
       items: [
         { href: "/integrations", icon: Settings2, label: "Integrations", adminOnly: false, ownerOnly: false, requiresGrowth: true },
-        { href: "/webhooks", icon: Webhook, label: "Webhooks", adminOnly: false, ownerOnly: false, requiresGrowth: true },
-        { href: "/psa-integrations", icon: Ticket, label: "PSA Ticketing", adminOnly: false, ownerOnly: false, requiresGrowth: true },
         { href: "/api-keys", icon: Key, label: "API Access", adminOnly: false, ownerOnly: false, requiresEnterprise: true },
       ],
       collapsible: true,
@@ -161,7 +159,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         { href: "/audit-logs", icon: ClipboardList, label: "Audit Logs", adminOnly: true, ownerOnly: false },
       ],
       collapsible: true,
-      defaultCollapsed: false,
+      defaultCollapsed: true,
     },
     {
       title: "Admin",
