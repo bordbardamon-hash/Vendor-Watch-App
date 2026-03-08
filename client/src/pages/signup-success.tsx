@@ -52,7 +52,7 @@ export default function SignupSuccess() {
           </div>
           <CardTitle className="text-2xl">Welcome to {APP_NAME}!</CardTitle>
           <CardDescription className="text-base">
-            Your account has been created and your 7-day free trial has started.
+            Your account has been created and your 14-day free trial has started.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -73,7 +73,7 @@ export default function SignupSuccess() {
           </Link>
 
           <p className="text-xs text-muted-foreground">
-            Your trial lasts 7 days. You won't be charged until the trial ends.
+            Your trial lasts 14 days. You won't be charged until the trial ends.
           </p>
         </CardContent>
       </Card>

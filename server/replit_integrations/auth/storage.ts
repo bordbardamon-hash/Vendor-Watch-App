@@ -101,9 +101,9 @@ class AuthStorage implements IAuthStorage {
         return user;
       }
       
-      // Regular new user - set 7-day trial and mark profile as incomplete
+      // Regular new user - set 14-day trial and mark profile as incomplete
       const trialEndsAt = new Date();
-      trialEndsAt.setDate(trialEndsAt.getDate() + 7);
+      trialEndsAt.setDate(trialEndsAt.getDate() + 14);
       
       const [user] = await db
         .insert(users)
@@ -116,7 +116,7 @@ class AuthStorage implements IAuthStorage {
         })
         .returning();
       
-      console.log(`[auth] New user created with 7-day trial ending ${trialEndsAt.toISOString()}`);
+      console.log(`[auth] New user created with 14-day trial ending ${trialEndsAt.toISOString()}`);
       return user;
     }
   }

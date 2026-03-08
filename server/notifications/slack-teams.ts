@@ -1,5 +1,6 @@
 import { storage } from '../storage';
-import type { Incident, Vendor, BlockchainIncident, BlockchainChain, LifecycleEvent } from '@shared/schema';
+import { SUBSCRIPTION_TIERS } from '@shared/schema';
+import type { Incident, Vendor, BlockchainIncident, BlockchainChain, LifecycleEvent, SubscriptionTierKey } from '@shared/schema';
 
 type EventType = 'new' | 'update' | 'resolved' | 'escalation' | 'long_running';
 
@@ -224,8 +225,9 @@ export async function dispatchSlackTeamsForAllSubscribedUsers(
         continue;
       }
 
-      const tier = user.subscriptionTier;
-      if (!tier || tier === 'essential') {
+      const tier = user.subscriptionTier as SubscriptionTierKey;
+      const tierConfig = tier ? SUBSCRIPTION_TIERS[tier] : null;
+      if (!tierConfig || !tierConfig.slackEnabled) {
         continue;
       }
 

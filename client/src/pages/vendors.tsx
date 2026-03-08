@@ -856,17 +856,23 @@ export default function Vendors() {
         <div className={`lg:col-span-5 flex flex-col gap-4 ${selectedVendor ? 'hidden lg:flex' : ''}`}>
           {/* Subscription Limit Indicator */}
           {subscriptionData && (
-            <div className="bg-sidebar/30 border border-sidebar-border rounded-lg p-3 flex items-center justify-between">
+            <div className={`border rounded-lg p-3 flex items-center justify-between ${subscriptionData.tier === 'free' ? 'bg-amber-500/5 border-amber-500/30' : 'bg-sidebar/30 border-sidebar-border'}`}>
               <div className="flex items-center gap-2">
                 <Shield className="w-4 h-4 text-primary" />
                 <span className="text-sm font-medium">Monitoring</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
-                <span className="text-muted-foreground">
+                <span className={subscriptionData.tier === 'free' && subscriptionData.current >= (subscriptionData.limit || 0) ? 'text-amber-500 font-medium' : 'text-muted-foreground'}>
                   {subscriptionData.current} / {subscriptionData.limit === null ? '∞' : subscriptionData.limit} vendors
                 </span>
-                <Badge variant="outline" className="text-xs capitalize">{subscriptionData.tier || 'Free'}</Badge>
+                <Badge variant="outline" className="text-xs capitalize" data-testid="badge-subscription-tier">{subscriptionData.tier || 'Free'}</Badge>
               </div>
+            </div>
+          )}
+          {subscriptionData?.tier === 'free' && (
+            <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg p-3 text-sm text-amber-600 dark:text-amber-400" data-testid="banner-free-tier-limit">
+              <span className="font-medium">Free plan:</span> Monitor up to {subscriptionData.limit} vendors with email-only alerts.{' '}
+              <a href="/pricing" className="underline hover:no-underline font-medium" data-testid="link-upgrade-from-vendors">Upgrade</a> for more vendors and advanced features.
             </div>
           )}
           <div className="relative mb-3">

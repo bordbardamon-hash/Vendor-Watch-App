@@ -69,7 +69,7 @@ export class WebhookHandlers {
             
             if (claimed) {
               // Create the user account now that payment succeeded and claim was successful
-              const trialEndsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+              const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000); // 14 days
               
               const [newUser] = await db.insert(users).values({
                 email: claimed.email,

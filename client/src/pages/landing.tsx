@@ -544,7 +544,7 @@ export default function Landing() {
                 <div className="absolute top-8 left-[60%] w-[80%] h-0.5 bg-gradient-to-r from-primary/40 to-transparent hidden md:block" />
                 <h3 className="font-semibold text-lg mb-2">Sign Up & Subscribe</h3>
                 <p className="text-sm text-muted-foreground">
-                  Create your account and choose a plan that fits your needs. Start with a 7-day free trial.
+                  Create your account and choose a plan that fits your needs. Start with a 14-day free trial.
                 </p>
               </div>
 
@@ -619,7 +619,27 @@ export default function Landing() {
               <p className="text-lg text-muted-foreground">Simple pricing for businesses of all sizes</p>
             </div>
 
-            <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+            <div className="grid md:grid-cols-4 gap-6 max-w-6xl mx-auto">
+              <Card className="bg-card/50 border-2" data-testid="card-pricing-free">
+                <CardHeader>
+                  <CardTitle className="text-xl">Free</CardTitle>
+                  <div className="text-3xl font-bold">$0<span className="text-sm font-normal text-muted-foreground">/mo</span></div>
+                  <p className="text-xs text-muted-foreground mt-1">No credit card required</p>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-3 text-sm">
+                    <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500 shrink-0" /> Up to 2 vendors</li>
+                    <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500 shrink-0" /> 1 blockchain network</li>
+                    <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500 shrink-0" /> Email alerts</li>
+                    <li className="flex items-center gap-2 text-muted-foreground"><X className="h-4 w-4 text-red-500 shrink-0" /> No Slack or webhooks</li>
+                    <li className="flex items-center gap-2 text-muted-foreground"><X className="h-4 w-4 text-red-500 shrink-0" /> No SMS alerts</li>
+                  </ul>
+                  <Link href="/signup?tier=free">
+                    <Button className="w-full mt-6" variant="outline" data-testid="button-signup-free">Start Free</Button>
+                  </Link>
+                </CardContent>
+              </Card>
+
               <Card className="bg-card/50 border-2" data-testid="card-pricing-essential">
                 <CardHeader>
                   <CardTitle className="text-xl">Essential</CardTitle>
@@ -629,7 +649,7 @@ export default function Landing() {
                 <CardContent>
                   <ul className="space-y-3 text-sm">
                     <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500 shrink-0" /> Up to 25 vendors</li>
-                    <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500 shrink-0" /> Email alerts</li>
+                    <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500 shrink-0" /> Email, Slack & webhook alerts</li>
                     <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500 shrink-0" /> Weekly digest emails</li>
                     <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500 shrink-0" /> Component-level monitoring</li>
                     <li className="flex items-center gap-2 text-muted-foreground"><X className="h-4 w-4 text-red-500 shrink-0" /> No SMS alerts</li>
@@ -702,7 +722,7 @@ export default function Landing() {
               <h2 className="text-3xl md:text-4xl font-bold mb-4 tracking-tight">Ready to Never Be Caught Off Guard Again?</h2>
               <p className="text-lg text-muted-foreground mb-8 max-w-xl mx-auto">
                 Join MSPs and IT teams who trust {APP_NAME} to monitor their critical vendor infrastructure.
-                Start your 7-day free trial today.
+                Start your 14-day free trial today.
               </p>
               <Link href="/signup">
                 <Button size="lg" className="text-lg px-10 py-6 shadow-lg shadow-primary/20" data-testid="button-final-cta">

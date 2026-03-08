@@ -157,7 +157,7 @@ export async function dispatchPagerDutyForAllSubscribedUsers(
       }
 
       const tier = user.subscriptionTier;
-      if (!tier || tier === 'essential') {
+      if (!tier || tier === 'free' || tier === 'essential') {
         continue;
       }
 

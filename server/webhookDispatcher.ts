@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { storage } from './storage';
-import type { Incident, Vendor, BlockchainIncident, BlockchainChain, UserWebhook } from '@shared/schema';
+import { SUBSCRIPTION_TIERS } from '@shared/schema';
+import type { Incident, Vendor, BlockchainIncident, BlockchainChain, UserWebhook, SubscriptionTierKey } from '@shared/schema';
 
 type WebhookEventType = 'new' | 'update' | 'resolved';
 
@@ -114,13 +115,34 @@ async function sendWebhook(
   }
 }
 
+async function filterWebhooksByTier(webhooks: UserWebhook[]): Promise<UserWebhook[]> {
+  const filtered: UserWebhook[] = [];
+  for (const webhook of webhooks) {
+    try {
+      const user = await storage.getUser(webhook.userId);
+      if (!user) continue;
+      const tier = user.subscriptionTier as SubscriptionTierKey;
+      const tierConfig = tier ? SUBSCRIPTION_TIERS[tier] : null;
+      if (tierConfig?.webhookEnabled) {
+        filtered.push(webhook);
+      }
+    } catch {
+      filtered.push(webhook);
+    }
+  }
+  return filtered;
+}
+
 export async function dispatchWebhooksForIncident(
   incident: Incident,
   vendor: Vendor,
   eventType: WebhookEventType
 ): Promise<void> {
   try {
-    const webhooks = await storage.getActiveWebhooksForVendorEvent(vendor.key, eventType);
+    const allWebhooks = await storage.getActiveWebhooksForVendorEvent(vendor.key, eventType);
+    if (allWebhooks.length === 0) return;
+
+    const webhooks = await filterWebhooksByTier(allWebhooks);
     if (webhooks.length === 0) return;
 
     const payload = buildWebhookPayload(incident, vendor, eventType, false);
@@ -145,11 +167,12 @@ export async function dispatchWebhooksForBlockchainIncident(
   try {
     const activeWebhooks = await storage.getActiveWebhooksForVendorEvent(chain.key, eventType);
 
-    const webhooks = activeWebhooks.filter(webhook => {
+    const chainFiltered = activeWebhooks.filter(webhook => {
       const chainKeys = webhook.chainKeys ? JSON.parse(webhook.chainKeys) : null;
       return !chainKeys || chainKeys.includes(chain.key);
     });
 
+    const webhooks = await filterWebhooksByTier(chainFiltered);
     if (webhooks.length === 0) return;
 
     const payload = buildWebhookPayload(incident, chain, eventType, true);

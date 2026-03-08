@@ -71,11 +71,10 @@ import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
 
 // Helper to normalize subscription tier (handle legacy 'platinum' tier)
-function normalizeTier(tier: string | null): 'essential' | 'growth' | 'enterprise' | null {
+function normalizeTier(tier: string | null): 'free' | 'essential' | 'growth' | 'enterprise' | null {
   if (!tier) return null;
-  // Map 'platinum' to 'enterprise' for backwards compatibility
   if (tier === 'platinum') return 'enterprise';
-  if (tier === 'essential' || tier === 'growth' || tier === 'enterprise') {
+  if (tier === 'free' || tier === 'essential' || tier === 'growth' || tier === 'enterprise') {
     return tier;
   }
   return null;

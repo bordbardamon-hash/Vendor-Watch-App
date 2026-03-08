@@ -525,6 +525,22 @@ export type BlockchainMaintenance = typeof blockchainMaintenances.$inferSelect;
 
 // Subscription tier constants with per-seat pricing
 export const SUBSCRIPTION_TIERS = {
+  free: {
+    name: 'Free',
+    price: 0,
+    vendorLimit: 2,
+    customVendorRequests: 0,
+    blockchainLimit: 1,
+    smsEnabled: false,
+    slackEnabled: false,
+    webhookEnabled: false,
+    automationEnabled: false,
+    aiCopilotEnabled: false,
+    stakingEnabled: false,
+    includedSeats: 1,
+    seatPrice: 0,
+    supportsSeats: false,
+  },
   essential: { 
     name: 'Essential', 
     price: 89, 
@@ -532,11 +548,13 @@ export const SUBSCRIPTION_TIERS = {
     customVendorRequests: 0, 
     blockchainLimit: 0,
     smsEnabled: false,
+    slackEnabled: true,
+    webhookEnabled: true,
     automationEnabled: false,
     aiCopilotEnabled: false,
     stakingEnabled: false,
     includedSeats: 1,
-    seatPrice: 0, // No additional seats for Essential
+    seatPrice: 0,
     supportsSeats: false,
   },
   growth: { 
@@ -546,11 +564,13 @@ export const SUBSCRIPTION_TIERS = {
     customVendorRequests: 5, 
     blockchainLimit: 25,
     smsEnabled: true,
+    slackEnabled: true,
+    webhookEnabled: true,
     automationEnabled: true,
     aiCopilotEnabled: false,
     stakingEnabled: false,
     includedSeats: 3,
-    seatPrice: 20, // $20/mo per additional seat
+    seatPrice: 20,
     supportsSeats: true,
   },
   enterprise: { 
@@ -560,11 +580,13 @@ export const SUBSCRIPTION_TIERS = {
     customVendorRequests: null, 
     blockchainLimit: null,
     smsEnabled: true,
+    slackEnabled: true,
+    webhookEnabled: true,
     automationEnabled: true,
     aiCopilotEnabled: true,
     stakingEnabled: true,
     includedSeats: 5,
-    seatPrice: 25, // $25/mo per additional seat
+    seatPrice: 25,
     supportsSeats: true,
   },
 } as const;

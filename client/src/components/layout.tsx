@@ -47,7 +47,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { VendorWatchLogo } from "@/components/ui/vendor-watch-logo";
 import { CommandSearch } from "@/components/command-search";
 
-type NavItem = { href: string; icon: any; label: string; adminOnly: boolean; ownerOnly: boolean; requiresGrowth?: boolean; requiresEnterprise?: boolean };
+type NavItem = { href: string; icon: any; label: string; adminOnly: boolean; ownerOnly: boolean; requiresEssential?: boolean; requiresGrowth?: boolean; requiresEnterprise?: boolean };
 
 type NavSection = {
   title: string;
@@ -99,6 +99,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     return "U";
   };
 
+  const isFree = user?.subscriptionTier === 'free';
+  const isEssentialOrHigher = user?.subscriptionTier === 'essential' || user?.subscriptionTier === 'growth' || user?.subscriptionTier === 'enterprise';
   const isGrowthOrHigher = user?.subscriptionTier === 'growth' || user?.subscriptionTier === 'enterprise';
   const isEnterprise = user?.subscriptionTier === 'enterprise';
 
@@ -121,11 +123,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     {
       title: "Intelligence",
       items: [
-        { href: "/analytics", icon: BarChart3, label: "Analytics", adminOnly: false, ownerOnly: false },
-        { href: "/sla", icon: Target, label: "SLA Dashboard", adminOnly: false, ownerOnly: false },
+        { href: "/analytics", icon: BarChart3, label: "Analytics", adminOnly: false, ownerOnly: false, requiresEssential: true },
+        { href: "/sla", icon: Target, label: "SLA Dashboard", adminOnly: false, ownerOnly: false, requiresEssential: true },
         { href: "/predictions", icon: TrendingUp, label: "Predictions", adminOnly: false, ownerOnly: false, requiresEnterprise: true },
         { href: "/reports", icon: FileText, label: "Reports", adminOnly: false, ownerOnly: false, requiresGrowth: true },
-        { href: "/automation", icon: Bot, label: "Automation", adminOnly: false, ownerOnly: false },
+        { href: "/automation", icon: Bot, label: "Automation", adminOnly: false, ownerOnly: false, requiresEssential: true },
       ],
       collapsible: true,
       defaultCollapsed: true,
@@ -144,7 +146,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     {
       title: "Integrations",
       items: [
-        { href: "/integrations", icon: Settings2, label: "Integrations", adminOnly: false, ownerOnly: false, requiresGrowth: true },
+        { href: "/integrations", icon: Settings2, label: "Integrations", adminOnly: false, ownerOnly: false, requiresEssential: true },
         { href: "/api-keys", icon: Key, label: "API Access", adminOnly: false, ownerOnly: false, requiresEnterprise: true },
       ],
       collapsible: true,
@@ -179,6 +181,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const filterItems = (items: NavItem[]) => items.filter(item => {
     if (item.ownerOnly && !user?.isOwner) return false;
     if (item.adminOnly && !user?.isAdmin) return false;
+    if (item.requiresEssential && !isEssentialOrHigher) return false;
     if (item.requiresGrowth && !isGrowthOrHigher) return false;
     if (item.requiresEnterprise && !isEnterprise) return false;
     return true;

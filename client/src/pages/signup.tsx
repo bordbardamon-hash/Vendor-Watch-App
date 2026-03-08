@@ -4,14 +4,29 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Check, CreditCard, ArrowRight, Crown, Star, Zap, Shield } from "lucide-react";
+import { Check, CreditCard, ArrowRight, Crown, Star, Zap, Shield, Gift } from "lucide-react";
 import { VendorWatchLogo } from "@/components/ui/vendor-watch-logo";
 import { APP_NAME } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 
-type SubscriptionTier = 'essential' | 'growth' | 'enterprise';
+type SubscriptionTier = 'free' | 'essential' | 'growth' | 'enterprise';
 
 const TIERS = {
+  free: {
+    name: "Free",
+    price: "$0",
+    icon: Gift,
+    color: "text-green-500",
+    borderColor: "border-green-500/50",
+    bgColor: "bg-green-500/10",
+    features: [
+      "Monitor up to 2 vendors",
+      "1 blockchain network",
+      "Email alerts only",
+      "Real-time incident detection",
+      "No credit card required",
+    ],
+  },
   essential: {
     name: "Essential",
     price: "$89",
@@ -22,9 +37,9 @@ const TIERS = {
     features: [
       "Monitor up to 25 vendors",
       "Real-time incident detection",
-      "Email alerts only",
+      "Email, Slack & webhook alerts",
       "Detailed incident tracking",
-      "7-day free trial",
+      "14-day free trial",
     ],
   },
   growth: {
@@ -42,7 +57,7 @@ const TIERS = {
       "Up to 25 blockchain networks",
       "Basic automation rules",
       "5 custom vendor requests",
-      "7-day free trial",
+      "14-day free trial",
     ],
   },
   enterprise: {
@@ -59,7 +74,7 @@ const TIERS = {
       "Full automation + AI Copilot",
       "Add vendors directly",
       "Priority support",
-      "7-day free trial",
+      "14-day free trial",
     ],
   },
 };
@@ -67,7 +82,7 @@ const TIERS = {
 export default function Signup() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [selectedTier, setSelectedTier] = useState<SubscriptionTier>('growth');
+  const [selectedTier, setSelectedTier] = useState<SubscriptionTier>('essential');
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -97,7 +112,9 @@ export default function Signup() {
         throw new Error(data.error || "Failed to create checkout session");
       }
 
-      if (data.url) {
+      if (data.free && data.redirectUrl) {
+        window.location.href = data.redirectUrl;
+      } else if (data.url) {
         window.location.href = data.url;
       }
     } catch (error: any) {
@@ -125,8 +142,8 @@ export default function Signup() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6">
-          {(['essential', 'growth', 'enterprise'] as SubscriptionTier[]).map((tier) => {
+        <div className="grid md:grid-cols-4 gap-6">
+          {(['free', 'essential', 'growth', 'enterprise'] as SubscriptionTier[]).map((tier) => {
             const config = TIERS[tier];
             const Icon = config.icon;
             const isSelected = selectedTier === tier;
@@ -180,7 +197,9 @@ export default function Signup() {
               Create your {currentTier.name} account
             </CardTitle>
             <CardDescription>
-              Fill in your details to start your 7-day free trial
+              {selectedTier === 'free' 
+                ? "Fill in your details to start your free plan" 
+                : "Fill in your details to start your 14-day free trial"}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -262,25 +281,34 @@ export default function Signup() {
               >
                 {loading ? (
                   "Processing..."
+                ) : selectedTier === 'free' ? (
+                  <>
+                    <Gift className="mr-2 h-4 w-4" />
+                    Start Free Plan
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </>
                 ) : (
                   <>
                     <CreditCard className="mr-2 h-4 w-4" />
-                    Start 7-Day Free Trial - {currentTier.price}/mo
+                    Start 14-Day Free Trial - {currentTier.price}/mo
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </>
                 )}
               </Button>
 
               <p className="text-xs text-center text-muted-foreground">
-                By signing up, you agree to our Terms of Service and Privacy Policy.
-                You will be redirected to Stripe to enter your payment details.
+                {selectedTier === 'free' 
+                  ? "By signing up, you agree to our Terms of Service and Privacy Policy. No credit card required."
+                  : "By signing up, you agree to our Terms of Service and Privacy Policy. You will be redirected to Stripe to enter your payment details."}
               </p>
             </form>
           </CardContent>
         </Card>
 
         <p className="text-sm text-muted-foreground text-center">
-          Cancel anytime during your trial. No charge until the trial ends.
+          {selectedTier === 'free' 
+            ? "Free forever. Upgrade anytime to unlock more features."
+            : "Cancel anytime during your trial. No charge until the trial ends."}
         </p>
       </div>
     </div>

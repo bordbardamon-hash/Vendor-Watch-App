@@ -1,7 +1,7 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check, X, Crown, Star, Shield, Zap, ArrowRight, HelpCircle } from "lucide-react";
+import { Check, X, Crown, Star, Shield, Zap, ArrowRight, HelpCircle, Gift } from "lucide-react";
 import { Link } from "wouter";
 import { VendorWatchLogo } from "@/components/ui/vendor-watch-logo";
 import { APP_NAME } from "@/lib/labels";
@@ -18,6 +18,7 @@ type FeatureCategory = {
   features: {
     name: string;
     tooltip?: string;
+    free: string | boolean;
     essential: string | boolean;
     growth: string | boolean;
     enterprise: string | boolean;
@@ -28,84 +29,97 @@ const featureCategories: FeatureCategory[] = [
   {
     name: "Vendor Monitoring",
     features: [
-      { name: "Vendors monitored", tooltip: "Choose from our catalog of 400+ pre-configured services", essential: "Up to 25", growth: "Up to 100", enterprise: "Unlimited" },
-      { name: "Service catalog", tooltip: "400+ services across 30+ categories including cloud, SaaS, security, payments, AI, and more", essential: "400+ services", growth: "400+ services", enterprise: "400+ services" },
-      { name: "Real-time status updates", essential: true, growth: true, enterprise: true },
-      { name: "Component-level monitoring", tooltip: "Track individual service components like AWS EC2, S3, Lambda", essential: true, growth: true, enterprise: true },
-      { name: "Incident tracking", essential: true, growth: true, enterprise: true },
-      { name: "Maintenance alerts", essential: true, growth: true, enterprise: true },
-      { name: "Custom vendor requests", tooltip: "Request new vendors to be added to monitoring", essential: false, growth: "5/month", enterprise: "Unlimited" },
-      { name: "Add vendors directly", tooltip: "Add your own vendor status pages without waiting", essential: false, growth: false, enterprise: true },
+      { name: "Vendors monitored", tooltip: "Choose from our catalog of 400+ pre-configured services", free: "Up to 2", essential: "Up to 25", growth: "Up to 100", enterprise: "Unlimited" },
+      { name: "Service catalog", tooltip: "400+ services across 30+ categories including cloud, SaaS, security, payments, AI, and more", free: "400+ services", essential: "400+ services", growth: "400+ services", enterprise: "400+ services" },
+      { name: "Real-time status updates", free: true, essential: true, growth: true, enterprise: true },
+      { name: "Component-level monitoring", tooltip: "Track individual service components like AWS EC2, S3, Lambda", free: true, essential: true, growth: true, enterprise: true },
+      { name: "Incident tracking", free: true, essential: true, growth: true, enterprise: true },
+      { name: "Maintenance alerts", free: true, essential: true, growth: true, enterprise: true },
+      { name: "Custom vendor requests", tooltip: "Request new vendors to be added to monitoring", free: false, essential: false, growth: "5/month", enterprise: "Unlimited" },
+      { name: "Add vendors directly", tooltip: "Add your own vendor status pages without waiting", free: false, essential: false, growth: false, enterprise: true },
     ],
   },
   {
     name: "Blockchain & Crypto",
     features: [
-      { name: "Blockchain networks", tooltip: "Monitor 110+ blockchain networks including L1, L2, DeFi, and RPC providers", essential: false, growth: "Up to 25", enterprise: "Unlimited" },
-      { name: "Wallet status monitoring", essential: false, growth: true, enterprise: true },
-      { name: "Staking platform monitoring", essential: false, growth: false, enterprise: true },
-      { name: "DeFi protocol tracking", essential: false, growth: false, enterprise: true },
+      { name: "Blockchain networks", tooltip: "Monitor 110+ blockchain networks including L1, L2, DeFi, and RPC providers", free: "Up to 1", essential: false, growth: "Up to 25", enterprise: "Unlimited" },
+      { name: "Wallet status monitoring", free: false, essential: false, growth: true, enterprise: true },
+      { name: "Staking platform monitoring", free: false, essential: false, growth: false, enterprise: true },
+      { name: "DeFi protocol tracking", free: false, essential: false, growth: false, enterprise: true },
     ],
   },
   {
     name: "Alerts & Notifications",
     features: [
-      { name: "Email alerts", essential: true, growth: true, enterprise: true },
-      { name: "SMS alerts", tooltip: "TCPA-compliant text message notifications", essential: false, growth: true, enterprise: true },
-      { name: "Slack & Teams", tooltip: "Send formatted incident alerts to Slack or Microsoft Teams channels", essential: false, growth: true, enterprise: true },
-      { name: "PagerDuty", tooltip: "Auto-trigger and resolve PagerDuty incidents synced to vendor events", essential: false, growth: true, enterprise: true },
-      { name: "Outbound webhooks", tooltip: "HMAC-SHA256 signed payloads to any endpoint", essential: false, growth: true, enterprise: true },
-      { name: "Alert assignments", tooltip: "Route alerts to specific team members per vendor", essential: false, growth: true, enterprise: true },
-      { name: "Alert customization", essential: "Basic", growth: "Advanced", enterprise: "Full" },
-      { name: "Timezone support", essential: true, growth: true, enterprise: true },
+      { name: "Email alerts", free: true, essential: true, growth: true, enterprise: true },
+      { name: "SMS alerts", tooltip: "TCPA-compliant text message notifications", free: false, essential: false, growth: true, enterprise: true },
+      { name: "Slack & Teams", tooltip: "Send formatted incident alerts to Slack or Microsoft Teams channels", free: false, essential: true, growth: true, enterprise: true },
+      { name: "PagerDuty", tooltip: "Auto-trigger and resolve PagerDuty incidents synced to vendor events", free: false, essential: false, growth: true, enterprise: true },
+      { name: "Outbound webhooks", tooltip: "HMAC-SHA256 signed payloads to any endpoint", free: false, essential: true, growth: true, enterprise: true },
+      { name: "Alert assignments", tooltip: "Route alerts to specific team members per vendor", free: false, essential: false, growth: true, enterprise: true },
+      { name: "Alert customization", free: false, essential: "Basic", growth: "Advanced", enterprise: "Full" },
+      { name: "Timezone support", free: true, essential: true, growth: true, enterprise: true },
     ],
   },
   {
     name: "MSP Features",
     features: [
-      { name: "Client labels", tooltip: "Organize vendors by client with priority levels", essential: false, growth: true, enterprise: true },
-      { name: "Customer impact tagging", tooltip: "Tag vendors with high/medium/low customer impact", essential: false, growth: true, enterprise: true },
-      { name: "Incident playbooks", tooltip: "Step-by-step response guides for incidents", essential: false, growth: true, enterprise: true },
-      { name: "Weekly digest emails", essential: true, growth: true, enterprise: true },
-      { name: "Vendor reliability stats", essential: true, growth: true, enterprise: true },
-      { name: "Mobile status view", tooltip: "Quick status dashboard optimized for mobile", essential: false, growth: true, enterprise: true },
+      { name: "Client labels", tooltip: "Organize vendors by client with priority levels", free: false, essential: false, growth: true, enterprise: true },
+      { name: "Customer impact tagging", tooltip: "Tag vendors with high/medium/low customer impact", free: false, essential: false, growth: true, enterprise: true },
+      { name: "Incident playbooks", tooltip: "Step-by-step response guides for incidents", free: false, essential: false, growth: true, enterprise: true },
+      { name: "Weekly digest emails", free: false, essential: true, growth: true, enterprise: true },
+      { name: "Vendor reliability stats", free: false, essential: true, growth: true, enterprise: true },
+      { name: "Mobile status view", tooltip: "Quick status dashboard optimized for mobile", free: false, essential: false, growth: true, enterprise: true },
     ],
   },
   {
     name: "Enterprise Capabilities",
     features: [
-      { name: "Automation rules", tooltip: "Trigger actions automatically on incidents", essential: false, growth: "Basic", enterprise: "Full" },
-      { name: "SLA breach tracking", tooltip: "Track uptime against your SLA targets", essential: false, growth: false, enterprise: true },
-      { name: "Synthetic monitoring", tooltip: "Probe vendor endpoints for proactive detection", essential: false, growth: false, enterprise: true },
-      { name: "AI Communication Copilot", tooltip: "Generate professional incident updates with AI", essential: false, growth: false, enterprise: true },
-      { name: "Early warning signals", tooltip: "Crowdsourced incident reports with dynamic confidence scoring", essential: false, growth: false, enterprise: true },
-      { name: "Embeddable status widgets", tooltip: "Public status pages, SVG badges, and JSON APIs for clients", essential: false, growth: true, enterprise: true },
-      { name: "Predictive outage detection", tooltip: "AI-powered analysis to predict potential outages", essential: false, growth: false, enterprise: true },
-      { name: "Historical reports & CSV export", tooltip: "Uptime reports with MTTR, incident counts, and vendor breakdowns", essential: false, growth: "Basic", enterprise: "Full" },
-      { name: "Analytics dashboard", essential: "Basic", growth: "Advanced", enterprise: "Full" },
+      { name: "Automation rules", tooltip: "Trigger actions automatically on incidents", free: false, essential: false, growth: "Basic", enterprise: "Full" },
+      { name: "SLA breach tracking", tooltip: "Track uptime against your SLA targets", free: false, essential: false, growth: false, enterprise: true },
+      { name: "Synthetic monitoring", tooltip: "Probe vendor endpoints for proactive detection", free: false, essential: false, growth: false, enterprise: true },
+      { name: "AI Communication Copilot", tooltip: "Generate professional incident updates with AI", free: false, essential: false, growth: false, enterprise: true },
+      { name: "Early warning signals", tooltip: "Crowdsourced incident reports with dynamic confidence scoring", free: false, essential: false, growth: false, enterprise: true },
+      { name: "Embeddable status widgets", tooltip: "Public status pages, SVG badges, and JSON APIs for clients", free: false, essential: false, growth: true, enterprise: true },
+      { name: "Predictive outage detection", tooltip: "AI-powered analysis to predict potential outages", free: false, essential: false, growth: false, enterprise: true },
+      { name: "Historical reports & CSV export", tooltip: "Uptime reports with MTTR, incident counts, and vendor breakdowns", free: false, essential: false, growth: "Basic", enterprise: "Full" },
+      { name: "Analytics dashboard", free: false, essential: "Basic", growth: "Advanced", enterprise: "Full" },
     ],
   },
   {
     name: "Team & Organization",
     features: [
-      { name: "Included team seats", tooltip: "Number of users included in base price", essential: "1 user", growth: "3 users", enterprise: "5 users" },
-      { name: "Additional seats", tooltip: "Price per additional team member", essential: false, growth: "$20/seat", enterprise: "$25/seat" },
-      { name: "Role-based access", tooltip: "Master Admin, Read/Write, and Read-Only roles", essential: false, growth: true, enterprise: true },
-      { name: "Organization management", essential: false, growth: true, enterprise: true },
+      { name: "Included team seats", tooltip: "Number of users included in base price", free: "1 user", essential: "1 user", growth: "3 users", enterprise: "5 users" },
+      { name: "Additional seats", tooltip: "Price per additional team member", free: false, essential: false, growth: "$20/seat", enterprise: "$25/seat" },
+      { name: "Role-based access", tooltip: "Master Admin, Read/Write, and Read-Only roles", free: false, essential: false, growth: true, enterprise: true },
+      { name: "Organization management", free: false, essential: false, growth: true, enterprise: true },
     ],
   },
   {
     name: "Support & Security",
     features: [
-      { name: "Two-factor authentication", essential: true, growth: true, enterprise: true },
-      { name: "Email support", essential: true, growth: true, enterprise: true },
-      { name: "Priority support", essential: false, growth: false, enterprise: true },
-      { name: "Onboarding assistance", essential: false, growth: false, enterprise: true },
+      { name: "Two-factor authentication", free: true, essential: true, growth: true, enterprise: true },
+      { name: "Email support", free: true, essential: true, growth: true, enterprise: true },
+      { name: "Priority support", free: false, essential: false, growth: false, enterprise: true },
+      { name: "Onboarding assistance", free: false, essential: false, growth: false, enterprise: true },
     ],
   },
 ];
 
 const plans = [
+  {
+    id: "free",
+    name: "Free",
+    price: 0,
+    icon: Gift,
+    color: "text-green-500",
+    borderColor: "border-green-500",
+    bgColor: "bg-green-500/10",
+    description: "Get started with basic vendor monitoring at no cost",
+    includedSeats: 1,
+    seatPrice: null,
+    isFree: true,
+  },
   {
     id: "essential",
     name: "Essential",
@@ -169,11 +183,11 @@ export default function Pricing() {
               Simple, Transparent Pricing
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Choose the plan that fits your needs. All plans include access to our catalog of 400+ services and a 7-day free trial.
+              Choose the plan that fits your needs. Start free or unlock more with a 14-day free trial on paid plans.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6 mb-16">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
             {plans.map((plan) => {
               const Icon = plan.icon;
               return (
@@ -214,12 +228,12 @@ export default function Pricing() {
                         size="lg"
                         data-testid={`button-select-${plan.id}`}
                       >
-                        Start Free Trial
+                        {'isFree' in plan && plan.isFree ? "Start Free Plan" : "Start Free Trial"}
                         <ArrowRight className="ml-2 h-4 w-4" />
                       </Button>
                     </Link>
                     <p className="text-xs text-center text-muted-foreground mt-3">
-                      7-day free trial, cancel anytime
+                      {'isFree' in plan && plan.isFree ? "No credit card required" : "14-day free trial, cancel anytime"}
                     </p>
                   </CardContent>
                 </Card>
@@ -241,7 +255,7 @@ export default function Pricing() {
                       <th
                         key={plan.id}
                         className={cn(
-                          "py-4 px-4 text-center min-w-[140px]",
+                          "py-4 px-4 text-center min-w-[120px]",
                           plan.popular && "bg-yellow-500/5"
                         )}
                       >
@@ -256,7 +270,7 @@ export default function Pricing() {
                     <React.Fragment key={`cat-${catIndex}`}>
                       <tr className="bg-sidebar/30" data-testid={`row-category-${catIndex}`}>
                         <td
-                          colSpan={4}
+                          colSpan={5}
                           className="py-3 px-4 font-semibold text-sm uppercase tracking-wide"
                         >
                           {category.name}
@@ -284,6 +298,9 @@ export default function Pricing() {
                             </div>
                           </td>
                           <td className="py-3 px-4 text-center">
+                            <FeatureValue value={feature.free} />
+                          </td>
+                          <td className="py-3 px-4 text-center">
                             <FeatureValue value={feature.essential} />
                           </td>
                           <td className={cn("py-3 px-4 text-center", "bg-yellow-500/5")}>
@@ -305,7 +322,7 @@ export default function Pricing() {
             <h3 className="text-2xl font-bold mb-3">Ready to get started?</h3>
             <p className="text-muted-foreground mb-6 max-w-xl mx-auto">
               Join hundreds of MSPs who trust {APP_NAME} to monitor their vendors.
-              Start your 7-day free trial today.
+              Start free or begin your 14-day trial today.
             </p>
             <Link href="/signup">
               <Button size="lg" className="bg-gradient-to-r from-yellow-500 to-orange-500 text-black hover:opacity-90" data-testid="button-cta-signup">
@@ -327,7 +344,7 @@ export default function Pricing() {
               <div className="space-y-2">
                 <h4 className="font-semibold">What happens after my trial?</h4>
                 <p className="text-sm text-muted-foreground">
-                  After 7 days, you'll be charged for your selected plan. Cancel anytime during the trial to avoid charges.
+                  After 14 days, you'll be charged for your selected plan. Cancel anytime during the trial to avoid charges.
                 </p>
               </div>
               <div className="space-y-2">

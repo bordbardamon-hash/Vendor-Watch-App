@@ -101,11 +101,11 @@ const isAuthenticated: RequestHandler = async (req: any, res, next) => {
 };
 
 // Stripe price IDs for each subscription tier
-const TIER_PRICE_IDS = {
+const TIER_PRICE_IDS: Record<string, string> = {
   essential: process.env.STRIPE_PRICE_ESSENTIAL || "price_essential_placeholder", // $89
   growth: process.env.STRIPE_PRICE_GROWTH || "price_growth_placeholder", // $129
   enterprise: process.env.STRIPE_PRICE_ENTERPRISE || "price_enterprise_placeholder", // $189
-} as const;
+};
 
 // Stripe price IDs for additional seats
 const SEAT_PRICE_IDS: Record<string, string> = {
@@ -116,6 +116,7 @@ const SEAT_PRICE_IDS: Record<string, string> = {
 
 // Included seats per tier (platinum is legacy name for enterprise)
 const INCLUDED_SEATS: Record<string, number> = {
+  free: 1,
   essential: 1,
   growth: 3,
   enterprise: 5,
@@ -156,7 +157,7 @@ const signupSchema = z.object({
   companyName: z.string().min(1),
   phone: z.string().min(1),
   email: z.string().email(),
-  tier: z.enum(['essential', 'growth', 'enterprise']).default('essential'),
+  tier: z.enum(['free', 'essential', 'growth', 'enterprise']).default('essential'),
 });
 
 // Owner identification for bypass checks
@@ -1151,7 +1152,7 @@ export async function registerRoutes(
   // Use this for manual overrides or complementary access only.
   // For paid subscriptions, users should go through Stripe checkout flow.
   const updateSubscriptionSchema = z.object({
-    subscriptionTier: z.enum(['essential', 'growth', 'enterprise']).nullable(),
+    subscriptionTier: z.enum(['free', 'essential', 'growth', 'enterprise']).nullable(),
   });
   
   app.patch("/api/admin/users/:userId/subscription", isAuthenticated, isOwner, async (req: any, res) => {
@@ -1222,7 +1223,7 @@ export async function registerRoutes(
     lastName: z.string().min(1),
     companyName: z.string().optional(),
     phone: z.string().optional(),
-    subscriptionTier: z.enum(['essential', 'growth', 'enterprise']).optional(),
+    subscriptionTier: z.enum(['free', 'essential', 'growth', 'enterprise']).optional(),
     isAdmin: z.boolean().optional(),
   });
   
@@ -2172,6 +2173,12 @@ If you did not expect this email, please contact your administrator.`
   app.post("/api/signup/checkout", async (req, res) => {
     try {
       const validatedData = signupSchema.parse(req.body);
+
+      if (validatedData.tier === 'free') {
+        res.json({ free: true, redirectUrl: '/signup/success?tier=free' });
+        return;
+      }
+
       const stripe = await getUncachableStripeClient();
       
       const priceId = TIER_PRICE_IDS[validatedData.tier];
@@ -2196,7 +2203,7 @@ If you did not expect this email, please contact your administrator.`
         success_url: `${req.protocol}://${req.get('host')}/signup/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${req.protocol}://${req.get('host')}/signup`,
         subscription_data: {
-          trial_period_days: 7,
+          trial_period_days: 14,
           metadata: {
             subscriptionTier: validatedData.tier,
           },
@@ -2227,7 +2234,7 @@ If you did not expect this email, please contact your administrator.`
     lastName: z.string().min(1),
     companyName: z.string().min(1),
     phone: z.string().min(1),
-    tier: z.enum(['essential', 'growth', 'enterprise']),
+    tier: z.enum(['free', 'essential', 'growth', 'enterprise']),
     success_url: z.string().url().optional(),
     cancel_url: z.string().url().optional(),
   });
@@ -2247,6 +2254,26 @@ If you did not expect this email, please contact your administrator.`
       
       if (existingUser) {
         return res.status(400).json({ error: 'Email already registered' });
+      }
+      
+      // Free tier: create user directly without Stripe
+      if (validatedData.tier === 'free') {
+        const hashedPassword = await bcrypt.hash(validatedData.password, SALT_ROUNDS);
+        const [newUser] = await db.insert(users).values({
+          email,
+          password: hashedPassword,
+          firstName: validatedData.firstName,
+          lastName: validatedData.lastName,
+          companyName: validatedData.companyName,
+          phone: validatedData.phone,
+          subscriptionTier: 'free',
+          profileCompleted: true,
+          billingCompleted: true,
+          billingStatus: 'active',
+        }).returning();
+        
+        console.log(`[auth] Mobile free signup: Created user ${newUser.id} for ${email}`);
+        return res.json({ success: true, free: true, userId: newUser.id });
       }
       
       // 2. Check for existing pending signup with same email
@@ -2280,7 +2307,7 @@ If you did not expect this email, please contact your administrator.`
         success_url: validatedData.success_url || `https://vendorwatch.app/signup/success?pending=${signupToken}`,
         cancel_url: validatedData.cancel_url || `https://vendorwatch.app/signup`,
         subscription_data: {
-          trial_period_days: 7,
+          trial_period_days: 14,
         },
         metadata: {
           pendingSignupToken: signupToken,
@@ -2534,9 +2561,8 @@ If you did not expect this email, please contact your administrator.`
         return res.status(400).json({ error: "Enterprise users can add vendors directly" });
       }
       
-      // Check if Essential user (no custom requests allowed)
-      if (tier === 'essential') {
-        return res.status(403).json({ error: "Essential plan does not include custom vendor requests. Upgrade to Growth or Enterprise." });
+      if (tier === 'free' || tier === 'essential') {
+        return res.status(403).json({ error: "Custom vendor requests require Growth or Enterprise plan." });
       }
       
       // Growth users get 3 custom requests max
@@ -5472,7 +5498,7 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
       
       const tier = req.user?.subscriptionTier;
-      if (!tier || tier === 'essential') {
+      if (!tier || tier === 'free' || tier === 'essential') {
         return res.status(403).json({ error: "Client management requires Growth or Enterprise subscription" });
       }
       
@@ -5490,7 +5516,7 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
       
       const tier = req.user?.subscriptionTier;
-      if (!tier || tier === 'essential') {
+      if (!tier || tier === 'free' || tier === 'essential') {
         return res.status(403).json({ error: "Client management requires Growth or Enterprise subscription" });
       }
       
@@ -5591,7 +5617,7 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
       
       const tier = req.user?.subscriptionTier;
-      if (!tier || tier === 'essential') {
+      if (!tier || tier === 'free' || tier === 'essential') {
         return res.status(403).json({ error: "Incident playbooks require Growth or Enterprise subscription" });
       }
       
@@ -5643,7 +5669,7 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
       
       const tier = req.user?.subscriptionTier;
-      if (!tier || tier === 'essential') {
+      if (!tier || tier === 'free' || tier === 'essential') {
         return res.status(403).json({ error: "Incident playbooks require Growth or Enterprise subscription" });
       }
       
@@ -5746,7 +5772,7 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
       
       const tier = req.user?.subscriptionTier;
-      if (!tier || tier === 'essential') {
+      if (!tier || tier === 'free' || tier === 'essential') {
         return res.status(403).json({ error: "SLA timers require Growth or Enterprise subscription" });
       }
       
@@ -5836,8 +5862,8 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
       
       const tier = req.user?.subscriptionTier;
-      if (!tier || tier === 'essential') {
-        return res.status(403).json({ error: "Integrations require Growth or Enterprise subscription" });
+      if (!tier || tier === 'free') {
+        return res.status(403).json({ error: "Integrations require Essential or higher subscription" });
       }
       
       const integrations = await storage.getUserIntegrations(userId);
@@ -5854,8 +5880,8 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
       
       const tier = req.user?.subscriptionTier;
-      if (!tier || tier === 'essential') {
-        return res.status(403).json({ error: "Integrations require Growth or Enterprise subscription" });
+      if (!tier || tier === 'free') {
+        return res.status(403).json({ error: "Integrations require Essential or higher subscription" });
       }
       
       const integration = await storage.getUserIntegration(req.params.id);
@@ -5875,8 +5901,8 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
       
       const tier = req.user?.subscriptionTier;
-      if (!tier || tier === 'essential') {
-        return res.status(403).json({ error: "Integrations require Growth or Enterprise subscription" });
+      if (!tier || tier === 'free') {
+        return res.status(403).json({ error: "Integrations require Essential or higher subscription" });
       }
       
       const { integrationType, name, webhookUrl, apiKey, phoneNumber, additionalConfig, isDefault } = req.body;
@@ -5910,8 +5936,8 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
       
       const tier = req.user?.subscriptionTier;
-      if (!tier || tier === 'essential') {
-        return res.status(403).json({ error: "Integrations require Growth or Enterprise subscription" });
+      if (!tier || tier === 'free') {
+        return res.status(403).json({ error: "Integrations require Essential or higher subscription" });
       }
       
       const existing = await storage.getUserIntegrationFull(req.params.id);
@@ -5943,8 +5969,8 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
       
       const tier = req.user?.subscriptionTier;
-      if (!tier || tier === 'essential') {
-        return res.status(403).json({ error: "Integrations require Growth or Enterprise subscription" });
+      if (!tier || tier === 'free') {
+        return res.status(403).json({ error: "Integrations require Essential or higher subscription" });
       }
       
       const existing = await storage.getUserIntegrationFull(req.params.id);
@@ -5965,8 +5991,8 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
       
       const tier = req.user?.subscriptionTier;
-      if (!tier || tier === 'essential') {
-        return res.status(403).json({ error: "Integrations require Growth or Enterprise subscription" });
+      if (!tier || tier === 'free') {
+        return res.status(403).json({ error: "Integrations require Essential or higher subscription" });
       }
       
       const existing = await storage.getUserIntegrationFull(req.params.id);
@@ -8016,9 +8042,8 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
     isActive: z.boolean().optional(),
   });
   
-  // Helper to check if user tier supports webhooks (Growth or Enterprise only)
   const tierSupportsWebhooks = (tier: string | null): boolean => {
-    return tier === 'growth' || tier === 'enterprise' || tier === 'platinum';
+    return tier === 'essential' || tier === 'growth' || tier === 'enterprise' || tier === 'platinum';
   };
   
   // GET /api/webhooks - Get all webhooks for current user

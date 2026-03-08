@@ -6,14 +6,14 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
-import { Rocket, CheckCircle, CreditCard, Building, Zap, Crown, ArrowRight, Loader2 } from "lucide-react";
+import { Rocket, CheckCircle, CreditCard, Building, Zap, Crown, ArrowRight, Loader2, Gift } from "lucide-react";
 import { VendorWatchLogo } from "@/components/ui/vendor-watch-logo";
 import { APP_NAME } from "@/lib/labels";
 
 type OnboardingStep = "profile" | "billing";
 
 interface PlanInfo {
-  id: "essential" | "growth" | "enterprise";
+  id: "free" | "essential" | "growth" | "enterprise";
   name: string;
   price: number;
   features: string[];
@@ -23,13 +23,25 @@ interface PlanInfo {
 
 const PLANS: PlanInfo[] = [
   {
+    id: "free",
+    name: "Free",
+    price: 0,
+    icon: Gift,
+    features: [
+      "Up to 2 vendors",
+      "1 blockchain network",
+      "Email alerts only",
+      "No credit card required",
+    ],
+  },
+  {
     id: "essential",
     name: "Essential",
     price: 89,
     icon: Building,
     features: [
       "Up to 25 vendors (400+ catalog)",
-      "Email alerts",
+      "Email, Slack & webhook alerts",
       "Component-level monitoring",
     ],
   },
@@ -68,7 +80,7 @@ export default function Onboarding() {
   const [, setLocation] = useLocation();
   const [step, setStep] = useState<OnboardingStep>("profile");
   const [loading, setLoading] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<"essential" | "growth" | "enterprise">("growth");
+  const [selectedPlan, setSelectedPlan] = useState<"free" | "essential" | "growth" | "enterprise">("essential");
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -146,8 +158,10 @@ export default function Onboarding() {
         throw new Error(data.error || "Failed to create checkout session");
       }
 
-      // Redirect to Stripe
-      if (data.url) {
+      if (data.free) {
+        await refetch();
+        setLocation("/");
+      } else if (data.url) {
         window.location.href = data.url;
       }
     } catch (error: any) {
@@ -198,7 +212,7 @@ export default function Onboarding() {
                 <Rocket className="h-6 w-6 text-blue-400" />
               </div>
               <div>
-                <h3 className="font-semibold text-lg">7-Day Free Trial</h3>
+                <h3 className="font-semibold text-lg">14-Day Free Trial</h3>
                 <p className="text-sm text-muted-foreground">
                   Full access to all features - you won't be charged until the trial ends
                 </p>
@@ -317,7 +331,9 @@ export default function Onboarding() {
               <CardHeader>
                 <CardTitle>Choose your plan</CardTitle>
                 <CardDescription>
-                  Select a plan to start your 7-day free trial. Your card will only be charged after the trial ends.
+                  {selectedPlan === 'free'
+                    ? "Start with the free plan — no credit card required."
+                    : "Select a plan to start your 14-day free trial. Your card will only be charged after the trial ends."}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -367,10 +383,12 @@ export default function Onboarding() {
               </CardContent>
             </Card>
 
-            <div className="flex items-center gap-2 text-sm text-muted-foreground justify-center">
-              <CreditCard className="h-4 w-4" />
-              <span>Secure payment powered by Stripe</span>
-            </div>
+            {selectedPlan !== 'free' && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground justify-center">
+                <CreditCard className="h-4 w-4" />
+                <span>Secure payment powered by Stripe</span>
+              </div>
+            )}
 
             <Button 
               className="w-full" 
@@ -382,11 +400,16 @@ export default function Onboarding() {
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Redirecting to Stripe...
+                  {selectedPlan === 'free' ? 'Activating...' : 'Redirecting to Stripe...'}
+                </>
+              ) : selectedPlan === 'free' ? (
+                <>
+                  Start Free Plan
+                  <ArrowRight className="ml-2 h-4 w-4" />
                 </>
               ) : (
                 <>
-                  Start 7-Day Free Trial
+                  Start 14-Day Free Trial
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </>
               )}

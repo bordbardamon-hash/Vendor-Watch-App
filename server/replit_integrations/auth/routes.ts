@@ -363,9 +363,25 @@ export function registerAuthRoutes(app: Express): void {
 
       // Validate tier selection
       const tierSchema = z.object({
-        tier: z.enum(['essential', 'growth', 'enterprise']).default('essential'),
+        tier: z.enum(['free', 'essential', 'growth', 'enterprise']).default('essential'),
       });
       const { tier } = tierSchema.parse(req.body);
+
+      if (tier === 'free') {
+        await db.update(users)
+          .set({
+            subscriptionTier: 'free',
+            billingStatus: 'active',
+            billingCompleted: true,
+            updatedAt: new Date(),
+          })
+          .where(eq(users.id, userId));
+
+        console.log(`[billing] Free tier activated for user ${userId}`);
+        res.json({ free: true });
+        return;
+      }
+
       const priceId = TIER_PRICE_IDS[tier];
 
       const stripe = await getUncachableStripeClient();
@@ -390,7 +406,7 @@ export function registerAuthRoutes(app: Express): void {
           .where(eq(users.id, userId));
       }
 
-      // Create checkout session with 7-day trial
+      // Create checkout session with 14-day trial
       const session = await stripe.checkout.sessions.create({
         customer: customerId,
         payment_method_types: ['card'],
@@ -399,7 +415,7 @@ export function registerAuthRoutes(app: Express): void {
         success_url: `${req.protocol}://${req.get('host')}/onboarding/billing/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${req.protocol}://${req.get('host')}/onboarding/billing`,
         subscription_data: {
-          trial_period_days: 7,
+          trial_period_days: 14,
           metadata: {
             userId: userId,
             subscriptionTier: tier,
