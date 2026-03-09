@@ -89,11 +89,10 @@ export async function sendWelcomeEmail(
 ): Promise<boolean> {
   console.log(`[email] sendWelcomeEmail called for: ${to}, isPromo: ${options?.isPromo}`);
   const name = firstName || 'there';
-  const appUrl = process.env.REPLIT_DEV_DOMAIN 
-    ? `https://${process.env.REPLIT_DEV_DOMAIN}` 
-    : process.env.REPLIT_DOMAINS 
-      ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
-      : 'https://vendorwatch.app';
+  const appUrl = process.env.APP_URL
+    || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : null)
+    || (process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : null)
+    || 'https://vendorwatch.app';
   
   const isPromo = options?.isPromo || false;
   const trialDays = options?.trialDays || 14;

@@ -6329,7 +6329,8 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
       // Send invitation email
       try {
         const { sendEmail } = await import('./emailClient');
-        const inviteUrl = `${process.env.REPLIT_DEV_DOMAIN ? 'https://' + process.env.REPLIT_DEV_DOMAIN : 'http://localhost:5000'}/accept-invite/${token}`;
+        const baseUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? 'https://' + process.env.REPLIT_DEV_DOMAIN : null) || (process.env.REPLIT_DOMAINS ? 'https://' + process.env.REPLIT_DOMAINS.split(',')[0] : null) || 'http://localhost:5000';
+        const inviteUrl = `${baseUrl}/accept-invite/${token}`;
         const roleName = role === 'master_admin' ? 'Master Admin' : role === 'member_rw' ? 'Read/Write Member' : 'Read-Only Member';
         
         const emailHtml = `

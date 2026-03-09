@@ -1,13 +1,29 @@
-// Twilio Integration - SMS alerts for vendor incidents
 import twilio from 'twilio';
 import { isCircuitOpen, recordSuccess, recordFailure, configureCircuitBreaker } from './circuitBreaker';
 
 const SMS_CIRCUIT = 'twilio_sms';
 configureCircuitBreaker(SMS_CIRCUIT, { failureThreshold: 5, resetTimeoutMs: 2 * 60 * 1000 });
 
-let connectionSettings: any;
+let cachedCredentials: {
+  accountSid: string;
+  apiKey: string;
+  apiKeySecret: string;
+  phoneNumber: string;
+} | null = null;
 
 async function getCredentials() {
+  if (cachedCredentials) return cachedCredentials;
+
+  if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_API_KEY && process.env.TWILIO_API_KEY_SECRET) {
+    cachedCredentials = {
+      accountSid: process.env.TWILIO_ACCOUNT_SID,
+      apiKey: process.env.TWILIO_API_KEY,
+      apiKeySecret: process.env.TWILIO_API_KEY_SECRET,
+      phoneNumber: process.env.TWILIO_PHONE_NUMBER || ''
+    };
+    return cachedCredentials;
+  }
+
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
   const xReplitToken = process.env.REPL_IDENTITY 
     ? 'repl ' + process.env.REPL_IDENTITY 
@@ -15,11 +31,11 @@ async function getCredentials() {
     ? 'depl ' + process.env.WEB_REPL_RENEWAL 
     : null;
 
-  if (!xReplitToken) {
-    throw new Error('X_REPLIT_TOKEN not found for repl/depl');
+  if (!xReplitToken || !hostname) {
+    throw new Error('Twilio not configured. Set TWILIO_ACCOUNT_SID, TWILIO_API_KEY, TWILIO_API_KEY_SECRET, and TWILIO_PHONE_NUMBER environment variables.');
   }
 
-  connectionSettings = await fetch(
+  const connectionSettings = await fetch(
     'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=twilio',
     {
       headers: {
@@ -32,12 +48,14 @@ async function getCredentials() {
   if (!connectionSettings || (!connectionSettings.settings.account_sid || !connectionSettings.settings.api_key || !connectionSettings.settings.api_key_secret)) {
     throw new Error('Twilio not connected');
   }
-  return {
+
+  cachedCredentials = {
     accountSid: connectionSettings.settings.account_sid,
     apiKey: connectionSettings.settings.api_key,
     apiKeySecret: connectionSettings.settings.api_key_secret,
     phoneNumber: connectionSettings.settings.phone_number
   };
+  return cachedCredentials;
 }
 
 export async function getTwilioClient() {
