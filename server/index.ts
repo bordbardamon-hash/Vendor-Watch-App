@@ -282,8 +282,8 @@ app.use((req, res, next) => {
       const isProduction = process.env.NODE_ENV === 'production';
       const SYNC_INTERVAL_MS = 2 * 60 * 1000;
       
-      const VENDOR_BATCH_LIMIT = isProduction ? 25 : undefined;
-      const BLOCKCHAIN_BATCH_LIMIT = isProduction ? 15 : undefined;
+      const VENDOR_BATCH_LIMIT = isProduction ? 10 : undefined;
+      const BLOCKCHAIN_BATCH_LIMIT = isProduction ? 8 : undefined;
       
       let syncRunning = false;
       let lastSyncStart = 0;
@@ -376,7 +376,7 @@ app.use((req, res, next) => {
       
       if (isProduction) {
         console.log(`[sync] Production staggered sync: ${VENDOR_BATCH_LIMIT} vendors + ${BLOCKCHAIN_BATCH_LIMIT} blockchains per cycle (every ${SYNC_INTERVAL_MS / 60000} min)`);
-        console.log(`[sync] Full rotation: vendors ~${Math.ceil(409 / (VENDOR_BATCH_LIMIT || 25)) * 2} min, blockchains ~${Math.ceil(110 / (BLOCKCHAIN_BATCH_LIMIT || 15)) * 2} min`);
+        console.log(`[sync] Full rotation: vendors ~${Math.ceil(409 / (VENDOR_BATCH_LIMIT || 10)) * 2} min, blockchains ~${Math.ceil(110 / (BLOCKCHAIN_BATCH_LIMIT || 8)) * 2} min`);
       } else {
         console.log(`[sync] Dev full sync: every ${SYNC_INTERVAL_MS / 60000} minutes (all vendors + blockchains in parallel)`);
       }
