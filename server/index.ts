@@ -324,6 +324,18 @@ app.use((req, res, next) => {
         }
       }
       
+      // Run archival immediately on startup (don't wait for sync)
+      (async () => {
+        try {
+          const archived = await storage.archiveResolvedIncidents(1);
+          if (archived > 0) console.log(`[archive] Startup: archived ${archived} resolved vendor incidents`);
+          const blockchainArchived = await storage.archiveResolvedBlockchainIncidents(1);
+          if (blockchainArchived > 0) console.log(`[archive] Startup: archived ${blockchainArchived} resolved blockchain incidents`);
+        } catch (err) {
+          console.error('[archive] Startup archival failed:', err);
+        }
+      })();
+
       setTimeout(() => runSync('initial'), 3000);
       
       setInterval(async () => {
