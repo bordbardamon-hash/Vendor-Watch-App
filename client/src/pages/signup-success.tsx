@@ -6,6 +6,9 @@ import { APP_NAME } from "@/lib/labels";
 import { Link } from "wouter";
 
 export default function SignupSuccess() {
+  const params = new URLSearchParams(window.location.search);
+  const isFree = params.get('tier') === 'free';
+
   useEffect(() => {
     const confetti = () => {
       const colors = ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b'];
@@ -52,16 +55,18 @@ export default function SignupSuccess() {
           </div>
           <CardTitle className="text-2xl">Welcome to {APP_NAME}!</CardTitle>
           <CardDescription className="text-base">
-            Your account has been created and your 14-day free trial has started.
+            {isFree
+              ? "Your free account has been created. You're all set to start monitoring!"
+              : "Your account has been created and your 14-day free trial has started."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="bg-sidebar/50 rounded-lg p-4 text-sm space-y-2">
             <p className="font-medium">What's next?</p>
             <ul className="text-muted-foreground text-left space-y-1">
-              <li>1. Sign in with your Replit account</li>
-              <li>2. Explore the monitoring dashboard</li>
-              <li>3. Configure your vendor alerts</li>
+              <li>1. Explore the monitoring dashboard</li>
+              <li>2. Add your vendors to track</li>
+              <li>3. Configure your alert preferences</li>
             </ul>
           </div>
 
@@ -72,9 +77,11 @@ export default function SignupSuccess() {
             </Button>
           </Link>
 
-          <p className="text-xs text-muted-foreground">
-            Your trial lasts 14 days. You won't be charged until the trial ends.
-          </p>
+          {!isFree && (
+            <p className="text-xs text-muted-foreground">
+              Your trial lasts 14 days. You won't be charged until the trial ends.
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>

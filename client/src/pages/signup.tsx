@@ -89,6 +89,7 @@ export default function Signup() {
     companyName: "",
     phone: "",
     email: "",
+    password: "",
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -97,13 +98,27 @@ export default function Signup() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (selectedTier === 'free' && formData.password.length < 8) {
+      toast({
+        title: "Password Required",
+        description: "Please enter a password with at least 8 characters.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
       const response = await fetch("/api/signup/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, tier: selectedTier }),
+        body: JSON.stringify({
+          ...formData,
+          password: selectedTier === 'free' ? formData.password : undefined,
+          tier: selectedTier,
+        }),
       });
 
       const data = await response.json();
@@ -271,6 +286,23 @@ export default function Signup() {
                   data-testid="input-email"
                 />
               </div>
+
+              {selectedTier === 'free' && (
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    name="password"
+                    type="password"
+                    placeholder="Min. 8 characters"
+                    value={formData.password}
+                    onChange={handleChange}
+                    required
+                    minLength={8}
+                    data-testid="input-password"
+                  />
+                </div>
+              )}
 
               <Button
                 type="submit"

@@ -157,6 +157,7 @@ const signupSchema = z.object({
   companyName: z.string().min(1),
   phone: z.string().min(1),
   email: z.string().email(),
+  password: z.string().min(8).optional(),
   tier: z.enum(['free', 'essential', 'growth', 'enterprise']).default('essential'),
 });
 
@@ -2175,6 +2176,44 @@ If you did not expect this email, please contact your administrator.`
       const validatedData = signupSchema.parse(req.body);
 
       if (validatedData.tier === 'free') {
+        if (!validatedData.password) {
+          return res.status(400).json({ error: "Password is required for free tier signup" });
+        }
+
+        const email = validatedData.email.toLowerCase();
+        const [existingUser] = await db.select()
+          .from(users)
+          .where(eq(users.email, email))
+          .limit(1);
+
+        if (existingUser) {
+          return res.status(400).json({ error: "Email already registered. Please sign in instead." });
+        }
+
+        const hashedPassword = await bcrypt.hash(validatedData.password, SALT_ROUNDS);
+        const [newUser] = await db.insert(users).values({
+          email,
+          password: hashedPassword,
+          firstName: validatedData.firstName,
+          lastName: validatedData.lastName,
+          companyName: validatedData.companyName,
+          phone: validatedData.phone,
+          subscriptionTier: 'free',
+          profileCompleted: true,
+          billingCompleted: true,
+          billingStatus: 'active',
+        }).returning();
+
+        (req.session as any).userId = newUser.id;
+
+        sendWelcomeEmail(email, validatedData.firstName).catch(err => {
+          console.error('[auth] Failed to send welcome email:', err);
+        });
+        notifyOwnerNewSignup(email, validatedData.firstName, validatedData.lastName, 'email', 'free').catch(err => {
+          console.error('[auth] Failed to notify owner:', err);
+        });
+
+        console.log(`[auth] Free tier signup: Created user ${newUser.id} for ${email}`);
         res.json({ free: true, redirectUrl: '/signup/success?tier=free' });
         return;
       }
