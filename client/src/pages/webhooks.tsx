@@ -124,7 +124,7 @@ export default function Webhooks() {
   });
 
   const tier = user?.subscriptionTier;
-  const hasAccess = tier === 'growth' || tier === 'enterprise';
+  const hasAccess = tier === 'essential' || tier === 'growth' || tier === 'enterprise';
 
   const { data: webhooks = [], isLoading } = useQuery<WebhookConfig[]>({
     queryKey: ["/api/webhooks"],
@@ -369,9 +369,9 @@ export default function Webhooks() {
         <Card className="bg-gray-900 border-gray-700">
           <CardContent className="p-8 text-center">
             <Lock className="w-12 h-12 mx-auto mb-4 text-gray-600" />
-            <h3 className="font-semibold mb-2 text-white text-lg">Growth Plan Required</h3>
+            <h3 className="font-semibold mb-2 text-white text-lg">Essential Plan Required</h3>
             <p className="text-gray-400 mb-4">
-              Upgrade to Growth or Enterprise to configure custom webhooks for automated incident notifications.
+              Upgrade to Essential or higher to configure custom webhooks for automated incident notifications.
             </p>
             <Link href="/pricing">
               <Button className="bg-cyan-600 hover:bg-cyan-700" data-testid="btn-upgrade">

@@ -8,7 +8,8 @@ import { dispatchSlackTeamsForAllSubscribedUsers } from './notifications/slack-t
 import { dispatchPagerDutyForAllSubscribedUsers } from './notifications/pagerduty';
 import { dispatchDiscordForAllSubscribedUsers } from './notifications/discord';
 import { dispatchWebhooksForIncident, dispatchWebhooksForBlockchainIncident } from './webhookDispatcher';
-import type { Incident, Vendor, User, LifecycleEvent, CanonicalSeverity, CanonicalStatus, BlockchainIncident, BlockchainChain, SyntheticProbe } from '@shared/schema';
+import { SUBSCRIPTION_TIERS } from '@shared/schema';
+import type { Incident, Vendor, User, LifecycleEvent, CanonicalSeverity, CanonicalStatus, BlockchainIncident, BlockchainChain, SyntheticProbe, SubscriptionTierKey } from '@shared/schema';
 
 type EventType = 'new' | 'update' | 'resolved';
 
@@ -225,7 +226,10 @@ export async function dispatchIncidentNotification(notification: IncidentNotific
       continue;
     }
     
-    if (user.notifySms && user.phone) {
+    const userTier = user.subscriptionTier as SubscriptionTierKey;
+    const userTierConfig = userTier ? SUBSCRIPTION_TIERS[userTier] : null;
+
+    if (user.notifySms && user.phone && userTierConfig?.smsEnabled) {
       const reserved = await storage.tryReserveAlert({
         incidentId: incident.incidentId,
         userId: user.id,
@@ -585,7 +589,10 @@ export async function dispatchLifecycleNotification(notification: LifecycleNotif
       continue;
     }
     
-    if (user.notifySms && user.phone) {
+    const lcUserTier = user.subscriptionTier as SubscriptionTierKey;
+    const lcTierConfig = lcUserTier ? SUBSCRIPTION_TIERS[lcUserTier] : null;
+
+    if (user.notifySms && user.phone && lcTierConfig?.smsEnabled) {
       const reserved = await storage.tryReserveAlert({
         incidentId: incident.incidentId,
         userId: user.id,
@@ -736,7 +743,10 @@ export async function sendParserHealthAlert(vendorKey: string, consecutiveFailur
     }
   }
   
-  if (owner.notifySms && owner.phone) {
+  const ownerTier = owner.subscriptionTier as SubscriptionTierKey;
+  const ownerTierConfig = ownerTier ? SUBSCRIPTION_TIERS[ownerTier] : null;
+
+  if (owner.notifySms && owner.phone && ownerTierConfig?.smsEnabled) {
     try {
       await sendSMS(owner.phone, message);
       console.log(`[notify] Parser health SMS sent to owner: ${owner.phone}`);
@@ -894,8 +904,10 @@ export async function dispatchBlockchainNotification(notification: BlockchainNot
       continue;
     }
     
-    if (user.notifySms && user.phone) {
-      // Use atomic reserve to prevent race condition duplicates
+    const bcUserTier = user.subscriptionTier as SubscriptionTierKey;
+    const bcTierConfig = bcUserTier ? SUBSCRIPTION_TIERS[bcUserTier] : null;
+
+    if (user.notifySms && user.phone && bcTierConfig?.smsEnabled) {
       const reserved = await storage.tryReserveBlockchainAlert({
         incidentId: incident.incidentId,
         userId: user.id,
@@ -1127,7 +1139,10 @@ export async function dispatchProbeAlert(notification: ProbeAlertNotification): 
   const usersToNotify = [probeOwner];
 
   for (const user of usersToNotify) {
-    if (user.notifySms && user.phone) {
+    const probeUserTier = user.subscriptionTier as SubscriptionTierKey;
+    const probeTierConfig = probeUserTier ? SUBSCRIPTION_TIERS[probeUserTier] : null;
+
+    if (user.notifySms && user.phone && probeTierConfig?.smsEnabled) {
       try {
         const message = formatProbeAlertSms(notification);
         const success = await sendSMS(user.phone, message);

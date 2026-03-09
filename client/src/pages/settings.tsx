@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bell, Database, Mail, Save, Server, Shield, Clock, Code, Copy, Check, CheckCircle2, Smartphone, MessageSquare, GripVertical, AlertTriangle, AlertCircle, Info, Users, Crown, ShieldCheck, Link2 } from "lucide-react";
+import { Bell, Database, Mail, Save, Server, Shield, Clock, Code, Copy, Check, CheckCircle2, Smartphone, MessageSquare, GripVertical, AlertTriangle, AlertCircle, Info, Users, Crown, ShieldCheck, Link2, Lock } from "lucide-react";
 import { getBrowserTimezone } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -546,11 +546,13 @@ export default function Settings() {
       await recordConsent('sms', config.smsPhone, SMS_CONSENT_TEXT);
     }
 
+    const smsTierAllowed = !!(userTier && SUBSCRIPTION_TIERS[userTier]?.smsEnabled);
+
     saveNotificationPrefs.mutate({
       notificationEmail: config.notificationEmail,
       phone: config.smsPhone,
       notifyEmail: config.enableEmail,
-      notifySms: config.enableSms,
+      notifySms: smsTierAllowed ? config.enableSms : false,
       timezone: config.timezone,
     });
 
@@ -806,6 +808,8 @@ CONFIG = AppConfig(
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {userTier && SUBSCRIPTION_TIERS[userTier]?.smsEnabled ? (
+                <>
               <div className="space-y-2">
                 <Label htmlFor="sms-phone">Your Phone Number</Label>
                 <Input 
@@ -902,6 +906,16 @@ CONFIG = AppConfig(
                         {SMS_CONSENT_TEXT}
                       </p>
                     </div>
+                  </div>
+                </div>
+              )}
+                </>
+              ) : (
+                <div className="flex items-center gap-3 p-4 rounded-lg border border-amber-500/30 bg-amber-500/5">
+                  <Lock className="w-5 h-5 text-amber-500 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium">SMS notifications require Growth or Enterprise plan</p>
+                    <p className="text-xs text-muted-foreground mt-1">Upgrade your plan to receive incident alerts via SMS.</p>
                   </div>
                 </div>
               )}

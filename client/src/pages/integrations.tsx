@@ -122,7 +122,7 @@ export default function Integrations() {
   });
 
   const tier = user?.subscriptionTier;
-  const hasAccess = tier === 'growth' || tier === 'enterprise';
+  const hasAccess = tier === 'essential' || tier === 'growth' || tier === 'enterprise';
 
   const { data: integrations = [], isLoading } = useQuery<Integration[]>({
     queryKey: ["/api/integrations"],
@@ -221,9 +221,9 @@ export default function Integrations() {
         <Card className="bg-gray-900 border-gray-700">
           <CardContent className="p-8 text-center">
             <Settings2 className="w-12 h-12 mx-auto mb-4 text-gray-600" />
-            <h3 className="font-semibold mb-2 text-white text-lg">Growth Plan Required</h3>
+            <h3 className="font-semibold mb-2 text-white text-lg">Essential Plan Required</h3>
             <p className="text-gray-400 mb-4">
-              Upgrade to Growth or Enterprise to configure integrations for Slack, Teams, Discord, PSA systems, and webhooks.
+              Upgrade to Essential or higher to configure integrations for Slack, Teams, Discord, PSA systems, and webhooks.
             </p>
             <Button className="bg-cyan-600 hover:bg-cyan-700">Upgrade Now</Button>
           </CardContent>

@@ -2772,6 +2772,15 @@ If you did not expect this email, please contact your administrator.`
   app.put("/api/notifications/preferences", isAuthenticated, async (req: any, res) => {
     try {
       const { notificationEmail, phone, notifyEmail, notifySms, timezone } = req.body;
+
+      if (notifySms) {
+        const tier = req.user.subscriptionTier as keyof typeof SUBSCRIPTION_TIERS | null;
+        const tierConfig = tier && SUBSCRIPTION_TIERS[tier] ? SUBSCRIPTION_TIERS[tier] : null;
+        if (!tierConfig?.smsEnabled) {
+          return res.status(403).json({ error: "SMS notifications require a Growth or Enterprise plan" });
+        }
+      }
+
       const user = await storage.updateUserNotifications(req.user.id, {
         notificationEmail,
         phone,
@@ -2800,8 +2809,14 @@ If you did not expect this email, please contact your administrator.`
 
   // ============ SMS ============
 
-  app.post("/api/sms/test", isAuthenticated, async (req, res) => {
+  app.post("/api/sms/test", isAuthenticated, async (req: any, res) => {
     try {
+      const tier = req.user.subscriptionTier as keyof typeof SUBSCRIPTION_TIERS | null;
+      const tierConfig = tier && SUBSCRIPTION_TIERS[tier] ? SUBSCRIPTION_TIERS[tier] : null;
+      if (!tierConfig?.smsEnabled) {
+        return res.status(403).json({ error: "SMS requires a Growth or Enterprise plan" });
+      }
+
       const { phone } = req.body;
       if (!phone) {
         return res.status(400).json({ error: "Phone number is required" });
@@ -7638,7 +7653,7 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
       
       const user = req.user;
-      if (!user.subscriptionTier || user.subscriptionTier === 'essential') {
+      if (!user.subscriptionTier || user.subscriptionTier === 'free' || user.subscriptionTier === 'essential') {
         return res.status(403).json({ error: "PSA integration requires Growth or Enterprise plan" });
       }
       

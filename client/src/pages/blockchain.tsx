@@ -194,9 +194,10 @@ export default function Blockchain() {
     return subscriptionData.current < subscriptionData.limit;
   };
 
-  // Check if user has blockchain access (Growth and Enterprise tiers only)
   const hasBlockchainAccess = () => {
-    return subscriptionData?.tier === 'growth' || subscriptionData?.tier === 'enterprise';
+    if (!subscriptionData) return false;
+    if (subscriptionData.limit === 0) return false;
+    return true;
   };
 
   const { data: chains = [], isLoading: chainsLoading, refetch, isFetching } = useQuery<BlockchainChain[]>({
@@ -524,8 +525,8 @@ export default function Blockchain() {
                   </h3>
                   <p className="text-sm text-muted-foreground">
                     {hasBlockchainAccess() 
-                      ? `Select up to ${subscriptionData.limit === null ? 'unlimited' : subscriptionData.limit} blockchain networks to monitor`
-                      : "Upgrade to Growth (10 chains) or Enterprise (unlimited) to monitor blockchain networks"}
+                      ? `Select up to ${subscriptionData.limit === null ? 'unlimited' : subscriptionData.limit} blockchain network${subscriptionData.limit === 1 ? '' : 's'} to monitor`
+                      : "Upgrade to a plan with blockchain monitoring to track network status"}
                   </p>
                 </div>
               </div>
