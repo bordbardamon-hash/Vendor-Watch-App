@@ -38,7 +38,7 @@ export async function fetchWithRetry(
     try {
       const response = await fetch(url, {
         ...init,
-        signal: init?.signal || AbortSignal.timeout(5000),
+        signal: init?.signal || AbortSignal.timeout(10000),
       });
 
       if (!response.ok) {
