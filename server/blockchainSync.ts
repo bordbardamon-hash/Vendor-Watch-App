@@ -406,15 +406,23 @@ function withChainTimeout<T>(promise: Promise<T>, ms: number, label: string): Pr
   ]);
 }
 
-export async function syncAllBlockchainChains(): Promise<void> {
+export async function syncAllBlockchainChains(limit?: number): Promise<void> {
   console.log('[blockchain] Starting blockchain status sync...');
   
   const chains = await storage.getBlockchainChains();
-  const supportedChains = chains.filter(c => 
+  const filteredChains = chains.filter(c => 
     c.sourceType === 'statuspage' || c.sourceType === 'statuspage_json' || c.sourceType === 'manual' || c.sourceType === 'api'
   );
   
-  console.log(`[blockchain] Found ${supportedChains.length} chains to sync`);
+  const sortedChains = filteredChains.sort((a, b) => {
+    const aTime = a.lastChecked ? new Date(a.lastChecked).getTime() : 0;
+    const bTime = b.lastChecked ? new Date(b.lastChecked).getTime() : 0;
+    return aTime - bTime;
+  });
+  
+  const supportedChains = limit ? sortedChains.slice(0, limit) : sortedChains;
+  
+  console.log(`[blockchain] Syncing ${supportedChains.length}/${filteredChains.length} chains${limit ? ' (staggered)' : ''}`);
   
   const INTER_BATCH_DELAY_MS = 500;
   for (let i = 0; i < supportedChains.length; i += BLOCKCHAIN_BATCH_SIZE) {

@@ -280,41 +280,40 @@ app.use((req, res, next) => {
       log(`serving on port ${port}`);
       
       const isProduction = process.env.NODE_ENV === 'production';
+      const SYNC_INTERVAL_MS = 2 * 60 * 1000;
       
-      if (isProduction) {
-        console.log('[sync] Production mode: sync worker disabled (runs from dev environment)');
-        console.log('[sync] Production serves the web UI only; dev environment handles all background sync/tasks');
+      const VENDOR_BATCH_LIMIT = isProduction ? 25 : undefined;
+      const BLOCKCHAIN_BATCH_LIMIT = isProduction ? 15 : undefined;
+      
+      let syncRunning = false;
+      let lastSyncStart = 0;
+      let initialSyncDone = false;
+      
+      async function runSync(label: string) {
+        if (syncRunning) {
+          const elapsed = Date.now() - lastSyncStart;
+          console.log(`[sync] Skipping ${label} sync - previous sync still running (${Math.round(elapsed/1000)}s elapsed)`);
+          return;
+        }
+        syncRunning = true;
+        setSyncRunning(true);
+        lastSyncStart = Date.now();
+        const startTime = Date.now();
         
-        (async () => {
-          try {
-            const archived = await storage.archiveResolvedIncidents(1);
-            if (archived > 0) console.log(`[archive] Startup: archived ${archived} resolved vendor incidents`);
-            const blockchainArchived = await storage.archiveResolvedBlockchainIncidents(1);
-            if (blockchainArchived > 0) console.log(`[archive] Startup: archived ${blockchainArchived} resolved blockchain incidents`);
-          } catch (err) {
-            console.error('[archive] Startup archival failed:', err);
-          }
-        })();
-      } else {
-        const SYNC_INTERVAL_MS = 2 * 60 * 1000;
-        let syncRunning = false;
-        let lastSyncStart = 0;
-        let initialSyncDone = false;
-        
-        async function runSync(label: string) {
-          if (syncRunning) {
-            const elapsed = Date.now() - lastSyncStart;
-            console.log(`[sync] Skipping ${label} sync - previous sync still running (${Math.round(elapsed/1000)}s elapsed)`);
-            return;
-          }
-          syncRunning = true;
-          setSyncRunning(true);
-          lastSyncStart = Date.now();
-          const startTime = Date.now();
+        try {
+          const mode = VENDOR_BATCH_LIMIT ? 'staggered' : 'full';
+          console.log(`[sync] Starting ${label} ${mode} sync...`);
           
-          try {
-            console.log(`[sync] Starting ${label} status sync (blockchain + vendors in parallel)...`);
-            const [, result] = await Promise.all([
+          if (isProduction) {
+            await syncAllBlockchainChains(BLOCKCHAIN_BATCH_LIMIT);
+            const bcTime = Math.round((Date.now()-startTime)/1000);
+            console.log(`[sync] ${label} blockchain sync complete in ${bcTime}s`);
+            
+            const result = await syncVendorStatus(undefined, VENDOR_BATCH_LIMIT);
+            const vTime = Math.round((Date.now()-startTime)/1000);
+            console.log(`[sync] ${label} vendor sync complete in ${vTime}s: ${result.synced}/${result.total} synced (${VENDOR_BATCH_LIMIT} per cycle)`);
+          } else {
+            await Promise.all([
               syncAllBlockchainChains().then(() => {
                 const bcTime = Math.round((Date.now()-startTime)/1000);
                 console.log(`[sync] ${label} blockchain sync complete in ${bcTime}s`);
@@ -322,188 +321,193 @@ app.use((req, res, next) => {
               syncVendorStatus().then(r => {
                 const vTime = Math.round((Date.now()-startTime)/1000);
                 console.log(`[sync] ${label} vendor sync complete in ${vTime}s: ${r.synced} synced, ${r.skipped} skipped`);
-                return r;
               }),
             ]);
-          } catch (err) {
-            console.error(`[sync] ${label} sync failed:`, err);
-          } finally {
-            syncRunning = false;
-            setSyncRunning(false);
-            const totalTime = Math.round((Date.now() - startTime) / 1000);
-            console.log(`[sync] ${label} total sync completed in ${totalTime}s`);
-            
-            if (!initialSyncDone) {
-              initialSyncDone = true;
-              console.log('[sync] Initial sync finished, starting background tasks...');
-              startBackgroundTasks();
-            }
+          }
+        } catch (err) {
+          console.error(`[sync] ${label} sync failed:`, err);
+        } finally {
+          syncRunning = false;
+          setSyncRunning(false);
+          const totalTime = Math.round((Date.now() - startTime) / 1000);
+          console.log(`[sync] ${label} total sync completed in ${totalTime}s`);
+          
+          if (!initialSyncDone) {
+            initialSyncDone = true;
+            console.log('[sync] Initial sync finished, starting background tasks...');
+            startBackgroundTasks();
           }
         }
-        
-        (async () => {
-          try {
-            const archived = await storage.archiveResolvedIncidents(1);
-            if (archived > 0) console.log(`[archive] Startup: archived ${archived} resolved vendor incidents`);
-            const blockchainArchived = await storage.archiveResolvedBlockchainIncidents(1);
-            if (blockchainArchived > 0) console.log(`[archive] Startup: archived ${blockchainArchived} resolved blockchain incidents`);
-          } catch (err) {
-            console.error('[archive] Startup archival failed:', err);
-          }
-        })();
+      }
+      
+      (async () => {
+        try {
+          const archived = await storage.archiveResolvedIncidents(1);
+          if (archived > 0) console.log(`[archive] Startup: archived ${archived} resolved vendor incidents`);
+          const blockchainArchived = await storage.archiveResolvedBlockchainIncidents(1);
+          if (blockchainArchived > 0) console.log(`[archive] Startup: archived ${blockchainArchived} resolved blockchain incidents`);
+        } catch (err) {
+          console.error('[archive] Startup archival failed:', err);
+        }
+      })();
 
-        setTimeout(() => runSync('initial'), 3000);
+      const startupDelay = isProduction ? 5000 : 3000;
+      setTimeout(() => runSync('initial'), startupDelay);
+      
+      setInterval(async () => {
+        await runSync('scheduled');
+        
+        try {
+          const staleVendor = await resolveStaleIncidents(7);
+          const staleBlockchain = await resolveStaleBlockchainIncidents(7);
+          if (staleVendor.resolved > 0 || staleBlockchain.resolved > 0) {
+            console.log(`[sync] Auto-resolved ${staleVendor.resolved} vendor + ${staleBlockchain.resolved} blockchain stale incidents`);
+          }
+        } catch (err) {
+          console.error('[sync] Stale incident cleanup failed:', err);
+        }
+
+        try {
+          await checkAndSendMaintenanceReminders();
+        } catch (err) {
+          console.error('[sync] Maintenance reminder check failed:', err);
+        }
+      }, SYNC_INTERVAL_MS);
+      
+      if (isProduction) {
+        console.log(`[sync] Production staggered sync: ${VENDOR_BATCH_LIMIT} vendors + ${BLOCKCHAIN_BATCH_LIMIT} blockchains per cycle (every ${SYNC_INTERVAL_MS / 60000} min)`);
+        console.log(`[sync] Full rotation: vendors ~${Math.ceil(409 / (VENDOR_BATCH_LIMIT || 25)) * 2} min, blockchains ~${Math.ceil(110 / (BLOCKCHAIN_BATCH_LIMIT || 15)) * 2} min`);
+      } else {
+        console.log(`[sync] Dev full sync: every ${SYNC_INTERVAL_MS / 60000} minutes (all vendors + blockchains in parallel)`);
+      }
+      
+      function startBackgroundTasks() {
+        const ARCHIVE_INTERVAL_MS = 60 * 60 * 1000;
+        const ARCHIVE_AFTER_DAYS = 1;
+        const PURGE_AFTER_DAYS = 365;
+        
+        const runArchival = async () => {
+          try {
+            const archived = await storage.archiveResolvedIncidents(ARCHIVE_AFTER_DAYS);
+            if (archived > 0) console.log(`[archive] Archived ${archived} resolved vendor incidents`);
+            const purged = await storage.purgeOldArchivedIncidents(PURGE_AFTER_DAYS);
+            if (purged > 0) console.log(`[archive] Purged ${purged} archived vendor incidents`);
+            const blockchainArchived = await storage.archiveResolvedBlockchainIncidents(ARCHIVE_AFTER_DAYS);
+            if (blockchainArchived > 0) console.log(`[archive] Archived ${blockchainArchived} resolved blockchain incidents`);
+            const blockchainPurged = await storage.purgeOldArchivedBlockchainIncidents(PURGE_AFTER_DAYS);
+            if (blockchainPurged > 0) console.log(`[archive] Purged ${blockchainPurged} archived blockchain incidents`);
+          } catch (err) {
+            console.error('[archive] Archival cleanup failed:', err);
+          }
+        };
+
+        runArchival();
+        setInterval(runArchival, ARCHIVE_INTERVAL_MS);
+        console.log(`[archive] Automatic archival configured: resolved incidents archived after ${ARCHIVE_AFTER_DAYS} days, purged after ${PURGE_AFTER_DAYS} days`);
+        
+        const TELEMETRY_INTERVAL_MS = 60 * 60 * 1000;
+        const PREDICTION_INTERVAL_MS = 6 * 60 * 60 * 1000;
+        
+        setTimeout(async () => {
+          console.log('[predictions] Starting initial telemetry collection...');
+          try {
+            await collectTelemetryMetrics();
+            console.log('[predictions] Initial telemetry collection complete');
+          } catch (err) {
+            console.error('[predictions] Initial telemetry collection failed:', err);
+          }
+        }, 5000);
         
         setInterval(async () => {
-          await runSync('scheduled');
-          
+          console.log('[predictions] Collecting hourly telemetry...');
           try {
-            const staleVendor = await resolveStaleIncidents(7);
-            const staleBlockchain = await resolveStaleBlockchainIncidents(7);
-            if (staleVendor.resolved > 0 || staleBlockchain.resolved > 0) {
-              console.log(`[sync] Auto-resolved ${staleVendor.resolved} vendor + ${staleBlockchain.resolved} blockchain stale incidents`);
+            await collectTelemetryMetrics();
+            console.log('[predictions] Hourly telemetry collection complete');
+          } catch (err) {
+            console.error('[predictions] Hourly telemetry collection failed:', err);
+          }
+        }, TELEMETRY_INTERVAL_MS);
+        
+        setInterval(async () => {
+          console.log('[predictions] Generating predictions from patterns...');
+          try {
+            await generatePredictions();
+            console.log('[predictions] Prediction generation complete');
+          } catch (err) {
+            console.error('[predictions] Prediction generation failed:', err);
+          }
+        }, PREDICTION_INTERVAL_MS);
+        
+        setTimeout(async () => {
+          console.log('[predictions] Running initial prediction generation...');
+          try {
+            await generatePredictions();
+            console.log('[predictions] Initial prediction generation complete');
+          } catch (err) {
+            console.error('[predictions] Initial prediction generation failed:', err);
+          }
+        }, 30000);
+        
+        const MAINTENANCE_INTERVAL_MS = 60 * 60 * 1000;
+        setInterval(async () => {
+          console.log('[predictions] Running prediction maintenance...');
+          try {
+            const result = await maintainPredictions();
+            console.log(`[predictions] Maintenance complete: expired=${result.expired}, validated=${result.validated}, invalidated=${result.invalidated}`);
+            const confidenceUpdates = await updatePredictionConfidence();
+            if (confidenceUpdates > 0) console.log(`[predictions] Updated confidence for ${confidenceUpdates} predictions`);
+          } catch (err) {
+            console.error('[predictions] Prediction maintenance failed:', err);
+          }
+        }, MAINTENANCE_INTERVAL_MS);
+        
+        setTimeout(async () => {
+          console.log('[predictions] Running initial prediction maintenance...');
+          try {
+            await maintainPredictions();
+            await updatePredictionConfidence();
+            console.log('[predictions] Initial maintenance complete');
+          } catch (err) {
+            console.error('[predictions] Initial maintenance failed:', err);
+          }
+        }, 120000);
+        
+        console.log(`[predictions] Predictive analytics configured: telemetry every 60 minutes, predictions every 6 hours, maintenance hourly`);
+        
+        const DATA_RETENTION_INTERVAL_MS = 24 * 60 * 60 * 1000;
+        const TELEMETRY_RETENTION_DAYS = 90;
+        const PREDICTION_RETENTION_DAYS = 30;
+        const ACTIVITY_RETENTION_DAYS = 90;
+        
+        const runDataRetention = async () => {
+          console.log('[retention] Running data retention cleanup...');
+          try {
+            const telemetryPurged = await storage.purgeOldTelemetry(TELEMETRY_RETENTION_DAYS);
+            const predictionsPurged = await storage.purgeOldPredictions(PREDICTION_RETENTION_DAYS);
+            const activityPurged = await storage.purgeOldActivityEvents(ACTIVITY_RETENTION_DAYS);
+            console.log(`[retention] Cleanup complete: telemetry=${telemetryPurged}, predictions=${predictionsPurged}, activity=${activityPurged}`);
+          } catch (err) {
+            console.error('[retention] Data retention cleanup failed:', err);
+          }
+        };
+        
+        setTimeout(runDataRetention, 5 * 60 * 1000);
+        setInterval(runDataRetention, DATA_RETENTION_INTERVAL_MS);
+        console.log(`[retention] Data retention configured: telemetry ${TELEMETRY_RETENTION_DAYS} days, predictions ${PREDICTION_RETENTION_DAYS} days, activity ${ACTIVITY_RETENTION_DAYS} days (runs daily)`);
+
+        const PROBE_INTERVAL_MS = 60 * 1000;
+        setInterval(async () => {
+          try {
+            const { runAllActiveProbes } = await import('./syntheticMonitor');
+            const result = await runAllActiveProbes();
+            if (result.total > 0) {
+              console.log(`[probes] Ran ${result.total} probes: ${result.healthy} healthy, ${result.degraded} degraded, ${result.down} down`);
             }
           } catch (err) {
-            console.error('[sync] Stale incident cleanup failed:', err);
+            console.error('[probes] Probe execution failed:', err);
           }
-
-          try {
-            await checkAndSendMaintenanceReminders();
-          } catch (err) {
-            console.error('[sync] Maintenance reminder check failed:', err);
-          }
-        }, SYNC_INTERVAL_MS);
-        
-        console.log(`[sync] Sync worker active: every ${SYNC_INTERVAL_MS / 60000} minutes (vendors + blockchain in parallel)`);
-        
-        function startBackgroundTasks() {
-          const ARCHIVE_INTERVAL_MS = 60 * 60 * 1000;
-          const ARCHIVE_AFTER_DAYS = 1;
-          const PURGE_AFTER_DAYS = 365;
-          
-          const runArchival = async () => {
-            try {
-              const archived = await storage.archiveResolvedIncidents(ARCHIVE_AFTER_DAYS);
-              if (archived > 0) console.log(`[archive] Archived ${archived} resolved vendor incidents`);
-              const purged = await storage.purgeOldArchivedIncidents(PURGE_AFTER_DAYS);
-              if (purged > 0) console.log(`[archive] Purged ${purged} archived vendor incidents`);
-              const blockchainArchived = await storage.archiveResolvedBlockchainIncidents(ARCHIVE_AFTER_DAYS);
-              if (blockchainArchived > 0) console.log(`[archive] Archived ${blockchainArchived} resolved blockchain incidents`);
-              const blockchainPurged = await storage.purgeOldArchivedBlockchainIncidents(PURGE_AFTER_DAYS);
-              if (blockchainPurged > 0) console.log(`[archive] Purged ${blockchainPurged} archived blockchain incidents`);
-            } catch (err) {
-              console.error('[archive] Archival cleanup failed:', err);
-            }
-          };
-
-          runArchival();
-          setInterval(runArchival, ARCHIVE_INTERVAL_MS);
-          console.log(`[archive] Automatic archival configured: resolved incidents archived after ${ARCHIVE_AFTER_DAYS} days, purged after ${PURGE_AFTER_DAYS} days`);
-          
-          const TELEMETRY_INTERVAL_MS = 60 * 60 * 1000;
-          const PREDICTION_INTERVAL_MS = 6 * 60 * 60 * 1000;
-          
-          setTimeout(async () => {
-            console.log('[predictions] Starting initial telemetry collection...');
-            try {
-              await collectTelemetryMetrics();
-              console.log('[predictions] Initial telemetry collection complete');
-            } catch (err) {
-              console.error('[predictions] Initial telemetry collection failed:', err);
-            }
-          }, 5000);
-          
-          setInterval(async () => {
-            console.log('[predictions] Collecting hourly telemetry...');
-            try {
-              await collectTelemetryMetrics();
-              console.log('[predictions] Hourly telemetry collection complete');
-            } catch (err) {
-              console.error('[predictions] Hourly telemetry collection failed:', err);
-            }
-          }, TELEMETRY_INTERVAL_MS);
-          
-          setInterval(async () => {
-            console.log('[predictions] Generating predictions from patterns...');
-            try {
-              await generatePredictions();
-              console.log('[predictions] Prediction generation complete');
-            } catch (err) {
-              console.error('[predictions] Prediction generation failed:', err);
-            }
-          }, PREDICTION_INTERVAL_MS);
-          
-          setTimeout(async () => {
-            console.log('[predictions] Running initial prediction generation...');
-            try {
-              await generatePredictions();
-              console.log('[predictions] Initial prediction generation complete');
-            } catch (err) {
-              console.error('[predictions] Initial prediction generation failed:', err);
-            }
-          }, 30000);
-          
-          const MAINTENANCE_INTERVAL_MS = 60 * 60 * 1000;
-          setInterval(async () => {
-            console.log('[predictions] Running prediction maintenance...');
-            try {
-              const result = await maintainPredictions();
-              console.log(`[predictions] Maintenance complete: expired=${result.expired}, validated=${result.validated}, invalidated=${result.invalidated}`);
-              const confidenceUpdates = await updatePredictionConfidence();
-              if (confidenceUpdates > 0) console.log(`[predictions] Updated confidence for ${confidenceUpdates} predictions`);
-            } catch (err) {
-              console.error('[predictions] Prediction maintenance failed:', err);
-            }
-          }, MAINTENANCE_INTERVAL_MS);
-          
-          setTimeout(async () => {
-            console.log('[predictions] Running initial prediction maintenance...');
-            try {
-              await maintainPredictions();
-              await updatePredictionConfidence();
-              console.log('[predictions] Initial maintenance complete');
-            } catch (err) {
-              console.error('[predictions] Initial maintenance failed:', err);
-            }
-          }, 120000);
-          
-          console.log(`[predictions] Predictive analytics configured: telemetry every 60 minutes, predictions every 6 hours, maintenance hourly`);
-          
-          const DATA_RETENTION_INTERVAL_MS = 24 * 60 * 60 * 1000;
-          const TELEMETRY_RETENTION_DAYS = 90;
-          const PREDICTION_RETENTION_DAYS = 30;
-          const ACTIVITY_RETENTION_DAYS = 90;
-          
-          const runDataRetention = async () => {
-            console.log('[retention] Running data retention cleanup...');
-            try {
-              const telemetryPurged = await storage.purgeOldTelemetry(TELEMETRY_RETENTION_DAYS);
-              const predictionsPurged = await storage.purgeOldPredictions(PREDICTION_RETENTION_DAYS);
-              const activityPurged = await storage.purgeOldActivityEvents(ACTIVITY_RETENTION_DAYS);
-              console.log(`[retention] Cleanup complete: telemetry=${telemetryPurged}, predictions=${predictionsPurged}, activity=${activityPurged}`);
-            } catch (err) {
-              console.error('[retention] Data retention cleanup failed:', err);
-            }
-          };
-          
-          setTimeout(runDataRetention, 5 * 60 * 1000);
-          setInterval(runDataRetention, DATA_RETENTION_INTERVAL_MS);
-          console.log(`[retention] Data retention configured: telemetry ${TELEMETRY_RETENTION_DAYS} days, predictions ${PREDICTION_RETENTION_DAYS} days, activity ${ACTIVITY_RETENTION_DAYS} days (runs daily)`);
-
-          const PROBE_INTERVAL_MS = 60 * 1000;
-          setInterval(async () => {
-            try {
-              const { runAllActiveProbes } = await import('./syntheticMonitor');
-              const result = await runAllActiveProbes();
-              if (result.total > 0) {
-                console.log(`[probes] Ran ${result.total} probes: ${result.healthy} healthy, ${result.degraded} degraded, ${result.down} down`);
-              }
-            } catch (err) {
-              console.error('[probes] Probe execution failed:', err);
-            }
-          }, PROBE_INTERVAL_MS);
-          console.log(`[probes] Synthetic monitoring configured: every 1 minute`);
-        }
+        }, PROBE_INTERVAL_MS);
+        console.log(`[probes] Synthetic monitoring configured: every 1 minute`);
       }
     },
   );

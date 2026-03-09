@@ -539,7 +539,7 @@ async function processBatch<T>(items: T[], batchSize: number, fn: (item: T) => P
   return processed;
 }
 
-export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: number; errors: string[]; skipped: number }> {
+export async function syncVendorStatus(vendorKey?: string, limit?: number): Promise<{ synced: number; errors: string[]; skipped: number; total: number }> {
   const vendors = vendorKey 
     ? [await storage.getVendor(vendorKey)].filter(Boolean)
     : await storage.getVendors();
@@ -557,11 +557,12 @@ export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: nu
     }
     return true;
   });
-  const syncableVendors = vendorKey ? filteredVendors : filteredVendors.sort((a, b) => {
+  const sortedVendors = vendorKey ? filteredVendors : filteredVendors.sort((a, b) => {
     const aTime = a?.lastChecked ? new Date(a.lastChecked).getTime() : 0;
     const bTime = b?.lastChecked ? new Date(b.lastChecked).getTime() : 0;
     return aTime - bTime;
   });
+  const syncableVendors = limit && !vendorKey ? sortedVendors.slice(0, limit) : sortedVendors;
 
   async function syncSingleVendor(vendor: typeof vendors[0]) {
     if (!vendor) return;
@@ -803,7 +804,7 @@ export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: nu
     console.error('[health] Failed to update vendor_sync health state:', e);
   }
   
-  return { synced, errors, skipped };
+  return { synced, errors, skipped, total: sortedVendors.length };
 }
 
 export async function getVendorStatuses(): Promise<Array<{ key: string; name: string; status: string; lastChecked: Date | null }>> {
