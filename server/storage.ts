@@ -112,6 +112,8 @@ export interface IStorage {
   getArchivedIncidentsCount(options?: { vendorKey?: string; query?: string }): Promise<number>;
   archiveResolvedIncidents(olderThanDays: number): Promise<number>;
   purgeOldArchivedIncidents(olderThanDays: number): Promise<number>;
+  isIncidentArchived(vendorKey: string, incidentId: string): Promise<boolean>;
+  isBlockchainIncidentArchived(chainKey: string, incidentId: string): Promise<boolean>;
   
   // Blockchain Incident Archive
   archiveBlockchainIncident(incident: BlockchainIncident): Promise<BlockchainIncidentArchive>;
@@ -814,13 +816,17 @@ export class DatabaseStorage implements IStorage {
   async archiveResolvedIncidents(olderThanDays: number): Promise<number> {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
+    const cutoffISO = cutoffDate.toISOString();
     
     const resolvedIncidents = await db
       .select()
       .from(incidents)
       .where(and(
         eq(incidents.status, 'resolved'),
-        lte(incidents.createdAt, cutoffDate)
+        or(
+          lte(incidents.createdAt, cutoffDate),
+          lte(incidents.startedAt, cutoffISO)
+        )
       ));
     
     let archivedCount = 0;
@@ -844,6 +850,30 @@ export class DatabaseStorage implements IStorage {
     return result.rowCount || 0;
   }
   
+  async isIncidentArchived(vendorKey: string, incidentId: string): Promise<boolean> {
+    const [found] = await db
+      .select({ id: incidentArchive.id })
+      .from(incidentArchive)
+      .where(and(
+        eq(incidentArchive.vendorKey, vendorKey),
+        eq(incidentArchive.incidentId, incidentId)
+      ))
+      .limit(1);
+    return !!found;
+  }
+
+  async isBlockchainIncidentArchived(chainKey: string, incidentId: string): Promise<boolean> {
+    const [found] = await db
+      .select({ id: blockchainIncidentArchive.id })
+      .from(blockchainIncidentArchive)
+      .where(and(
+        eq(blockchainIncidentArchive.chainKey, chainKey),
+        eq(blockchainIncidentArchive.incidentId, incidentId)
+      ))
+      .limit(1);
+    return !!found;
+  }
+
   // Blockchain Incident Archive
   async archiveBlockchainIncident(incident: BlockchainIncident): Promise<BlockchainIncidentArchive> {
     const [archived] = await db.insert(blockchainIncidentArchive).values({
@@ -938,13 +968,17 @@ export class DatabaseStorage implements IStorage {
   async archiveResolvedBlockchainIncidents(olderThanDays: number): Promise<number> {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
+    const cutoffISO = cutoffDate.toISOString();
     
     const resolvedIncidents = await db
       .select()
       .from(blockchainIncidents)
       .where(and(
         eq(blockchainIncidents.status, 'resolved'),
-        lte(blockchainIncidents.createdAt, cutoffDate)
+        or(
+          lte(blockchainIncidents.createdAt, cutoffDate),
+          lte(blockchainIncidents.startedAt, cutoffISO)
+        )
       ));
     
     let archivedCount = 0;

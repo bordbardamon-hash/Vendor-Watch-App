@@ -623,6 +623,11 @@ export async function syncVendorStatus(vendorKey?: string): Promise<{ synced: nu
           const affectedComponents = incident.components?.map((c: { id: string; name: string; status: string }) => c.name).join(', ') || '';
           
           if (!exists) {
+            const alreadyArchived = await storage.isIncidentArchived(vendor.key, incident.id);
+            if (alreadyArchived) {
+              continue;
+            }
+
             const isAuthoritativeSource = vendor.parser === 'statuspage_json' || vendor.parser === 'aws_json' || vendor.parser === 'slack_json';
             if (!isAuthoritativeSource) {
               const isConfirmed = confirmVendorIncident(vendor.key, incident.id, incident);

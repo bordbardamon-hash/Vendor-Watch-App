@@ -37,6 +37,7 @@ Key entities include Users, Sessions, Vendors, Incidents, Jobs, Configurations, 
 - **Normalized Status States**: Maps diverse vendor statuses to 4 simple states (up/warn/down/maintenance).
 - **Early Warning Signals**: Crowdsourced report submission with dynamic confidence scoring.
 - **Historical Data & Reporting**: Generation of reports including uptime%, MTTR, and incident counts.
+- **Incident Archival**: Resolved incidents are automatically archived after 1 day (by createdAt or startedAt). Archival runs on startup and hourly. Sync checks the archive before re-creating incidents to prevent re-ingestion of already-archived incidents. Archives are purged after 1 year.
 
 - **Landing Page Redesign (March 2026)**: Complete overhaul inspired by incidenthub.cloud and statusgator.com. Enhanced nav with anchor links (Features, How It Works, Pricing). Feature pills below hero. Live incident feed mockup. Alternating left-right feature sections with visual mockups. Social proof with testimonials. Consolidated Enterprise+MSP features. Better visual hierarchy.
 

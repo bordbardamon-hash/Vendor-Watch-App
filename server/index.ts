@@ -353,8 +353,7 @@ app.use((req, res, next) => {
         const ARCHIVE_AFTER_DAYS = 1;
         const PURGE_AFTER_DAYS = 365;
         
-        setInterval(async () => {
-          console.log('[archive] Starting incident archival cleanup...');
+        const runArchival = async () => {
           try {
             const archived = await storage.archiveResolvedIncidents(ARCHIVE_AFTER_DAYS);
             if (archived > 0) console.log(`[archive] Archived ${archived} resolved vendor incidents`);
@@ -367,7 +366,10 @@ app.use((req, res, next) => {
           } catch (err) {
             console.error('[archive] Archival cleanup failed:', err);
           }
-        }, ARCHIVE_INTERVAL_MS);
+        };
+
+        runArchival();
+        setInterval(runArchival, ARCHIVE_INTERVAL_MS);
         console.log(`[archive] Automatic archival configured: resolved incidents archived after ${ARCHIVE_AFTER_DAYS} days, purged after ${PURGE_AFTER_DAYS} days`);
         
         const TELEMETRY_INTERVAL_MS = 60 * 60 * 1000;

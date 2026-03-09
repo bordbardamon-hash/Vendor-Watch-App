@@ -320,6 +320,11 @@ async function syncBlockchainChain(chainData: { key: string; name: string; sourc
         }
       }
     } else {
+      const alreadyArchived = await storage.isBlockchainIncidentArchived(chainData.key, incident.id);
+      if (alreadyArchived) {
+        continue;
+      }
+
       const hasStatuspageUrl = chainData.statuspageUrl && chainData.statuspageUrl.length > 0;
       if (!hasStatuspageUrl) {
         const isConfirmed = confirmBlockchainIncident(chainData.key, incident.id, incident);
