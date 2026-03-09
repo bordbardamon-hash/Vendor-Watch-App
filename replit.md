@@ -6,6 +6,11 @@ Vendor Watch is a full-stack web application designed for proactive monitoring o
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Deployment Architecture
+- **Production (deployed)**: Serves the web UI only. All background sync (vendor polling, blockchain polling, telemetry, predictions, synthetic probes) is disabled. Production reads data written by the dev environment to the shared PostgreSQL database.
+- **Development (dev environment)**: Runs the sync worker that polls all 409 vendors and 110 blockchain chains every 2 minutes, plus all background tasks (archival, telemetry, predictions, synthetic monitoring, data retention). Dev has much better outbound networking than the production container.
+- Both environments share the same PostgreSQL database. The dev environment must be running for vendor/blockchain statuses to stay updated.
+
 ## System Architecture
 
 ### Frontend
