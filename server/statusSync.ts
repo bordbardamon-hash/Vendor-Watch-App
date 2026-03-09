@@ -524,12 +524,17 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   ]);
 }
 
+const INTER_BATCH_DELAY_MS = 1500;
+
 async function processBatch<T>(items: T[], batchSize: number, fn: (item: T) => Promise<void>): Promise<number> {
   let processed = 0;
   for (let i = 0; i < items.length; i += batchSize) {
     const batch = items.slice(i, i + batchSize);
     await Promise.allSettled(batch.map(item => withTimeout(fn(item), PER_VENDOR_TIMEOUT_MS, 'vendor-sync')));
     processed += batch.length;
+    if (i + batchSize < items.length) {
+      await new Promise(resolve => setTimeout(resolve, INTER_BATCH_DELAY_MS));
+    }
   }
   return processed;
 }

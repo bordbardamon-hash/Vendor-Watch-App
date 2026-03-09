@@ -416,6 +416,7 @@ export async function syncAllBlockchainChains(): Promise<void> {
   
   console.log(`[blockchain] Found ${supportedChains.length} chains to sync`);
   
+  const INTER_BATCH_DELAY_MS = 1500;
   for (let i = 0; i < supportedChains.length; i += BLOCKCHAIN_BATCH_SIZE) {
     const batch = supportedChains.slice(i, i + BLOCKCHAIN_BATCH_SIZE);
     await Promise.allSettled(batch.map(async (chain) => {
@@ -426,6 +427,9 @@ export async function syncAllBlockchainChains(): Promise<void> {
         console.error(`[blockchain:${chain.key}] Sync error: ${msg}`);
       }
     }));
+    if (i + BLOCKCHAIN_BATCH_SIZE < supportedChains.length) {
+      await new Promise(resolve => setTimeout(resolve, INTER_BATCH_DELAY_MS));
+    }
   }
   
   cleanupStalePendingIncidents();

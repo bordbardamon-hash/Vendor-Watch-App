@@ -336,7 +336,7 @@ app.use((req, res, next) => {
         }
       })();
 
-      setTimeout(() => runSync('initial'), 3000);
+      setTimeout(() => runSync('initial'), 8000);
       
       setInterval(async () => {
         await runSync('scheduled');
