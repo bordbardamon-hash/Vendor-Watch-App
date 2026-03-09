@@ -4748,164 +4748,6 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
     }
   });
 
-  // ============ PSA WEBHOOKS ============
-
-  // Get user's PSA webhooks
-  app.get("/api/webhooks", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user?.id;
-      if (!userId) {
-        return res.status(401).json({ error: "Unauthorized" });
-      }
-      const webhooks = await storage.getPsaWebhooks(userId);
-      res.json(webhooks);
-    } catch (error) {
-      console.error("Error fetching webhooks:", error);
-      res.status(500).json({ error: "Failed to fetch webhooks" });
-    }
-  });
-
-  // Create a new PSA webhook
-  app.post("/api/webhooks", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user?.id;
-      if (!userId) {
-        return res.status(401).json({ error: "Unauthorized" });
-      }
-      
-      const { name, platform, webhookUrl, secret, events, isActive } = req.body;
-      
-      if (!name || !platform || !webhookUrl || !events) {
-        return res.status(400).json({ error: "Missing required fields: name, platform, webhookUrl, events" });
-      }
-      
-      const webhook = await storage.createPsaWebhook({
-        userId,
-        name,
-        platform,
-        webhookUrl,
-        secret: secret || null,
-        events: Array.isArray(events) ? events.join(',') : events,
-        isActive: isActive !== false,
-      });
-      
-      res.status(201).json(webhook);
-    } catch (error) {
-      console.error("Error creating webhook:", error);
-      res.status(500).json({ error: "Failed to create webhook" });
-    }
-  });
-
-  // Update a PSA webhook
-  app.put("/api/webhooks/:id", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user?.id;
-      if (!userId) {
-        return res.status(401).json({ error: "Unauthorized" });
-      }
-      
-      const webhook = await storage.getPsaWebhook(req.params.id);
-      if (!webhook) {
-        return res.status(404).json({ error: "Webhook not found" });
-      }
-      if (webhook.userId !== userId) {
-        return res.status(403).json({ error: "Not authorized to update this webhook" });
-      }
-      
-      const { name, platform, webhookUrl, secret, events, isActive } = req.body;
-      
-      const updated = await storage.updatePsaWebhook(req.params.id, {
-        ...(name && { name }),
-        ...(platform && { platform }),
-        ...(webhookUrl && { webhookUrl }),
-        ...(secret !== undefined && { secret }),
-        ...(events && { events: Array.isArray(events) ? events.join(',') : events }),
-        ...(isActive !== undefined && { isActive }),
-      });
-      
-      res.json(updated);
-    } catch (error) {
-      console.error("Error updating webhook:", error);
-      res.status(500).json({ error: "Failed to update webhook" });
-    }
-  });
-
-  // Delete a PSA webhook
-  app.delete("/api/webhooks/:id", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user?.id;
-      if (!userId) {
-        return res.status(401).json({ error: "Unauthorized" });
-      }
-      
-      const webhook = await storage.getPsaWebhook(req.params.id);
-      if (!webhook) {
-        return res.status(404).json({ error: "Webhook not found" });
-      }
-      if (webhook.userId !== userId) {
-        return res.status(403).json({ error: "Not authorized to delete this webhook" });
-      }
-      
-      await storage.deletePsaWebhook(req.params.id);
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error deleting webhook:", error);
-      res.status(500).json({ error: "Failed to delete webhook" });
-    }
-  });
-
-  // Test a PSA webhook
-  app.post("/api/webhooks/:id/test", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user?.id;
-      if (!userId) {
-        return res.status(401).json({ error: "Unauthorized" });
-      }
-      
-      const webhook = await storage.getPsaWebhook(req.params.id);
-      if (!webhook) {
-        return res.status(404).json({ error: "Webhook not found" });
-      }
-      if (webhook.userId !== userId) {
-        return res.status(403).json({ error: "Not authorized to test this webhook" });
-      }
-      
-      const testPayload = {
-        event: "test",
-        timestamp: new Date().toISOString(),
-        data: {
-          message: "This is a test webhook from Vendor Watch",
-          source: "vendor-watch",
-        }
-      };
-      
-      try {
-        const response = await fetch(webhook.webhookUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(webhook.secret && { 'X-Webhook-Secret': webhook.secret }),
-          },
-          body: JSON.stringify(testPayload),
-        });
-        
-        if (response.ok) {
-          await storage.recordWebhookResult(webhook.id, true);
-          res.json({ success: true, status: response.status });
-        } else {
-          await storage.recordWebhookResult(webhook.id, false);
-          res.json({ success: false, status: response.status, error: await response.text() });
-        }
-      } catch (fetchError: any) {
-        await storage.recordWebhookResult(webhook.id, false);
-        res.json({ success: false, error: fetchError.message });
-      }
-    } catch (error) {
-      console.error("Error testing webhook:", error);
-      res.status(500).json({ error: "Failed to test webhook" });
-    }
-  });
-
   // ============ AUTONOMOUS RESPONSE ORCHESTRATOR ============
 
   // Get runbooks
@@ -5926,6 +5768,10 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
         return res.status(400).json({ error: "integrationType and name are required" });
       }
       
+      if (integrationType === 'psa' && !tierSupportsPsa(tier)) {
+        return res.status(403).json({ error: "PSA integration requires Growth or Enterprise plan" });
+      }
+      
       const integration = await storage.createUserIntegration({
         userId,
         integrationType,
@@ -5958,6 +5804,10 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
       const existing = await storage.getUserIntegrationFull(req.params.id);
       if (!existing) return res.status(404).json({ error: "Integration not found" });
       if (existing.userId !== userId) return res.status(403).json({ error: "Forbidden" });
+      
+      if (existing.integrationType === 'psa' && !tierSupportsPsa(tier)) {
+        return res.status(403).json({ error: "PSA integration requires Growth or Enterprise plan" });
+      }
       
       const { name, webhookUrl, apiKey, phoneNumber, additionalConfig, isActive, isDefault } = req.body;
       
@@ -5992,6 +5842,10 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
       if (!existing) return res.status(404).json({ error: "Integration not found" });
       if (existing.userId !== userId) return res.status(403).json({ error: "Forbidden" });
       
+      if (existing.integrationType === 'psa' && !tierSupportsPsa(tier)) {
+        return res.status(403).json({ error: "PSA integration requires Growth or Enterprise plan" });
+      }
+      
       await storage.deleteUserIntegration(req.params.id);
       res.json({ success: true });
     } catch (error) {
@@ -6013,6 +5867,10 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
       const existing = await storage.getUserIntegrationFull(req.params.id);
       if (!existing) return res.status(404).json({ error: "Integration not found" });
       if (existing.userId !== userId) return res.status(403).json({ error: "Forbidden" });
+      
+      if (existing.integrationType === 'psa' && !tierSupportsPsa(tier)) {
+        return res.status(403).json({ error: "PSA integration requires Growth or Enterprise plan" });
+      }
       
       let success = false;
       let message = "";
@@ -7607,11 +7465,19 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
     hasOAuth: !!integration.accessToken,
   });
   
+  const tierSupportsPsa = (tier: string | null): boolean => {
+    return tier === 'growth' || tier === 'enterprise';
+  };
+
   // Get all PSA integrations for current user
   app.get("/api/psa-integrations", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user?.id;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      if (!tierSupportsPsa(req.user.subscriptionTier)) {
+        return res.status(403).json({ error: "PSA integration requires Growth or Enterprise plan" });
+      }
       
       const integrations = await storage.getPsaIntegrations(userId);
       res.json(integrations.map(sanitizePsaIntegration));
@@ -7626,6 +7492,10 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
     try {
       const userId = req.user?.id;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      if (!tierSupportsPsa(req.user.subscriptionTier)) {
+        return res.status(403).json({ error: "PSA integration requires Growth or Enterprise plan" });
+      }
       
       const integration = await storage.getPsaIntegration(req.params.id);
       if (!integration || integration.userId !== userId) {
@@ -7652,8 +7522,7 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
       const userId = req.user?.id;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
       
-      const user = req.user;
-      if (!user.subscriptionTier || user.subscriptionTier === 'free' || user.subscriptionTier === 'essential') {
+      if (!tierSupportsPsa(req.user.subscriptionTier)) {
         return res.status(403).json({ error: "PSA integration requires Growth or Enterprise plan" });
       }
       
@@ -7675,6 +7544,10 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
       const userId = req.user?.id;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
       
+      if (!tierSupportsPsa(req.user.subscriptionTier)) {
+        return res.status(403).json({ error: "PSA integration requires Growth or Enterprise plan" });
+      }
+      
       const integration = await storage.getPsaIntegration(req.params.id);
       if (!integration || integration.userId !== userId) {
         return res.status(404).json({ error: "Integration not found" });
@@ -7693,6 +7566,10 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
     try {
       const userId = req.user?.id;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      if (!tierSupportsPsa(req.user.subscriptionTier)) {
+        return res.status(403).json({ error: "PSA integration requires Growth or Enterprise plan" });
+      }
       
       const integration = await storage.getPsaIntegration(req.params.id);
       if (!integration || integration.userId !== userId) {
@@ -7713,6 +7590,10 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
       const userId = req.user?.id;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
       
+      if (!tierSupportsPsa(req.user.subscriptionTier)) {
+        return res.status(403).json({ error: "PSA integration requires Growth or Enterprise plan" });
+      }
+      
       const integration = await storage.getPsaIntegration(req.params.id);
       if (!integration || integration.userId !== userId) {
         return res.status(404).json({ error: "Integration not found" });
@@ -7731,6 +7612,10 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
     try {
       const userId = req.user?.id;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      if (!tierSupportsPsa(req.user.subscriptionTier)) {
+        return res.status(403).json({ error: "PSA integration requires Growth or Enterprise plan" });
+      }
       
       const integration = await storage.getPsaIntegration(req.params.id);
       if (!integration || integration.userId !== userId) {
@@ -7755,6 +7640,10 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
       const userId = req.user?.id;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
       
+      if (!tierSupportsPsa(req.user.subscriptionTier)) {
+        return res.status(403).json({ error: "PSA integration requires Growth or Enterprise plan" });
+      }
+      
       const integration = await storage.getPsaIntegration(req.params.integrationId);
       if (!integration || integration.userId !== userId) {
         return res.status(404).json({ error: "Integration not found" });
@@ -7773,6 +7662,10 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
     try {
       const userId = req.user?.id;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      if (!tierSupportsPsa(req.user.subscriptionTier)) {
+        return res.status(403).json({ error: "PSA integration requires Growth or Enterprise plan" });
+      }
       
       const integration = await storage.getPsaIntegration(req.params.integrationId);
       if (!integration || integration.userId !== userId) {
@@ -8086,6 +7979,10 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
       const userId = req.user?.id;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
       
+      if (!tierSupportsWebhooks(req.user.subscriptionTier)) {
+        return res.status(403).json({ error: "Webhooks require Essential or higher plan" });
+      }
+      
       const webhook = await storage.getUserWebhook(req.params.id);
       if (!webhook) {
         return res.status(404).json({ error: "Webhook not found" });
@@ -8150,6 +8047,10 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
       const userId = req.user?.id;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
       
+      if (!tierSupportsWebhooks(req.user.subscriptionTier)) {
+        return res.status(403).json({ error: "Webhooks require Essential or higher plan" });
+      }
+      
       const existingWebhook = await storage.getUserWebhook(req.params.id);
       if (!existingWebhook) {
         return res.status(404).json({ error: "Webhook not found" });
@@ -8178,6 +8079,10 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
       const userId = req.user?.id;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
       
+      if (!tierSupportsWebhooks(req.user.subscriptionTier)) {
+        return res.status(403).json({ error: "Webhooks require Essential or higher plan" });
+      }
+      
       const existingWebhook = await storage.getUserWebhook(req.params.id);
       if (!existingWebhook) {
         return res.status(404).json({ error: "Webhook not found" });
@@ -8200,6 +8105,10 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
     try {
       const userId = req.user?.id;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      if (!tierSupportsWebhooks(req.user.subscriptionTier)) {
+        return res.status(403).json({ error: "Webhooks require Essential or higher plan" });
+      }
       
       const webhook = await storage.getUserWebhook(req.params.id);
       if (!webhook) {
@@ -8275,6 +8184,10 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
     try {
       const userId = req.user?.id;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      if (!tierSupportsWebhooks(req.user.subscriptionTier)) {
+        return res.status(403).json({ error: "Webhooks require Essential or higher plan" });
+      }
       
       const webhook = await storage.getUserWebhook(req.params.id);
       if (!webhook) {
