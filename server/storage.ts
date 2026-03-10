@@ -4258,7 +4258,22 @@ const DEFAULT_BLOCKCHAIN_CHAINS: InsertBlockchainChain[] = [
 export async function seedBlockchainChainsIfEmpty(): Promise<void> {
   const existingChains = await storage.getBlockchainChains();
   const existingKeys = new Set(existingChains.map(c => c.key));
-  
+  const defaultKeys = new Set(DEFAULT_BLOCKCHAIN_CHAINS.map(c => c.key));
+
+  const chainsToRemove = existingChains.filter(c => !defaultKeys.has(c.key));
+  if (chainsToRemove.length > 0) {
+    console.log(`[seed] Removing ${chainsToRemove.length} blockchain chains no longer in default list...`);
+    for (const chain of chainsToRemove) {
+      try {
+        await db.delete(blockchainIncidents).where(eq(blockchainIncidents.chainKey, chain.key));
+        await db.delete(blockchainChains).where(eq(blockchainChains.key, chain.key));
+        console.log(`[seed] Removed blockchain: ${chain.name} (${chain.key})`);
+      } catch (error) {
+        console.log(`[seed] Error removing blockchain ${chain.key}:`, error);
+      }
+    }
+  }
+
   const missingChains = DEFAULT_BLOCKCHAIN_CHAINS.filter(c => !existingKeys.has(c.key));
   
   if (missingChains.length > 0) {
@@ -4273,6 +4288,6 @@ export async function seedBlockchainChainsIfEmpty(): Promise<void> {
     }
     console.log('[seed] Blockchain seeding complete');
   } else {
-    console.log(`[seed] Found ${existingChains.length} blockchain chains, all up to date`);
+    console.log(`[seed] Found ${existingChains.length - chainsToRemove.length} blockchain chains, all up to date`);
   }
 }
