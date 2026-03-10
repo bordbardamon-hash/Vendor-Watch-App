@@ -1,5 +1,4 @@
 import type { Express, RequestHandler } from "express";
-import { authStorage } from "./storage";
 import { z } from "zod";
 import { db } from "../../db";
 import { users } from "@shared/models/auth";
@@ -13,27 +12,19 @@ const TIER_PRICE_IDS = {
   enterprise: process.env.STRIPE_PRICE_ENTERPRISE || "price_enterprise_placeholder",
 } as const;
 
-// Unified auth middleware that works with both email auth and Replit OAuth
-// It checks session.userId first (email auth), then falls back to passport user (Replit OAuth)
 const isAuthenticated: RequestHandler = async (req: any, res, next) => {
-  // Check for email auth session
-  const emailAuthUserId = req.session?.userId;
-  if (emailAuthUserId) {
+  const sessionUserId = req.session?.userId;
+  if (sessionUserId) {
     try {
-      const [user] = await db.select().from(users).where(eq(users.id, emailAuthUserId)).limit(1);
+      const [user] = await db.select().from(users).where(eq(users.id, sessionUserId)).limit(1);
       if (user) {
         req.user = user;
-        req.user.claims = { sub: user.id }; // Add claims for compatibility
+        req.user.claims = { sub: user.id };
         return next();
       }
     } catch (error) {
-      console.error('[auth] Email auth check failed:', error);
+      console.error('[auth] Session auth check failed:', error);
     }
-  }
-  
-  // Check for Replit OAuth session (passport)
-  if (req.isAuthenticated && req.isAuthenticated() && req.user?.claims?.sub) {
-    return next();
   }
   
   return res.status(401).json({ message: "Unauthorized" });
@@ -168,7 +159,6 @@ export function registerAuthRoutes(app: Express): void {
   app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {
     try {
       // For email auth: isAuthenticated middleware already loads full user from DB into req.user
-      // For Replit OAuth: req.user.claims contains the OAuth claims
       
       // Get user ID from the appropriate source
       const userId = req.user?.id || req.user?.claims?.sub;
@@ -177,7 +167,7 @@ export function registerAuthRoutes(app: Express): void {
       console.log(`[auth] /api/auth/user called: userId=${userId}, email=${userEmail}`);
       console.log(`[auth] req.user keys: ${Object.keys(req.user || {}).join(', ')}`);
       
-      // Check if this is the owner - apply bypass for both email auth AND Replit OAuth
+      // Check if this is the owner
       const ownerEmail = OWNER_EMAIL.toLowerCase().trim();
       const isOwnerByEmail = ownerEmail && userEmail === ownerEmail;
       const isOwnerById = OWNER_USER_ID && String(userId) === OWNER_USER_ID;
@@ -185,89 +175,33 @@ export function registerAuthRoutes(app: Express): void {
       
       console.log(`[auth] Owner check: isOwner=${isOwner}, OWNER_USER_ID=${OWNER_USER_ID}, userId=${userId}`);
       
-      // For email auth, req.user is already the full user object from DB
-      if (req.user?.id && req.user?.email) {
-        console.log(`[auth] Email auth user detected`);
+      // If owner but flags not set, fix them now
+      if (isOwner && (!req.user.profileCompleted || !req.user.billingCompleted || req.user.subscriptionTier !== 'enterprise')) {
+        console.log(`[auth] Owner needs fixing - updating now`);
+        const [fixedUser] = await db
+          .update(users)
+          .set({
+            profileCompleted: true,
+            billingCompleted: true,
+            billingStatus: 'active',
+            subscriptionTier: 'enterprise',
+            isAdmin: true,
+            updatedAt: new Date(),
+          })
+          .where(eq(users.id, userId))
+          .returning();
         
-        // If owner but flags not set, fix them now
-        if (isOwner && (!req.user.profileCompleted || !req.user.billingCompleted || req.user.subscriptionTier !== 'enterprise')) {
-          console.log(`[auth] Owner needs fixing - updating now`);
-          const [fixedUser] = await db
-            .update(users)
-            .set({
-              profileCompleted: true,
-              billingCompleted: true,
-              billingStatus: 'active',
-              subscriptionTier: 'enterprise',
-              isAdmin: true,
-              updatedAt: new Date(),
-            })
-            .where(eq(users.id, userId))
-            .returning();
-          
-          if (fixedUser) {
-            console.log(`[auth] Owner fixed, returning updated user`);
-            // Always include needsOnboarding and isOwner flags
-            return res.json({ ...fixedUser, needsOnboarding: false, isOwner: true });
-          }
-        }
-        
-        console.log(`[auth] Returning email user: profileCompleted=${req.user.profileCompleted}, billingCompleted=${req.user.billingCompleted}`);
-        
-        // Remove the claims property we added for compatibility before sending
-        const userResponse = { ...req.user };
-        delete userResponse.claims;
-        
-        // Add computed needsOnboarding flag for frontend routing
-        const needsOnboarding = !userResponse.profileCompleted || !userResponse.billingCompleted;
-        userResponse.needsOnboarding = needsOnboarding;
-        userResponse.isOwner = isOwner;
-        
-        return res.json(userResponse);
-      }
-      
-      // For Replit OAuth, need to fetch/create user from database
-      let user = await authStorage.getUser(userId);
-      
-      console.log(`[auth] Replit OAuth user - owner check: isOwner=${isOwner}`);
-      
-      // If user doesn't exist in database (new Replit OAuth user), create them
-      if (!user && req.user.claims) {
-        console.log(`[auth] Creating new user record for ${userEmail}`);
-        user = await authStorage.upsertUser({
-          id: userId,
-          email: req.user.claims.email,
-          firstName: req.user.claims.first_name,
-          lastName: req.user.claims.last_name,
-          profileImageUrl: req.user.claims.profile_image_url,
-        });
-      }
-      
-      // Fix owner account if needed
-      if (isOwner && user) {
-        if (!user.profileCompleted || !user.billingCompleted || user.subscriptionTier !== 'enterprise') {
-          console.log(`[auth] Fixing owner account`);
-          const [fixedUser] = await db
-            .update(users)
-            .set({
-              profileCompleted: true,
-              billingCompleted: true,
-              billingStatus: 'active',
-              subscriptionTier: 'enterprise',
-              isAdmin: true,
-              updatedAt: new Date(),
-            })
-            .where(eq(users.id, userId))
-            .returning();
-          user = fixedUser;
+        if (fixedUser) {
+          return res.json({ ...fixedUser, needsOnboarding: false, isOwner: true });
         }
       }
       
-      console.log(`[auth] Returning user: profileCompleted=${user?.profileCompleted}, billingCompleted=${user?.billingCompleted}`);
+      const userResponse = { ...req.user };
+      delete userResponse.claims;
       
-      // Add computed needsOnboarding flag for frontend routing
-      const needsOnboarding = !user?.profileCompleted || !user?.billingCompleted;
-      const userResponse = { ...user, needsOnboarding, isOwner };
+      const needsOnboarding = !userResponse.profileCompleted || !userResponse.billingCompleted;
+      userResponse.needsOnboarding = needsOnboarding;
+      userResponse.isOwner = isOwner;
       
       res.json(userResponse);
     } catch (error) {
@@ -327,7 +261,7 @@ export function registerAuthRoutes(app: Express): void {
   app.get("/api/onboarding/status", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const user = await authStorage.getUser(userId);
+      const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
       
       if (!user) {
         return res.status(404).json({ error: "User not found" });
@@ -351,7 +285,7 @@ export function registerAuthRoutes(app: Express): void {
   app.post("/api/onboarding/billing/checkout", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const user = await authStorage.getUser(userId);
+      const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
       
       if (!user) {
         return res.status(404).json({ error: "User not found" });

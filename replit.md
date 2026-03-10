@@ -25,8 +25,9 @@ Preferred communication style: Simple, everyday language.
 - **Database ORM**: Drizzle ORM with PostgreSQL
 
 ### Authentication
-- **Provider**: Replit Auth (OpenID Connect)
-- **Features**: Two-Factor Authentication (TOTP), Email-based password reset, Mandatory Onboarding.
+- **Provider**: Email/password authentication (session-based)
+- **Features**: Two-Factor Authentication (TOTP), Email-based password reset, Mandatory Onboarding, Mobile bearer tokens.
+- **Note**: Replit OAuth was removed after migrating to Railway. All users authenticate via email/password.
 
 ### Data Model
 Key entities include Users, Sessions, Vendors, Incidents, Jobs, Configurations, Organizations, Subscriptions, Alerts, and Reliability Statistics.

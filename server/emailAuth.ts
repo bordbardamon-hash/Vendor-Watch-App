@@ -4,9 +4,6 @@ import type { Express, RequestHandler } from 'express';
 import session from 'express-session';
 import connectPg from 'connect-pg-simple';
 import passport from 'passport';
-import * as client from 'openid-client';
-import { Strategy, type VerifyFunction } from 'openid-client/passport';
-import memoize from 'memoizee';
 import { db } from './db';
 import { users } from '@shared/models/auth';
 import { eq } from 'drizzle-orm';
@@ -14,17 +11,6 @@ import { storage } from './storage';
 import { sendEmail, sendWelcomeEmail, notifyOwnerNewSignup } from './emailClient';
 
 const SALT_ROUNDS = 10;
-
-// Memoized OIDC config for Replit Auth
-const getOidcConfig = memoize(
-  async () => {
-    return await client.discovery(
-      new URL(process.env.ISSUER_URL ?? "https://replit.com/oidc"),
-      process.env.REPL_ID!
-    );
-  },
-  { maxAge: 3600 * 1000 }
-);
 
 // Simple in-memory rate limiting for login attempts
 const loginAttempts = new Map<string, { count: number; lastAttempt: number }>();
@@ -97,133 +83,8 @@ export async function setupEmailAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  // Setup Replit OAuth (Google, GitHub, Apple, etc.)
-  try {
-    const config = await getOidcConfig();
-    const registeredStrategies = new Set<string>();
-
-    const ensureStrategy = (domain: string) => {
-      const strategyName = `replitauth:${domain}`;
-      if (!registeredStrategies.has(strategyName)) {
-        const verify: VerifyFunction = async (tokens, verified) => {
-          try {
-            const claims = tokens.claims();
-            
-            if (!claims || !claims.email) {
-              return verified(new Error('No email in claims'));
-            }
-            
-            const email = claims.email as string;
-            const firstName = (claims as any).first_name || null;
-            const lastName = (claims as any).last_name || null;
-            const profileImageUrl = (claims as any).profile_image_url || null;
-            
-            // Find or create user in our database
-            let [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
-            
-            if (!user) {
-              // Create new user from Replit OAuth
-              [user] = await db.insert(users).values({
-                email,
-                firstName,
-                lastName,
-                profileImageUrl,
-              }).returning();
-              console.log(`[auth] Created new user from Replit OAuth: ${email}`);
-              
-              // Notify owner about new signup (non-blocking)
-              notifyOwnerNewSignup(email, firstName, lastName, 'replit_oauth').catch(err => {
-                console.error('[auth] Failed to notify owner:', err);
-              });
-            } else {
-              // Update profile info if needed
-              await db.update(users).set({
-                firstName: firstName || user.firstName,
-                lastName: lastName || user.lastName,
-                profileImageUrl: profileImageUrl || user.profileImageUrl,
-              }).where(eq(users.id, user.id));
-            }
-            
-            verified(null, { userId: user.id, email: user.email });
-          } catch (error) {
-            console.error('[auth] Replit OAuth verify error:', error);
-            verified(error as Error);
-          }
-        };
-
-        const strategy = new Strategy(
-          {
-            name: strategyName,
-            config,
-            scope: "openid email profile offline_access",
-            callbackURL: `https://${domain}/api/callback`,
-          },
-          verify
-        );
-        passport.use(strategy);
-        registeredStrategies.add(strategyName);
-      }
-    };
-
-    passport.serializeUser((user: any, cb) => cb(null, user));
-    passport.deserializeUser((user: any, cb) => cb(null, user));
-
-    // Replit OAuth login route
-    app.get("/api/login", (req, res, next) => {
-      ensureStrategy(req.hostname);
-      passport.authenticate(`replitauth:${req.hostname}`, {
-        prompt: "login consent",
-        scope: ["openid", "email", "profile", "offline_access"],
-      })(req, res, next);
-    });
-
-    // Replit OAuth callback route
-    app.get("/api/callback", (req, res, next) => {
-      ensureStrategy(req.hostname);
-      passport.authenticate(`replitauth:${req.hostname}`, (err: any, user: any, info: any) => {
-        if (err) {
-          console.error('[auth] OAuth callback error:', err);
-          return res.redirect('/login?error=auth_failed');
-        }
-        if (!user) {
-          console.error('[auth] OAuth callback - no user returned:', info);
-          return res.redirect('/login?error=no_user');
-        }
-        
-        // Set our session with the user ID
-        (req.session as any).userId = user.userId;
-        (req.session as any).twoFactorVerified = true; // OAuth users skip 2FA initially
-        
-        console.log(`[auth] User logged in via Replit OAuth: ${user.email}`);
-        
-        // Log login activity (don't await to avoid blocking redirect)
-        storage.logUserActivity(user.userId, 'login', { method: 'replit_oauth' }).catch(console.error);
-        
-        storage.createAuditLog({
-          userId: user.userId, userEmail: user.email, action: 'login', resourceType: 'session',
-          resourceId: null, resourceName: 'OAuth Login', details: JSON.stringify({ method: 'replit_oauth' }),
-          ipAddress: req.ip || null, userAgent: req.headers['user-agent'] || null, success: true, errorMessage: null,
-        }).catch(() => {});
-        
-        return res.redirect('/');
-      })(req, res, next);
-    });
-
-    // Replit OAuth logout route
-    app.get("/api/logout", (req, res) => {
-      req.session.destroy((err) => {
-        if (err) {
-          console.error('[auth] Logout error:', err);
-        }
-        res.clearCookie('connect.sid');
-        res.redirect('/');
-      });
-    });
-
-    console.log('[auth] Replit OAuth routes registered successfully');
-  } catch (error) {
-    console.error('[auth] Failed to setup Replit OAuth:', error);
-  }
+  passport.serializeUser((user: any, cb) => cb(null, user));
+  passport.deserializeUser((user: any, cb) => cb(null, user));
 
   // Register endpoint
   app.post('/api/auth/register', async (req, res) => {
@@ -308,7 +169,7 @@ export async function setupEmailAuth(app: Express) {
       }
 
       if (!user.password) {
-        return res.status(401).json({ message: 'Please use Replit login for this account' });
+        return res.status(401).json({ message: 'No password set for this account. Please use the "Forgot password?" link to set one.' });
       }
 
       // Verify password
@@ -353,41 +214,6 @@ export async function setupEmailAuth(app: Express) {
     } catch (error) {
       console.error('[auth] Login error:', error);
       res.status(500).json({ message: 'Login failed' });
-    }
-  });
-
-  // Set password endpoint (for users who signed up via Replit Auth)
-  app.post('/api/auth/set-password', async (req, res) => {
-    try {
-      const { email, password } = req.body;
-
-      if (!email || !password) {
-        return res.status(400).json({ message: 'Email and password are required' });
-      }
-
-      if (password.length < 8) {
-        return res.status(400).json({ message: 'Password must be at least 8 characters' });
-      }
-
-      // Find user
-      const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
-      if (!user) {
-        return res.status(404).json({ message: 'No account found with this email' });
-      }
-
-      if (user.password) {
-        return res.status(400).json({ message: 'This account already has a password. Use the login page.' });
-      }
-
-      // Hash and set password
-      const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
-      await db.update(users).set({ password: hashedPassword }).where(eq(users.id, user.id));
-
-      console.log(`[auth] Password set for user: ${email}`);
-      res.json({ message: 'Password set successfully' });
-    } catch (error) {
-      console.error('[auth] Set password error:', error);
-      res.status(500).json({ message: 'Failed to set password' });
     }
   });
 

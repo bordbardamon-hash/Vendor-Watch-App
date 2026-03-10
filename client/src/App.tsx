@@ -1,4 +1,4 @@
-import { Switch, Route, useLocation } from "wouter";
+import { Switch, Route, useLocation, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -32,7 +32,6 @@ import SignupSuccess from "@/pages/signup-success";
 import Verify2FA from "@/pages/verify-2fa";
 import Login from "@/pages/login";
 import Register from "@/pages/register";
-import SetPassword from "@/pages/set-password";
 import ForgotPassword from "@/pages/forgot-password";
 import ResetPassword from "@/pages/reset-password";
 import SmsConsent from "@/pages/sms-consent";
@@ -185,7 +184,7 @@ function Router() {
       <Route path="/verify-2fa" component={Verify2FA} />
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
-      <Route path="/set-password" component={SetPassword} />
+      <Route path="/set-password"><Redirect to="/forgot-password" /></Route>
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password" component={ResetPassword} />
       <Route path="/sms-consent" component={SmsConsent} />

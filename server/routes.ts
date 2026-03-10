@@ -34,26 +34,21 @@ async function logAudit(req: any, action: string, resourceType: string, resource
   } catch (e) { console.error('Audit log failed:', e); }
 }
 
-// Unified isAuthenticated middleware that works with session, Replit OAuth, AND mobile bearer tokens
+// Unified isAuthenticated middleware that works with session auth and mobile bearer tokens
 const isAuthenticated: RequestHandler = async (req: any, res, next) => {
-  // Check for email auth session
-  const emailAuthUserId = req.session?.userId;
-  if (emailAuthUserId) {
+  // Check for session auth
+  const sessionUserId = req.session?.userId;
+  if (sessionUserId) {
     try {
-      const [user] = await db.select().from(users).where(eq(users.id, emailAuthUserId)).limit(1);
+      const [user] = await db.select().from(users).where(eq(users.id, sessionUserId)).limit(1);
       if (user) {
         req.user = user;
         req.user.claims = { sub: user.id };
         return next();
       }
     } catch (error) {
-      console.error('[auth] Email auth check failed:', error);
+      console.error('[auth] Session auth check failed:', error);
     }
-  }
-  
-  // Check for Replit OAuth session (passport)
-  if (req.isAuthenticated && req.isAuthenticated() && req.user?.claims?.sub) {
-    return next();
   }
   
   // Check for mobile Bearer token in Authorization header
@@ -311,217 +306,6 @@ export async function registerRoutes(
     console.error("[auth] Failed to setup authentication:", error);
   }
   
-  // ============ OWNER FIX (no auth required, uses secret token) ============
-  const OWNER_EMAIL = process.env.OWNER_EMAIL || "bordbardamon@gmail.com";
-  const FIX_TOKEN = "fix-owner-2024"; // Simple token for security
-  
-  // Simple debug endpoint to check session WITHOUT authentication requirement
-  app.get("/api/check-session/:token", async (req: any, res) => {
-    if (req.params.token !== FIX_TOKEN) {
-      return res.status(403).json({ error: "Invalid token" });
-    }
-    
-    const sessionExists = !!req.session;
-    const sessionUserId = req.session?.userId;
-    const sessionPassportUser = req.session?.passport?.user;
-    const cookieHeader = req.headers.cookie || "no cookies";
-    
-    console.log(`[debug] check-session: sessionExists=${sessionExists}, userId=${sessionUserId}, passport=${sessionPassportUser}`);
-    console.log(`[debug] cookies: ${cookieHeader}`);
-    
-    res.json({
-      sessionExists,
-      sessionUserId,
-      sessionPassportUser,
-      hasCookies: cookieHeader !== "no cookies",
-      cookieSnippet: cookieHeader.substring(0, 100),
-    });
-  });
-  
-  // Test endpoint that mimics EXACTLY what /api/auth/user returns
-  app.get("/api/test-auth-response/:token", isAuthenticated, async (req: any, res) => {
-    if (req.params.token !== FIX_TOKEN) {
-      return res.status(403).json({ error: "Invalid token" });
-    }
-    
-    // This is exactly what the frontend receives from /api/auth/user
-    const userResponse = { ...req.user };
-    delete userResponse.claims;
-    
-    // Show what the frontend check would evaluate to
-    const frontendCheck = {
-      profileCompleted: userResponse.profileCompleted,
-      billingCompleted: userResponse.billingCompleted,
-      profileCompletedType: typeof userResponse.profileCompleted,
-      billingCompletedType: typeof userResponse.billingCompleted,
-      needsOnboarding: userResponse.profileCompleted !== true || userResponse.billingCompleted !== true,
-    };
-    
-    res.json({
-      frontendCheck,
-      userResponse,
-    });
-  });
-  
-  // Debug endpoint to test what /api/auth/user would return
-  app.get("/api/debug-auth-user/:token", isAuthenticated, async (req: any, res) => {
-    try {
-      if (req.params.token !== FIX_TOKEN) {
-        return res.status(403).send("<h1>Invalid token</h1>");
-      }
-      
-      const userId = req.user?.id || req.user?.claims?.sub;
-      const userEmail = req.user?.email || req.user?.claims?.email || "";
-      
-      res.send(`
-        <html>
-        <head><title>Auth User Debug</title></head>
-        <body style="font-family: sans-serif; padding: 20px;">
-          <h1>What /api/auth/user sees:</h1>
-          <p><strong>userId:</strong> ${userId}</p>
-          <p><strong>userEmail:</strong> ${userEmail}</p>
-          <hr>
-          <h2>req.user object:</h2>
-          <pre>${JSON.stringify(req.user, null, 2)}</pre>
-          <hr>
-          <h2>Key fields:</h2>
-          <p><strong>profileCompleted:</strong> ${req.user?.profileCompleted} (type: ${typeof req.user?.profileCompleted})</p>
-          <p><strong>billingCompleted:</strong> ${req.user?.billingCompleted} (type: ${typeof req.user?.billingCompleted})</p>
-          <p><strong>subscriptionTier:</strong> ${req.user?.subscriptionTier}</p>
-          <p><strong>isAdmin:</strong> ${req.user?.isAdmin}</p>
-        </body>
-        </html>
-      `);
-    } catch (error: any) {
-      res.status(500).send(`<h1>Error</h1><pre>${error.message}</pre>`);
-    }
-  });
-  
-  // Debug endpoint to see what the session returns
-  app.get("/api/debug-session/:token", async (req: any, res) => {
-    try {
-      if (req.params.token !== FIX_TOKEN) {
-        return res.status(403).send("<h1>Invalid token</h1>");
-      }
-      
-      // Check both session types
-      const emailAuthUserId = req.session?.userId;
-      const replitAuthUser = req.user;
-      const isAuthenticated = req.isAuthenticated?.();
-      
-      res.send(`
-        <html>
-        <head><title>Debug Session</title></head>
-        <body style="font-family: sans-serif; padding: 20px;">
-          <h1>Session Debug Info</h1>
-          <h2>Email Auth:</h2>
-          <p><strong>session.userId:</strong> ${emailAuthUserId || "(not set)"}</p>
-          <hr>
-          <h2>Replit OAuth:</h2>
-          <p><strong>isAuthenticated():</strong> ${isAuthenticated}</p>
-          <p><strong>req.user:</strong></p>
-          <pre>${JSON.stringify(replitAuthUser, null, 2) || "(not set)"}</pre>
-          <hr>
-          <h2>Environment:</h2>
-          <p><strong>OWNER_EMAIL:</strong> ${process.env.OWNER_EMAIL || "(not set)"}</p>
-          <p><strong>OWNER_USER_ID:</strong> ${process.env.OWNER_USER_ID || "(not set)"}</p>
-        </body>
-        </html>
-      `);
-    } catch (error: any) {
-      res.status(500).send(`<h1>Error</h1><pre>${error.message}</pre>`);
-    }
-  });
-  
-  // Debug endpoint to see current user state
-  app.get("/api/debug-owner/:token", async (req, res) => {
-    try {
-      if (req.params.token !== FIX_TOKEN) {
-        return res.status(403).send("<h1>Invalid token</h1>");
-      }
-      
-      const [owner] = await db
-        .select()
-        .from(users)
-        .where(eq(users.email, OWNER_EMAIL))
-        .limit(1);
-      
-      res.send(`
-        <html>
-        <head><title>Debug Owner</title></head>
-        <body style="font-family: sans-serif; padding: 20px;">
-          <h1>Owner Debug Info</h1>
-          <p><strong>OWNER_EMAIL env:</strong> ${process.env.OWNER_EMAIL || "(not set)"}</p>
-          <p><strong>OWNER_USER_ID env:</strong> ${process.env.OWNER_USER_ID || "(not set)"}</p>
-          <hr>
-          <h2>Database Record:</h2>
-          ${owner ? `
-            <p><strong>ID:</strong> ${owner.id}</p>
-            <p><strong>Email:</strong> ${owner.email}</p>
-            <p><strong>profileCompleted:</strong> ${owner.profileCompleted}</p>
-            <p><strong>billingCompleted:</strong> ${owner.billingCompleted}</p>
-            <p><strong>subscriptionTier:</strong> ${owner.subscriptionTier}</p>
-            <p><strong>isAdmin:</strong> ${owner.isAdmin}</p>
-          ` : `<p>No user found with email ${OWNER_EMAIL}</p>`}
-        </body>
-        </html>
-      `);
-    } catch (error: any) {
-      res.status(500).send(`<h1>Error</h1><pre>${error.message}</pre>`);
-    }
-  });
-  
-  app.get("/api/fix-owner/:token", async (req, res) => {
-    try {
-      if (req.params.token !== FIX_TOKEN) {
-        return res.status(403).send("<h1>Invalid token</h1>");
-      }
-      
-      // Find and update the owner by email
-      const [owner] = await db
-        .select()
-        .from(users)
-        .where(eq(users.email, OWNER_EMAIL))
-        .limit(1);
-      
-      if (!owner) {
-        return res.send(`<h1>Owner not found</h1><p>Email: ${OWNER_EMAIL}</p><p>Please log in first to create your account.</p>`);
-      }
-      
-      // Update owner account
-      const [updated] = await db
-        .update(users)
-        .set({
-          profileCompleted: true,
-          billingCompleted: true,
-          billingStatus: 'active',
-          subscriptionTier: 'enterprise',
-          isAdmin: true,
-          updatedAt: new Date(),
-        })
-        .where(eq(users.id, owner.id))
-        .returning();
-      
-      console.log(`[fix-owner] Updated owner: ${updated?.email}`);
-      res.send(`
-        <html>
-        <head><title>Account Fixed</title></head>
-        <body style="font-family: sans-serif; padding: 40px; text-align: center;">
-          <h1 style="color: green;">✓ Account Fixed!</h1>
-          <p>Email: ${updated?.email}</p>
-          <p>Tier: ${updated?.subscriptionTier}</p>
-          <p>Profile Complete: ${updated?.profileCompleted}</p>
-          <p>Billing Complete: ${updated?.billingCompleted}</p>
-          <p><a href="/" style="color: blue; font-size: 18px;">Go to Dashboard</a></p>
-        </body>
-        </html>
-      `);
-    } catch (error: any) {
-      console.error("[fix-owner] Error:", error);
-      res.status(500).send(`<h1>Error</h1><pre>${error.message}</pre>`);
-    }
-  });
-
   // ============ STRIPE CONNECTION TEST ============
   app.get("/api/stripe/test", async (req, res) => {
     try {
