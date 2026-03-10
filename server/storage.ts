@@ -4172,15 +4172,9 @@ const DEFAULT_BLOCKCHAIN_CHAINS: InsertBlockchainChain[] = [
   { key: "optimism", name: "Optimism", symbol: "OP", tier: "tier2", category: "l2", sourceType: "statuspage", statusUrl: "https://status.optimism.io", explorerUrl: "https://optimistic.etherscan.io", avgBlockTime: 2 },
   { key: "base", name: "Base", symbol: "ETH", tier: "tier2", category: "l2", sourceType: "statuspage", statusUrl: "https://status.base.org", explorerUrl: "https://basescan.org", avgBlockTime: 2 },
   // Additional L2s with Statuspage
-  { key: "zksync", name: "zkSync Era", symbol: "ZK", tier: "tier2", category: "l2", sourceType: "statuspage", statusUrl: "https://status.zksync.io", explorerUrl: "https://explorer.zksync.io", avgBlockTime: 1 },
   { key: "scroll", name: "Scroll", symbol: "SCR", tier: "tier2", category: "l2", sourceType: "statuspage", statusUrl: "https://status.scroll.io", explorerUrl: "https://scrollscan.com", avgBlockTime: 3 },
-  { key: "linea", name: "Linea", symbol: "ETH", tier: "tier2", category: "l2", sourceType: "statuspage", statusUrl: "https://status.linea.build", explorerUrl: "https://lineascan.build", avgBlockTime: 2 },
-  { key: "mode", name: "Mode", symbol: "MODE", tier: "tier3", category: "l2", sourceType: "statuspage", statusUrl: "https://status.mode.network", explorerUrl: "https://explorer.mode.network", avgBlockTime: 2 },
-  { key: "mantle", name: "Mantle", symbol: "MNT", tier: "tier3", category: "l2", sourceType: "statuspage", statusUrl: "https://status.mantle.xyz", explorerUrl: "https://explorer.mantle.xyz", avgBlockTime: 2 },
   { key: "celo", name: "Celo", symbol: "CELO", tier: "tier3", category: "chain", sourceType: "statuspage", statusUrl: "https://status.celo.org", explorerUrl: "https://explorer.celo.org", avgBlockTime: 5 },
-  { key: "near", name: "NEAR Protocol", symbol: "NEAR", tier: "tier2", category: "chain", sourceType: "statuspage", statusUrl: "https://status.nearprotocol.com", explorerUrl: "https://nearblocks.io", avgBlockTime: 1 },
   { key: "sui", name: "Sui", symbol: "SUI", tier: "tier2", category: "chain", sourceType: "statuspage", statusUrl: "https://status.sui.io", explorerUrl: "https://suiscan.xyz", avgBlockTime: 1 },
-  { key: "aptos", name: "Aptos", symbol: "APT", tier: "tier2", category: "chain", sourceType: "statuspage", statusUrl: "https://status.aptoslabs.com", explorerUrl: "https://aptoscan.com", avgBlockTime: 1 },
   
   // Tier 3: Enterprise / Custody-Relevant
   { key: "tron", name: "TRON", symbol: "TRX", tier: "tier3", category: "chain", sourceType: "api", explorerUrl: "https://tronscan.org", avgBlockTime: 3 },
@@ -4192,7 +4186,6 @@ const DEFAULT_BLOCKCHAIN_CHAINS: InsertBlockchainChain[] = [
   { key: "infura", name: "Infura", tier: "tier4", category: "rpc_provider", sourceType: "statuspage", statusUrl: "https://status.infura.io" },
   { key: "alchemy", name: "Alchemy", tier: "tier4", category: "rpc_provider", sourceType: "statuspage", statusUrl: "https://status.alchemy.com" },
   { key: "quicknode", name: "QuickNode", tier: "tier4", category: "rpc_provider", sourceType: "statuspage", statusUrl: "https://status.quicknode.com" },
-  { key: "thegraph", name: "The Graph", tier: "tier4", category: "indexer", sourceType: "statuspage", statusUrl: "https://status.thegraph.com" },
   
   // WalletConnect: Popular Compatible Wallets
   { key: "metamask", name: "MetaMask", symbol: "MM", tier: "tier1", category: "wallet", sourceType: "statuspage", statusUrl: "https://status.infura.io" },
@@ -4203,12 +4196,6 @@ const DEFAULT_BLOCKCHAIN_CHAINS: InsertBlockchainChain[] = [
   { key: "argent", name: "Argent", symbol: "AGT", tier: "tier2", category: "wallet", sourceType: "statuspage", statusUrl: "https://argentxwallet.statuspage.io" },
   { key: "gnosissafe", name: "Gnosis Safe", symbol: "SAFE", tier: "tier1", category: "wallet", sourceType: "statuspage", statusUrl: "https://safe.statuspage.io" },
   { key: "bybitwallet", name: "Bybit Web3 Wallet", symbol: "BYB", tier: "tier2", category: "wallet", sourceType: "statuspage", statusUrl: "https://bybit.statuspage.io" },
-  // Additional Wallets with Statuspage
-  { key: "phantom", name: "Phantom", symbol: "PHT", tier: "tier1", category: "wallet", sourceType: "statuspage", statusUrl: "https://status.phantom.app" },
-  { key: "trezor", name: "Trezor", symbol: "TRZ", tier: "tier1", category: "wallet", sourceType: "statuspage", statusUrl: "https://status.trezor.io" },
-  { key: "okxwallet", name: "OKX Wallet", symbol: "OKX", tier: "tier2", category: "wallet", sourceType: "statuspage", statusUrl: "https://status.okx.com" },
-  { key: "exodus", name: "Exodus", symbol: "EXO", tier: "tier2", category: "wallet", sourceType: "statuspage", statusUrl: "https://status.exodus.com" },
-  { key: "uniswap", name: "Uniswap Wallet", symbol: "UNI", tier: "tier2", category: "wallet", sourceType: "statuspage", statusUrl: "https://status.uniswap.org" },
   
   // Staking Platforms: Centralized Exchanges (CEXs)
   { key: "binance", name: "Binance", symbol: "BNB", tier: "tier1", category: "staking", sourceType: "manual", statusUrl: "https://www.binance.com/en/network" },
@@ -4230,52 +4217,31 @@ const DEFAULT_BLOCKCHAIN_CHAINS: InsertBlockchainChain[] = [
   { key: "cryptocom", name: "Crypto.com", symbol: "CRO", tier: "tier1", category: "staking", sourceType: "statuspage", statusUrl: "https://status.crypto.com" },
   { key: "kiln", name: "Kiln", symbol: "KLN", tier: "tier2", category: "staking", sourceType: "statuspage", statusUrl: "https://status.kiln.fi" },
   { key: "bybit", name: "Bybit", symbol: "BYB", tier: "tier1", category: "staking", sourceType: "statuspage", statusUrl: "https://bybit.statuspage.io" },
-  // Additional Staking Infrastructure Providers
-  { key: "allnodes", name: "Allnodes", symbol: "ALL", tier: "tier2", category: "staking", sourceType: "statuspage", statusUrl: "https://status.allnodes.com" },
   { key: "blockdaemon", name: "Blockdaemon", symbol: "BD", tier: "tier2", category: "staking", sourceType: "statuspage", statusUrl: "https://status.blockdaemon.com" },
   { key: "everstake", name: "Everstake", symbol: "EVR", tier: "tier2", category: "staking", sourceType: "statuspage", statusUrl: "https://status.everstake.one" },
-  { key: "chorusone", name: "Chorus One", symbol: "CHO", tier: "tier2", category: "staking", sourceType: "statuspage", statusUrl: "https://status.chorus.one" },
   { key: "p2p", name: "P2P Validator", symbol: "P2P", tier: "tier2", category: "staking", sourceType: "statuspage", statusUrl: "https://status.p2p.org" },
-  { key: "stakefish", name: "Stakefish", symbol: "STF", tier: "tier2", category: "staking", sourceType: "statuspage", statusUrl: "https://status.stake.fish" },
   
   // Layer 1 Blockchains (Additional)
-  { key: "fantom", name: "Fantom", symbol: "FTM", tier: "tier2", category: "chain", sourceType: "statuspage", statusUrl: "https://status.fantom.foundation" },
-  { key: "cardano", name: "Cardano", symbol: "ADA", tier: "tier1", category: "chain", sourceType: "statuspage", statusUrl: "https://status.cardano.org" },
-  { key: "polkadot", name: "Polkadot", symbol: "DOT", tier: "tier1", category: "chain", sourceType: "statuspage", statusUrl: "https://status.polkadot.network" },
-  { key: "algorand", name: "Algorand", symbol: "ALGO", tier: "tier2", category: "chain", sourceType: "statuspage", statusUrl: "https://status.algorand.org" },
   { key: "hedera", name: "Hedera", symbol: "HBAR", tier: "tier2", category: "chain", sourceType: "statuspage", statusUrl: "https://status.hedera.com" },
   { key: "flow", name: "Flow", symbol: "FLOW", tier: "tier2", category: "chain", sourceType: "statuspage", statusUrl: "https://status.flow.com" },
-  { key: "tezos", name: "Tezos", symbol: "XTZ", tier: "tier2", category: "chain", sourceType: "statuspage", statusUrl: "https://status.tezos.com" },
-  { key: "kaspa", name: "Kaspa", symbol: "KAS", tier: "tier3", category: "chain", sourceType: "statuspage", statusUrl: "https://status.kaspa.org" },
   
   // Layer 2 & Sidechains (Additional)
   { key: "starknet", name: "Starknet", symbol: "STRK", tier: "tier2", category: "l2", sourceType: "statuspage", statusUrl: "https://status.starknet.io" },
   { key: "immutablex", name: "Immutable X", symbol: "IMX", tier: "tier2", category: "l2", sourceType: "statuspage", statusUrl: "https://status.immutable.com" },
-  { key: "ronin", name: "Ronin", symbol: "RON", tier: "tier2", category: "l2", sourceType: "statuspage", statusUrl: "https://status.roninchain.com" },
   { key: "blast", name: "Blast", symbol: "BLAST", tier: "tier2", category: "l2", sourceType: "statuspage", statusUrl: "https://status.blast.io" },
-  { key: "metis", name: "Metis", symbol: "METIS", tier: "tier3", category: "l2", sourceType: "statuspage", statusUrl: "https://status.metis.io" },
   
   // DeFi Protocols
   { key: "dydx", name: "dYdX", symbol: "DYDX", tier: "tier2", category: "defi", sourceType: "statuspage", statusUrl: "https://status.dydx.trade" },
   { key: "aave", name: "Aave", symbol: "AAVE", tier: "tier1", category: "defi", sourceType: "statuspage", statusUrl: "https://status.aave.com" },
-  { key: "oneinch", name: "1inch", symbol: "1INCH", tier: "tier2", category: "defi", sourceType: "statuspage", statusUrl: "https://status.1inch.io" },
-  { key: "gmx", name: "GMX", symbol: "GMX", tier: "tier2", category: "defi", sourceType: "statuspage", statusUrl: "https://status.gmx.io" },
-  { key: "jupiter", name: "Jupiter", symbol: "JUP", tier: "tier2", category: "defi", sourceType: "statuspage", statusUrl: "https://status.jup.ag" },
   
   // NFT Marketplaces
   { key: "opensea", name: "OpenSea", tier: "tier1", category: "nft", sourceType: "statuspage", statusUrl: "https://status.opensea.io" },
-  { key: "rarible", name: "Rarible", tier: "tier2", category: "nft", sourceType: "statuspage", statusUrl: "https://status.rarible.com" },
   { key: "magiceden", name: "Magic Eden", tier: "tier2", category: "nft", sourceType: "statuspage", statusUrl: "https://status.magiceden.io" },
-  { key: "blur", name: "Blur", tier: "tier2", category: "nft", sourceType: "statuspage", statusUrl: "https://status.blur.io" },
   
   // Crypto Exchanges
-  { key: "okx", name: "OKX", tier: "tier1", category: "exchange", sourceType: "statuspage", statusUrl: "https://status.okx.com" },
-  { key: "kucoin", name: "KuCoin", tier: "tier2", category: "exchange", sourceType: "statuspage", statusUrl: "https://status.kucoin.com" },
   { key: "gateio", name: "Gate.io", tier: "tier2", category: "exchange", sourceType: "statuspage", statusUrl: "https://status.gate.io" },
   { key: "bitfinex", name: "Bitfinex", tier: "tier2", category: "exchange", sourceType: "statuspage", statusUrl: "https://status.bitfinex.com" },
   { key: "bitstamp", name: "Bitstamp", tier: "tier2", category: "exchange", sourceType: "statuspage", statusUrl: "https://status.bitstamp.net" },
-  { key: "upbit", name: "Upbit", tier: "tier2", category: "exchange", sourceType: "statuspage", statusUrl: "https://status.upbit.com" },
-  { key: "htx", name: "HTX (Huobi)", tier: "tier2", category: "exchange", sourceType: "statuspage", statusUrl: "https://status.htx.com" },
   
   // Blockchain Security & Analytics
   { key: "chainalysis", name: "Chainalysis", tier: "tier2", category: "security", sourceType: "statuspage", statusUrl: "https://status.chainalysis.com" },
@@ -4285,30 +4251,21 @@ const DEFAULT_BLOCKCHAIN_CHAINS: InsertBlockchainChain[] = [
   
   // Institutional Custody
   { key: "bitgo", name: "BitGo", tier: "tier1", category: "custody", sourceType: "statuspage", statusUrl: "https://status.bitgo.com" },
-  { key: "copper", name: "Copper", tier: "tier2", category: "custody", sourceType: "statuspage", statusUrl: "https://status.copper.co" },
-  { key: "hextrust", name: "Hex Trust", tier: "tier3", category: "custody", sourceType: "statuspage", statusUrl: "https://status.hextrust.com" },
   
   // RPC Providers (Additional)
-  { key: "moralis", name: "Moralis", tier: "tier2", category: "rpc_provider", sourceType: "statuspage", statusUrl: "https://status.moralis.io" },
   { key: "chainstack", name: "Chainstack", tier: "tier2", category: "rpc_provider", sourceType: "statuspage", statusUrl: "https://status.chainstack.com" },
   { key: "getblock", name: "GetBlock", tier: "tier3", category: "rpc_provider", sourceType: "statuspage", statusUrl: "https://status.getblock.io" },
-  { key: "nownodes", name: "NOWNodes", tier: "tier3", category: "rpc_provider", sourceType: "statuspage", statusUrl: "https://status.nownodes.io" },
   { key: "tenderly", name: "Tenderly", tier: "tier2", category: "rpc_provider", sourceType: "statuspage", statusUrl: "https://status.tenderly.co" },
   
   // Bridges & Cross-Chain
   { key: "layerzero", name: "LayerZero", tier: "tier1", category: "bridge", sourceType: "statuspage", statusUrl: "https://status.layerzero.network" },
-  { key: "wormhole", name: "Wormhole", tier: "tier1", category: "bridge", sourceType: "statuspage", statusUrl: "https://status.wormhole.com" },
-  { key: "axelar", name: "Axelar", tier: "tier2", category: "bridge", sourceType: "statuspage", statusUrl: "https://status.axelar.network" },
-  { key: "stargate", name: "Stargate", tier: "tier2", category: "bridge", sourceType: "statuspage", statusUrl: "https://status.stargate.finance" },
   
   // Oracles
   { key: "pyth", name: "Pyth Network", tier: "tier2", category: "oracle", sourceType: "statuspage", statusUrl: "https://status.pyth.network" },
-  { key: "band", name: "Band Protocol", tier: "tier3", category: "oracle", sourceType: "statuspage", statusUrl: "https://status.bandprotocol.com" },
   
   // Stablecoins
   { key: "circle", name: "Circle (USDC)", symbol: "USDC", tier: "tier1", category: "stablecoin", sourceType: "statuspage", statusUrl: "https://status.circle.com" },
   { key: "paxos", name: "Paxos", symbol: "USDP", tier: "tier2", category: "stablecoin", sourceType: "statuspage", statusUrl: "https://status.paxos.com" },
-  { key: "tether", name: "Tether", symbol: "USDT", tier: "tier1", category: "stablecoin", sourceType: "statuspage", statusUrl: "https://status.tether.to" },
 ];
 
 export async function seedBlockchainChainsIfEmpty(): Promise<void> {

@@ -42,7 +42,7 @@ const featureCategories: FeatureCategory[] = [
   {
     name: "Blockchain & Crypto",
     features: [
-      { name: "Blockchain networks", tooltip: "Monitor 110+ blockchain networks including L1, L2, DeFi, and RPC providers", free: "Up to 1", essential: false, growth: "Up to 25", enterprise: "Unlimited" },
+      { name: "Blockchain networks", tooltip: "Monitor 70+ blockchain networks including L1, L2, DeFi, and RPC providers", free: "Up to 1", essential: false, growth: "Up to 25", enterprise: "Unlimited" },
       { name: "Wallet status monitoring", free: false, essential: false, growth: true, enterprise: true },
       { name: "Staking platform monitoring", free: false, essential: false, growth: false, enterprise: true },
       { name: "DeFi protocol tracking", free: false, essential: false, growth: false, enterprise: true },
