@@ -11,6 +11,8 @@ import { dispatchWebhooksForIncident, dispatchWebhooksForBlockchainIncident } fr
 import { SUBSCRIPTION_TIERS } from '@shared/schema';
 import type { Incident, Vendor, User, LifecycleEvent, CanonicalSeverity, CanonicalStatus, BlockchainIncident, BlockchainChain, SyntheticProbe, SubscriptionTierKey } from '@shared/schema';
 
+const NOTIFICATIONS_ENABLED = process.env.NODE_ENV === 'production' || process.env.ENABLE_NOTIFICATIONS === 'true';
+
 type EventType = 'new' | 'update' | 'resolved';
 
 async function getAssignedUserIds(targetType: 'vendor' | 'blockchain', targetKey: string): Promise<string[] | null> {
@@ -173,6 +175,10 @@ function formatEmailHtml(notification: IncidentNotification, timezone: string = 
 }
 
 export async function dispatchIncidentNotification(notification: IncidentNotification): Promise<{ sms: number; email: number; errors: string[] }> {
+  if (!NOTIFICATIONS_ENABLED) {
+    console.log(`[notify] Notifications disabled in non-production environment, skipping`);
+    return { sms: 0, email: 0, errors: [] };
+  }
   const { incident, vendor, eventType } = notification;
   const errors: string[] = [];
   let smsSent = 0;
@@ -529,6 +535,10 @@ function formatLifecycleEmailHtml(notification: LifecycleNotification, timezone:
 }
 
 export async function dispatchLifecycleNotification(notification: LifecycleNotification): Promise<{ sms: number; email: number; errors: string[] }> {
+  if (!NOTIFICATIONS_ENABLED) {
+    console.log(`[notify] Notifications disabled in non-production environment, skipping`);
+    return { sms: 0, email: 0, errors: [] };
+  }
   const { incident, vendor, lifecycleEvent } = notification;
   const errors: string[] = [];
   let smsSent = 0;
@@ -875,6 +885,10 @@ function formatBlockchainEmailHtml(notification: BlockchainNotification, timezon
 }
 
 export async function dispatchBlockchainNotification(notification: BlockchainNotification): Promise<{ sms: number; email: number; errors: string[] }> {
+  if (!NOTIFICATIONS_ENABLED) {
+    console.log(`[notify] Notifications disabled in non-production environment, skipping`);
+    return { sms: 0, email: 0, errors: [] };
+  }
   const { incident, chain, eventType } = notification;
   const errors: string[] = [];
   let smsSent = 0;
@@ -1123,6 +1137,10 @@ function formatProbeAlertEmailHtml(notification: ProbeAlertNotification, timezon
 }
 
 export async function dispatchProbeAlert(notification: ProbeAlertNotification): Promise<void> {
+  if (!NOTIFICATIONS_ENABLED) {
+    console.log(`[probe-notify] Notifications disabled in non-production environment, skipping`);
+    return;
+  }
   const { probe, alertType } = notification;
   const errors: string[] = [];
   let smsSent = 0;
