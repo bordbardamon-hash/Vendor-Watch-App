@@ -4173,7 +4173,6 @@ const DEFAULT_BLOCKCHAIN_CHAINS: InsertBlockchainChain[] = [
   { key: "base", name: "Base", symbol: "ETH", tier: "tier2", category: "l2", sourceType: "statuspage", statusUrl: "https://status.base.org", explorerUrl: "https://basescan.org", avgBlockTime: 2 },
   // Additional L2s with Statuspage
   { key: "scroll", name: "Scroll", symbol: "SCR", tier: "tier2", category: "l2", sourceType: "statuspage", statusUrl: "https://status.scroll.io", explorerUrl: "https://scrollscan.com", avgBlockTime: 3 },
-  { key: "celo", name: "Celo", symbol: "CELO", tier: "tier3", category: "chain", sourceType: "statuspage", statusUrl: "https://status.celo.org", explorerUrl: "https://explorer.celo.org", avgBlockTime: 5 },
   { key: "sui", name: "Sui", symbol: "SUI", tier: "tier2", category: "chain", sourceType: "statuspage", statusUrl: "https://status.sui.io", explorerUrl: "https://suiscan.xyz", avgBlockTime: 1 },
   
   // Tier 3: Enterprise / Custody-Relevant
@@ -4212,13 +4211,11 @@ const DEFAULT_BLOCKCHAIN_CHAINS: InsertBlockchainChain[] = [
   
   // Staking Platforms: Institutional & Infrastructure Providers
   { key: "rockx", name: "RockX", symbol: "RKX", tier: "tier2", category: "staking", sourceType: "manual", statusUrl: "https://www.rockx.com" },
-  { key: "figment", name: "Figment", symbol: "FIG", tier: "tier2", category: "staking", sourceType: "statuspage", statusUrl: "https://status.figment.io" },
   { key: "ankr", name: "Ankr", symbol: "ANKR", tier: "tier2", category: "staking", sourceType: "statuspage", statusUrl: "https://status.ankr.com" },
   { key: "cryptocom", name: "Crypto.com", symbol: "CRO", tier: "tier1", category: "staking", sourceType: "statuspage", statusUrl: "https://status.crypto.com" },
   { key: "kiln", name: "Kiln", symbol: "KLN", tier: "tier2", category: "staking", sourceType: "statuspage", statusUrl: "https://status.kiln.fi" },
   { key: "bybit", name: "Bybit", symbol: "BYB", tier: "tier1", category: "staking", sourceType: "statuspage", statusUrl: "https://bybit.statuspage.io" },
   { key: "blockdaemon", name: "Blockdaemon", symbol: "BD", tier: "tier2", category: "staking", sourceType: "statuspage", statusUrl: "https://status.blockdaemon.com" },
-  { key: "everstake", name: "Everstake", symbol: "EVR", tier: "tier2", category: "staking", sourceType: "statuspage", statusUrl: "https://status.everstake.one" },
   { key: "p2p", name: "P2P Validator", symbol: "P2P", tier: "tier2", category: "staking", sourceType: "statuspage", statusUrl: "https://status.p2p.org" },
   
   // Layer 1 Blockchains (Additional)
@@ -4239,26 +4236,16 @@ const DEFAULT_BLOCKCHAIN_CHAINS: InsertBlockchainChain[] = [
   { key: "magiceden", name: "Magic Eden", tier: "tier2", category: "nft", sourceType: "statuspage", statusUrl: "https://status.magiceden.io" },
   
   // Crypto Exchanges
-  { key: "gateio", name: "Gate.io", tier: "tier2", category: "exchange", sourceType: "statuspage", statusUrl: "https://status.gate.io" },
-  { key: "bitfinex", name: "Bitfinex", tier: "tier2", category: "exchange", sourceType: "statuspage", statusUrl: "https://status.bitfinex.com" },
   { key: "bitstamp", name: "Bitstamp", tier: "tier2", category: "exchange", sourceType: "statuspage", statusUrl: "https://status.bitstamp.net" },
   
   // Blockchain Security & Analytics
   { key: "chainalysis", name: "Chainalysis", tier: "tier2", category: "security", sourceType: "statuspage", statusUrl: "https://status.chainalysis.com" },
-  { key: "elliptic", name: "Elliptic", tier: "tier2", category: "security", sourceType: "statuspage", statusUrl: "https://status.elliptic.co" },
-  { key: "certik", name: "Certik", tier: "tier2", category: "security", sourceType: "statuspage", statusUrl: "https://status.certik.com" },
-  { key: "hacken", name: "Hacken", tier: "tier3", category: "security", sourceType: "statuspage", statusUrl: "https://status.hacken.io" },
   
   // Institutional Custody
   { key: "bitgo", name: "BitGo", tier: "tier1", category: "custody", sourceType: "statuspage", statusUrl: "https://status.bitgo.com" },
   
   // RPC Providers (Additional)
-  { key: "chainstack", name: "Chainstack", tier: "tier2", category: "rpc_provider", sourceType: "statuspage", statusUrl: "https://status.chainstack.com" },
-  { key: "getblock", name: "GetBlock", tier: "tier3", category: "rpc_provider", sourceType: "statuspage", statusUrl: "https://status.getblock.io" },
   { key: "tenderly", name: "Tenderly", tier: "tier2", category: "rpc_provider", sourceType: "statuspage", statusUrl: "https://status.tenderly.co" },
-  
-  // Bridges & Cross-Chain
-  { key: "layerzero", name: "LayerZero", tier: "tier1", category: "bridge", sourceType: "statuspage", statusUrl: "https://status.layerzero.network" },
   
   // Oracles
   { key: "pyth", name: "Pyth Network", tier: "tier2", category: "oracle", sourceType: "statuspage", statusUrl: "https://status.pyth.network" },

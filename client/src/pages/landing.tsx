@@ -396,7 +396,7 @@ export default function Landing() {
                 <div className="text-sm text-muted-foreground">Service Categories</div>
               </div>
               <div data-testid="stat-blockchains">
-                <div className="text-4xl md:text-5xl font-bold text-primary mb-2">70+</div>
+                <div className="text-4xl md:text-5xl font-bold text-primary mb-2">55+</div>
                 <div className="text-sm text-muted-foreground">Blockchain Networks</div>
               </div>
               <div data-testid="stat-uptime">
@@ -418,7 +418,7 @@ export default function Landing() {
               { icon: CheckCircle2, text: "Continuously monitor 400+ vendor status pages every 60 seconds with automatic status normalization across different page formats." },
               { icon: Layers, text: "View active incidents at a glance across your entire vendor ecosystem. See which dependencies have outages on a single, unified status page." },
               { icon: Eye, text: "Easily drill down into the details of an incident for debugging. Know exactly which service components are affected (EC2, S3, Lambda, etc)." },
-              { icon: Boxes, text: "Track 70+ blockchain networks including L1/L2 chains, DeFi protocols, RPC providers, and staking platforms." },
+              { icon: Boxes, text: "Track 55+ blockchain networks including L1/L2 chains, DeFi protocols, RPC providers, and staking platforms." },
             ]}
             visual={<ComponentsMockup />}
           />
@@ -556,7 +556,7 @@ export default function Landing() {
                 <div className="absolute top-8 left-[60%] w-[80%] h-0.5 bg-gradient-to-r from-primary/40 to-transparent hidden md:block" />
                 <h3 className="font-semibold text-lg mb-2">Select Your Vendors</h3>
                 <p className="text-sm text-muted-foreground">
-                  Choose from 400+ pre-configured vendors and 70+ blockchain networks, or request custom additions.
+                  Choose from 400+ pre-configured vendors and 55+ blockchain networks, or request custom additions.
                 </p>
               </div>
 
@@ -744,7 +744,7 @@ export default function Landing() {
                 <span className="text-lg font-bold">{APP_NAME}</span>
               </div>
               <p className="text-sm text-muted-foreground mb-4">
-                Enterprise-grade vendor status monitoring for MSPs and IT teams. 400+ services, 70+ blockchains.
+                Enterprise-grade vendor status monitoring for MSPs and IT teams. 400+ services, 55+ blockchains.
               </p>
             </div>
 
