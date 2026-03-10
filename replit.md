@@ -7,7 +7,7 @@ Vendor Watch is a full-stack web application designed for proactive monitoring o
 Preferred communication style: Simple, everyday language.
 
 ## Deployment Architecture
-- **Production**: Hosted on Railway. Full sync — all 409 vendors + 110 blockchains every 2 minutes in parallel, batch size 25, 300ms inter-batch delay. Completes in ~54 seconds.
+- **Production**: Hosted on Railway. Full sync — all 409 vendors + 110 blockchains every 2 minutes in parallel, batch size 40, 300ms inter-batch delay.
 - **Development**: Runs on Replit with same sync settings. Both environments share the same PostgreSQL database (hosted on Replit).
 - Domain: vendorwatch.app (DNS via Cloudflare, pointed at Railway)
 
