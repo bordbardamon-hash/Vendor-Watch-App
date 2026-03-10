@@ -26,11 +26,12 @@ import {
   Wallet,
   Coins
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { formatShortDateInTimezone, getBrowserTimezone } from "@/lib/utils";
+import { formatDistanceToNow } from "date-fns";
 
 interface BlockchainChain {
   key: string;
@@ -137,6 +138,12 @@ export default function Blockchain() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Fetch blockchain subscriptions
   const { data: subscriptionData } = useQuery<{
     subscribedChains: string[];
@@ -208,6 +215,7 @@ export default function Blockchain() {
       return res.json();
     },
     refetchInterval: 60000,
+    refetchIntervalInBackground: true,
   });
 
   // Manual refresh mutation
@@ -236,6 +244,7 @@ export default function Blockchain() {
       return res.json();
     },
     refetchInterval: 60000,
+    refetchIntervalInBackground: true,
   });
 
   const { data: activeIncidents = [] } = useQuery<BlockchainIncident[]>({
@@ -246,6 +255,7 @@ export default function Blockchain() {
       return res.json();
     },
     refetchInterval: 60000,
+    refetchIntervalInBackground: true,
   });
 
   // Fetch user's acknowledged incidents
@@ -432,8 +442,8 @@ export default function Blockchain() {
         </div>
 
         {chain.lastChecked && (
-          <div className="mt-2 text-xs text-muted-foreground">
-            Last checked: {formatShortDateInTimezone(chain.lastChecked, timezone)}
+          <div className="mt-2 text-[10px] text-muted-foreground/60" data-testid={`text-last-sync-${chain.key}`}>
+            {formatDistanceToNow(new Date(chain.lastChecked), { addSuffix: true })}
           </div>
         )}
       </CardContent>

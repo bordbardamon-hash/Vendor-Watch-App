@@ -27,12 +27,13 @@ import {
   ArrowLeft,
   Settings2
 } from "lucide-react";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { AlertPreferencesDialog } from "@/components/alert-preferences-dialog";
 import { formatShortDateInTimezone, getBrowserTimezone } from "@/lib/utils";
+import { formatDistanceToNow } from "date-fns";
 
 interface VendorLimit {
   tier: string | null;
@@ -223,6 +224,12 @@ export default function Vendors() {
   const [directAddForm, setDirectAddForm] = useState({ key: "", name: "", statusUrl: "", parser: "statuspage_json" });
   const { toast } = useToast();
   const detailPanelRef = useRef<HTMLDivElement>(null);
+
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     if (selectedVendor && detailPanelRef.current) {
@@ -424,6 +431,7 @@ export default function Vendors() {
       return res.json();
     },
     refetchInterval: 60000,
+    refetchIntervalInBackground: true,
   });
 
   // Fetch user's vendor favorites
@@ -465,6 +473,7 @@ export default function Vendors() {
       return res.json();
     },
     refetchInterval: 60000,
+    refetchIntervalInBackground: true,
   });
 
   // Fetch user's acknowledged incidents
@@ -983,13 +992,18 @@ export default function Vendors() {
                         )}
                       </div>
                     </div>
-                    {(vendor as any).category && (
-                      <div className="mt-1">
+                    <div className="flex items-center justify-between mt-1">
+                      {(vendor as any).category ? (
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-sidebar border border-sidebar-border text-muted-foreground">
                           {(vendor as any).category}
                         </span>
-                      </div>
-                    )}
+                      ) : <span />}
+                      {vendor.lastChecked && (
+                        <span className="text-[10px] text-muted-foreground/60" data-testid={`text-last-sync-${vendor.key}`}>
+                          {formatDistanceToNow(new Date(vendor.lastChecked), { addSuffix: true })}
+                        </span>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               ))}
