@@ -280,7 +280,7 @@ app.use((req, res, next) => {
       log(`serving on port ${port}`);
       
       const isProduction = process.env.NODE_ENV === 'production';
-      const SYNC_INTERVAL_MS = 3 * 60 * 1000;
+      const SYNC_INTERVAL_MS = 3.5 * 60 * 1000;
       
       const VENDOR_BATCH_LIMIT = undefined;
       const BLOCKCHAIN_BATCH_LIMIT = undefined;
