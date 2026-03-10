@@ -282,8 +282,8 @@ app.use((req, res, next) => {
       const isProduction = process.env.NODE_ENV === 'production';
       const SYNC_INTERVAL_MS = 2 * 60 * 1000;
       
-      const VENDOR_BATCH_LIMIT = isProduction ? 10 : undefined;
-      const BLOCKCHAIN_BATCH_LIMIT = isProduction ? 8 : undefined;
+      const VENDOR_BATCH_LIMIT = undefined;
+      const BLOCKCHAIN_BATCH_LIMIT = undefined;
       
       let syncRunning = false;
       let lastSyncStart = 0;
@@ -304,26 +304,16 @@ app.use((req, res, next) => {
           const mode = VENDOR_BATCH_LIMIT ? 'staggered' : 'full';
           console.log(`[sync] Starting ${label} ${mode} sync...`);
           
-          if (isProduction) {
-            await syncAllBlockchainChains(BLOCKCHAIN_BATCH_LIMIT);
-            const bcTime = Math.round((Date.now()-startTime)/1000);
-            console.log(`[sync] ${label} blockchain sync complete in ${bcTime}s`);
-            
-            const result = await syncVendorStatus(undefined, VENDOR_BATCH_LIMIT);
-            const vTime = Math.round((Date.now()-startTime)/1000);
-            console.log(`[sync] ${label} vendor sync complete in ${vTime}s: ${result.synced}/${result.total} synced (${VENDOR_BATCH_LIMIT} per cycle)`);
-          } else {
-            await Promise.all([
-              syncAllBlockchainChains().then(() => {
-                const bcTime = Math.round((Date.now()-startTime)/1000);
-                console.log(`[sync] ${label} blockchain sync complete in ${bcTime}s`);
-              }),
-              syncVendorStatus().then(r => {
-                const vTime = Math.round((Date.now()-startTime)/1000);
-                console.log(`[sync] ${label} vendor sync complete in ${vTime}s: ${r.synced} synced, ${r.skipped} skipped`);
-              }),
-            ]);
-          }
+          await Promise.all([
+            syncAllBlockchainChains().then(() => {
+              const bcTime = Math.round((Date.now()-startTime)/1000);
+              console.log(`[sync] ${label} blockchain sync complete in ${bcTime}s`);
+            }),
+            syncVendorStatus().then(r => {
+              const vTime = Math.round((Date.now()-startTime)/1000);
+              console.log(`[sync] ${label} vendor sync complete in ${vTime}s: ${r.synced} synced, ${r.skipped} skipped`);
+            }),
+          ]);
         } catch (err) {
           console.error(`[sync] ${label} sync failed:`, err);
         } finally {
@@ -374,12 +364,7 @@ app.use((req, res, next) => {
         }
       }, SYNC_INTERVAL_MS);
       
-      if (isProduction) {
-        console.log(`[sync] Production staggered sync: ${VENDOR_BATCH_LIMIT} vendors + ${BLOCKCHAIN_BATCH_LIMIT} blockchains per cycle (every ${SYNC_INTERVAL_MS / 60000} min)`);
-        console.log(`[sync] Full rotation: vendors ~${Math.ceil(409 / (VENDOR_BATCH_LIMIT || 10)) * 2} min, blockchains ~${Math.ceil(110 / (BLOCKCHAIN_BATCH_LIMIT || 8)) * 2} min`);
-      } else {
-        console.log(`[sync] Dev full sync: every ${SYNC_INTERVAL_MS / 60000} minutes (all vendors + blockchains in parallel)`);
-      }
+      console.log(`[sync] Full sync: every ${SYNC_INTERVAL_MS / 60000} minutes (all vendors + blockchains in parallel, batch size 25)`);
       
       function startBackgroundTasks() {
         const ARCHIVE_INTERVAL_MS = 60 * 60 * 1000;

@@ -396,7 +396,7 @@ async function syncBlockchainChain(chainData: { key: string; name: string; sourc
   }
 }
 
-const BLOCKCHAIN_BATCH_SIZE = process.env.NODE_ENV === 'production' ? 3 : 15;
+const BLOCKCHAIN_BATCH_SIZE = 25;
 const PER_CHAIN_TIMEOUT_MS = 12000;
 
 function withChainTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
@@ -424,7 +424,7 @@ export async function syncAllBlockchainChains(limit?: number): Promise<void> {
   
   console.log(`[blockchain] Syncing ${supportedChains.length}/${filteredChains.length} chains${limit ? ' (staggered)' : ''}`);
   
-  const INTER_BATCH_DELAY_MS = process.env.NODE_ENV === 'production' ? 2000 : 500;
+  const INTER_BATCH_DELAY_MS = 300;
   for (let i = 0; i < supportedChains.length; i += BLOCKCHAIN_BATCH_SIZE) {
     const batch = supportedChains.slice(i, i + BLOCKCHAIN_BATCH_SIZE);
     await Promise.allSettled(batch.map(async (chain) => {
