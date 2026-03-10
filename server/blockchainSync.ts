@@ -396,7 +396,7 @@ async function syncBlockchainChain(chainData: { key: string; name: string; sourc
   }
 }
 
-const BLOCKCHAIN_BATCH_SIZE = 40;
+const BLOCKCHAIN_BATCH_SIZE = 30;
 const PER_CHAIN_TIMEOUT_MS = 12000;
 
 function withChainTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
