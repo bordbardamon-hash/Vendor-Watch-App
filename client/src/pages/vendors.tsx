@@ -1137,7 +1137,7 @@ export default function Vendors() {
                 
                 <VendorComponentsSection vendorKey={selectedVendor.key} />
 
-                {user?.isAdmin && (
+                {user?.isOwner && (
                   <div className="p-6 bg-sidebar/30">
                     <h4 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wider">Configuration</h4>
                     <div className="bg-black/50 p-4 rounded-md border border-sidebar-border font-mono text-xs text-muted-foreground overflow-x-auto">
