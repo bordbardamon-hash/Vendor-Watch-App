@@ -397,11 +397,18 @@ async function fetchAwsStatus(vendor: { key: string; statusUrl: string }): Promi
     let incidents: any[] = [];
     let overallStatus = 'operational';
     
+    const recentCutoff = new Date();
+    recentCutoff.setHours(recentCutoff.getHours() - 24);
+
     if (Array.isArray(data)) {
-      // If any current issues, mark as degraded
-      if (data.length > 0) {
+      const recentEvents = data.filter((item: any) => {
+        if (!item.date) return true;
+        const eventDate = new Date(item.date);
+        return !isNaN(eventDate.getTime()) && eventDate > recentCutoff;
+      });
+      if (recentEvents.length > 0) {
         overallStatus = 'degraded';
-        incidents = data.slice(0, 10).map((item: any, idx: number) => ({
+        incidents = recentEvents.slice(0, 10).map((item: any, idx: number) => ({
           id: item.id || `aws-${Date.now()}-${idx}`,
           name: item.summary || item.description || 'AWS Service Event',
           status: 'investigating',
@@ -412,8 +419,12 @@ async function fetchAwsStatus(vendor: { key: string; statusUrl: string }): Promi
         }));
       }
     } else if (data.current) {
-      // Some AWS endpoints have { current: [...events] }
-      incidents = (data.current || []).map((item: any, idx: number) => ({
+      const currentEvents = (data.current || []).filter((item: any) => {
+        if (!item.date) return true;
+        const eventDate = new Date(item.date);
+        return !isNaN(eventDate.getTime()) && eventDate > recentCutoff;
+      });
+      incidents = currentEvents.map((item: any, idx: number) => ({
         id: item.id || `aws-${Date.now()}-${idx}`,
         name: item.summary || item.service_name || 'AWS Service Event',
         status: 'investigating',
@@ -759,7 +770,7 @@ export async function syncVendorStatus(vendorKey?: string, limit?: number): Prom
         }
         
         let finalStatus = result.status;
-        if (result.incidents.length === 0 && finalStatus !== 'degraded' && finalStatus !== 'partial_outage' && finalStatus !== 'major_outage') {
+        if (result.incidents.length === 0 && finalStatus !== 'operational') {
           finalStatus = 'operational';
         }
         
