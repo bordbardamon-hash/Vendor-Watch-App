@@ -485,6 +485,83 @@ async function manualStatusVendor(vendor: { key: string; statusUrl: string }): P
   };
 }
 
+async function scrapeInstatusNuxt(vendor: { key: string; statusUrl: string }): Promise<ScrapedStatus> {
+  const result = await fetchHtml(vendor.statusUrl);
+  if (!result || !result.html) {
+    return { status: 'unknown', incidents: [], maintenances: [], success: false, httpStatus: result?.status, errorMessage: 'Failed to fetch' };
+  }
+
+  try {
+    const nuxtMatch = result.html.match(/__NUXT_DATA__">\s*(\[[\s\S]*?\])\s*<\/script>/);
+    if (!nuxtMatch) {
+      return { status: 'unknown', incidents: [], maintenances: [], success: false, httpStatus: 200, errorMessage: 'No NUXT_DATA found' };
+    }
+
+    const arr = JSON.parse(nuxtMatch[1]);
+    const strings: string[] = arr.filter((v: any) => typeof v === 'string');
+
+    const statusKeywords = strings.filter((s: string) =>
+      /^(OPERATIONAL|UNDERMAINTENANCE|MAJOROUTAGE|PARTIALOUTAGE|DEGRADEDPERFORMANCE)$/i.test(s)
+    );
+
+    let overallStatus: 'operational' | 'degraded' | 'outage' | 'unknown' = 'operational';
+    for (const kw of statusKeywords) {
+      const upper = kw.toUpperCase();
+      if (upper === 'MAJOROUTAGE') { overallStatus = 'outage'; break; }
+      if (upper === 'PARTIALOUTAGE' || upper === 'DEGRADEDPERFORMANCE' || upper === 'UNDERMAINTENANCE') {
+        overallStatus = 'degraded';
+      }
+    }
+
+    const incidents: ScrapedStatus['incidents'] = [];
+    const incidentStatuses = ['INVESTIGATING', 'IDENTIFIED', 'MONITORING', 'RESOLVED'];
+    const incidentImpacts = ['MINOR', 'MAJOR', 'CRITICAL', 'MEDIUM'];
+
+    for (let i = 0; i < arr.length; i++) {
+      if (typeof arr[i] === 'string' && incidentStatuses.includes(arr[i].toUpperCase())) {
+        let name = '';
+        let impact = 'minor';
+        for (let j = Math.max(0, i - 15); j < i; j++) {
+          if (typeof arr[j] === 'string' && arr[j].length > 10 && arr[j].length < 200 && !incidentStatuses.includes(arr[j].toUpperCase()) && !incidentImpacts.includes(arr[j].toUpperCase()) && !/^https?:/.test(arr[j]) && !/^\d{4}-\d{2}/.test(arr[j])) {
+            name = arr[j];
+          }
+          if (typeof arr[j] === 'string' && incidentImpacts.includes(arr[j].toUpperCase())) {
+            impact = arr[j].toLowerCase();
+          }
+        }
+        if (name && arr[i].toUpperCase() !== 'RESOLVED') {
+          let createdAt = '';
+          for (let j = Math.max(0, i - 15); j < Math.min(arr.length, i + 5); j++) {
+            if (typeof arr[j] === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(arr[j])) {
+              createdAt = arr[j]; break;
+            }
+          }
+          incidents.push({
+            id: crypto.createHash('md5').update(name).digest('hex').substring(0, 12),
+            name,
+            status: arr[i].toLowerCase(),
+            impact: impact === 'medium' ? 'minor' : impact,
+            shortlink: vendor.statusUrl,
+            created_at: createdAt || new Date().toISOString(),
+            updated_at: createdAt || new Date().toISOString(),
+          });
+        }
+      }
+    }
+
+    if (incidents.length > 0 && overallStatus === 'operational') {
+      overallStatus = 'degraded';
+    }
+
+    await recordParseResult(vendor.key, { success: true, httpStatus: 200, incidentsParsed: incidents.length });
+    return { status: overallStatus, incidents, maintenances: [], success: true, httpStatus: 200 };
+  } catch (e: any) {
+    const errorMessage = `Instatus parse error: ${e.message}`;
+    await recordParseResult(vendor.key, { success: false, errorMessage });
+    return { status: 'unknown', incidents: [], maintenances: [], success: false, httpStatus: 200, errorMessage };
+  }
+}
+
 export async function scrapeVendorStatus(vendor: { key: string; statusUrl: string }): Promise<ScrapedStatus> {
   switch (vendor.key) {
     case 'aws':
@@ -499,6 +576,8 @@ export async function scrapeVendorStatus(vendor: { key: string; statusUrl: strin
       return scrapeSalesforceStatus(vendor);
     case 'slack':
       return scrapeSlackStatus(vendor);
+    case 'mistralai':
+      return scrapeInstatusNuxt(vendor);
     // Vendors without accessible public APIs - return operational by default
     case 'paypal':
     case 'gcp':

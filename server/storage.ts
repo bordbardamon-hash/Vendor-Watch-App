@@ -4060,6 +4060,8 @@ const BASE_VENDORS: InsertVendor[] = [
   { key: "sonarcloud", name: "SonarCloud", statusUrl: "https://sonarcloud.statuspage.io/", parser: "statuspage_json", status: "operational" },
   { key: "openai", name: "OpenAI", statusUrl: "https://status.openai.com/", parser: "statuspage_json", status: "operational" },
   { key: "anthropic", name: "Anthropic", statusUrl: "https://status.anthropic.com/", parser: "statuspage_json", status: "operational" },
+  { key: "mistralai", name: "Mistral AI", statusUrl: "https://status.mistral.ai", parser: "generic_html", status: "operational" },
+  { key: "deepseek", name: "DeepSeek", statusUrl: "https://status.deepseek.com", parser: "statuspage_json", status: "operational" },
   { key: "notion", name: "Notion", statusUrl: "https://status.notion.so/", parser: "statuspage_json", status: "operational" },
   { key: "linear", name: "Linear", statusUrl: "https://status.linear.app/", parser: "statuspage_json", status: "operational" },
   // Expanded Directory - Cloud & Infrastructure
@@ -4137,6 +4139,23 @@ export async function seedVendorsIfEmpty(): Promise<void> {
     console.log(`[seed] Error cleaning up orphaned parser_health entries:`, error);
   }
   
+  // Sync parser and statusUrl for existing vendors that differ from defaults
+  const defaultVendorMap = new Map(DEFAULT_VENDORS.map(v => [v.key, v]));
+  for (const existing of existingVendors) {
+    const defaultV = defaultVendorMap.get(existing.key);
+    if (defaultV && (existing.parser !== defaultV.parser || existing.statusUrl !== defaultV.statusUrl)) {
+      try {
+        await db.update(vendors).set({
+          parser: defaultV.parser,
+          statusUrl: defaultV.statusUrl,
+        }).where(eq(vendors.key, existing.key));
+        console.log(`[seed] Updated ${existing.name}: parser=${defaultV.parser}, statusUrl=${defaultV.statusUrl}`);
+      } catch (error) {
+        console.log(`[seed] Error updating ${existing.key}:`, error);
+      }
+    }
+  }
+
   const missingVendors = DEFAULT_VENDORS.filter(v => !existingKeys.has(v.key));
   
   if (missingVendors.length > 0) {

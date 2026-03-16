@@ -233,6 +233,8 @@ export const NEW_VENDORS = [
   { key: "assemblyai", name: "AssemblyAI", statusUrl: "https://status.assemblyai.com", parser: "statuspage_json", status: "operational" },
   { key: "elevenlabs", name: "ElevenLabs", statusUrl: "https://status.elevenlabs.io", parser: "statuspage_json", status: "operational" },
   { key: "clarifai", name: "Clarifai", statusUrl: "https://status.clarifai.com", parser: "statuspage_json", status: "operational" },
+  { key: "mistralai", name: "Mistral AI", statusUrl: "https://status.mistral.ai", parser: "generic_html", status: "operational" },
+  { key: "deepseek", name: "DeepSeek", statusUrl: "https://status.deepseek.com", parser: "statuspage_json", status: "operational" },
 
   // ═══════════════════════════════════════════════════════════════
   // OBSERVABILITY & MONITORING

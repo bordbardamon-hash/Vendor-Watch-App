@@ -356,6 +356,8 @@ export const VENDOR_CATEGORIES: Record<string, string> = {
   assemblyai: "AI & ML",
   elevenlabs: "AI & ML",
   clarifai: "AI & ML",
+  mistralai: "AI & ML",
+  deepseek: "AI & ML",
 
   // Observability & Monitoring
   honeycomb: "Observability",
