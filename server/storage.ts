@@ -283,12 +283,12 @@ export interface IStorage {
   
   // Analytics - Vendor Performance
   getVendorPerformanceStats(vendorKey: string, days?: number): Promise<{ uptimePercent: number; incidentCount: number; avgResolutionMinutes: number | null }>;
-  getAllVendorPerformanceStats(days?: number): Promise<Array<{ vendorKey: string; vendorName: string; uptimePercent: number; incidentCount: number }>>;
+  getAllVendorPerformanceStats(days?: number, filterKeys?: string[]): Promise<Array<{ vendorKey: string; vendorName: string; uptimePercent: number; incidentCount: number }>>;
   recordVendorDailyMetrics(vendorKey: string, date: string, metrics: { uptimeMinutes: number; downtimeMinutes: number; incidentCount: number; avgResolutionMinutes?: number }): Promise<void>;
   
   // Analytics - Blockchain Performance
   getBlockchainPerformanceStats(chainKey: string, days?: number): Promise<{ uptimePercent: number; incidentCount: number; avgResolutionMinutes: number | null }>;
-  getAllBlockchainPerformanceStats(days?: number): Promise<Array<{ chainKey: string; chainName: string; uptimePercent: number; incidentCount: number }>>;
+  getAllBlockchainPerformanceStats(days?: number, filterKeys?: string[]): Promise<Array<{ chainKey: string; chainName: string; uptimePercent: number; incidentCount: number }>>;
   
   // PSA Webhooks
   getPsaWebhooks(userId: string): Promise<PsaWebhook[]>;
@@ -2312,11 +2312,14 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getAllVendorPerformanceStats(days: number = 30): Promise<Array<{ vendorKey: string; vendorName: string; uptimePercent: number; incidentCount: number }>> {
+  async getAllVendorPerformanceStats(days: number = 30, filterKeys?: string[]): Promise<Array<{ vendorKey: string; vendorName: string; uptimePercent: number; incidentCount: number }>> {
     const allVendors = await this.getVendors();
+    const vendorsToQuery = filterKeys && filterKeys.length > 0
+      ? allVendors.filter(v => filterKeys.includes(v.key))
+      : allVendors;
     const results: Array<{ vendorKey: string; vendorName: string; uptimePercent: number; incidentCount: number }> = [];
     
-    for (const vendor of allVendors) {
+    for (const vendor of vendorsToQuery) {
       const stats = await this.getVendorPerformanceStats(vendor.key, days);
       results.push({
         vendorKey: vendor.key,
@@ -2399,11 +2402,14 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getAllBlockchainPerformanceStats(days: number = 30): Promise<Array<{ chainKey: string; chainName: string; uptimePercent: number; incidentCount: number }>> {
+  async getAllBlockchainPerformanceStats(days: number = 30, filterKeys?: string[]): Promise<Array<{ chainKey: string; chainName: string; uptimePercent: number; incidentCount: number }>> {
     const allChains = await this.getBlockchainChains();
+    const chainsToQuery = filterKeys && filterKeys.length > 0
+      ? allChains.filter(c => filterKeys.includes(c.key))
+      : allChains;
     const results: Array<{ chainKey: string; chainName: string; uptimePercent: number; incidentCount: number }> = [];
     
-    for (const chain of allChains) {
+    for (const chain of chainsToQuery) {
       const stats = await this.getBlockchainPerformanceStats(chain.key, days);
       results.push({
         chainKey: chain.key,

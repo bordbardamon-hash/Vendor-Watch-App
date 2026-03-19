@@ -4272,11 +4272,9 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
       const days = parseInt(req.query.days as string) || 30;
       const vendorSubs = await storage.getUserVendorSubscriptions(userId);
       
-      const allStats = await storage.getAllVendorPerformanceStats(days);
-      const stats = vendorSubs.length > 0
-        ? allStats.filter((s: any) => vendorSubs.includes(s.vendorKey))
-        : [];
+      if (vendorSubs.length === 0) return res.json([]);
       
+      const stats = await storage.getAllVendorPerformanceStats(days, vendorSubs);
       res.json(stats);
     } catch (error) {
       console.error("Error getting vendor stats:", error);
@@ -4330,11 +4328,9 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
       const days = parseInt(req.query.days as string) || 30;
       const blockchainSubs = await storage.getUserBlockchainSubscriptions(userId);
       
-      const allStats = await storage.getAllBlockchainPerformanceStats(days);
-      const stats = blockchainSubs.length > 0
-        ? allStats.filter((s: any) => blockchainSubs.includes(s.chainKey))
-        : [];
+      if (blockchainSubs.length === 0) return res.json([]);
       
+      const stats = await storage.getAllBlockchainPerformanceStats(days, blockchainSubs);
       res.json(stats);
     } catch (error) {
       console.error("Error getting blockchain stats:", error);
