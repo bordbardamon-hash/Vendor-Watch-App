@@ -4,6 +4,8 @@ import type { Express, RequestHandler } from 'express';
 import session from 'express-session';
 import connectPg from 'connect-pg-simple';
 import passport from 'passport';
+import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
+import { Strategy as GitHubStrategy } from 'passport-github2';
 import { db } from './db';
 import { users } from '@shared/models/auth';
 import { eq } from 'drizzle-orm';
@@ -86,6 +88,146 @@ export async function setupEmailAuth(app: Express) {
 
   passport.serializeUser((user: any, cb) => cb(null, user));
   passport.deserializeUser((user: any, cb) => cb(null, user));
+
+  const appUrl = process.env.APP_URL || `http://localhost:5000`;
+
+  // Google OAuth Strategy
+  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    passport.use(new GoogleStrategy({
+      clientID: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      callbackURL: `${appUrl}/api/auth/google/callback`,
+    }, async (_accessToken, _refreshToken, profile, done) => {
+      try {
+        const email = profile.emails?.[0]?.value;
+        if (!email) return done(new Error('No email from Google'));
+
+        const [existingUser] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+
+        if (existingUser) {
+          if (!existingUser.authProvider || existingUser.authProvider === 'email') {
+            await db.update(users).set({
+              authProvider: 'google',
+              authProviderId: profile.id,
+              profileImageUrl: existingUser.profileImageUrl || profile.photos?.[0]?.value || null,
+            }).where(eq(users.id, existingUser.id));
+          }
+          return done(null, existingUser);
+        }
+
+        const [newUser] = await db.insert(users).values({
+          email,
+          firstName: profile.name?.givenName || null,
+          lastName: profile.name?.familyName || null,
+          profileImageUrl: profile.photos?.[0]?.value || null,
+          authProvider: 'google',
+          authProviderId: profile.id,
+          profileCompleted: true,
+          billingCompleted: true,
+        }).returning();
+
+        sendWelcomeEmail(email, newUser.firstName).catch(err => {
+          console.error('[auth] Failed to send welcome email:', err);
+        });
+        notifyOwnerNewSignup(email, newUser.firstName, newUser.lastName, 'google').catch(err => {
+          console.error('[auth] Failed to notify owner:', err);
+        });
+
+        console.log(`[auth] New user registered via Google: ${email}`);
+        return done(null, newUser);
+      } catch (err) {
+        return done(err as Error);
+      }
+    }));
+
+    app.get('/api/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+
+    app.get('/api/auth/google/callback', passport.authenticate('google', { failureRedirect: '/login?error=google_failed' }), (req, res) => {
+      const user = req.user as any;
+      (req.session as any).userId = user.id;
+      (req.session as any).twoFactorVerified = !user.twoFactorEnabled;
+      storage.logUserActivity(user.id, 'login', { method: 'google' }).catch(() => {});
+      storage.createAuditLog({
+        userId: user.id, userEmail: user.email, action: 'login', resourceType: 'session',
+        resourceId: null, resourceName: 'Google OAuth', details: JSON.stringify({ method: 'google' }),
+        ipAddress: req.ip || 'unknown', userAgent: req.headers['user-agent'] || null, success: true, errorMessage: null,
+      }).catch(() => {});
+      console.log(`[auth] User logged in via Google: ${user.email}`);
+      res.redirect('/');
+    });
+
+    console.log('[auth] Google OAuth strategy registered');
+  }
+
+  // GitHub OAuth Strategy
+  if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
+    passport.use(new GitHubStrategy({
+      clientID: process.env.GITHUB_CLIENT_ID,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET,
+      callbackURL: `${appUrl}/api/auth/github/callback`,
+      scope: ['user:email'],
+    }, async (_accessToken: string, _refreshToken: string, profile: any, done: any) => {
+      try {
+        const email = profile.emails?.[0]?.value;
+        if (!email) return done(new Error('No email from GitHub'));
+
+        const [existingUser] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+
+        if (existingUser) {
+          if (!existingUser.authProvider || existingUser.authProvider === 'email') {
+            await db.update(users).set({
+              authProvider: 'github',
+              authProviderId: profile.id,
+              profileImageUrl: existingUser.profileImageUrl || profile.photos?.[0]?.value || null,
+            }).where(eq(users.id, existingUser.id));
+          }
+          return done(null, existingUser);
+        }
+
+        const nameParts = (profile.displayName || '').split(' ');
+        const [newUser] = await db.insert(users).values({
+          email,
+          firstName: nameParts[0] || profile.username || null,
+          lastName: nameParts.slice(1).join(' ') || null,
+          profileImageUrl: profile.photos?.[0]?.value || null,
+          authProvider: 'github',
+          authProviderId: profile.id,
+          profileCompleted: true,
+          billingCompleted: true,
+        }).returning();
+
+        sendWelcomeEmail(email, newUser.firstName).catch(err => {
+          console.error('[auth] Failed to send welcome email:', err);
+        });
+        notifyOwnerNewSignup(email, newUser.firstName, newUser.lastName, 'github').catch(err => {
+          console.error('[auth] Failed to notify owner:', err);
+        });
+
+        console.log(`[auth] New user registered via GitHub: ${email}`);
+        return done(null, newUser);
+      } catch (err) {
+        return done(err as Error);
+      }
+    }));
+
+    app.get('/api/auth/github', passport.authenticate('github', { scope: ['user:email'] }));
+
+    app.get('/api/auth/github/callback', passport.authenticate('github', { failureRedirect: '/login?error=github_failed' }), (req, res) => {
+      const user = req.user as any;
+      (req.session as any).userId = user.id;
+      (req.session as any).twoFactorVerified = !user.twoFactorEnabled;
+      storage.logUserActivity(user.id, 'login', { method: 'github' }).catch(() => {});
+      storage.createAuditLog({
+        userId: user.id, userEmail: user.email, action: 'login', resourceType: 'session',
+        resourceId: null, resourceName: 'GitHub OAuth', details: JSON.stringify({ method: 'github' }),
+        ipAddress: req.ip || 'unknown', userAgent: req.headers['user-agent'] || null, success: true, errorMessage: null,
+      }).catch(() => {});
+      console.log(`[auth] User logged in via GitHub: ${user.email}`);
+      res.redirect('/');
+    });
+
+    console.log('[auth] GitHub OAuth strategy registered');
+  }
 
   // Register endpoint
   app.post('/api/auth/register', async (req, res) => {
@@ -170,7 +312,8 @@ export async function setupEmailAuth(app: Express) {
       }
 
       if (!user.password) {
-        return res.status(401).json({ message: 'No password set for this account. Please use the "Forgot password?" link to set one.' });
+        const provider = user.authProvider || 'social';
+        return res.status(401).json({ message: `This account uses ${provider === 'google' ? 'Google' : provider === 'github' ? 'GitHub' : 'social'} sign-in. Please use that method, or click "Forgot password?" to set a password.` });
       }
 
       // Verify password

@@ -25,9 +25,9 @@ Preferred communication style: Simple, everyday language.
 - **Database ORM**: Drizzle ORM with PostgreSQL
 
 ### Authentication
-- **Provider**: Email/password authentication (session-based)
-- **Features**: Two-Factor Authentication (TOTP), Email-based password reset, Mandatory Onboarding, Mobile bearer tokens.
-- **Note**: Replit OAuth was removed after migrating to Railway. All users authenticate via email/password.
+- **Provider**: Email/password + Google OAuth + GitHub OAuth (session-based)
+- **Features**: Two-Factor Authentication (TOTP), Email-based password reset, Mandatory Onboarding, Mobile bearer tokens, Social login (Google, GitHub).
+- **OAuth**: Google and GitHub strategies in `server/emailAuth.ts`. Requires `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` env vars. Callback URLs: `{APP_URL}/api/auth/google/callback` and `{APP_URL}/api/auth/github/callback`. Users table has `authProvider` and `authProviderId` columns. OAuth accounts auto-link if email matches existing account. New OAuth users get free tier with profile auto-completed.
 
 ### Data Model
 Key entities include Users, Sessions, Vendors, Incidents, Jobs, Configurations, Organizations, Subscriptions, Alerts, and Reliability Statistics.
