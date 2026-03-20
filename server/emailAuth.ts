@@ -144,16 +144,24 @@ export async function setupEmailAuth(app: Express) {
 
     app.get('/api/auth/google/callback', passport.authenticate('google', { failureRedirect: '/login?error=google_failed' }), (req, res) => {
       const user = req.user as any;
-      (req.session as any).userId = user.id;
-      (req.session as any).twoFactorVerified = !user.twoFactorEnabled;
-      storage.logUserActivity(user.id, 'login', { method: 'google' }).catch(() => {});
-      storage.createAuditLog({
-        userId: user.id, userEmail: user.email, action: 'login', resourceType: 'session',
-        resourceId: null, resourceName: 'Google OAuth', details: JSON.stringify({ method: 'google' }),
-        ipAddress: req.ip || 'unknown', userAgent: req.headers['user-agent'] || null, success: true, errorMessage: null,
-      }).catch(() => {});
-      console.log(`[auth] User logged in via Google: ${user.email}`);
-      res.redirect('/');
+      req.session.regenerate((err) => {
+        if (err) {
+          console.error('[auth] Session regeneration failed:', err);
+          return res.redirect('/login?error=google_failed');
+        }
+        (req.session as any).userId = user.id;
+        (req.session as any).twoFactorVerified = !user.twoFactorEnabled;
+        req.session.save(() => {
+          storage.logUserActivity(user.id, 'login', { method: 'google' }).catch(() => {});
+          storage.createAuditLog({
+            userId: user.id, userEmail: user.email, action: 'login', resourceType: 'session',
+            resourceId: null, resourceName: 'Google OAuth', details: JSON.stringify({ method: 'google' }),
+            ipAddress: req.ip || 'unknown', userAgent: req.headers['user-agent'] || null, success: true, errorMessage: null,
+          }).catch(() => {});
+          console.log(`[auth] User logged in via Google: ${user.email}`);
+          res.redirect('/');
+        });
+      });
     });
 
     console.log('[auth] Google OAuth strategy registered');
@@ -214,16 +222,24 @@ export async function setupEmailAuth(app: Express) {
 
     app.get('/api/auth/github/callback', passport.authenticate('github', { failureRedirect: '/login?error=github_failed' }), (req, res) => {
       const user = req.user as any;
-      (req.session as any).userId = user.id;
-      (req.session as any).twoFactorVerified = !user.twoFactorEnabled;
-      storage.logUserActivity(user.id, 'login', { method: 'github' }).catch(() => {});
-      storage.createAuditLog({
-        userId: user.id, userEmail: user.email, action: 'login', resourceType: 'session',
-        resourceId: null, resourceName: 'GitHub OAuth', details: JSON.stringify({ method: 'github' }),
-        ipAddress: req.ip || 'unknown', userAgent: req.headers['user-agent'] || null, success: true, errorMessage: null,
-      }).catch(() => {});
-      console.log(`[auth] User logged in via GitHub: ${user.email}`);
-      res.redirect('/');
+      req.session.regenerate((err) => {
+        if (err) {
+          console.error('[auth] Session regeneration failed:', err);
+          return res.redirect('/login?error=github_failed');
+        }
+        (req.session as any).userId = user.id;
+        (req.session as any).twoFactorVerified = !user.twoFactorEnabled;
+        req.session.save(() => {
+          storage.logUserActivity(user.id, 'login', { method: 'github' }).catch(() => {});
+          storage.createAuditLog({
+            userId: user.id, userEmail: user.email, action: 'login', resourceType: 'session',
+            resourceId: null, resourceName: 'GitHub OAuth', details: JSON.stringify({ method: 'github' }),
+            ipAddress: req.ip || 'unknown', userAgent: req.headers['user-agent'] || null, success: true, errorMessage: null,
+          }).catch(() => {});
+          console.log(`[auth] User logged in via GitHub: ${user.email}`);
+          res.redirect('/');
+        });
+      });
     });
 
     console.log('[auth] GitHub OAuth strategy registered');
