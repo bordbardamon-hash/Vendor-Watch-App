@@ -9,6 +9,7 @@ import { confirmVendorIncident, cleanupStalePendingIncidents } from "./incidentC
 import type { CanonicalSeverity, CanonicalStatus, LifecycleEvent } from "@shared/schema";
 import { NEW_STATUSPAGE_URLS } from "./newVendors";
 import { gunzipSync } from "zlib";
+import { autoCreateWarRoom, handleIncidentResolved } from "./warRoom";
 
 function isTimeoutError(msg: string): boolean {
   return msg.includes('timed out') || msg.includes('aborted due to timeout') || msg.includes('timeout');
@@ -625,6 +626,11 @@ export async function syncVendorStatus(vendorKey?: string, limit?: number): Prom
                 previousSeverity,
               }).catch(err => console.error('[notify] Failed to send resolution notification:', err));
             }
+
+            // Schedule War Room close after grace period
+            handleIncidentResolved(existing.id).catch(err =>
+              console.error('[war-room] Failed to handle incident resolution:', err)
+            );
           }
         }
         
@@ -678,6 +684,11 @@ export async function syncVendorStatus(vendorKey?: string, limit?: number): Prom
                 affectedServices: affectedComponents,
               }).catch(err => console.error('[notify] Failed to send new incident notification:', err));
             }
+
+            // Auto-create War Room for critical/major incidents
+            autoCreateWarRoom(newIncident, vendor).catch(err =>
+              console.error('[war-room] Failed to auto-create war room:', err)
+            );
           } else {
             const statusChanged = exists.status !== normalizedStatus;
             const severityChanged = exists.severity !== normalizedSeverity;

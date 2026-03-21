@@ -13,7 +13,8 @@ import {
   Settings,
   Shield,
   AlertCircle,
-  Loader2
+  Loader2,
+  ShieldAlert
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -222,7 +223,17 @@ export default function Dashboard() {
                         {vendor?.name || incident.vendorKey} &middot; {incident.severity}
                       </p>
                     </div>
-                    <Badge variant="outline" className="text-[10px] shrink-0 capitalize">{incident.status}</Badge>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {(incident.severity === 'critical' || incident.severity === 'major') && (
+                        <Link href={`/war-room/${incident.id}`}>
+                          <span className="flex items-center gap-1 text-[10px] text-red-500 border border-red-500/30 rounded px-1.5 py-0.5 hover:bg-red-500/10 transition-colors" data-testid={`link-war-room-dashboard-${incident.id}`}>
+                            <ShieldAlert className="w-3 h-3" />
+                            War Room
+                          </span>
+                        </Link>
+                      )}
+                      <Badge variant="outline" className="text-[10px] capitalize">{incident.status}</Badge>
+                    </div>
                   </div>
                 );
               })}

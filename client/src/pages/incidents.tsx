@@ -6,11 +6,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, CheckCircle2, ExternalLink, Search, Loader2, BellOff, Bell, Archive, Clock, Calendar, Filter, X, Bot, Sparkles, Copy } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ExternalLink, Search, Loader2, BellOff, Bell, Archive, Clock, Calendar, Filter, X, Bot, Sparkles, Copy, ShieldAlert } from "lucide-react";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { useLocation } from "wouter";
 import { formatShortDateInTimezone, getBrowserTimezone } from "@/lib/utils";
 
 interface Vendor {
@@ -76,6 +77,7 @@ export default function Incidents() {
   const timezone = user?.timezone || getBrowserTimezone();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [severityFilter, setSeverityFilter] = useState<string>("all");
@@ -428,6 +430,18 @@ export default function Incidents() {
                       <Sparkles className="w-3 h-3 mr-1" />
                       AI Draft
                     </Button>
+                    {(incident.severity === 'critical' || incident.severity === 'major') && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs h-8 text-red-500 border-red-500/30 hover:bg-red-500/10 shrink-0"
+                        onClick={() => setLocation(`/war-room/${incident.id}`)}
+                        data-testid={`button-war-room-${incident.id}`}
+                      >
+                        <ShieldAlert className="w-3 h-3 mr-1" />
+                        War Room
+                      </Button>
+                    )}
                     <a href={incident.url} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-primary hover:bg-primary/10 flex items-center gap-1.5 px-3 py-1.5 border border-primary/30 rounded transition-colors shrink-0" data-testid={`link-incident-status-${incident.id}`}>
                       <ExternalLink className="w-3 h-3" />
                       Status Page

@@ -12,6 +12,7 @@ import {
   userWebhooks, webhookLogs, apiKeys, apiRequestLogs, auditLogs, ssoConfigurations,
   uptimeReports, reportSchedules,
   notificationQueue, systemHealthState,
+  warRooms, warRoomPosts, warRoomParticipants, warRoomUpvotes,
   type Organization, type InsertOrganization,
   type OrganizationMember, type InsertOrganizationMember,
   type OrganizationInvitation, type InsertOrganizationInvitation,
@@ -564,6 +565,18 @@ export interface IStorage {
   createReportSchedule(schedule: InsertReportSchedule): Promise<ReportSchedule>;
   updateReportSchedule(id: string, data: Partial<InsertReportSchedule>): Promise<ReportSchedule | undefined>;
   deleteReportSchedule(id: string): Promise<boolean>;
+
+  // ============ WAR ROOMS ============
+  createWarRoom(data: { incidentId: string; vendorKey: string; vendorName: string; status: string }): Promise<any>;
+  getWarRoom(incidentId: string): Promise<any | undefined>;
+  getWarRoomById(warRoomId: string): Promise<any | undefined>;
+  getOpenWarRooms(): Promise<any[]>;
+  closeWarRoom(warRoomId: string): Promise<void>;
+  createWarRoomPost(data: { warRoomId: string; userId: string | null; content: string; detail: string | null; isSystemUpdate: boolean }): Promise<any>;
+  getWarRoomPosts(warRoomId: string): Promise<any[]>;
+  upvoteWarRoomPost(postId: string, userId: string): Promise<{ upvotes: number; alreadyVoted: boolean }>;
+  upsertWarRoomParticipant(warRoomId: string, userId: string): Promise<void>;
+  getWarRoomParticipants(warRoomId: string): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3945,6 +3958,111 @@ export class DatabaseStorage implements IStorage {
       .where(eq(reportSchedules.id, id))
       .returning();
     return result.length > 0;
+  }
+
+  // ============ WAR ROOMS ============
+
+  async createWarRoom(data: { incidentId: string; vendorKey: string; vendorName: string; status: string }): Promise<any> {
+    const [room] = await db.insert(warRooms).values({
+      incidentId: data.incidentId,
+      vendorKey: data.vendorKey,
+      vendorName: data.vendorName,
+      status: data.status,
+    }).returning();
+    return room;
+  }
+
+  async getWarRoom(incidentId: string): Promise<any | undefined> {
+    const [room] = await db.select().from(warRooms).where(eq(warRooms.incidentId, incidentId)).limit(1);
+    return room || undefined;
+  }
+
+  async getWarRoomById(warRoomId: string): Promise<any | undefined> {
+    const [room] = await db.select().from(warRooms).where(eq(warRooms.id, warRoomId)).limit(1);
+    return room || undefined;
+  }
+
+  async getOpenWarRooms(): Promise<any[]> {
+    return db.select().from(warRooms).where(eq(warRooms.status, 'open'));
+  }
+
+  async closeWarRoom(warRoomId: string): Promise<void> {
+    await db.update(warRooms)
+      .set({ status: 'closed', closedAt: new Date() })
+      .where(eq(warRooms.id, warRoomId));
+  }
+
+  async createWarRoomPost(data: { warRoomId: string; userId: string | null; content: string; detail: string | null; isSystemUpdate: boolean }): Promise<any> {
+    const [post] = await db.insert(warRoomPosts).values({
+      warRoomId: data.warRoomId,
+      userId: data.userId,
+      content: data.content,
+      detail: data.detail,
+      isSystemUpdate: data.isSystemUpdate,
+    }).returning();
+    return post;
+  }
+
+  async getWarRoomPosts(warRoomId: string): Promise<any[]> {
+    return db.select().from(warRoomPosts)
+      .where(eq(warRoomPosts.warRoomId, warRoomId))
+      .orderBy(warRoomPosts.createdAt);
+  }
+
+  async upvoteWarRoomPost(postId: string, userId: string): Promise<{ upvotes: number; alreadyVoted: boolean }> {
+    // Check for duplicate upvote
+    const [existing] = await db.select().from(warRoomUpvotes)
+      .where(and(eq(warRoomUpvotes.postId, postId), eq(warRoomUpvotes.userId, userId)))
+      .limit(1);
+
+    if (existing) {
+      // Toggle off (remove upvote)
+      await db.delete(warRoomUpvotes)
+        .where(and(eq(warRoomUpvotes.postId, postId), eq(warRoomUpvotes.userId, userId)));
+      const [updated] = await db.update(warRoomPosts)
+        .set({ upvotes: sql`${warRoomPosts.upvotes} - 1` })
+        .where(eq(warRoomPosts.id, postId))
+        .returning();
+      return { upvotes: Math.max(0, updated?.upvotes || 0), alreadyVoted: false };
+    }
+
+    // Add upvote
+    await db.insert(warRoomUpvotes).values({ postId, userId });
+    const [updated] = await db.update(warRoomPosts)
+      .set({ upvotes: sql`${warRoomPosts.upvotes} + 1` })
+      .where(eq(warRoomPosts.id, postId))
+      .returning();
+    return { upvotes: updated?.upvotes || 0, alreadyVoted: true };
+  }
+
+  async upsertWarRoomParticipant(warRoomId: string, userId: string): Promise<void> {
+    const [existing] = await db.select().from(warRoomParticipants)
+      .where(and(eq(warRoomParticipants.warRoomId, warRoomId), eq(warRoomParticipants.userId, userId)))
+      .limit(1);
+
+    if (existing) {
+      await db.update(warRoomParticipants)
+        .set({ lastActiveAt: new Date() })
+        .where(eq(warRoomParticipants.id, existing.id));
+    } else {
+      await db.insert(warRoomParticipants).values({ warRoomId, userId });
+    }
+  }
+
+  async getWarRoomParticipants(warRoomId: string): Promise<any[]> {
+    return db.select({
+      id: warRoomParticipants.id,
+      warRoomId: warRoomParticipants.warRoomId,
+      userId: warRoomParticipants.userId,
+      joinedAt: warRoomParticipants.joinedAt,
+      lastActiveAt: warRoomParticipants.lastActiveAt,
+      userName: users.name,
+      userEmail: users.email,
+    })
+      .from(warRoomParticipants)
+      .leftJoin(users, eq(users.id, warRoomParticipants.userId))
+      .where(eq(warRoomParticipants.warRoomId, warRoomId))
+      .orderBy(warRoomParticipants.joinedAt);
   }
 }
 

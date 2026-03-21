@@ -1607,3 +1607,55 @@ export const insertVendorScoreHistorySchema = createInsertSchema(vendorScoreHist
 export type VendorScore = typeof vendorScores.$inferSelect;
 export type InsertVendorScore = z.infer<typeof insertVendorScoreSchema>;
 export type VendorScoreHistory = typeof vendorScoreHistory.$inferSelect;
+
+// ==========================================
+// INCIDENT WAR ROOMS
+// ==========================================
+
+export const warRooms = pgTable("war_rooms", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  incidentId: varchar("incident_id").notNull().unique(),    // FK to incidents.id
+  vendorKey: text("vendor_key").notNull(),
+  vendorName: text("vendor_name").notNull(),
+  status: text("status").notNull().default('open'),          // 'open' | 'closed'
+  closedAt: timestamp("closed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const warRoomPosts = pgTable("war_room_posts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  warRoomId: varchar("war_room_id").notNull(),
+  userId: varchar("user_id"),                                // null for system posts
+  content: text("content").notNull(),                        // max 280 chars
+  detail: text("detail"),                                    // optional longer detail
+  isSystemUpdate: boolean("is_system_update").notNull().default(false),
+  upvotes: integer("upvotes").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const warRoomParticipants = pgTable("war_room_participants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  warRoomId: varchar("war_room_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  joinedAt: timestamp("joined_at").notNull().defaultNow(),
+  lastActiveAt: timestamp("last_active_at").notNull().defaultNow(),
+});
+
+export const warRoomUpvotes = pgTable("war_room_upvotes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  postId: varchar("post_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertWarRoomSchema = createInsertSchema(warRooms).omit({ id: true, createdAt: true });
+export const insertWarRoomPostSchema = createInsertSchema(warRoomPosts).omit({ id: true, createdAt: true, upvotes: true });
+export const insertWarRoomParticipantSchema = createInsertSchema(warRoomParticipants).omit({ id: true, joinedAt: true, lastActiveAt: true });
+export const insertWarRoomUpvoteSchema = createInsertSchema(warRoomUpvotes).omit({ id: true, createdAt: true });
+
+export type WarRoom = typeof warRooms.$inferSelect;
+export type InsertWarRoom = z.infer<typeof insertWarRoomSchema>;
+export type WarRoomPost = typeof warRoomPosts.$inferSelect;
+export type InsertWarRoomPost = z.infer<typeof insertWarRoomPostSchema>;
+export type WarRoomParticipant = typeof warRoomParticipants.$inferSelect;
+export type WarRoomUpvote = typeof warRoomUpvotes.$inferSelect;

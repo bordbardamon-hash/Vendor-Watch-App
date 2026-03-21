@@ -1,7 +1,7 @@
 import type { Express, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertVendorSchema, insertIncidentSchema, insertJobSchema, insertConfigSchema, insertFeedbackSchema, insertNotificationConsentSchema, insertCustomVendorRequestSchema, SUBSCRIPTION_TIERS } from "@shared/schema";
+import { insertVendorSchema, insertIncidentSchema, insertJobSchema, insertConfigSchema, insertFeedbackSchema, insertNotificationConsentSchema, insertCustomVendorRequestSchema, SUBSCRIPTION_TIERS, incidents } from "@shared/schema";
 import { setupEmailAuth, isAuthenticated as emailIsAuthenticated } from "./emailAuth";
 import { registerAuthRoutes } from "./replit_integrations/auth";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
@@ -9094,6 +9094,164 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
       res.status(500).json({ error: "Failed to fetch audit logs count" });
     }
   });
+
+  // ============ INCIDENT WAR ROOMS ============
+
+  // Get war room by incident ID (public)
+  app.get("/api/war-room/:incidentId", async (req, res) => {
+    try {
+      const warRoom = await storage.getWarRoom(req.params.incidentId);
+      if (!warRoom) return res.status(404).json({ error: "War room not found" });
+      // Fetch incident from active or archive
+      const [incidentRow] = await db.select().from(incidents).where(eq(incidents.id, req.params.incidentId)).limit(1);
+      const posts = await storage.getWarRoomPosts(warRoom.id);
+      const participants = await storage.getWarRoomParticipants(warRoom.id);
+      res.json({ warRoom, incident: incidentRow || null, posts, participants, participantCount: participants.length });
+    } catch (error) {
+      console.error("Error fetching war room:", error);
+      res.status(500).json({ error: "Failed to fetch war room" });
+    }
+  });
+
+  // Get posts (public)
+  app.get("/api/war-room/:incidentId/posts", async (req, res) => {
+    try {
+      const warRoom = await storage.getWarRoom(req.params.incidentId);
+      if (!warRoom) return res.status(404).json({ error: "War room not found" });
+      const posts = await storage.getWarRoomPosts(warRoom.id);
+      res.json(posts);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch posts" });
+    }
+  });
+
+  // Post a message (auth required)
+  app.post("/api/war-room/:incidentId/posts", isAuthenticated, async (req: any, res) => {
+    try {
+      const { content, detail } = req.body;
+      if (!content || typeof content !== 'string') return res.status(400).json({ error: "content is required" });
+      if (content.length > 280) return res.status(400).json({ error: "content must be 280 characters or less" });
+
+      const warRoom = await storage.getWarRoom(req.params.incidentId);
+      if (!warRoom) return res.status(404).json({ error: "War room not found" });
+      if (warRoom.status === 'closed') return res.status(409).json({ error: "War room is closed" });
+
+      const userId = req.user?.id;
+      const post = await storage.createWarRoomPost({
+        warRoomId: warRoom.id,
+        userId,
+        content: content.trim(),
+        detail: detail?.trim() || null,
+        isSystemUpdate: false,
+      });
+
+      // Register/update participant
+      await storage.upsertWarRoomParticipant(warRoom.id, userId);
+
+      // Broadcast to WebSocket clients
+      const { broadcastToRoom } = await import('./warRoomWebSocket');
+      broadcastToRoom(warRoom.id, { type: 'new_post', post });
+
+      res.json(post);
+    } catch (error) {
+      console.error("Error posting to war room:", error);
+      res.status(500).json({ error: "Failed to post" });
+    }
+  });
+
+  // Upvote a post (auth required, toggles on/off)
+  app.post("/api/war-room/:incidentId/posts/:postId/upvote", isAuthenticated, async (req: any, res) => {
+    try {
+      const warRoom = await storage.getWarRoom(req.params.incidentId);
+      if (!warRoom) return res.status(404).json({ error: "War room not found" });
+
+      const userId = req.user?.id;
+      const result = await storage.upvoteWarRoomPost(req.params.postId, userId);
+
+      // Update participant activity
+      await storage.upsertWarRoomParticipant(warRoom.id, userId);
+
+      // Broadcast upvote count change
+      const { broadcastToRoom } = await import('./warRoomWebSocket');
+      broadcastToRoom(warRoom.id, { type: 'upvote_update', postId: req.params.postId, upvotes: result.upvotes });
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error upvoting war room post:", error);
+      res.status(500).json({ error: "Failed to upvote" });
+    }
+  });
+
+  // Get participants (auth required)
+  app.get("/api/war-room/:incidentId/participants", isAuthenticated, async (req, res) => {
+    try {
+      const warRoom = await storage.getWarRoom(req.params.incidentId);
+      if (!warRoom) return res.status(404).json({ error: "War room not found" });
+      const participants = await storage.getWarRoomParticipants(warRoom.id);
+      res.json(participants);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch participants" });
+    }
+  });
+
+  // Join war room as participant (auth required)
+  app.post("/api/war-room/:incidentId/join", isAuthenticated, async (req: any, res) => {
+    try {
+      const warRoom = await storage.getWarRoom(req.params.incidentId);
+      if (!warRoom) return res.status(404).json({ error: "War room not found" });
+      await storage.upsertWarRoomParticipant(warRoom.id, req.user.id);
+      const participants = await storage.getWarRoomParticipants(warRoom.id);
+      const { broadcastToRoom } = await import('./warRoomWebSocket');
+      broadcastToRoom(warRoom.id, { type: 'participant_joined', participantCount: participants.length });
+      res.json({ joined: true, participantCount: participants.length });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to join war room" });
+    }
+  });
+
+  // Export war room log as markdown (auth required)
+  app.get("/api/war-room/:incidentId/export", isAuthenticated, async (req, res) => {
+    try {
+      const warRoom = await storage.getWarRoom(req.params.incidentId);
+      if (!warRoom) return res.status(404).json({ error: "War room not found" });
+      const posts = await storage.getWarRoomPosts(warRoom.id);
+      const participants = await storage.getWarRoomParticipants(warRoom.id);
+
+      const lines: string[] = [
+        `# Incident War Room Log — ${warRoom.vendorName}`,
+        `**Incident ID:** ${warRoom.incidentId}`,
+        `**Status:** ${warRoom.status}`,
+        `**Opened:** ${new Date(warRoom.createdAt).toISOString()}`,
+        warRoom.closedAt ? `**Closed:** ${new Date(warRoom.closedAt).toISOString()}` : '',
+        `**Participants:** ${participants.length}`,
+        ``,
+        `## Activity Feed`,
+        ``,
+      ];
+
+      for (const post of posts) {
+        const ts = new Date(post.createdAt).toISOString();
+        const author = post.isSystemUpdate ? '🤖 System' : (post.userId ? `User ${post.userId.slice(0, 8)}` : 'Anonymous');
+        lines.push(`### [${ts}] ${author}`);
+        lines.push(post.content);
+        if (post.detail) lines.push(`\n> ${post.detail}`);
+        if (post.upvotes > 0) lines.push(`\n👍 ${post.upvotes} upvote${post.upvotes !== 1 ? 's' : ''}`);
+        lines.push('');
+      }
+
+      const markdown = lines.filter(l => l !== undefined).join('\n');
+      const filename = `war-room-${warRoom.vendorKey}-${new Date(warRoom.createdAt).toISOString().slice(0, 10)}.md`;
+
+      res.setHeader('Content-Type', 'text/markdown');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.send(markdown);
+    } catch (error) {
+      console.error("Error exporting war room log:", error);
+      res.status(500).json({ error: "Failed to export log" });
+    }
+  });
+
+  // ============================================================
 
   return httpServer;
 }

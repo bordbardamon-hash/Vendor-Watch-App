@@ -14,6 +14,8 @@ import { setSyncRunning } from './syntheticMonitor';
 import { collectTelemetryMetrics, generatePredictions, maintainPredictions, updatePredictionConfidence } from './predictionEngine';
 import { apiLimiter, authLimiter, strictLimiter } from './rateLimiter';
 import { registerEmbedRoutes } from './embedRoutes';
+import { initWarRoomWebSocket } from './warRoomWebSocket';
+import { restoreOpenWarRoomTimers } from './warRoom';
 
 // Global error handlers
 process.on('unhandledRejection', (reason, promise) => {
@@ -240,6 +242,9 @@ app.use((req, res, next) => {
   registerEmbedRoutes(app);
   await registerRoutes(httpServer, app);
 
+  // Initialize War Room WebSocket server
+  initWarRoomWebSocket(httpServer);
+
   // API 404 handler - catches unmatched API routes
   app.use("/api/*", (req, res) => {
     log(`API 404: ${req.method} ${req.path}`);
@@ -367,6 +372,9 @@ app.use((req, res, next) => {
       console.log(`[sync] Full sync: every ${SYNC_INTERVAL_MS / 60000} minutes (all vendors + blockchains in parallel, batch size 25)`);
       
       function startBackgroundTasks() {
+        // Restore war room close timers for any open rooms from before restart
+        restoreOpenWarRoomTimers();
+
         const ARCHIVE_INTERVAL_MS = 60 * 60 * 1000;
         const ARCHIVE_AFTER_DAYS = 1;
         const PURGE_AFTER_DAYS = 365;
