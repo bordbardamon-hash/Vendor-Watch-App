@@ -34,6 +34,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { AlertPreferencesDialog } from "@/components/alert-preferences-dialog";
 import { formatShortDateInTimezone, getBrowserTimezone } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
+import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 
 interface VendorLimit {
   tier: string | null;
@@ -206,6 +207,194 @@ function VendorComponentsSection({ vendorKey }: { vendorKey: string }) {
     </div>
   );
 }
+
+// ── Vendor Reliability Score Panel ────────────────────────────────────
+
+interface VendorScoreData {
+  score: number;
+  uptimeScore: number;
+  mttrScore: number;
+  frequencyScore: number;
+  severityScore: number;
+  uptimePercent: number;
+  mttrHours: number | null;
+  incidentFrequency30d: number;
+  criticalCount: number;
+  majorCount: number;
+  minorCount: number;
+  infoCount: number;
+  badge: string;
+  trend: string;
+}
+
+interface ScoreHistoryEntry {
+  month: string;
+  score: number;
+}
+
+function ScoreCircle({ score }: { score: number }) {
+  const radius = 42;
+  const circ = 2 * Math.PI * radius;
+  const arc = (score / 100) * circ;
+  const color = score >= 90 ? "#10b981" : score >= 70 ? "#f59e0b" : "#ef4444";
+  const label = score >= 90 ? "Highly Reliable" : score >= 70 ? "Moderate Risk" : "Frequent Incidents";
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <svg width="100" height="100" viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r={radius} fill="none" stroke="currentColor" strokeWidth="8" className="text-sidebar-border" />
+        <circle
+          cx="50" cy="50" r={radius}
+          fill="none" stroke={color} strokeWidth="8"
+          strokeDasharray={`${arc} ${circ - arc}`}
+          strokeLinecap="round"
+          transform="rotate(-90 50 50)"
+          style={{ transition: "stroke-dasharray 0.6s ease" }}
+        />
+        <text x="50" y="45" textAnchor="middle" fontSize="24" fontWeight="700" fill={color}>{score}</text>
+        <text x="50" y="60" textAnchor="middle" fontSize="9" fill="#6b7280">/ 100</text>
+      </svg>
+      <span
+        className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${
+          score >= 90 ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+          : score >= 70 ? "bg-amber-500/10 text-amber-500 border-amber-500/20"
+          : "bg-red-500/10 text-red-500 border-red-500/20"
+        }`}
+        data-testid="text-vendor-score-badge"
+      >
+        {label}
+      </span>
+    </div>
+  );
+}
+
+function ScoreBar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
+  const pct = Math.round((value / max) * 100);
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-1">
+        <span className="text-[11px] text-muted-foreground">{label}</span>
+        <span className="text-[11px] font-semibold" style={{ color }}>{value}<span className="text-muted-foreground font-normal">/{max}</span></span>
+      </div>
+      <div className="h-1.5 rounded-full bg-sidebar-border overflow-hidden">
+        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: color }} />
+      </div>
+    </div>
+  );
+}
+
+function Sparkline({ history }: { history: ScoreHistoryEntry[] }) {
+  if (history.length < 2) return null;
+  const scores = history.map(h => h.score);
+  const min = Math.min(...scores, 0);
+  const max = Math.max(...scores, 100);
+  const w = 120, h = 30;
+  const pts = scores.map((s, i) => {
+    const x = (i / (scores.length - 1)) * w;
+    const y = h - ((s - min) / (max - min || 1)) * h;
+    return `${x},${y}`;
+  }).join(" ");
+  const last = scores[scores.length - 1];
+  const prev = scores[scores.length - 2];
+  const stroke = last >= prev ? "#10b981" : "#ef4444";
+  return (
+    <div className="flex items-center gap-2">
+      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
+        <polyline points={pts} fill="none" stroke={stroke} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+      </svg>
+      <span className="text-[10px] text-muted-foreground">{history[0]?.month} → now</span>
+    </div>
+  );
+}
+
+function VendorScorePanel({ vendorKey }: { vendorKey: string }) {
+  const { data: score, isLoading } = useQuery<VendorScoreData>({
+    queryKey: [`/api/vendors/${vendorKey}/score`],
+    queryFn: async () => {
+      const res = await fetch(`/api/vendors/${vendorKey}/score`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const { data: history = [] } = useQuery<ScoreHistoryEntry[]>({
+    queryKey: [`/api/vendors/${vendorKey}/score/history`],
+    queryFn: async () => {
+      const res = await fetch(`/api/vendors/${vendorKey}/score/history`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="p-6 border-b border-sidebar-border flex items-center justify-center py-8">
+        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+        <span className="ml-2 text-sm text-muted-foreground">Loading reliability score…</span>
+      </div>
+    );
+  }
+
+  if (!score) {
+    return (
+      <div className="p-6 border-b border-sidebar-border">
+        <h3 className="text-sm font-semibold mb-1 flex items-center gap-2 text-muted-foreground uppercase tracking-wider">
+          <Star className="w-4 h-4" />
+          Reliability Score
+        </h3>
+        <p className="text-xs text-muted-foreground">Score will be available after the first nightly calculation.</p>
+      </div>
+    );
+  }
+
+  const trendEl = score.trend === "improving"
+    ? <span className="flex items-center gap-1 text-emerald-500 text-[11px]"><TrendingUp className="w-3 h-3" />Improving</span>
+    : score.trend === "declining"
+    ? <span className="flex items-center gap-1 text-red-500 text-[11px]"><TrendingDown className="w-3 h-3" />Declining</span>
+    : <span className="flex items-center gap-1 text-muted-foreground text-[11px]"><Minus className="w-3 h-3" />Stable</span>;
+
+  return (
+    <div className="p-6 border-b border-sidebar-border" data-testid="vendor-score-panel">
+      <h3 className="text-sm font-semibold mb-4 flex items-center gap-2 text-muted-foreground uppercase tracking-wider">
+        <Star className="w-4 h-4 text-amber-500" />
+        Reliability Score
+      </h3>
+      <div className="flex flex-col sm:flex-row gap-6 items-start">
+        {/* Gauge */}
+        <div className="flex flex-col items-center gap-2">
+          <ScoreCircle score={score.score} />
+          <div className="flex items-center gap-1">{trendEl}</div>
+          {history.length >= 2 && <Sparkline history={history} />}
+        </div>
+        {/* Breakdown bars */}
+        <div className="flex-1 space-y-3 min-w-0">
+          <ScoreBar label="Uptime (90 days)" value={score.uptimeScore} max={40} color="#10b981" />
+          <ScoreBar label="MTTR" value={score.mttrScore} max={30} color="#3b82f6" />
+          <ScoreBar label="Incident Frequency (30d)" value={score.frequencyScore} max={20} color="#f59e0b" />
+          <ScoreBar label="Severity Distribution" value={score.severityScore} max={10} color="#ef4444" />
+          {/* Stats row */}
+          <div className="grid grid-cols-3 gap-2 pt-2 border-t border-sidebar-border">
+            <div className="text-center">
+              <div className="text-base font-bold text-emerald-500" data-testid="text-score-uptime">{score.uptimePercent}%</div>
+              <div className="text-[10px] text-muted-foreground">Uptime</div>
+            </div>
+            <div className="text-center">
+              <div className="text-base font-bold text-blue-500">{score.mttrHours != null ? `${score.mttrHours}h` : "—"}</div>
+              <div className="text-[10px] text-muted-foreground">Avg MTTR</div>
+            </div>
+            <div className="text-center">
+              <div className="text-base font-bold text-amber-500" data-testid="text-score-incidents">{score.incidentFrequency30d}</div>
+              <div className="text-[10px] text-muted-foreground">Incidents 30d</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────
 
 export default function Vendors() {
   const { user } = useAuth();
@@ -1067,6 +1256,7 @@ export default function Vendors() {
                 </div>
               </CardHeader>
               <CardContent ref={detailPanelRef} className="flex-1 min-h-0 p-0 overflow-y-auto" data-testid="vendor-detail-content">
+                <VendorScorePanel vendorKey={selectedVendor.key} />
                 <div className="p-6 border-b border-sidebar-border">
                   <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                     <AlertTriangle className="w-5 h-5 text-amber-500" />

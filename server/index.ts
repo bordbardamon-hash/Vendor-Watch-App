@@ -480,6 +480,23 @@ app.use((req, res, next) => {
         setInterval(runDataRetention, DATA_RETENTION_INTERVAL_MS);
         console.log(`[retention] Data retention configured: telemetry ${TELEMETRY_RETENTION_DAYS} days, predictions ${PREDICTION_RETENTION_DAYS} days, activity ${ACTIVITY_RETENTION_DAYS} days (runs daily)`);
 
+        // Vendor reliability score calculation — runs nightly
+        const SCORE_INTERVAL_MS = 24 * 60 * 60 * 1000;
+        const runScoreCalculation = async () => {
+          console.log('[scores] Starting nightly vendor reliability score calculation...');
+          try {
+            const { calculateAllVendorScores } = await import('./vendorScoreCalculator');
+            const result = await calculateAllVendorScores();
+            console.log(`[scores] Nightly calculation complete: ${result.calculated} scored, ${result.errors} errors`);
+          } catch (err) {
+            console.error('[scores] Score calculation failed:', err);
+          }
+        };
+        // Run first time 2 minutes after startup (after initial sync), then every 24h
+        setTimeout(runScoreCalculation, 2 * 60 * 1000);
+        setInterval(runScoreCalculation, SCORE_INTERVAL_MS);
+        console.log('[scores] Vendor reliability scores: first run in 2 minutes, then every 24 hours');
+
         const PROBE_INTERVAL_MS = 60 * 1000;
         setInterval(async () => {
           try {

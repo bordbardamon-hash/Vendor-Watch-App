@@ -532,6 +532,76 @@ export async function registerRoutes(
     }
   });
   
+  // ── Vendor Reliability Scores ──────────────────────────────────────
+
+  // Public leaderboard — no auth required, good for SEO / embedding
+  app.get("/api/vendors/leaderboard", async (req, res) => {
+    try {
+      const { getLeaderboard } = await import('./vendorScoreCalculator');
+      const page = parseInt(req.query.page as string || '1', 10);
+      const limit = parseInt(req.query.limit as string || '50', 10);
+      const category = req.query.category as string | undefined;
+      const result = await getLeaderboard({ page, limit, category: category || undefined });
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching leaderboard:", error);
+      res.status(500).json({ error: "Failed to fetch leaderboard" });
+    }
+  });
+
+  // Vendor score — authenticated
+  app.get("/api/vendors/:key/score", isAuthenticated, async (req, res) => {
+    try {
+      const { calculateVendorScore } = await import('./vendorScoreCalculator');
+      const { db } = await import('./db');
+      const { vendorScores } = await import('@shared/schema');
+      const { eq } = await import('drizzle-orm');
+
+      // Return cached score if available
+      const [cached] = await db.select().from(vendorScores).where(eq(vendorScores.vendorKey, req.params.key)).limit(1);
+      if (cached) {
+        const { vendors } = await import('@shared/schema');
+        const [vendor] = await db.select({ name: vendors.name, category: vendors.category, logoUrl: vendors.logoUrl })
+          .from(vendors).where(eq(vendors.key, req.params.key)).limit(1);
+        return res.json({ ...cached, vendorName: vendor?.name, category: vendor?.category, logoUrl: vendor?.logoUrl });
+      }
+
+      // Calculate on-the-fly if not yet cached
+      const score = await calculateVendorScore(req.params.key);
+      if (!score) return res.status(404).json({ error: "Vendor not found" });
+      res.json(score);
+    } catch (error) {
+      console.error("Error fetching vendor score:", error);
+      res.status(500).json({ error: "Failed to fetch vendor score" });
+    }
+  });
+
+  // Score history — authenticated
+  app.get("/api/vendors/:key/score/history", isAuthenticated, async (req, res) => {
+    try {
+      const { getScoreHistory } = await import('./vendorScoreCalculator');
+      const history = await getScoreHistory(req.params.key);
+      res.json(history);
+    } catch (error) {
+      console.error("Error fetching score history:", error);
+      res.status(500).json({ error: "Failed to fetch score history" });
+    }
+  });
+
+  // Trigger manual recalculation (admin only)
+  app.post("/api/vendors/scores/recalculate", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { calculateAllVendorScores } = await import('./vendorScoreCalculator');
+      const result = await calculateAllVendorScores();
+      res.json({ success: true, ...result });
+    } catch (error) {
+      console.error("Error recalculating scores:", error);
+      res.status(500).json({ error: "Failed to recalculate scores" });
+    }
+  });
+
+  // ─────────────────────────────────────────────────────────────────────
+
   // Get vendor by key (protected)
   app.get("/api/vendors/:key", isAuthenticated, async (req, res) => {
     try {

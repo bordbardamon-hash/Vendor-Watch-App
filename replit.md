@@ -47,6 +47,8 @@ Key entities include Users, Sessions, Vendors, Incidents, Jobs, Configurations, 
 
 - **Landing Page Redesign (March 2026)**: Complete overhaul inspired by incidenthub.cloud and statusgator.com. Enhanced nav with anchor links (Features, How It Works, Pricing). Feature pills below hero. Live incident feed mockup. Alternating left-right feature sections with visual mockups. Social proof with testimonials. Consolidated Enterprise+MSP features. Better visual hierarchy.
 
+- **Vendor Reliability Score System (March 2026)**: 0–100 weighted score per vendor calculated from 90-day monitoring data. Formula: uptime% → 40pts, MTTR → 30pts, incident frequency (30d) → 20pts, severity distribution → 10pts. Badges: "Highly Reliable" (90+), "Moderate Risk" (70–89), "Frequent Incidents" (<70). Month-over-month trend (improving/stable/declining). Tables: `vendor_scores` (current scores + breakdown), `vendor_score_history` (monthly snapshots). Calculator module: `server/vendorScoreCalculator.ts`. Runs nightly (24h interval) starting 2 minutes after startup. Public leaderboard page at `/vendor-reliability` (no auth required, embeddable via iframe). Score gauge in vendor detail panel with SVG circle, score bars, sparkline trend. API routes: GET /api/vendors/leaderboard (public), GET /api/vendors/:key/score (auth), GET /api/vendors/:key/score/history (auth), POST /api/vendors/scores/recalculate (admin).
+
 ## External Dependencies
 
 ### Database

@@ -50,6 +50,7 @@ import AuditLogsPage from "@/pages/audit-logs";
 import Reports from "@/pages/reports";
 import SsoPage from "@/pages/sso";
 import Monitoring from "@/pages/monitoring";
+import VendorReliability from "@/pages/vendor-reliability";
 import Onboarding from "@/pages/onboarding";
 import BillingSuccess from "@/pages/billing-success";
 import { Loader2 } from "lucide-react";
@@ -193,6 +194,7 @@ function Router() {
       <Route path="/pricing" component={Pricing} />
       <Route path="/accept-invite/:token" component={AcceptInvite} />
       <Route path="/status/:slug" component={PublicPortal} />
+      <Route path="/vendor-reliability" component={VendorReliability} />
       <Route path="/onboarding">
         {user ? <Onboarding /> : <Landing />}
       </Route>

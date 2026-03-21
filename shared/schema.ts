@@ -1561,3 +1561,49 @@ export type AuditLog = typeof auditLogs.$inferSelect;
 
 export type InsertSsoConfiguration = z.infer<typeof insertSsoConfigurationSchema>;
 export type SsoConfiguration = typeof ssoConfigurations.$inferSelect;
+
+// ==========================================
+// VENDOR RELIABILITY SCORES
+// ==========================================
+
+export const RELIABILITY_BADGES = ['Highly Reliable', 'Moderate Risk', 'Frequent Incidents'] as const;
+export type ReliabilityBadge = typeof RELIABILITY_BADGES[number];
+
+export const vendorScores = pgTable("vendor_scores", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  vendorKey: text("vendor_key").notNull().unique(),
+  // Overall score 0-100
+  score: integer("score").notNull().default(0),
+  // Component scores (each already weighted)
+  uptimeScore: integer("uptime_score").notNull().default(0),    // 0-40
+  mttrScore: integer("mttr_score").notNull().default(0),        // 0-30
+  frequencyScore: integer("frequency_score").notNull().default(0), // 0-20
+  severityScore: integer("severity_score").notNull().default(0),  // 0-10
+  // Raw input data (for display)
+  uptimePercent: integer("uptime_percent").notNull().default(100),
+  mttrHours: integer("mttr_hours"),                             // null = no incidents
+  incidentFrequency30d: integer("incident_frequency_30d").notNull().default(0),
+  criticalCount: integer("critical_count").notNull().default(0),
+  majorCount: integer("major_count").notNull().default(0),
+  minorCount: integer("minor_count").notNull().default(0),
+  infoCount: integer("info_count").notNull().default(0),
+  // Derived
+  badge: text("badge").notNull().default('Highly Reliable'),    // 'Highly Reliable' | 'Moderate Risk' | 'Frequent Incidents'
+  trend: text("trend").notNull().default('stable'),             // 'improving' | 'declining' | 'stable'
+  calculatedAt: timestamp("calculated_at").notNull().defaultNow(),
+});
+
+export const vendorScoreHistory = pgTable("vendor_score_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  vendorKey: text("vendor_key").notNull(),
+  score: integer("score").notNull(),
+  month: text("month").notNull(),                               // YYYY-MM
+  calculatedAt: timestamp("calculated_at").notNull().defaultNow(),
+});
+
+export const insertVendorScoreSchema = createInsertSchema(vendorScores).omit({ id: true, calculatedAt: true });
+export const insertVendorScoreHistorySchema = createInsertSchema(vendorScoreHistory).omit({ id: true, calculatedAt: true });
+
+export type VendorScore = typeof vendorScores.$inferSelect;
+export type InsertVendorScore = z.infer<typeof insertVendorScoreSchema>;
+export type VendorScoreHistory = typeof vendorScoreHistory.$inferSelect;
