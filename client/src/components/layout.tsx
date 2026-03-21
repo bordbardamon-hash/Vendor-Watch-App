@@ -35,7 +35,9 @@ import {
   AlertTriangle,
   ChevronDown,
   Bell,
-  Trophy
+  Trophy,
+  TrendingDown,
+  Newspaper
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -127,6 +129,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         { href: "/analytics", icon: BarChart3, label: "Analytics", adminOnly: false, ownerOnly: false, requiresEssential: true },
         { href: "/sla", icon: Target, label: "SLA Dashboard", adminOnly: false, ownerOnly: false, requiresEssential: true },
         { href: "/vendor-reliability", icon: Trophy, label: "Reliability Scores", adminOnly: false, ownerOnly: false },
+        { href: "/outages", icon: Newspaper, label: "Outage Reports", adminOnly: false, ownerOnly: false },
         { href: "/predictions", icon: TrendingUp, label: "Predictions", adminOnly: false, ownerOnly: false, requiresEnterprise: true },
         { href: "/reports", icon: FileText, label: "Reports", adminOnly: false, ownerOnly: false, requiresGrowth: true },
         { href: "/automation", icon: Bot, label: "Automation", adminOnly: false, ownerOnly: false, requiresEssential: true },
@@ -174,6 +177,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         { href: "/feedback", icon: MessageSquare, label: "Feedback", adminOnly: true, ownerOnly: false },
         { href: "/parser-health", icon: Server, label: "Parser Health", adminOnly: false, ownerOnly: true },
         { href: "/users", icon: Users, label: "Users", adminOnly: false, ownerOnly: true },
+        { href: "/blog-admin", icon: Newspaper, label: "Outage Blog", adminOnly: false, ownerOnly: true },
       ],
       collapsible: true,
       defaultCollapsed: true,

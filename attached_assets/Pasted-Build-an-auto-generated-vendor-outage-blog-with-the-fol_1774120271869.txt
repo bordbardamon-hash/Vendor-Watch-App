@@ -1,0 +1,46 @@
+Build an auto-generated vendor outage blog with the following:
+Post Generation (backend)
+
+When an incident is resolved and lasted more than 15 minutes, trigger post generation
+Call the Claude API (claude-sonnet-4-20250514) with the following incident data as context:
+
+Vendor name, incident title, severity, start time, end time, duration, affected components, status updates timeline
+
+
+System prompt: "You are a technical writer for VendorWatch, a vendor monitoring platform for MSPs. Write a factual, professional incident report blog post. Include: a summary, timeline of events, affected services, impact assessment, and what MSPs should do next time. Tone: informative, neutral, helpful. Do not speculate. Length: 400–600 words."
+Store the generated post in the database with status "draft" for optional human review before publishing
+
+API Endpoints
+
+POST /api/blog/generate/:incident-id → triggers generation
+GET /api/blog/posts → returns published posts, paginated, filterable by vendor/date
+GET /api/blog/posts/:slug → returns single post
+PATCH /api/blog/posts/:id → update status (draft → published), allow manual edits
+
+Post Structure (stored in DB)
+
+slug: auto-generated from vendor name + date + short description (e.g. salesforce-outage-march-2026)
+title: e.g. "Salesforce CRM Outage — March 21, 2026"
+body: AI-generated markdown content
+vendor_id, incident_id, published_at, status (draft/published)
+meta_description: auto-generated 155-char SEO summary
+
+Frontend Blog Pages
+
+/outages → paginated list of all published posts, with vendor logo, title, date, duration, severity badge
+/outages/:slug → full post page with:
+
+Structured data markup (Article schema with datePublished, author = "VendorWatch")
+Breadcrumb: Home → Outages → [Vendor] → [Post Title]
+Related posts (same vendor, last 3 incidents)
+CTA at bottom: "Monitor [Vendor] and 400+ others with VendorWatch — free trial"
+Social share buttons
+
+
+Add an RSS feed at /outages/feed.xml for subscribers and aggregators
+
+Admin Panel Addition
+
+Queue view showing generated-but-unpublished posts
+One-click approve/publish
+Inline editor for manual tweaks before publishing

@@ -9095,6 +9095,129 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
     }
   });
 
+  // ============ OUTAGE BLOG ============
+
+  // POST /api/blog/generate/:incidentId — trigger generation (admin/owner)
+  app.post("/api/blog/generate/:incidentId", isAuthenticated, async (req: any, res) => {
+    try {
+      const { generateBlogPost } = await import('./blogService');
+      const post = await generateBlogPost(req.params.incidentId);
+      res.json(post);
+    } catch (error: any) {
+      console.error("Blog generation error:", error);
+      res.status(400).json({ error: error.message || "Failed to generate blog post" });
+    }
+  });
+
+  // GET /api/blog/posts — paginated list (public: published only; admin: includes drafts)
+  app.get("/api/blog/posts", async (req: any, res) => {
+    try {
+      const { listBlogPosts } = await import('./blogService');
+      const isAdmin = req.isAuthenticated?.() && req.user?.isOwner;
+      const status = isAdmin && req.query.status ? req.query.status as 'draft' | 'published' | 'all' : 'published';
+      const result = await listBlogPosts({
+        page: parseInt(req.query.page as string) || 1,
+        pageSize: parseInt(req.query.pageSize as string) || 12,
+        vendorKey: req.query.vendorKey as string | undefined,
+        dateFrom: req.query.dateFrom as string | undefined,
+        dateTo: req.query.dateTo as string | undefined,
+        status,
+      });
+      res.json(result);
+    } catch (error) {
+      console.error("Error listing blog posts:", error);
+      res.status(500).json({ error: "Failed to fetch blog posts" });
+    }
+  });
+
+  // GET /api/blog/queue — draft queue for admin
+  app.get("/api/blog/queue", isAuthenticated, async (req: any, res) => {
+    try {
+      const { getDraftQueue } = await import('./blogService');
+      const posts = await getDraftQueue();
+      res.json(posts);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch draft queue" });
+    }
+  });
+
+  // GET /api/blog/posts/:slug — single post (public if published)
+  app.get("/api/blog/posts/:slug", async (req: any, res) => {
+    try {
+      const { getBlogPostBySlug, getRelatedPosts } = await import('./blogService');
+      const post = await getBlogPostBySlug(req.params.slug);
+      if (!post) return res.status(404).json({ error: "Post not found" });
+
+      // Non-admins can only view published posts
+      const isAdmin = req.isAuthenticated?.() && req.user?.isOwner;
+      if (post.status !== 'published' && !isAdmin) {
+        return res.status(404).json({ error: "Post not found" });
+      }
+
+      const related = await getRelatedPosts(post.vendorKey, post.id, 3);
+      res.json({ post, related });
+    } catch (error) {
+      console.error("Error fetching blog post:", error);
+      res.status(500).json({ error: "Failed to fetch blog post" });
+    }
+  });
+
+  // PATCH /api/blog/posts/:id — update status, title, or body (admin)
+  app.patch("/api/blog/posts/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const { updateBlogPost } = await import('./blogService');
+      const { status, title, body, metaDescription } = req.body;
+      const allowed: any = {};
+      if (status !== undefined) allowed.status = status;
+      if (title !== undefined) allowed.title = title;
+      if (body !== undefined) allowed.body = body;
+      if (metaDescription !== undefined) allowed.metaDescription = metaDescription;
+      const updated = await updateBlogPost(req.params.id, allowed);
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Error updating blog post:", error);
+      res.status(500).json({ error: error.message || "Failed to update post" });
+    }
+  });
+
+  // GET /outages/feed.xml — RSS feed of published posts
+  app.get("/outages/feed.xml", async (_req, res) => {
+    try {
+      const { listBlogPosts } = await import('./blogService');
+      const { posts } = await listBlogPosts({ page: 1, pageSize: 20, status: 'published' });
+      const host = process.env.APP_URL || 'https://vendorwatch.app';
+
+      const items = posts.map(p => `
+    <item>
+      <title><![CDATA[${p.title}]]></title>
+      <link>${host}/outages/${p.slug}</link>
+      <guid isPermaLink="true">${host}/outages/${p.slug}</guid>
+      <description><![CDATA[${p.metaDescription}]]></description>
+      <pubDate>${p.publishedAt ? new Date(p.publishedAt).toUTCString() : new Date(p.createdAt).toUTCString()}</pubDate>
+      <category>${p.vendorName}</category>
+    </item>`).join('\n');
+
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>VendorWatch Outage Reports</title>
+    <link>${host}/outages</link>
+    <description>Vendor incident reports and outage analyses from VendorWatch — monitoring 400+ services for MSPs.</description>
+    <language>en-us</language>
+    <atom:link href="${host}/outages/feed.xml" rel="self" type="application/rss+xml"/>
+    ${items}
+  </channel>
+</rss>`;
+
+      res.setHeader('Content-Type', 'application/rss+xml; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.send(xml);
+    } catch (error) {
+      console.error("RSS feed error:", error);
+      res.status(500).send("Failed to generate RSS feed");
+    }
+  });
+
   // ============ INCIDENT WAR ROOMS ============
 
   // Get war room by incident ID (public)

@@ -52,6 +52,9 @@ import SsoPage from "@/pages/sso";
 import Monitoring from "@/pages/monitoring";
 import VendorReliability from "@/pages/vendor-reliability";
 import WarRoom from "@/pages/war-room";
+import OutagesPage from "@/pages/outages";
+import OutagePostPage from "@/pages/outage-post";
+import BlogAdminPage from "@/pages/blog-admin";
 import Onboarding from "@/pages/onboarding";
 import BillingSuccess from "@/pages/billing-success";
 import { Loader2 } from "lucide-react";
@@ -152,6 +155,7 @@ function AuthenticatedRouter() {
         <Route path="/reports" component={Reports} />
         <Route path="/sso" component={SsoPage} />
         <Route path="/monitoring" component={Monitoring} />
+        <Route path="/blog-admin" component={BlogAdminPage} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
@@ -197,6 +201,8 @@ function Router() {
       <Route path="/status/:slug" component={PublicPortal} />
       <Route path="/vendor-reliability" component={VendorReliability} />
       <Route path="/war-room/:incidentId" component={WarRoom} />
+      <Route path="/outages" component={OutagesPage} />
+      <Route path="/outages/:slug" component={OutagePostPage} />
       <Route path="/onboarding">
         {user ? <Onboarding /> : <Landing />}
       </Route>

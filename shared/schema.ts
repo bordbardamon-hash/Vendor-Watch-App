@@ -1659,3 +1659,28 @@ export type WarRoomPost = typeof warRoomPosts.$inferSelect;
 export type InsertWarRoomPost = z.infer<typeof insertWarRoomPostSchema>;
 export type WarRoomParticipant = typeof warRoomParticipants.$inferSelect;
 export type WarRoomUpvote = typeof warRoomUpvotes.$inferSelect;
+
+// ===== Outage Blog Posts =====
+export const blogPosts = pgTable("blog_posts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  slug: text("slug").notNull().unique(),
+  title: text("title").notNull(),
+  body: text("body").notNull(),                         // AI-generated markdown
+  metaDescription: text("meta_description").notNull(),  // ≤155 char SEO summary
+  vendorKey: text("vendor_key").notNull(),
+  vendorName: text("vendor_name").notNull(),
+  incidentId: text("incident_id").notNull().unique(),   // one post per incident
+  severity: text("severity").notNull(),
+  durationMinutes: integer("duration_minutes"),         // resolved - started, in minutes
+  affectedComponents: text("affected_components"),      // comma-separated
+  status: text("status").notNull().default("draft"),    // draft | published
+  publishedAt: timestamp("published_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertBlogPostSchema = createInsertSchema(blogPosts).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
+export type InsertBlogPost = z.infer<typeof insertBlogPostSchema>;
+export type BlogPost = typeof blogPosts.$inferSelect;

@@ -631,6 +631,17 @@ export async function syncVendorStatus(vendorKey?: string, limit?: number): Prom
             handleIncidentResolved(existing.id).catch(err =>
               console.error('[war-room] Failed to handle incident resolution:', err)
             );
+
+            // Auto-generate blog post for significant incidents (>= 15 min, critical/major)
+            if (existing.severity === 'critical' || existing.severity === 'major') {
+              import('./blogService').then(({ generateBlogPost }) => {
+                generateBlogPost(existing.id).then(post => {
+                  console.log(`[blog] Auto-generated draft for resolved incident: ${existing.title} → slug: ${post.slug}`);
+                }).catch(err => {
+                  console.log(`[blog] Skipped auto-generation for ${existing.title}: ${err.message}`);
+                });
+              }).catch(() => {});
+            }
           }
         }
         
