@@ -7,7 +7,7 @@ import {
   Timer, BellRing, Mail, Phone, ArrowRight, Webhook, BarChart3, Eye, Layers,
   MessageSquare, TrendingUp, MonitorCheck, Code, Users, Lock, Check, X,
   Boxes, Radio, Layout, UserPlus, Settings,
-  Gauge, Brain, Sparkles
+  Gauge, Brain
 } from "lucide-react";
 import { Link } from "wouter";
 import { VendorWatchLogo } from "@/components/ui/vendor-watch-logo";
@@ -27,27 +27,6 @@ const LIVE_FEED_ITEMS = [
   { vendor: "GitHub", icon: "GH", title: "Actions workflow delays resolved", time: "2h ago", status: "resolved", color: "text-emerald-500", bg: "bg-emerald-500" },
   { vendor: "Cloudflare", icon: "CF", title: "DNS resolution issues in Europe resolved", time: "3h ago", status: "resolved", color: "text-emerald-500", bg: "bg-emerald-500" },
   { vendor: "Stripe", icon: "ST", title: "Intermittent webhook delivery delays", time: "4h ago", status: "resolved", color: "text-emerald-500", bg: "bg-emerald-500" },
-];
-
-const TESTIMONIALS = [
-  {
-    quote: "We used to manually check a dozen status pages every morning. Vendor Watch consolidated all of that into a single dashboard with real-time alerts. Our response time to vendor outages dropped from hours to minutes.",
-    name: "Sarah Chen",
-    role: "VP of Infrastructure",
-    company: "CloudScale Systems",
-  },
-  {
-    quote: "As an MSP managing 40+ clients, knowing about vendor outages before our clients call us is a game changer. The Slack integration and client portals have saved us countless hours.",
-    name: "Marcus Rivera",
-    role: "Director of Operations",
-    company: "TechBridge MSP",
-  },
-  {
-    quote: "The component-level monitoring is incredibly detailed. When AWS has an issue, we instantly know if it's EC2, S3, or Lambda that's affected. That specificity is invaluable for triage.",
-    name: "James Park",
-    role: "Lead SRE",
-    company: "FinServ Digital",
-  },
 ];
 
 const TRUSTED_LOGOS = [
@@ -570,44 +549,6 @@ export default function Landing() {
                   Receive notifications via email, SMS, Slack, Teams, or PagerDuty within minutes of any incident.
                 </p>
               </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="border-t">
-          <div className="container mx-auto px-4 py-20">
-            <div className="text-center mb-16">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-500/10 text-yellow-400 text-sm font-medium mb-4">
-                <Sparkles className="h-4 w-4" />
-                What Our Users Say
-              </div>
-              <h2 className="text-3xl md:text-4xl font-bold mb-4 tracking-tight">Real Stories, Real Results</h2>
-              <p className="text-lg text-muted-foreground">
-                Teams trust {APP_NAME} to stay ahead of vendor outages
-              </p>
-            </div>
-
-            <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-              {TESTIMONIALS.map((t, i) => (
-                <Card key={i} className="bg-card/40 border-border/50" data-testid={`testimonial-${i}`}>
-                  <CardContent className="pt-6">
-                    <div className="flex gap-1 mb-4">
-                      {Array.from({ length: 5 }, (_, j) => (
-                        <svg key={j} className="h-4 w-4 text-yellow-500 fill-yellow-500" viewBox="0 0 20 20">
-                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                        </svg>
-                      ))}
-                    </div>
-                    <blockquote className="text-sm text-muted-foreground mb-6 leading-relaxed">
-                      "{t.quote}"
-                    </blockquote>
-                    <div className="border-t pt-4">
-                      <p className="text-sm font-semibold">{t.name}</p>
-                      <p className="text-xs text-muted-foreground">{t.role}, {t.company}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
             </div>
           </div>
         </section>
