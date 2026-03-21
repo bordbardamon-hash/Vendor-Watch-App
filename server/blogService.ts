@@ -9,14 +9,88 @@ const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
 
-const SYSTEM_PROMPT = `You are a technical writer for VendorWatch, a vendor monitoring platform for MSPs (Managed Service Providers). Write a factual, professional incident report blog post. Include:
-1. A clear summary of the incident
-2. Timeline of events (with timestamps where available)
-3. Affected services and components
-4. Impact assessment for MSPs and their clients
-5. What MSPs should do next time (actionable recommendations)
+const PROMPT_VERSION = 'v2';
 
-Tone: informative, neutral, helpful. Do not speculate. Do not add information not present in the context. Length: 400–600 words. Format the output as markdown with proper headings (## for sections). Start directly with the title as an H1 heading.`;
+const SYSTEM_PROMPT = `You are a technical incident report writer for VendorWatch, a vendor monitoring platform built specifically for Managed Service Providers (MSPs).
+
+Your job is to write a clear, professional, and factual outage report blog post when a vendor incident has been resolved. This post will be published publicly on the VendorWatch blog and indexed by search engines.
+
+---
+
+TONE & STYLE
+- Professional and neutral — never alarmist, never dismissive
+- Written for an MSP audience (technically literate, time-pressed, client-facing)
+- Active voice, short paragraphs, scannable structure
+- No speculation, no blame, no editorializing
+- Do not use: "unfortunately", "sadly", "catastrophic"
+- Avoid filler: "In today's fast-paced world", "It goes without saying"
+
+---
+
+STRUCTURE (follow exactly, in this order)
+
+1. SUMMARY PARAGRAPH
+   2-3 sentences max
+   Cover: what happened, when it started, when resolved, how long it lasted
+   TL;DR for busy MSPs
+
+2. INCIDENT TIMELINE
+   Chronological bullet list with timestamps
+   Format: [HH:MM UTC] — [what happened / what vendor reported]
+   Pull directly from status_updates data — do not invent entries
+   End with the resolution entry
+   If no status_updates provided, write a brief timeline based on start/end times and impact
+
+3. AFFECTED SERVICES
+   Bullet list of specific components or services impacted
+   Use the vendor's own naming where possible
+   Note if impact was partial or full
+
+4. IMPACT ASSESSMENT
+   Who was likely affected
+   Estimated scope if data is available
+   Factual only — do not exaggerate or downplay
+
+5. WHAT MSPS SHOULD DO
+   3-5 actionable bullet points for MSPs managing clients on this vendor
+   Examples: check ticketing system for client-reported issues during this window, review SLA breach thresholds, document for client QBRs, verify restoration
+   Make these practical and specific to the vendor/service involved
+
+6. VENDOR RESPONSE SUMMARY
+   1-2 sentences: how the vendor communicated during the incident
+   Was their status page updated promptly? Did they provide a root cause?
+   If no RCA: "A root cause analysis has not yet been published by [Vendor]."
+
+7. CLOSING CTA
+   2 sentences max
+   Example: "VendorWatch monitors [Vendor] and 400+ other vendors in real time, alerting your team the moment an incident is detected. Start your free trial and stop hearing about outages from your clients first."
+
+---
+
+FORMATTING RULES
+- Output the body in clean Markdown
+- Use ## for section headers matching the structure above
+- Use bullet points for timeline, affected services, and MSP actions
+- Bold only vendor names on first mention and critical timestamps
+- Total body length: 450-600 words (excluding headline and meta description)
+- Do not include any HTML tags
+- Do not include the headline as a heading inside the body — it is a separate field
+
+---
+
+SEO RULES
+- Naturally include: "[vendor name] outage", "[vendor name] down", "[affected service] incident", "MSP", "[month] [year]"
+- No keyword-stuffing — each term appears once or twice at most
+
+---
+
+OUTPUT FORMAT
+Return a JSON object with exactly these three fields and nothing else — no preamble, no markdown fences, no explanation:
+{
+  "headline": "[Vendor Name] [Affected Service] Outage — [Month] [Year]",
+  "meta_description": "Exactly 150-155 characters. Summarize: vendor, what went down, when, duration. Include 'outage' and the vendor name. No clickbait.",
+  "body": "... full markdown post body using the 7-section structure above ..."
+}`;
 
 function slugify(text: string): string {
   return text
@@ -127,48 +201,49 @@ export async function generateBlogPost(incidentId: string): Promise<BlogPost> {
     throw new Error(`Incident lasted only ${durationMinutes} minutes (< 15 min threshold)`);
   }
 
-  const durationStr = durationMinutes ? formatDuration(durationMinutes) : 'Duration unknown';
   const monthYear = startedAt.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-  const affectedComponents = incidentData.affectedComponents || 'Service components';
+  const affectedComponentsList = incidentData.affectedComponents
+    ? incidentData.affectedComponents.split(',').map(s => s.trim()).filter(Boolean)
+    : [];
 
-  const prompt = `Generate a vendor incident report blog post for the following incident:
-
-**Vendor:** ${vendorName}
-**Incident Title:** ${incidentData.title}
-**Severity:** ${incidentData.severity}
-**Start Time:** ${startedAt.toISOString()}
-**End Time:** ${resolvedAt ? resolvedAt.toISOString() : 'Ongoing'}
-**Duration:** ${durationStr}
-**Final Status:** ${incidentData.status}
-**Affected Components:** ${affectedComponents}
-**Impact Description:** ${incidentData.impact}
-**Status Page:** ${incidentData.url}
-
-Write a 400–600 word incident report blog post following the system instructions. The title should be: "${vendorName} ${incidentData.severity.charAt(0).toUpperCase() + incidentData.severity.slice(1)} Incident — ${monthYear}"`;
+  // Structured incident data passed as JSON to the AI (matches spec format)
+  const incidentPayload = {
+    vendor_name: vendorName,
+    affected_services: affectedComponentsList.length > 0 ? affectedComponentsList : [incidentData.title],
+    severity: incidentData.severity === 'critical' ? 'P1' : incidentData.severity === 'major' ? 'P2' : 'P3',
+    started_at: startedAt.toISOString(),
+    resolved_at: resolvedAt ? resolvedAt.toISOString() : null,
+    duration_minutes: durationMinutes,
+    status_updates: [] as { timestamp: string; message: string }[], // populated below if available
+    region: null,
+    vendor_rca_published: false,
+    impact_description: incidentData.impact,
+    status_page_url: incidentData.url,
+  };
 
   const completion = await openai.chat.completions.create({
     model: 'gpt-4o',
     messages: [
       { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'user', content: prompt },
+      { role: 'user', content: JSON.stringify(incidentPayload) },
     ],
-    max_tokens: 900,
+    max_tokens: 1200,
     temperature: 0.4,
+    response_format: { type: 'json_object' },
   });
 
-  const body = completion.choices[0]?.message?.content || '';
+  const raw = completion.choices[0]?.message?.content || '{}';
+  let parsed: { headline?: string; meta_description?: string; body?: string } = {};
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    // If JSON parse fails, treat raw as body
+    parsed = { body: raw };
+  }
 
-  // Extract title from first line if it starts with #
-  const lines = body.split('\n');
-  const titleLine = lines.find(l => l.startsWith('# '));
-  const generatedTitle = titleLine
-    ? titleLine.replace(/^#+\s*/, '').trim()
-    : `${vendorName} Incident — ${monthYear}`;
-
-  // Build meta description (first non-heading paragraph, truncated to 155)
-  const firstPara = lines.find(l => l.trim() && !l.startsWith('#') && !l.startsWith('**'));
-  const metaDescription = (firstPara || `Detailed incident report: ${archive.title} affecting ${vendorName} MSP clients.`)
-    .replace(/[*_`#]/g, '')
+  const generatedTitle = parsed.headline?.trim() || `${vendorName} Incident — ${monthYear}`;
+  const body = parsed.body?.trim() || raw;
+  const metaDescription = (parsed.meta_description?.trim() || `${vendorName} experienced an outage affecting ${affectedComponentsList[0] || 'core services'} in ${monthYear}. Read the full incident report.`)
     .slice(0, 155);
 
   // Build unique slug
@@ -194,6 +269,7 @@ Write a 400–600 word incident report blog post following the system instructio
     durationMinutes,
     affectedComponents: incidentData.affectedComponents || null,
     status: 'draft',
+    promptVersion: PROMPT_VERSION,
     publishedAt: null,
   };
 

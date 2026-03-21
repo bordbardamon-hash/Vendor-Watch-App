@@ -1674,6 +1674,7 @@ export const blogPosts = pgTable("blog_posts", {
   durationMinutes: integer("duration_minutes"),         // resolved - started, in minutes
   affectedComponents: text("affected_components"),      // comma-separated
   status: text("status").notNull().default("draft"),    // draft | published
+  promptVersion: text("prompt_version").notNull().default("v2"),  // tracks prompt version
   publishedAt: timestamp("published_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
