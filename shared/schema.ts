@@ -1661,6 +1661,36 @@ export type WarRoomParticipant = typeof warRoomParticipants.$inferSelect;
 export type WarRoomUpvote = typeof warRoomUpvotes.$inferSelect;
 
 // ===== Outage Blog Posts =====
+// ── Twitter / X Bot ──────────────────────────────────────────────────
+export const tweetLog = pgTable("tweet_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  incidentId: text("incident_id").notNull(),           // external incidentId (not PK)
+  incidentType: text("incident_type").notNull().default("vendor"), // 'vendor' | 'blockchain'
+  vendorKey: text("vendor_key"),                        // for display & filtering
+  tweetId: text("tweet_id"),                            // returned by X API; used for threading
+  tweetType: text("tweet_type").notNull(),              // 'detected' | 'update' | 'resolved'
+  content: text("content").notNull(),
+  postedAt: timestamp("posted_at").notNull().defaultNow(),
+  status: text("status").notNull().default("posted"),  // 'posted' | 'failed' | 'skipped'
+  errorMessage: text("error_message"),
+});
+
+export const twitterBotSettings = pgTable("twitter_bot_settings", {
+  id: varchar("id").primaryKey().default("singleton"),
+  enabled: boolean("enabled").notNull().default(false),
+  previewMode: boolean("preview_mode").notNull().default(true),
+  minSeverity: text("min_severity").notNull().default("major"),      // 'critical' (P1 only) | 'major' (P1+P2)
+  minActiveMinutes: integer("min_active_minutes").notNull().default(3),
+  minMonitorCount: integer("min_monitor_count").notNull().default(1), // min userVendorSubscriptions count
+  maxTweetsPerHour: integer("max_tweets_per_hour").notNull().default(3),
+  updateIntervalMinutes: integer("update_interval_minutes").notNull().default(30),
+  excludedVendorKeys: text("excluded_vendor_keys").notNull().default("[]"), // JSON array
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export type TweetLog = typeof tweetLog.$inferSelect;
+export type TwitterBotSettings = typeof twitterBotSettings.$inferSelect;
+
 // ── Alert Rules (IFTTT rule builder) ─────────────────────────────────
 export const alertRules = pgTable("alert_rules", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

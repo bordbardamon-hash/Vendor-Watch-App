@@ -9477,6 +9477,75 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
   });
 
   // ============================================================
+  // ── Twitter / X Bot Admin ─────────────────────────────────────────────
+
+  // GET /api/admin/twitter-bot/settings
+  app.get("/api/admin/twitter-bot/settings", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!req.user?.isOwner && !req.user?.isAdmin) return res.status(403).json({ error: "Admin only" });
+      const { getSettings } = await import('./twitterBotService');
+      res.json(await getSettings());
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  // PUT /api/admin/twitter-bot/settings
+  app.put("/api/admin/twitter-bot/settings", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!req.user?.isOwner && !req.user?.isAdmin) return res.status(403).json({ error: "Admin only" });
+      const { updateSettings } = await import('./twitterBotService');
+      res.json(await updateSettings(req.body));
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  // GET /api/admin/twitter-bot/logs
+  app.get("/api/admin/twitter-bot/logs", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!req.user?.isOwner && !req.user?.isAdmin) return res.status(403).json({ error: "Admin only" });
+      const { tweetLog: tl } = await import("@shared/schema");
+      const logs = await db.select().from(tl).orderBy(tl.postedAt).limit(200);
+      res.json(logs.reverse());
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  // POST /api/admin/twitter-bot/post/:incidentId — manual trigger
+  app.post("/api/admin/twitter-bot/post/:incidentId", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!req.user?.isOwner && !req.user?.isAdmin) return res.status(403).json({ error: "Admin only" });
+      const { manualPostIncident } = await import('./twitterBotService');
+      res.json(await manualPostIncident(req.params.incidentId));
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  // GET /api/admin/twitter-bot/preview/:incidentId — compose without posting
+  app.get("/api/admin/twitter-bot/preview/:incidentId", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!req.user?.isOwner && !req.user?.isAdmin) return res.status(403).json({ error: "Admin only" });
+      const { incidents: incTable, vendors: vendTable } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const [inc] = await db.select().from(incTable).where(eq(incTable.incidentId, req.params.incidentId)).limit(1);
+      if (!inc) return res.status(404).json({ error: "Incident not found" });
+      const [vend] = await db.select({ name: vendTable.name }).from(vendTable).where(eq(vendTable.key, inc.vendorKey)).limit(1);
+      const vendorName = vend?.name || inc.vendorKey;
+      const SEVERITY_EMOJI: Record<string, string> = { critical: '🔴', major: '🟠', minor: '🟡', info: '🔵' };
+      const em = SEVERITY_EMOJI[inc.severity] || '🔴';
+      const ms = Date.now() - new Date(inc.startedAt).getTime();
+      const mins = Math.floor(ms / 60000);
+      const started = mins < 60 ? `${mins} mins` : `${Math.floor(mins/60)}hr ${mins%60}min`;
+      const tag = '#' + vendorName.replace(/[^A-Za-z0-9]/g, '');
+      const sev = inc.severity === 'critical' ? 'P1' : inc.severity === 'major' ? 'P2' : inc.severity;
+      const impact = (inc.impact || '').slice(0, 60);
+      const url = `vendorwatch.app/vendors/${inc.vendorKey}`;
+      const content = [
+        `${em} ${vendorName} is experiencing ${sev} issues`,
+        impact ? `Affected: ${impact}` : '',
+        `Started: ${started} ago`,
+        `Track it: ${url}`,
+        `${tag} #outage #incident`,
+      ].filter(Boolean).join('\n').slice(0, 280);
+      res.json({ content, charCount: content.length, incident: { title: inc.title, severity: inc.severity, vendorKey: inc.vendorKey } });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
   // ── Alert Rules (IFTTT rule builder) ─────────────────────────────────
 
   // GET /api/alert-rules — list user's rules (with condition/action counts)

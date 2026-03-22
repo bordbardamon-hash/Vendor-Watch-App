@@ -1,0 +1,78 @@
+Build an automated X (Twitter) outage bot posting system for VendorWatch.
+ 
+OVERVIEW
+When VendorWatch detects a new incident above a severity threshold,
+automatically compose and post a tweet via the X API v2.
+Post updates when the incident status changes. Post resolution when closed.
+ 
+TRIGGER RULES — only post when ALL conditions are met:
+ Severity is P1 or P2  (never post P3 — too noisy)
+ Incident has been active for at least 3 minutes  (avoid false positives)
+ We have not posted about this incident in the last 30 minutes
+ Vendor/chain has more than 100 monthly active VendorWatch monitors
+   (skip very obscure vendors to maintain signal quality)
+ 
+TWEET TEMPLATES — compose dynamically, stay under 280 chars
+ 
+ INCIDENT DETECTED:
+ '[StatusEmoji] [Vendor] is experiencing [severity] issues
+  Affected: [component list, max 2]
+  Started: [X mins ago]
+  Track it: vendorwatch.app/vendors/[slug]
+  #[VendorName] #outage #incident'
+ 
+ STATUS UPDATE (if incident lasts > 30 mins with new vendor update):
+ '[Emoji] UPDATE: [Vendor] incident ongoing ([duration] and counting)
+  Latest: [vendor status update, truncated to 120 chars]
+  vendorwatch.app/vendors/[slug]
+  #[VendorName]'
+ 
+ RESOLUTION:
+ '[GreenEmoji] RESOLVED: [Vendor] is back to normal
+  Duration: [X hrs Y mins]  |  Severity: [P1/P2]
+  Full incident report: vendorwatch.app/outages/[slug]
+  #[VendorName] #resolved'
+ 
+STATUS EMOJIS — map severity to emoji:
+ P1 detected     -> [red circle emoji]
+ P2 detected     -> [orange circle emoji]
+ Ongoing update  -> [yellow circle emoji]
+ Resolved        -> [green circle emoji]
+ Blockchain only -> prepend [chain logo emoji if available]
+ 
+DATABASE — tweet_log table
+ id
+ incident_id
+ tweet_id          returned by X API after posting
+ tweet_type        enum: detected | update | resolved
+ content           the full tweet text
+ posted_at
+ status            enum: posted | failed | skipped
+ error_message     if failed
+ 
+API INTEGRATION
+- Use X API v2 with OAuth 1.0a (requires API key, secret, access token, secret)
+- Store all four credentials in environment variables:
+   TWITTER_API_KEY, TWITTER_API_SECRET
+   TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_TOKEN_SECRET
+- POST to https://api.twitter.com/2/tweets
+- Thread update and resolution tweets as replies to the original detected tweet
+ (use reply.in_reply_to_tweet_id with the stored tweet_id)
+ 
+ADMIN CONTROLS
+- Toggle: enable/disable bot posting globally (circuit breaker)
+- Per-vendor toggle: exclude specific vendors from bot posts
+- Preview mode: compose tweet text and log it without actually posting
+- Manual post: allow admin to trigger a tweet for any active incident
+- Tweet log view: show all posts with status, content, and X link
+ 
+RATE LIMIT HANDLING
+- X API free tier allows 500k tweets/month — log usage
+- If rate limit hit, queue tweet and retry after reset window
+- Never post more than 3 tweets per hour total (self-imposed limit)
+ 
+CRON JOB
+- Run every 2 minutes
+- Check for: new qualifying incidents, incidents needing update tweets,
+ resolved incidents needing resolution tweets
+- Log all decisions (posted / skipped + reason) for debugging

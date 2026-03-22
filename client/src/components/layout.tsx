@@ -35,6 +35,7 @@ import {
   AlertTriangle,
   ChevronDown,
   Bell,
+  Twitter,
   Trophy,
   TrendingDown,
   Newspaper
@@ -167,6 +168,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         { href: "/team", icon: UsersRound, label: "Team", adminOnly: false, ownerOnly: false },
         { href: "/sso", icon: Lock, label: "SSO", adminOnly: false, ownerOnly: false, requiresEnterprise: true },
         { href: "/audit-logs", icon: ClipboardList, label: "Audit Logs", adminOnly: true, ownerOnly: false },
+        { href: "/admin/twitter-bot", icon: Twitter, label: "X Outage Bot", adminOnly: true, ownerOnly: false },
       ],
       collapsible: true,
       defaultCollapsed: true,

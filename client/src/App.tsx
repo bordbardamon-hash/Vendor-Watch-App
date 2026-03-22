@@ -61,6 +61,7 @@ import DependencyMap from "@/pages/dependency-map";
 import Web3Health from "@/pages/web3-health";
 import Web3HealthWidget from "@/pages/web3-health-widget";
 import AlertRules from "@/pages/alert-rules";
+import TwitterBot from "@/pages/twitter-bot";
 import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
 
@@ -209,6 +210,7 @@ function Router() {
       <Route path="/web3-health/widget" component={Web3HealthWidget} />
       <Route path="/web3-health" component={Web3Health} />
       <Route path="/settings/alert-rules" component={AlertRules} />
+      <Route path="/admin/twitter-bot" component={TwitterBot} />
       <Route path="/outages" component={OutagesPage} />
       <Route path="/outages/:slug" component={OutagePostPage} />
       <Route path="/onboarding">

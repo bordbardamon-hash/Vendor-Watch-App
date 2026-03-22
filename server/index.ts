@@ -505,6 +505,20 @@ app.use((req, res, next) => {
         setInterval(runScoreCalculation, SCORE_INTERVAL_MS);
         console.log('[scores] Vendor reliability scores: first run in 2 minutes, then every 24 hours');
 
+        // Twitter bot cron — every 2 minutes
+        const TWITTER_BOT_INTERVAL_MS = 2 * 60 * 1000;
+        const runTwitterBot = async () => {
+          try {
+            const { runTwitterBotCycle } = await import('./twitterBotService');
+            await runTwitterBotCycle();
+          } catch (err) {
+            console.error('[twitter-bot] Cycle failed:', err);
+          }
+        };
+        setTimeout(runTwitterBot, 60 * 1000); // first run 60s after startup
+        setInterval(runTwitterBot, TWITTER_BOT_INTERVAL_MS);
+        console.log('[twitter-bot] Bot cron configured: first run in 60s, then every 2 minutes');
+
         // Alert rule evaluation — every 2 minutes
         const ALERT_EVAL_INTERVAL_MS = 2 * 60 * 1000;
         const runAlertEvaluation = async () => {
