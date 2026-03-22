@@ -6,7 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, CheckCircle2, ExternalLink, Search, Loader2, BellOff, Bell, Archive, Clock, Calendar, Filter, X, Bot, Sparkles, Copy, ShieldAlert } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ExternalLink, Search, Loader2, BellOff, Bell, Archive, Clock, Calendar, Filter, X, Bot, Sparkles, Copy, ShieldAlert, Boxes } from "lucide-react";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -61,6 +61,20 @@ interface ArchivedIncident {
   startedAt: string;
   resolvedAt: string;
   archivedAt: string;
+}
+
+interface BlockchainIncident {
+  id: string;
+  chainKey: string;
+  incidentType: string;
+  severity: string;
+  status: string;
+  title: string;
+  description?: string;
+  url?: string;
+  createdAt: string;
+  resolvedAt?: string;
+  startedAt: string;
 }
 
 const getSeverityColor = (severity: string) => {
@@ -143,6 +157,16 @@ export default function Incidents() {
       if (!res.ok) throw new Error("Failed to fetch count");
       return res.json();
     },
+  });
+
+  const { data: blockchainIncidents = [] } = useQuery<BlockchainIncident[]>({
+    queryKey: ["blockchain-incidents"],
+    queryFn: async () => {
+      const res = await fetch("/api/blockchain/incidents");
+      if (!res.ok) throw new Error("Failed to fetch blockchain incidents");
+      return res.json();
+    },
+    refetchInterval: 60000,
   });
 
   const acknowledgeMutation = useMutation({
@@ -459,6 +483,55 @@ export default function Incidents() {
           </div>
         </CardContent>
       </Card>
+
+      {blockchainIncidents.length > 0 && (
+        <Card className="border-sidebar-border bg-sidebar/10" data-testid="card-blockchain-incidents">
+          <CardHeader className="border-b border-sidebar-border bg-sidebar/20">
+            <div className="space-y-1">
+              <CardTitle className="flex items-center gap-2 text-2xl">
+                <Boxes className="w-6 h-6 text-blue-400" />
+                Blockchain Incidents
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">Active incidents on monitored blockchain networks</p>
+            </div>
+          </CardHeader>
+          <CardContent className="p-3 sm:p-6">
+            <div className="space-y-4">
+              {blockchainIncidents.map((incident) => (
+                <div key={incident.id} className="border border-sidebar-border rounded-lg bg-background/50 p-3 sm:p-4 transition-all hover:border-primary/30 overflow-hidden" data-testid={`card-blockchain-incident-${incident.id}`}>
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2">
+                    <div className="min-w-0 flex-1">
+                      <span className="text-xs text-blue-400 font-medium bg-blue-500/10 px-2 py-0.5 rounded inline-block mb-1">
+                        {incident.chainKey}
+                      </span>
+                      <h4 className="font-semibold text-base sm:text-lg break-words">{incident.title}</h4>
+                    </div>
+                    <Badge className={`${getSeverityColor(incident.severity)} shrink-0`}>
+                      {incident.severity.toUpperCase()}
+                    </Badge>
+                  </div>
+                  {incident.description && (
+                    <p className="text-sm text-muted-foreground mb-3 break-words">{incident.description}</p>
+                  )}
+                  <div className="flex items-center gap-2 flex-wrap mb-2">
+                    <Badge variant="outline" className="text-xs capitalize">{incident.status}</Badge>
+                    <Badge variant="outline" className="text-xs text-blue-400 border-blue-400/30">{incident.incidentType.replace(/_/g, ' ')}</Badge>
+                    <span className="text-[10px] text-muted-foreground/60">{formatShortDateInTimezone(incident.startedAt, timezone)}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {incident.url && (
+                      <a href={incident.url} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-primary hover:bg-primary/10 flex items-center gap-1.5 px-3 py-1.5 border border-primary/30 rounded transition-colors shrink-0" data-testid={`link-blockchain-incident-${incident.id}`}>
+                        <ExternalLink className="w-3 h-3" />
+                        Status Page
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Archive Search Dialog */}
       <Dialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>

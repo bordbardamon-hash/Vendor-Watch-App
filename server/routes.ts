@@ -9223,6 +9223,55 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
 
   // ============ INCIDENT WAR ROOMS ============
 
+  // List all open war rooms
+  app.get("/api/war-rooms", isAuthenticated, async (req: any, res) => {
+    try {
+      const openRooms = await storage.getOpenWarRooms();
+      const enriched = await Promise.all(openRooms.map(async (room: any) => {
+        const [incident] = await db.select().from(incidents).where(eq(incidents.id, room.incidentId)).limit(1);
+        const participants = await storage.getWarRoomParticipants(room.id);
+        const posts = await storage.getWarRoomPosts(room.id);
+        return { ...room, incident: incident || null, participantCount: participants.length, postCount: posts.length };
+      }));
+      res.json(enriched);
+    } catch (error) {
+      console.error("Error fetching war rooms:", error);
+      res.status(500).json({ error: "Failed to fetch war rooms" });
+    }
+  });
+
+  // Manually open a war room for any incident
+  app.post("/api/war-room/:incidentId/open", isAuthenticated, async (req: any, res) => {
+    try {
+      const { incidentId } = req.params;
+      const existing = await storage.getWarRoom(incidentId);
+      if (existing) return res.json(existing);
+
+      const [incident] = await db.select().from(incidents).where(eq(incidents.id, incidentId)).limit(1);
+      if (!incident) return res.status(404).json({ error: "Incident not found" });
+
+      const warRoom = await storage.createWarRoom({
+        incidentId,
+        vendorKey: incident.vendorKey,
+        vendorName: incident.vendorKey,
+        status: 'open',
+      });
+
+      await storage.createWarRoomPost({
+        warRoomId: warRoom.id,
+        userId: null,
+        content: `War Room opened by ${req.user?.email || 'a team member'}`,
+        detail: null,
+        isSystemUpdate: true,
+      });
+
+      res.json(warRoom);
+    } catch (error) {
+      console.error("Error opening war room:", error);
+      res.status(500).json({ error: "Failed to open war room" });
+    }
+  });
+
   // Get war room by incident ID (public)
   app.get("/api/war-room/:incidentId", async (req, res) => {
     try {

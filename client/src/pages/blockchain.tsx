@@ -24,10 +24,12 @@ import {
   BellOff,
   Bell,
   Wallet,
-  Coins
+  Coins,
+  ShieldAlert
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { formatShortDateInTimezone, getBrowserTimezone } from "@/lib/utils";
@@ -130,6 +132,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 export default function Blockchain() {
   const { user } = useAuth();
   const timezone = user?.timezone || getBrowserTimezone();
+  const [, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const urlParams = new URLSearchParams(window.location.search);
@@ -712,6 +715,21 @@ export default function Blockchain() {
                             </>
                           )}
                         </Button>
+                        {(incident.severity === 'critical' || incident.severity === 'major') && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs h-7 text-red-500 border-red-500/30 hover:bg-red-500/10"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setLocation(`/incidents`);
+                            }}
+                            data-testid={`button-war-room-blockchain-${incident.id}`}
+                          >
+                            <ShieldAlert className="w-3 h-3 mr-1" />
+                            War Room
+                          </Button>
+                        )}
                       </div>
                     </div>
                   );

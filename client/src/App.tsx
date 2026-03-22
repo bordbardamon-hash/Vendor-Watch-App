@@ -52,6 +52,7 @@ import SsoPage from "@/pages/sso";
 import Monitoring from "@/pages/monitoring";
 import VendorReliability from "@/pages/vendor-reliability";
 import WarRoom from "@/pages/war-room";
+import WarRooms from "@/pages/war-rooms";
 import OutagesPage from "@/pages/outages";
 import OutagePostPage from "@/pages/outage-post";
 import BlogAdminPage from "@/pages/blog-admin";
@@ -160,6 +161,7 @@ function AuthenticatedRouter() {
         <Route path="/reports" component={Reports} />
         <Route path="/sso" component={SsoPage} />
         <Route path="/monitoring" component={Monitoring} />
+        <Route path="/war-rooms" component={WarRooms} />
         <Route path="/blog-admin" component={BlogAdminPage} />
         <Route path="/admin/twitter-bot" component={TwitterBot} />
         <Route component={NotFound} />

@@ -25,10 +25,12 @@ import {
   X,
   ChevronDown,
   ArrowLeft,
-  Settings2
+  Settings2,
+  ShieldAlert
 } from "lucide-react";
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { AlertPreferencesDialog } from "@/components/alert-preferences-dialog";
@@ -399,6 +401,7 @@ function VendorScorePanel({ vendorKey }: { vendorKey: string }) {
 export default function Vendors() {
   const { user } = useAuth();
   const timezone = user?.timezone || getBrowserTimezone();
+  const [, setLocation] = useLocation();
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [alertPrefsOpen, setAlertPrefsOpen] = useState(false);
   const [alertPrefsVendorKey, setAlertPrefsVendorKey] = useState("");
@@ -407,10 +410,12 @@ export default function Vendors() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const urlParams = new URLSearchParams(window.location.search);
   const initialFilter = urlParams.get('filter') === 'monitored' ? 'monitored' : 'all';
+  const vendorKeyFromUrl = urlParams.get('vendor');
   const [statusFilter, setStatusFilter] = useState<string>(initialFilter);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [requestForm, setRequestForm] = useState({ vendorName: "", statusPageUrl: "", integrationNotes: "" });
   const [directAddForm, setDirectAddForm] = useState({ key: "", name: "", statusUrl: "", parser: "statuspage_json" });
+  const [urlParamHandled, setUrlParamHandled] = useState(false);
   const { toast } = useToast();
   const detailPanelRef = useRef<HTMLDivElement>(null);
 
@@ -622,6 +627,17 @@ export default function Vendors() {
     refetchInterval: 60000,
     refetchIntervalInBackground: true,
   });
+
+  // Auto-select vendor from URL param (?vendor=key)
+  useEffect(() => {
+    if (!urlParamHandled && vendorKeyFromUrl && vendors.length > 0) {
+      const match = vendors.find(v => v.key === vendorKeyFromUrl);
+      if (match) {
+        setSelectedVendor(match);
+        setUrlParamHandled(true);
+      }
+    }
+  }, [vendors, vendorKeyFromUrl, urlParamHandled]);
 
   // Fetch user's vendor favorites
   const { data: favoritesData } = useQuery<{ favorites: string[] }>({
@@ -1308,6 +1324,21 @@ export default function Vendors() {
                                 </>
                               )}
                             </Button>
+                            {(incident.severity === 'critical' || incident.severity === 'major') && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs h-8 text-red-500 border-red-500/30 hover:bg-red-500/10 shrink-0"
+                                onClick={async () => {
+                                  await fetch(`/api/war-room/${incident.id}/open`, { method: 'POST' });
+                                  setLocation(`/war-room/${incident.id}`);
+                                }}
+                                data-testid={`button-war-room-vendor-${incident.id}`}
+                              >
+                                <ShieldAlert className="w-3 h-3 mr-1" />
+                                War Room
+                              </Button>
+                            )}
                             <a href={incident.url} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-primary hover:bg-primary/10 flex items-center gap-1.5 px-3 py-1.5 border border-primary/30 rounded transition-colors shrink-0" data-testid={`link-vendor-incident-status-${incident.id}`}>
                               <ExternalLink className="w-3 h-3" />
                               Status Page

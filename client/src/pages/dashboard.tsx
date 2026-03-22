@@ -170,7 +170,7 @@ export default function Dashboard() {
               {degradedVendors.map((vendor: any) => {
                 const vendorIncidents = incidents.filter((i: any) => i.vendorKey === vendor.key && i.status !== 'resolved');
                 return (
-                  <Link key={vendor.key} href="/vendors" onClick={() => {}}>
+                  <Link key={vendor.key} href={`/vendors?vendor=${vendor.key}`} onClick={() => {}}>
                     <div className="flex items-center gap-3 p-3 rounded-lg border border-red-500/10 bg-background/50 hover:border-red-500/30 transition-colors cursor-pointer" data-testid={`degraded-vendor-${vendor.key}`}>
                       <LogoAvatar src={vendor.logoUrl} name={vendor.name} size="sm" />
                       <div className="flex-1 min-w-0">
