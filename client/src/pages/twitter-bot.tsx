@@ -327,6 +327,19 @@ export default function TwitterBotPage() {
                   />
                   <p className="text-xs text-gray-500 mt-1">Skip vendors with fewer than this many VendorWatch subscribers (set to 0 to post about all vendors).</p>
                 </div>
+                <div className="col-span-2">
+                  <Label className="text-xs text-gray-400 mb-1.5 block">Only tweet incidents starting on or after</Label>
+                  <Input
+                    data-testid="input-tweet-from-date"
+                    type="date"
+                    defaultValue={settings?.tweetFromDate ? new Date(settings.tweetFromDate).toISOString().slice(0, 10) : ''}
+                    onBlur={e => {
+                      const val = e.target.value;
+                      patchSetting("tweetFromDate", val ? new Date(val) : null);
+                    }}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Incidents that started before this date are ignored entirely — no tweets will be sent for them. Leave blank to tweet about all active incidents.</p>
+                </div>
               </div>
             </CardContent>
           </Card>

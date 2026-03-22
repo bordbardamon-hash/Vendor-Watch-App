@@ -1685,6 +1685,7 @@ export const twitterBotSettings = pgTable("twitter_bot_settings", {
   maxTweetsPerHour: integer("max_tweets_per_hour").notNull().default(3),
   updateIntervalMinutes: integer("update_interval_minutes").notNull().default(30),
   excludedVendorKeys: text("excluded_vendor_keys").notNull().default("[]"), // JSON array
+  tweetFromDate: timestamp("tweet_from_date"),  // Only tweet incidents starting on/after this date; null = no cutoff
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 

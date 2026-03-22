@@ -181,9 +181,10 @@ function composeResolvedTweet(
 export async function getSettings() {
   const rows = await db.select().from(twitterBotSettings).limit(1);
   if (rows.length > 0) return rows[0];
-  // Create default singleton row
+  // Create default singleton row — tweetFromDate defaults to start of today
+  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
   const [created] = await db.insert(twitterBotSettings).values({
-    id: 'singleton', enabled: false, previewMode: true,
+    id: 'singleton', enabled: false, previewMode: true, tweetFromDate: todayStart,
   }).returning();
   return created;
 }
@@ -396,6 +397,11 @@ export async function runTwitterBotCycle(): Promise<void> {
 
     if (excludedKeys.includes(inc.vendorKey)) continue;
 
+    // Skip incidents that started before the tweetFromDate cutoff
+    if (settings.tweetFromDate && new Date(inc.startedAt) < new Date(settings.tweetFromDate)) {
+      continue;
+    }
+
     // Must have been active for at least N minutes
     const activeMs = Date.now() - new Date(inc.startedAt).getTime();
     if (activeMs < settings.minActiveMinutes * 60 * 1000) continue;
@@ -496,6 +502,11 @@ export async function runTwitterBotCycle(): Promise<void> {
 
   for (const inc of activeChainIncidents) {
     if (countTweetsInLastHour() >= settings.maxTweetsPerHour && !settings.previewMode) break;
+
+    // Skip incidents that started before the tweetFromDate cutoff
+    if (settings.tweetFromDate && new Date(inc.startedAt) < new Date(settings.tweetFromDate)) {
+      continue;
+    }
 
     const activeMs = Date.now() - new Date(inc.startedAt).getTime();
     if (activeMs < settings.minActiveMinutes * 60 * 1000) continue;
