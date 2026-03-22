@@ -1661,6 +1661,42 @@ export type WarRoomParticipant = typeof warRoomParticipants.$inferSelect;
 export type WarRoomUpvote = typeof warRoomUpvotes.$inferSelect;
 
 // ===== Outage Blog Posts =====
+// ── Dependency Map ────────────────────────────────────────────────────
+export const dependencyEdges = pgTable("dependency_edges", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  upstreamId: text("upstream_id").notNull(),        // vendor key or blockchain key
+  upstreamType: text("upstream_type").notNull(),    // 'vendor' | 'blockchain'
+  downstreamId: text("downstream_id").notNull(),
+  downstreamType: text("downstream_type").notNull(),
+  relationship: text("relationship").notNull(),     // 'hosted_on' | 'uses_rpc' | 'uses_auth' | 'uses_cdn' | 'uses_api'
+  confidence: integer("confidence").notNull().default(1), // 1=confirmed, 2=inferred, 3=community
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const dependencySuggestions = pgTable("dependency_suggestions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  upstreamId: text("upstream_id").notNull(),
+  upstreamType: text("upstream_type").notNull().default("vendor"),
+  downstreamId: text("downstream_id").notNull(),
+  downstreamType: text("downstream_type").notNull().default("vendor"),
+  relationship: text("relationship").notNull(),
+  notes: text("notes"),
+  submittedBy: text("submitted_by"),               // user id or null (anon)
+  status: text("status").notNull().default("pending"), // pending | approved | rejected
+  reviewedAt: timestamp("reviewed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertDependencyEdgeSchema = createInsertSchema(dependencyEdges).omit({ id: true, createdAt: true });
+export type InsertDependencyEdge = z.infer<typeof insertDependencyEdgeSchema>;
+export type DependencyEdge = typeof dependencyEdges.$inferSelect;
+
+export const insertDependencySuggestionSchema = createInsertSchema(dependencySuggestions).omit({ id: true, createdAt: true, reviewedAt: true });
+export type InsertDependencySuggestion = z.infer<typeof insertDependencySuggestionSchema>;
+export type DependencySuggestion = typeof dependencySuggestions.$inferSelect;
+
+// ── Blog Posts ────────────────────────────────────────────────────────
 export const blogPosts = pgTable("blog_posts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   slug: text("slug").notNull().unique(),

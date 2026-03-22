@@ -1,0 +1,72 @@
+Build an 'Is Web3 Healthy?' public dashboard for VendorWatch.
+ 
+PAGE URL: /web3-health
+ 
+HERO STATUS INDICATOR
+- Large text verdict at the top of the page, calculated from live data:
+   All Systems Healthy  (green)   - 0 active incidents across monitored chains/vendors
+   Minor Disruptions    (yellow)  - 1-3 P3 incidents active
+   Degraded Performance (orange)  - any P2 incident active OR 4+ P3
+   Major Outage         (red)     - any P1 incident active
+- Subtitle: 'Based on X blockchains and Y vendors monitored by VendorWatch'
+- Last updated timestamp, auto-refreshes every 60 seconds
+ 
+BLOCKCHAIN HEALTH GRID
+- Card grid, one card per monitored blockchain
+- Each card shows:
+   Chain name + logo
+   Status dot: green/yellow/red
+   Current TPS (transactions per second) if available via public RPC
+   Block time (current vs expected)
+   Active incident count
+   30-day uptime %
+- Sort order: by ecosystem size (ETH, BTC, SOL, BNB, etc. first)
+- Filter buttons: All | EVM | L2 | Non-EVM | Testnets
+ 
+WEB3 INFRASTRUCTURE HEALTH STRIP
+- Horizontal strip showing status of key Web3 infrastructure vendors:
+   Infura, Alchemy, QuickNode, Moralis, The Graph, Chainlink,
+   IPFS/Filecoin, OpenSea API, Etherscan API, CoinGecko API
+- Each shown as a pill: name + green/yellow/red dot
+ 
+LIVE INCIDENT FEED
+- Right sidebar or bottom section
+- Real-time feed of active and recent incidents (last 24 hrs)
+- Each entry: chain/vendor name, severity badge, short description, time ago
+- 'View all' links to /outages
+ 
+30-DAY TREND CHART
+- Line chart showing daily incident count across all monitored chains+vendors
+- Color bands: green zone (0-2/day), yellow (3-5), red (6+)
+- Built with Chart.js or Recharts
+ 
+EMBEDDABLE WIDGET
+- A /web3-health/widget route that renders a compact version:
+   Overall status pill + 5 most recent incidents
+   Sized for iframe embed: 400px wide x 300px tall
+- Generate embed code snippet users can copy:
+   <iframe src="https://vendorwatch.app/web3-health/widget"
+           width="400" height="300" frameborder="0"></iframe>
+ 
+SOCIAL SHARE
+- 'Share current status' button generates an OG image on the fly showing:
+   Current verdict, timestamp, top 3 active incidents
+   VendorWatch branding
+- Use @vercel/og or a canvas endpoint to generate the image
+ 
+API ENDPOINT
+ GET /api/web3-health/summary
+   Returns: { verdict, active_incidents, chains_monitored,
+              vendors_monitored, last_updated, incidents: [...] }
+ 
+SEO
+- Title: 'Is Web3 Down? Blockchain Network Health Dashboard | VendorWatch'
+- Description: 'Real-time health status of Ethereum, Solana, Bitcoin,
+ and 55+ blockchain networks plus Web3 infrastructure.'
+- This page should be server-side rendered for full SEO benefit
+ 
+TECH NOTES
+- This page must be publicly accessible with no login
+- Auto-refresh via polling every 60 seconds (show a countdown timer)
+- Optimize for mobile — this gets shared on phones
+- Add a canonical URL tag pointing to /web3-health

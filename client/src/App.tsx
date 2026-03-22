@@ -57,6 +57,7 @@ import OutagePostPage from "@/pages/outage-post";
 import BlogAdminPage from "@/pages/blog-admin";
 import Onboarding from "@/pages/onboarding";
 import BillingSuccess from "@/pages/billing-success";
+import DependencyMap from "@/pages/dependency-map";
 import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
 
@@ -201,6 +202,7 @@ function Router() {
       <Route path="/status/:slug" component={PublicPortal} />
       <Route path="/vendor-reliability" component={VendorReliability} />
       <Route path="/war-room/:incidentId" component={WarRoom} />
+      <Route path="/dependency-map" component={DependencyMap} />
       <Route path="/outages" component={OutagesPage} />
       <Route path="/outages/:slug" component={OutagePostPage} />
       <Route path="/onboarding">

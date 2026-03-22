@@ -1,0 +1,73 @@
+Build a Cross-Chain / Cross-Vendor Dependency Map feature for VendorWatch.
+ 
+OVERVIEW
+An interactive force-directed graph (use D3.js or Cytoscape.js) showing
+vendor and blockchain dependency relationships. Nodes pulse red during
+active incidents and show downstream impact in real time.
+ 
+DATA MODEL — dependency_edges table
+ id
+ upstream_id      vendor_id or blockchain_id of the dependency
+ upstream_type    enum: vendor | blockchain
+ downstream_id    the service that depends on upstream
+ downstream_type  enum: vendor | blockchain
+ relationship     enum: hosted_on | uses_rpc | uses_auth | uses_cdn | uses_api
+ confidence       integer 1-3 (1=confirmed, 2=inferred, 3=community-reported)
+ notes            text
+ 
+SEED DATA — pre-populate these known relationships:
+ Infura            -> depends on -> AWS
+ Alchemy           -> depends on -> AWS + GCP
+ Uniswap           -> depends on -> Infura + Alchemy + Ethereum
+ Aave              -> depends on -> Infura + Ethereum + Chainlink
+ Chainlink         -> depends on -> AWS + Ethereum
+ Most DeFi apps    -> depends on -> Cloudflare (CDN)
+ OpenSea           -> depends on -> AWS + Ethereum + IPFS
+ MetaMask          -> depends on -> Infura
+ 
+GRAPH PAGE (/dependency-map)
+- Force-directed graph rendered in the browser
+- Node types: circle=vendor (blue), hexagon=blockchain (purple)
+- Node size = number of downstream dependents
+- Edge color: gray=healthy, orange=upstream degraded, red=upstream down
+- Clicking a node shows:
+   Name, current status, active incidents
+   List of what it depends on (upstream)
+   List of what depends on it (downstream / blast radius)
+   Link to vendor profile page on VendorWatch
+- Live polling every 60 seconds to update node colors from incident data
+- Controls: zoom, pan, search by vendor name, filter by category
+- Toggle: show only currently degraded/down nodes
+ 
+BLAST RADIUS PANEL
+- When any node is in incident state, show a side panel:
+   'X services are potentially affected by this incident'
+   List of downstream vendors/chains with their current status
+   Severity estimate: Low / Medium / High based on downstream count
+ 
+API ENDPOINTS
+ GET /api/dependency-map/graph
+   Returns all nodes and edges with current status for each node
+   Response: { nodes: [...], edges: [...] }
+ GET /api/dependency-map/blast-radius/:vendor_id
+   Returns all downstream services affected if this vendor has an incident
+ POST /api/dependency-map/suggest
+   Community suggestion: { upstream_id, downstream_id, relationship, notes }
+   Saves as confidence=3 (community), pending admin review
+ 
+ADMIN PANEL ADDITION
+- Review and approve community-suggested dependency edges
+- Bulk import via CSV: upstream_id, downstream_id, relationship
+ 
+SEO PAGE (/dependency-map)
+- Static description for crawlers: 'Real-time vendor and blockchain
+ dependency map. See which services depend on AWS, Cloudflare,
+ Ethereum, and 400+ others.'
+- Meta title: 'Vendor & Blockchain Dependency Map | VendorWatch'
+ 
+TECH NOTES
+- Use Cytoscape.js (preferred) or D3-force for the graph
+ CDN: https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.26.0/cytoscape.min.js
+- Graph layout: 'cose-bilkent' or 'dagre' for readability
+- Debounce status polling — do not poll per-node, fetch all statuses in one call
+- Cache graph structure for 5 minutes, cache statuses for 60 seconds

@@ -17,6 +17,7 @@ import bcrypt from "bcryptjs";
 import { db } from "./db";
 import { users, mobileAuthTokens, pendingSignups } from "@shared/models/auth";
 import { eq, and, isNull, gt, sql } from "drizzle-orm";
+import { getGraph, getBlastRadius, submitSuggestion, getPendingSuggestions, reviewSuggestion, seedDependencyEdges } from "./dependencyMapService";
 
 const SALT_ROUNDS = 10;
 
@@ -9372,6 +9373,82 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
     } catch (error) {
       console.error("Error exporting war room log:", error);
       res.status(500).json({ error: "Failed to export log" });
+    }
+  });
+
+  // ── Dependency Map Routes ────────────────────────────────────────────
+  // Seed on startup (idempotent)
+  seedDependencyEdges().catch(err => console.error('[dependency-map] seed error:', err));
+
+  // GET /api/dependency-map — full graph
+  app.get("/api/dependency-map", async (_req, res) => {
+    try {
+      const graph = await getGraph();
+      res.json(graph);
+    } catch (error) {
+      console.error("Error fetching dependency map:", error);
+      res.status(500).json({ error: "Failed to fetch dependency map" });
+    }
+  });
+
+  // GET /api/dependency-map/blast-radius/:nodeId — blast radius analysis
+  app.get("/api/dependency-map/blast-radius/:nodeId", async (req, res) => {
+    try {
+      const result = await getBlastRadius(req.params.nodeId);
+      res.json(result);
+    } catch (error) {
+      console.error("Error calculating blast radius:", error);
+      res.status(500).json({ error: "Failed to calculate blast radius" });
+    }
+  });
+
+  // POST /api/dependency-map/suggestions — submit a new suggestion (anon or authed)
+  app.post("/api/dependency-map/suggestions", async (req: any, res) => {
+    try {
+      const schema = z.object({
+        upstreamId: z.string().min(1),
+        upstreamType: z.enum(['vendor', 'blockchain']),
+        downstreamId: z.string().min(1),
+        downstreamType: z.enum(['vendor', 'blockchain']),
+        relationship: z.enum(['hosted_on', 'uses_rpc', 'uses_auth', 'uses_cdn', 'uses_api']),
+        notes: z.string().optional(),
+      });
+      const body = schema.parse(req.body);
+      const submittedBy = req.user?.id ?? null;
+      await submitSuggestion({ ...body, submittedBy });
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error submitting dependency suggestion:", error);
+      res.status(400).json({ error: error.message || "Failed to submit suggestion" });
+    }
+  });
+
+  // GET /api/dependency-map/suggestions — owner: list pending
+  app.get("/api/dependency-map/suggestions", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user?.email !== process.env.OWNER_EMAIL && req.user?.role !== 'owner') {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      const suggestions = await getPendingSuggestions();
+      res.json(suggestions);
+    } catch (error) {
+      console.error("Error fetching suggestions:", error);
+      res.status(500).json({ error: "Failed to fetch suggestions" });
+    }
+  });
+
+  // PATCH /api/dependency-map/suggestions/:id — owner: approve or reject
+  app.patch("/api/dependency-map/suggestions/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user?.email !== process.env.OWNER_EMAIL && req.user?.role !== 'owner') {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      const { action } = z.object({ action: z.enum(['approved', 'rejected']) }).parse(req.body);
+      await reviewSuggestion(req.params.id, action, req.user.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error reviewing suggestion:", error);
+      res.status(400).json({ error: error.message || "Failed to review suggestion" });
     }
   });
 

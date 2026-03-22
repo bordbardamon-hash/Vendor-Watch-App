@@ -53,6 +53,22 @@ Key entities include Users, Sessions, Vendors, Incidents, Jobs, Configurations, 
 
 - **Vendor Outage Blog (March 2026)**: AI-generated incident reports auto-triggered when critical/major incidents resolve (skips incidents < 15 min). GPT-4o writes 450–600 word markdown reports using prompt v2 (9-section MSP-focused structure: Summary, Timeline, Affected Services, Impact Assessment, What MSPs Should Do, Vendor Response Summary, Closing CTA). AI receives structured JSON incident payload and returns `{headline, meta_description, body}`. `prompt_version` column tracks which version generated each post. Posts saved as drafts; owner reviews/edits/publishes via `/blog-admin`. Public paginated list at `/outages` (search, vendor filter, RSS link). Individual post pages at `/outages/:slug` with SEO JSON-LD structured data and social share buttons. RSS feed at `/outages/feed.xml`. Service: `server/blogService.ts` (generateBlogPost, listBlogPosts, getBlogPostBySlug, updateBlogPost, getDraftQueue, getRelatedPosts). Auto-trigger in `server/statusSync.ts` on incident resolution for critical/major incidents. Frontend pages: `client/src/pages/outages.tsx`, `client/src/pages/outage-post.tsx`, `client/src/pages/blog-admin.tsx`. Nav: "Outage Reports" in Intelligence section (all users), "Outage Blog" in Admin section (owner-only). API routes: POST /api/blog/generate/:incidentId (auth), GET /api/blog/posts (public), GET /api/blog/queue (auth), GET /api/blog/posts/:slug (public), PATCH /api/blog/posts/:id (auth).
 
+## Key Features
+
+### Cross-Chain/Cross-Vendor Dependency Map (`/dependency-map`)
+- **Cytoscape.js** interactive graph with cose-bilkent layout
+- 34 hardcoded seed relationships between vendors (AWS, GCP, Azure, Cloudflare, GitHub, etc.) and blockchain entities (Ethereum, Infura, Alchemy, MetaMask, Aave, OpenSea, Arbitrum, etc.)
+- **Blast radius analysis**: Click any node → "Run Analysis" → BFS traversal finds all downstream dependents; severity rated Low/Medium/High
+- **Auto-blast via URL**: `/dependency-map?blast=aws` pre-loads analysis for any node
+- **Shareable link**: "Share This Analysis" copies a pre-loaded URL to clipboard
+- **Embeddable widget**: `/dependency-map?embed=1` strips nav for iFrame embedding; copy snippet dialog
+- **Community suggestions**: Any user can suggest new dependency edges (POST `/api/dependency-map/suggestions`); owner can approve/reject in admin
+- Node size = downstream dependency count; border color = live status; dashed edges = community-submitted
+- Filter by node type (vendor/blockchain) and edge relationship type
+- DB tables: `dependency_edges`, `dependency_suggestions`
+- Seeding: `server/dependencyMapSeed.ts` (idempotent, runs on startup)
+- Service: `server/dependencyMapService.ts`
+
 ## External Dependencies
 
 ### Database

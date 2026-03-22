@@ -130,6 +130,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         { href: "/sla", icon: Target, label: "SLA Dashboard", adminOnly: false, ownerOnly: false, requiresEssential: true },
         { href: "/vendor-reliability", icon: Trophy, label: "Reliability Scores", adminOnly: false, ownerOnly: false },
         { href: "/outages", icon: Newspaper, label: "Outage Reports", adminOnly: false, ownerOnly: false },
+        { href: "/dependency-map", icon: Activity, label: "Dependency Map", adminOnly: false, ownerOnly: false },
         { href: "/predictions", icon: TrendingUp, label: "Predictions", adminOnly: false, ownerOnly: false, requiresEnterprise: true },
         { href: "/reports", icon: FileText, label: "Reports", adminOnly: false, ownerOnly: false, requiresGrowth: true },
         { href: "/automation", icon: Bot, label: "Automation", adminOnly: false, ownerOnly: false, requiresEssential: true },
