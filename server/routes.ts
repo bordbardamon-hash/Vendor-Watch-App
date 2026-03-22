@@ -9677,6 +9677,17 @@ ${postEntries}
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 
+  // DELETE /api/admin/twitter-bot/logs/skipped — clear all skipped (preview) log entries
+  app.delete("/api/admin/twitter-bot/logs/skipped", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!req.user?.isOwner && !req.user?.isAdmin) return res.status(403).json({ error: "Admin only" });
+      const { tweetLog: tl } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      await db.delete(tl).where(eq(tl.status, 'skipped'));
+      res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
   // POST /api/admin/twitter-bot/post/:incidentId — manual trigger
   app.post("/api/admin/twitter-bot/post/:incidentId", isAuthenticated, async (req: any, res) => {
     try {

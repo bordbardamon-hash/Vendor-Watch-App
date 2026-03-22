@@ -217,10 +217,11 @@ async function hasResolvedTweet(incidentId: string): Promise<boolean> {
 }
 
 async function lastTweetTime(incidentId: string): Promise<Date | null> {
-  // Include both 'posted' and 'failed' attempts so failed attempts trigger the cooloff period
+  // Include 'posted', 'failed', and 'skipped' so preview mode also triggers the 30-min cooloff
+  // and doesn't flood the log with an entry every 2 minutes for the same incident
   const rows = await db.select({ postedAt: tweetLog.postedAt })
     .from(tweetLog)
-    .where(and(eq(tweetLog.incidentId, incidentId), inArray(tweetLog.status, ['posted', 'failed'])))
+    .where(and(eq(tweetLog.incidentId, incidentId), inArray(tweetLog.status, ['posted', 'failed', 'skipped'])))
     .orderBy(desc(tweetLog.postedAt))
     .limit(1);
   if (rows.length === 0) return null;

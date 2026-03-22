@@ -103,6 +103,15 @@ export default function TwitterBotPage() {
     onError: (e: any) => toast({ title: "Failed to clear", description: e.message, variant: "destructive" }),
   });
 
+  const clearSkippedMutation = useMutation({
+    mutationFn: () => apiRequest("DELETE", "/api/admin/twitter-bot/logs/skipped").then(r => r.json()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/twitter-bot/logs"] });
+      toast({ title: "Cleared", description: "All preview/skipped log entries have been removed." });
+    },
+    onError: (e: any) => toast({ title: "Failed to clear", description: e.message, variant: "destructive" }),
+  });
+
   async function sendTestTweet() {
     setTestTweetPending(true);
     try {
@@ -146,6 +155,7 @@ export default function TwitterBotPage() {
   const tweetsToday = (logs as any[]).filter(l => l.status === "posted" && new Date(l.postedAt).getTime() > now - 86400000).length;
   const tweetsThisHour = (logs as any[]).filter(l => l.status === "posted" && new Date(l.postedAt).getTime() > now - 3600000).length;
   const failedTotal = (logs as any[]).filter(l => l.status === "failed").length;
+  const skippedTotal = (logs as any[]).filter(l => l.status === "skipped").length;
 
   if (settingsLoading) {
     return (
@@ -388,6 +398,19 @@ export default function TwitterBotPage() {
               <CardTitle className="text-base flex items-center gap-2 flex-wrap">
                 <Clock className="h-4 w-4 text-gray-400" /> Tweet Log
                 <Badge variant="secondary" className="ml-auto">{(logs as any[]).length} entries</Badge>
+                {skippedTotal > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-xs text-gray-400 hover:text-gray-300 hover:bg-gray-500/10"
+                    onClick={() => clearSkippedMutation.mutate()}
+                    disabled={clearSkippedMutation.isPending}
+                    data-testid="button-clear-skipped-logs"
+                  >
+                    <Trash2 className="h-3 w-3 mr-1" />
+                    Clear {skippedTotal} skipped
+                  </Button>
+                )}
                 {failedTotal > 0 && (
                   <Button
                     variant="ghost"
