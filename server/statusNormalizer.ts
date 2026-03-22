@@ -70,6 +70,8 @@ export function determineLifecycleEvent(
   currentSeverity: CanonicalSeverity,
   isNew: boolean
 ): LifecycleEvent {
+  // A brand-new incident that is already resolved is historical — don't notify
+  if (isNew && currentStatus === 'resolved') return 'update';
   if (currentStatus === 'resolved') return 'resolved';
   if (isNew) return 'new';
   
