@@ -9536,6 +9536,38 @@ ${postEntries}
     }
   });
 
+  app.post("/api/war-room/:incidentId/close", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user?.isOwner && !user?.isAdmin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      const warRoom = await storage.getWarRoom(req.params.incidentId);
+      if (!warRoom) return res.status(404).json({ error: "War room not found" });
+      if (warRoom.status === 'closed') return res.status(409).json({ error: "War room is already closed" });
+
+      await storage.closeWarRoom(warRoom.id);
+      await storage.updateIncident(warRoom.incidentId, { status: 'resolved' });
+
+      await storage.createWarRoomPost({
+        warRoomId: warRoom.id,
+        userId: null,
+        content: `War Room closed by ${user.email || 'admin'}.`,
+        detail: null,
+        isSystemUpdate: true,
+      });
+
+      const { broadcastToRoom } = await import('./warRoomWebSocket');
+      broadcastToRoom(warRoom.id, { type: 'war_room_closed' });
+
+      console.log(`[war-room] Manually closed war room ${warRoom.id} for ${warRoom.vendorName} by ${user.email}`);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error closing war room:", error);
+      res.status(500).json({ error: "Failed to close war room" });
+    }
+  });
+
   // ── Web3 Health Routes (public, 30s server-side cache) ──────────────
   app.get("/api/web3-health/summary", async (_req, res) => {
     try {

@@ -11,7 +11,7 @@ import { LogoAvatar } from "@/components/ui/logo-avatar";
 import {
   AlertTriangle, Shield, Copy, Check, Download, Users, ArrowUp,
   Send, Wifi, WifiOff, Clock, ExternalLink, Lock, ChevronDown,
-  ChevronUp, Zap, Bot
+  ChevronUp, Zap, Bot, XCircle
 } from "lucide-react";
 
 interface WarRoom {
@@ -168,6 +168,7 @@ export default function WarRoomPage() {
   const [showDetail, setShowDetail] = useState(false);
   const [copiedSummary, setCopiedSummary] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
+  const [confirmClose, setConfirmClose] = useState(false);
   const [userUpvotes, setUserUpvotes] = useState<Set<string>>(new Set());
   const feedRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -278,6 +279,23 @@ export default function WarRoomPage() {
     },
   });
 
+  const closeMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/war-room/${incidentId}/close`, { method: "POST" });
+      if (!res.ok) {
+        const e = await res.json();
+        throw new Error(e.error || "Failed to close war room");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      setConfirmClose(false);
+      queryClient.invalidateQueries({ queryKey: [`/api/war-room/${incidentId}`] });
+      toast({ title: "War Room Closed", description: "The incident has been resolved and the war room is now archived." });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   const copyClientSummary = useCallback(() => {
     if (!data) return;
     const { warRoom, incident } = data;
@@ -357,6 +375,42 @@ export default function WarRoomPage() {
           <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs" onClick={exportLog} data-testid="button-export-log">
             <Download className="w-3 h-3" />Export Log
           </Button>
+          {!isClosed && (user?.isOwner || user?.isAdmin) && (
+            confirmClose ? (
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-muted-foreground">Close war room?</span>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  className="h-7 gap-1.5 text-xs"
+                  onClick={() => closeMutation.mutate()}
+                  disabled={closeMutation.isPending}
+                  data-testid="button-confirm-close-war-room"
+                >
+                  {closeMutation.isPending ? "Closing…" : "Confirm"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={() => setConfirmClose(false)}
+                  data-testid="button-cancel-close-war-room"
+                >
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1.5 text-xs text-red-500 border-red-500/30 hover:bg-red-500/10 hover:text-red-400"
+                onClick={() => setConfirmClose(true)}
+                data-testid="button-close-war-room"
+              >
+                <XCircle className="w-3 h-3" />Close War Room
+              </Button>
+            )
+          )}
         </div>
       </div>
 
