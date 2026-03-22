@@ -9516,6 +9516,27 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 
+  // GET /api/admin/twitter-bot/creds — check if env vars are set
+  app.get("/api/admin/twitter-bot/creds", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!req.user?.isOwner && !req.user?.isAdmin) return res.status(403).json({ error: "Admin only" });
+      const allSet = !!(process.env.TWITTER_API_KEY && process.env.TWITTER_API_SECRET &&
+        process.env.TWITTER_ACCESS_TOKEN && process.env.TWITTER_ACCESS_TOKEN_SECRET);
+      res.json({ allSet });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  // POST /api/admin/twitter-bot/test — send a real test tweet
+  app.post("/api/admin/twitter-bot/test", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!req.user?.isOwner && !req.user?.isAdmin) return res.status(403).json({ error: "Admin only" });
+      const { postTweet } = await import('./twitterBotService');
+      const text = `VendorWatch Bot connection test — ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC. Monitoring 400+ vendors for outages. vendorwatch.app`;
+      const result = await postTweet(text);
+      res.json(result);
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
   // GET /api/admin/twitter-bot/preview/:incidentId — compose without posting
   app.get("/api/admin/twitter-bot/preview/:incidentId", isAuthenticated, async (req: any, res) => {
     try {

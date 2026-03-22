@@ -52,10 +52,17 @@ export default function TwitterBotPage() {
   const [previewDialogContent, setPreviewDialogContent] = useState<string | null>(null);
   const [newExcludeVendor, setNewExcludeVendor] = useState("");
 
+  const [testTweetPending, setTestTweetPending] = useState(false);
+
   const { data: settings, isLoading: settingsLoading } = useQuery<any>({
     queryKey: ["/api/admin/twitter-bot/settings"],
     queryFn: () => apiRequest("GET", "/api/admin/twitter-bot/settings").then(r => r.json()),
     refetchInterval: 30000,
+  });
+
+  const { data: creds } = useQuery<{ allSet: boolean }>({
+    queryKey: ["/api/admin/twitter-bot/creds"],
+    queryFn: () => apiRequest("GET", "/api/admin/twitter-bot/creds").then(r => r.json()),
   });
 
   const { data: logs = [], isLoading: logsLoading, refetch: refetchLogs } = useQuery<any[]>({
@@ -87,6 +94,24 @@ export default function TwitterBotPage() {
     onError: (e: any) => toast({ title: "Failed", description: e.message, variant: "destructive" }),
   });
 
+  async function sendTestTweet() {
+    setTestTweetPending(true);
+    try {
+      const res = await apiRequest("POST", "/api/admin/twitter-bot/test");
+      const data = await res.json();
+      if (data.tweetId) {
+        toast({ title: "Test tweet posted!", description: `Tweet ID: ${data.tweetId} — check @vendorwatch on X.` });
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/twitter-bot/logs"] });
+      } else {
+        toast({ title: "Test failed", description: data.error || "Unknown error", variant: "destructive" });
+      }
+    } catch (e: any) {
+      toast({ title: "Test failed", description: e.message, variant: "destructive" });
+    } finally {
+      setTestTweetPending(false);
+    }
+  }
+
   function patchSetting(key: string, value: any) {
     updateMutation.mutate({ [key]: value });
   }
@@ -112,8 +137,6 @@ export default function TwitterBotPage() {
   const tweetsToday = (logs as any[]).filter(l => l.status === "posted" && new Date(l.postedAt).getTime() > now - 86400000).length;
   const tweetsThisHour = (logs as any[]).filter(l => l.status === "posted" && new Date(l.postedAt).getTime() > now - 3600000).length;
   const failedTotal = (logs as any[]).filter(l => l.status === "failed").length;
-
-  const credsSet = true; // We can't check env vars from the frontend — show a hint instead
 
   if (settingsLoading) {
     return (
@@ -141,17 +164,40 @@ export default function TwitterBotPage() {
         </Button>
       </div>
 
-      {/* Credentials banner */}
-      <Card className="border-yellow-500/30 bg-yellow-500/5">
-        <CardContent className="pt-4 pb-4 flex items-start gap-3">
-          <Info className="h-4 w-4 text-yellow-400 mt-0.5 shrink-0" />
-          <div className="text-sm text-yellow-200 space-y-1">
-            <p>Configure these four environment variables to enable live posting:</p>
-            <code className="text-xs text-yellow-300 block">TWITTER_API_KEY · TWITTER_API_SECRET · TWITTER_ACCESS_TOKEN · TWITTER_ACCESS_TOKEN_SECRET</code>
-            <p className="text-xs text-yellow-400">Apply for X API Elevated access at developer.twitter.com for higher rate limits.</p>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Credentials banner — only shown if creds are missing */}
+      {creds && !creds.allSet && (
+        <Card className="border-yellow-500/30 bg-yellow-500/5">
+          <CardContent className="pt-4 pb-4 flex items-start gap-3">
+            <Info className="h-4 w-4 text-yellow-400 mt-0.5 shrink-0" />
+            <div className="text-sm text-yellow-200 space-y-1">
+              <p>Configure these four environment variables to enable live posting:</p>
+              <code className="text-xs text-yellow-300 block">TWITTER_API_KEY · TWITTER_API_SECRET · TWITTER_ACCESS_TOKEN · TWITTER_ACCESS_TOKEN_SECRET</code>
+              <p className="text-xs text-yellow-400">Apply for X API Elevated access at developer.twitter.com for higher rate limits.</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      {creds?.allSet && (
+        <Card className="border-green-500/30 bg-green-500/5">
+          <CardContent className="pt-4 pb-4 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <CheckCircle2 className="h-4 w-4 text-green-400 shrink-0" />
+              <span className="text-sm text-green-200">All 4 API credentials are configured and ready.</span>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-sky-500/40 text-sky-300 hover:bg-sky-500/10 shrink-0"
+              onClick={sendTestTweet}
+              disabled={testTweetPending}
+              data-testid="button-send-test-tweet"
+            >
+              {testTweetPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
+              Send Test Tweet
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stats row */}
       <div className="grid grid-cols-4 gap-3">

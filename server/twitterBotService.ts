@@ -67,7 +67,7 @@ const TWEET_URL = 'https://api.twitter.com/2/tweets';
 
 interface PostTweetResult { tweetId: string | null; error: string | null }
 
-async function postTweet(text: string, replyToId?: string): Promise<PostTweetResult> {
+export async function postTweet(text: string, replyToId?: string): Promise<PostTweetResult> {
   const body: Record<string, any> = { text };
   if (replyToId) body.reply = { in_reply_to_tweet_id: replyToId };
 
