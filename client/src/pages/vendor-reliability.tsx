@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -130,6 +130,28 @@ export default function VendorReliability() {
   const [category, setCategory] = useState("All Categories");
   const [page, setPage] = useState(1);
 
+  // SEO: set page title and inject JSON-LD structured data
+  useEffect(() => {
+    const prev = document.title;
+    document.title = "Vendor Reliability Scores — Real-Time Uptime & Incident Leaderboard | VendorWatch";
+
+    // Add meta description
+    let metaEl = document.querySelector('meta[name="description"]') as HTMLMetaElement | null;
+    const prevDesc = metaEl?.content ?? "";
+    if (!metaEl) {
+      metaEl = document.createElement("meta");
+      metaEl.name = "description";
+      document.head.appendChild(metaEl);
+    }
+    metaEl.content =
+      "Real-time reliability scores for 400+ cloud, SaaS, and AI vendors. Ranked by uptime, MTTR, incident frequency, and severity. Updated nightly by VendorWatch.";
+
+    return () => {
+      document.title = prev;
+      if (metaEl) metaEl.content = prevDesc;
+    };
+  }, []);
+
   const { data, isLoading } = useQuery<LeaderboardResponse>({
     queryKey: ["/api/vendors/leaderboard", page, category],
     queryFn: async () => {
@@ -141,6 +163,33 @@ export default function VendorReliability() {
     },
     staleTime: 5 * 60 * 1000,
   });
+
+  // Inject JSON-LD ItemList structured data for SEO when data loads
+  useEffect(() => {
+    if (!data?.vendors?.length) return;
+    const existingScript = document.getElementById("leaderboard-jsonld");
+    if (existingScript) existingScript.remove();
+    const script = document.createElement("script");
+    script.id = "leaderboard-jsonld";
+    script.type = "application/ld+json";
+    script.text = JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      "name": "Vendor Reliability Leaderboard — VendorWatch",
+      "description": "Real-time reliability scores for 400+ cloud, SaaS, and AI vendors ranked by uptime, MTTR, incident frequency, and severity.",
+      "url": "https://vendorwatch.app/vendor-reliability",
+      "numberOfItems": data.total,
+      "itemListElement": data.vendors.slice(0, 20).map((v, i) => ({
+        "@type": "ListItem",
+        "position": i + 1,
+        "name": `${v.vendorName} Reliability Score`,
+        "description": `${v.vendorName} has a reliability score of ${v.score}/100. Uptime: ${v.uptimePercent.toFixed(2)}%. Badge: ${v.badge}.`,
+        "url": `https://vendorwatch.app/vendor-reliability`,
+      })),
+    });
+    document.head.appendChild(script);
+    return () => { script.remove(); };
+  }, [data]);
 
   const filtered = (data?.vendors || []).filter(v =>
     search === "" || v.vendorName.toLowerCase().includes(search.toLowerCase())

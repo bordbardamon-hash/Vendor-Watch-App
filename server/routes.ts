@@ -9166,12 +9166,13 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
   app.patch("/api/blog/posts/:id", isAuthenticated, async (req: any, res) => {
     try {
       const { updateBlogPost } = await import('./blogService');
-      const { status, title, body, metaDescription } = req.body;
+      const { status, title, body, metaDescription, confidenceScore } = req.body;
       const allowed: any = {};
       if (status !== undefined) allowed.status = status;
       if (title !== undefined) allowed.title = title;
       if (body !== undefined) allowed.body = body;
       if (metaDescription !== undefined) allowed.metaDescription = metaDescription;
+      if (confidenceScore !== undefined) allowed.confidenceScore = confidenceScore;
       const updated = await updateBlogPost(req.params.id, allowed);
       res.json(updated);
     } catch (error: any) {

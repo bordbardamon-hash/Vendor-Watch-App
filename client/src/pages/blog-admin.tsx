@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { LogoAvatar } from "@/components/ui/logo-avatar";
 import {
   CheckCircle2, Clock, Eye, Edit2, Send, AlertTriangle,
-  FileText, Calendar, ExternalLink, ChevronDown, ChevronUp, RefreshCw
+  FileText, Calendar, ExternalLink, ChevronDown, ChevronUp, RefreshCw, Star
 } from "lucide-react";
 import type { BlogPost } from "@shared/schema";
 
@@ -38,9 +38,42 @@ function formatDuration(minutes: number | null): string {
 interface DraftCardProps {
   post: BlogPost;
   onPublish: (id: string) => void;
-  onSave: (id: string, updates: { title: string; body: string; metaDescription: string }) => void;
+  onSave: (id: string, updates: { title: string; body: string; metaDescription: string; confidenceScore?: number }) => void;
   isPublishing: boolean;
   isSaving: boolean;
+}
+
+function ConfidenceStars({ value, onChange }: { value: number | null; onChange: (v: number) => void }) {
+  const [hovered, setHovered] = useState(0);
+  const labels = ["", "Poor", "Fair", "Good", "Great", "Excellent"];
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-xs text-muted-foreground">Output quality:</span>
+      {[1, 2, 3, 4, 5].map(n => (
+        <button
+          key={n}
+          type="button"
+          onMouseEnter={() => setHovered(n)}
+          onMouseLeave={() => setHovered(0)}
+          onClick={() => onChange(n)}
+          className="focus:outline-none"
+          title={labels[n]}
+          data-testid={`star-${n}`}
+        >
+          <Star
+            className={`w-4 h-4 transition-colors ${
+              n <= (hovered || value || 0)
+                ? "text-amber-400 fill-amber-400"
+                : "text-muted-foreground"
+            }`}
+          />
+        </button>
+      ))}
+      {(hovered || value) ? (
+        <span className="text-xs text-muted-foreground">{labels[hovered || value!]}</span>
+      ) : null}
+    </div>
+  );
 }
 
 function DraftCard({ post, onPublish, onSave, isPublishing, isSaving }: DraftCardProps) {
@@ -49,6 +82,7 @@ function DraftCard({ post, onPublish, onSave, isPublishing, isSaving }: DraftCar
   const [title, setTitle] = useState(post.title);
   const [body, setBody] = useState(post.body);
   const [meta, setMeta] = useState(post.metaDescription);
+  const [confidence, setConfidence] = useState<number | null>(post.confidenceScore ?? null);
   const [, setLocation] = useLocation();
 
   return (
@@ -122,6 +156,16 @@ function DraftCard({ post, onPublish, onSave, isPublishing, isSaving }: DraftCar
               </div>
             )}
 
+            <div className="mb-3">
+              <ConfidenceStars
+                value={confidence}
+                onChange={v => {
+                  setConfidence(v);
+                  onSave(post.id, { title, body, metaDescription: meta, confidenceScore: v });
+                }}
+              />
+            </div>
+
             <div className="flex items-center gap-2 flex-wrap">
               {editing ? (
                 <>
@@ -129,7 +173,7 @@ function DraftCard({ post, onPublish, onSave, isPublishing, isSaving }: DraftCar
                     size="sm"
                     className="h-7 text-xs gap-1"
                     onClick={() => {
-                      onSave(post.id, { title, body, metaDescription: meta });
+                      onSave(post.id, { title, body, metaDescription: meta, confidenceScore: confidence ?? undefined });
                       setEditing(false);
                     }}
                     disabled={isSaving}

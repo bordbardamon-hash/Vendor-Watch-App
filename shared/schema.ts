@@ -1675,6 +1675,7 @@ export const blogPosts = pgTable("blog_posts", {
   affectedComponents: text("affected_components"),      // comma-separated
   status: text("status").notNull().default("draft"),    // draft | published
   promptVersion: text("prompt_version").notNull().default("v2"),  // tracks prompt version
+  confidenceScore: integer("confidence_score"),          // 1-5, filled in by owner after review
   publishedAt: timestamp("published_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
