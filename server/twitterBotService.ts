@@ -11,7 +11,7 @@ import {
   incidents, blockchainIncidents, vendors, blockchainChains,
   userVendorSubscriptions, tweetLog, twitterBotSettings, blogPosts,
 } from '@shared/schema';
-import { eq, and, ne, gte, sql, inArray } from 'drizzle-orm';
+import { eq, and, ne, gte, sql, inArray, desc } from 'drizzle-orm';
 
 // ── In-memory tweet rate limit tracker ───────────────────────────────
 
@@ -216,13 +216,21 @@ async function hasResolvedTweet(incidentId: string): Promise<boolean> {
 }
 
 async function lastTweetTime(incidentId: string): Promise<Date | null> {
+  // Include both 'posted' and 'failed' attempts so failed attempts trigger the cooloff period
   const rows = await db.select({ postedAt: tweetLog.postedAt })
     .from(tweetLog)
-    .where(and(eq(tweetLog.incidentId, incidentId), eq(tweetLog.status, 'posted')))
-    .orderBy(tweetLog.postedAt)
+    .where(and(eq(tweetLog.incidentId, incidentId), inArray(tweetLog.status, ['posted', 'failed'])))
+    .orderBy(desc(tweetLog.postedAt))
     .limit(1);
   if (rows.length === 0) return null;
-  return rows[rows.length - 1]?.postedAt || null;
+  return rows[0]?.postedAt || null;
+}
+
+async function countFailedAttempts(incidentId: string): Promise<number> {
+  const rows = await db.select({ id: tweetLog.id })
+    .from(tweetLog)
+    .where(and(eq(tweetLog.incidentId, incidentId), eq(tweetLog.status, 'failed'), eq(tweetLog.tweetType, 'detected')));
+  return rows.length;
 }
 
 async function logTweet(opts: {
@@ -400,6 +408,13 @@ export async function runTwitterBotCycle(): Promise<void> {
     const existing = await getDetectedTweetId(inc.incidentId);
     if (existing) continue;
 
+    // Skip if too many failed attempts (max 5 retries per incident)
+    const failedAttempts = await countFailedAttempts(inc.incidentId);
+    if (failedAttempts >= 5) {
+      console.log(`[twitter-bot] Skipping ${inc.vendorKey}: ${failedAttempts} failed attempts, giving up`);
+      continue;
+    }
+
     // Check monitor count
     const monitorCount = await getMonitorCount(inc.vendorKey);
     if (monitorCount < settings.minMonitorCount) {
@@ -490,6 +505,13 @@ export async function runTwitterBotCycle(): Promise<void> {
 
     const existingTweet = await getDetectedTweetId(inc.id);
     if (existingTweet) continue;
+
+    // Skip if too many failed attempts (max 5 retries per incident)
+    const failedAttempts = await countFailedAttempts(inc.id);
+    if (failedAttempts >= 5) {
+      console.log(`[twitter-bot] Skipping blockchain ${inc.chainKey}: ${failedAttempts} failed attempts, giving up`);
+      continue;
+    }
 
     const chainInfo = await db.select({ name: blockchainChains.name, symbol: blockchainChains.symbol })
       .from(blockchainChains).where(eq(blockchainChains.key, inc.chainKey)).limit(1);

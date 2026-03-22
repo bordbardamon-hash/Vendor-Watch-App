@@ -94,6 +94,15 @@ export default function TwitterBotPage() {
     onError: (e: any) => toast({ title: "Failed", description: e.message, variant: "destructive" }),
   });
 
+  const clearFailedMutation = useMutation({
+    mutationFn: () => apiRequest("DELETE", "/api/admin/twitter-bot/logs/failed").then(r => r.json()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/twitter-bot/logs"] });
+      toast({ title: "Cleared", description: "All failed log entries have been removed." });
+    },
+    onError: (e: any) => toast({ title: "Failed to clear", description: e.message, variant: "destructive" }),
+  });
+
   async function sendTestTweet() {
     setTestTweetPending(true);
     try {
@@ -363,9 +372,22 @@ export default function TwitterBotPage() {
         <div>
           <Card className="border-gray-700 h-full">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
+              <CardTitle className="text-base flex items-center gap-2 flex-wrap">
                 <Clock className="h-4 w-4 text-gray-400" /> Tweet Log
                 <Badge variant="secondary" className="ml-auto">{(logs as any[]).length} entries</Badge>
+                {failedTotal > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                    onClick={() => clearFailedMutation.mutate()}
+                    disabled={clearFailedMutation.isPending}
+                    data-testid="button-clear-failed-logs"
+                  >
+                    <Trash2 className="h-3 w-3 mr-1" />
+                    Clear {failedTotal} failed
+                  </Button>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
