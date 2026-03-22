@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { LogoAvatar } from "@/components/ui/logo-avatar";
 import {
   CheckCircle2, Clock, Eye, Edit2, Send, AlertTriangle,
-  FileText, Calendar, ExternalLink, ChevronDown, ChevronUp, RefreshCw, Star
+  FileText, Calendar, ExternalLink, ChevronDown, ChevronUp, RefreshCw, Star, Trash2
 } from "lucide-react";
 import type { BlogPost } from "@shared/schema";
 
@@ -39,8 +39,10 @@ interface DraftCardProps {
   post: BlogPost;
   onPublish: (id: string) => void;
   onSave: (id: string, updates: { title: string; body: string; metaDescription: string; confidenceScore?: number }) => void;
+  onDelete: (id: string) => void;
   isPublishing: boolean;
   isSaving: boolean;
+  isDeleting: boolean;
 }
 
 function ConfidenceStars({ value, onChange }: { value: number | null; onChange: (v: number) => void }) {
@@ -76,9 +78,10 @@ function ConfidenceStars({ value, onChange }: { value: number | null; onChange: 
   );
 }
 
-function DraftCard({ post, onPublish, onSave, isPublishing, isSaving }: DraftCardProps) {
+function DraftCard({ post, onPublish, onSave, onDelete, isPublishing, isSaving, isDeleting }: DraftCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [title, setTitle] = useState(post.title);
   const [body, setBody] = useState(post.body);
   const [meta, setMeta] = useState(post.metaDescription);
@@ -228,6 +231,42 @@ function DraftCard({ post, onPublish, onSave, isPublishing, isSaving }: DraftCar
                     <Eye className="w-3 h-3" />
                     Preview
                   </Button>
+                  {confirmDelete ? (
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs text-muted-foreground">Delete this draft?</span>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="h-7 text-xs gap-1"
+                        onClick={() => onDelete(post.id)}
+                        disabled={isDeleting}
+                        data-testid={`button-confirm-delete-${post.id}`}
+                      >
+                        {isDeleting ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                        Delete
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={() => setConfirmDelete(false)}
+                        data-testid={`button-cancel-delete-${post.id}`}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs gap-1 text-muted-foreground hover:text-red-500"
+                      onClick={() => setConfirmDelete(true)}
+                      data-testid={`button-delete-${post.id}`}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      Delete
+                    </Button>
+                  )}
                 </>
               )}
             </div>
@@ -292,6 +331,22 @@ export default function BlogAdminPage() {
     },
     onSuccess: () => {
       toast({ title: "Saved", description: "Changes saved to draft." });
+      queryClient.invalidateQueries({ queryKey: ["/api/blog/queue"] });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/blog/posts/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const e = await res.json();
+        throw new Error(e.error || "Failed to delete");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Draft deleted", description: "The draft has been permanently removed." });
       queryClient.invalidateQueries({ queryKey: ["/api/blog/queue"] });
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
@@ -379,8 +434,10 @@ export default function BlogAdminPage() {
                 post={post}
                 onPublish={(id) => publishMutation.mutate(id)}
                 onSave={(id, updates) => saveMutation.mutate({ id, updates })}
+                onDelete={(id) => deleteMutation.mutate(id)}
                 isPublishing={publishMutation.isPending}
                 isSaving={saveMutation.isPending}
+                isDeleting={deleteMutation.isPending}
               />
             ))}
           </div>

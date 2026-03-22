@@ -1,7 +1,7 @@
 import type { Express, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertVendorSchema, insertIncidentSchema, insertJobSchema, insertConfigSchema, insertFeedbackSchema, insertNotificationConsentSchema, insertCustomVendorRequestSchema, SUBSCRIPTION_TIERS, incidents, vendors } from "@shared/schema";
+import { insertVendorSchema, insertIncidentSchema, insertJobSchema, insertConfigSchema, insertFeedbackSchema, insertNotificationConsentSchema, insertCustomVendorRequestSchema, SUBSCRIPTION_TIERS, incidents, vendors, blogPosts } from "@shared/schema";
 import { setupEmailAuth, isAuthenticated as emailIsAuthenticated } from "./emailAuth";
 import { registerAuthRoutes } from "./replit_integrations/auth";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
@@ -9180,6 +9180,27 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
     } catch (error: any) {
       console.error("Error updating blog post:", error);
       res.status(500).json({ error: error.message || "Failed to update post" });
+    }
+  });
+
+  // DELETE /api/blog/posts/:id — permanently delete a draft (owner/admin only)
+  app.delete("/api/blog/posts/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user?.isOwner && !user?.isAdmin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      const [post] = await db.select().from(blogPosts).where(eq(blogPosts.id, req.params.id)).limit(1);
+      if (!post) return res.status(404).json({ error: "Post not found" });
+      if (post.status === 'published') {
+        return res.status(409).json({ error: "Cannot delete a published post. Revert to draft first." });
+      }
+      await db.delete(blogPosts).where(eq(blogPosts.id, req.params.id));
+      console.log(`[blog] Draft deleted: ${post.title} (${post.id}) by ${user.email}`);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting blog post:", error);
+      res.status(500).json({ error: "Failed to delete post" });
     }
   });
 
