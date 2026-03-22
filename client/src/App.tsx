@@ -166,6 +166,7 @@ function AuthenticatedRouter() {
         <Route path="/admin/twitter-bot" component={TwitterBot} />
         <Route path="/web3-health" component={Web3Health} />
         <Route path="/dependency-map" component={DependencyMap} />
+        <Route path="/vendor-reliability" component={VendorReliability} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
@@ -209,7 +210,6 @@ function Router() {
       <Route path="/pricing" component={Pricing} />
       <Route path="/accept-invite/:token" component={AcceptInvite} />
       <Route path="/status/:slug" component={PublicPortal} />
-      <Route path="/vendor-reliability" component={VendorReliability} />
       <Route path="/war-room/:incidentId" component={WarRoom} />
       <Route path="/web3-health/widget" component={Web3HealthWidget} />
       <Route path="/settings/alert-rules" component={AlertRules} />
