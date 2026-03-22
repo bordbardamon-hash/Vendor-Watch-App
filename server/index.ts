@@ -505,6 +505,20 @@ app.use((req, res, next) => {
         setInterval(runScoreCalculation, SCORE_INTERVAL_MS);
         console.log('[scores] Vendor reliability scores: first run in 2 minutes, then every 24 hours');
 
+        // Alert rule evaluation — every 2 minutes
+        const ALERT_EVAL_INTERVAL_MS = 2 * 60 * 1000;
+        const runAlertEvaluation = async () => {
+          try {
+            const { evaluateAllRules } = await import('./alertRuleService');
+            await evaluateAllRules();
+          } catch (err) {
+            console.error('[alert-rules] Evaluation failed:', err);
+          }
+        };
+        setTimeout(runAlertEvaluation, 30 * 1000); // first run 30s after startup
+        setInterval(runAlertEvaluation, ALERT_EVAL_INTERVAL_MS);
+        console.log('[alert-rules] Rule evaluation engine: first run in 30s, then every 2 minutes');
+
         const PROBE_INTERVAL_MS = 60 * 1000;
         setInterval(async () => {
           try {

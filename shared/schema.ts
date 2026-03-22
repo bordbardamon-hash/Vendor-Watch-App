@@ -1661,6 +1661,52 @@ export type WarRoomParticipant = typeof warRoomParticipants.$inferSelect;
 export type WarRoomUpvote = typeof warRoomUpvotes.$inferSelect;
 
 // ===== Outage Blog Posts =====
+// ── Alert Rules (IFTTT rule builder) ─────────────────────────────────
+export const alertRules = pgTable("alert_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: text("user_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  status: text("status").notNull().default("active"),     // active | paused
+  cooldownMinutes: integer("cooldown_minutes").notNull().default(30),
+  lastFiredAt: timestamp("last_fired_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const alertConditions = pgTable("alert_conditions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ruleId: varchar("rule_id").notNull(),                   // FK → alert_rules.id
+  conditionType: text("condition_type").notNull(),
+  params: text("params").notNull().default("{}"),         // JSON string
+  position: integer("position").notNull().default(0),
+});
+
+export const alertActions = pgTable("alert_actions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ruleId: varchar("rule_id").notNull(),                   // FK → alert_rules.id
+  actionType: text("action_type").notNull(),
+  params: text("params").notNull().default("{}"),         // JSON string
+  position: integer("position").notNull().default(0),
+});
+
+export const alertRuleLogs = pgTable("alert_rule_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ruleId: varchar("rule_id").notNull(),
+  evaluatedAt: timestamp("evaluated_at").notNull().defaultNow(),
+  fired: boolean("fired").notNull().default(false),
+  conditionsResult: text("conditions_result"),            // JSON
+  actionsTriggered: text("actions_triggered"),            // JSON
+  error: text("error"),
+});
+
+export const insertAlertRuleSchema = createInsertSchema(alertRules).omit({ id: true, createdAt: true, updatedAt: true, lastFiredAt: true });
+export type InsertAlertRule = z.infer<typeof insertAlertRuleSchema>;
+export type AlertRule = typeof alertRules.$inferSelect;
+export type AlertCondition = typeof alertConditions.$inferSelect;
+export type AlertAction = typeof alertActions.$inferSelect;
+export type AlertRuleLog = typeof alertRuleLogs.$inferSelect;
+
 // ── Dependency Map ────────────────────────────────────────────────────
 export const dependencyEdges = pgTable("dependency_edges", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

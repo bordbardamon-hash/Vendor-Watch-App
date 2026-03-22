@@ -1,0 +1,102 @@
+Build a Custom Alerting Logic (If-This-Then-That) rule builder for VendorWatch.
+ 
+OVERVIEW
+Users create rules with one or more conditions and one or more actions.
+Rules are evaluated every 2 minutes against live incident data.
+A rule fires when ALL its conditions are true simultaneously.
+ 
+CONDITION TYPES — support all of these:
+ 
+ VENDOR / CHAIN STATUS
+   Vendor [X] status is [operational | degraded | outage]
+   Vendor [X] has active incident with severity [P1 | P2 | P3]
+   Vendor [X] has had [N+] incidents in the last [7 | 14 | 30] days
+ 
+ MULTI-VENDOR / LOGICAL
+   Vendor [X] AND Vendor [Y] are both degraded simultaneously
+   Vendor [X] OR Vendor [Y] has an active P1 incident
+   Any vendor in my watchlist is experiencing an outage
+ 
+ BLOCKCHAIN-SPECIFIC
+   Chain [X] block time exceeds [N] seconds
+   Chain [X] TPS drops below [N]
+   Chain [X] has had no new blocks for [N] minutes
+ 
+ TIME-BASED
+   Incident has been active for more than [N] minutes
+   Incident occurred during business hours [9am-6pm in timezone]
+   Day of week is [Monday-Friday | Weekend]
+ 
+ RELIABILITY SCORE
+   Vendor [X] reliability score drops below [N]
+   Vendor [X] reliability score changes by more than [N] points in 7 days
+ 
+ACTION TYPES — support all of these:
+ Send email to [address]
+ Send SMS to [phone number]  (via Twilio)
+ Send Slack message to [webhook URL]
+ Send webhook POST to [URL] with [custom payload template]
+ Create ticket in ConnectWise / Autotask / Kaseya / Syncro / HaloPSA
+   (use existing PSA integration if already connected)
+ Do nothing but log  (useful for testing)
+ 
+RULE BUILDER UI (/settings/alert-rules)
+- List view of all user's rules with: name, status (active/paused), last fired
+- 'Create Rule' button opens a step-by-step builder:
+ 
+ STEP 1 — NAME YOUR RULE
+   Text input for rule name (required)
+   Optional description
+ 
+ STEP 2 — SET CONDITIONS
+   Add condition button: dropdown to pick condition type, then fill in params
+   Multiple conditions joined by AND (all must be true to fire)
+   Show a plain-English preview: 'This rule fires when AWS is degraded
+   AND Cloudflare is degraded simultaneously'
+ 
+ STEP 3 — SET ACTIONS
+   Add action button: dropdown to pick action type, then fill in params
+   Multiple actions allowed (e.g. email + Slack + webhook)
+ 
+ STEP 4 — REVIEW & SAVE
+   Full summary of rule in plain English
+   Toggle: Active / Paused
+   'Test fire' button: manually trigger the actions right now to verify setup
+   Save button
+ 
+RULE EVALUATION ENGINE (backend)
+- Cron job every 2 minutes: load all active rules, evaluate each rule's conditions
+ against current vendor/chain statuses
+- Cooldown: after a rule fires, do not fire again for [cooldown period]
+ Default cooldown: 30 minutes (user-configurable per rule)
+- Log every evaluation: fired / not fired + which conditions passed/failed
+ 
+DATABASE SCHEMA
+ alert_rules:
+   id, user_id, name, description, status (active|paused),
+   cooldown_minutes, last_fired_at, created_at
+ 
+ alert_conditions:
+   id, rule_id, condition_type, params (JSONB), position
+ 
+ alert_actions:
+   id, rule_id, action_type, params (JSONB), position
+ 
+ alert_rule_logs:
+   id, rule_id, evaluated_at, fired (bool),
+   conditions_result (JSONB), actions_triggered (JSONB), error (text)
+ 
+API ENDPOINTS
+ GET    /api/alert-rules              list user's rules
+ POST   /api/alert-rules              create rule
+ GET    /api/alert-rules/:id          get single rule
+ PUT    /api/alert-rules/:id          update rule
+ DELETE /api/alert-rules/:id          delete rule
+ POST   /api/alert-rules/:id/test     manually fire actions now
+ GET    /api/alert-rules/:id/logs     evaluation history for this rule
+ PATCH  /api/alert-rules/:id/toggle   active <-> paused
+ 
+PLAN LIMITS
+ Essential: 3 active rules max, email action only
+ Growth:    10 active rules, all action types
+ Enterprise: unlimited rules, all action types, webhook templates

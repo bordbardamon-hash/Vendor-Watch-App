@@ -24,7 +24,6 @@ import {
   BookOpen,
   Smartphone,
   Settings2,
-  Globe,
   Ticket,
   TrendingUp,
   Webhook,
@@ -163,6 +162,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     {
       title: "Settings",
       items: [
+        { href: "/settings/alert-rules", icon: Bell, label: "Alert Rules", adminOnly: false, ownerOnly: false },
         { href: "/settings", icon: Settings, label: UI_LABELS.nav.config, adminOnly: false, ownerOnly: false },
         { href: "/team", icon: UsersRound, label: "Team", adminOnly: false, ownerOnly: false },
         { href: "/sso", icon: Lock, label: "SSO", adminOnly: false, ownerOnly: false, requiresEnterprise: true },

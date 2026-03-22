@@ -9477,6 +9477,213 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
   });
 
   // ============================================================
+  // ── Alert Rules (IFTTT rule builder) ─────────────────────────────────
+
+  // GET /api/alert-rules — list user's rules (with condition/action counts)
+  app.get("/api/alert-rules", isAuthenticated, async (req: any, res) => {
+    try {
+      const { alertRules: arTable, alertConditions: acTable, alertActions: aaTable } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const rules = await db.select().from(arTable).where(eq(arTable.userId, req.user.id));
+      const withDetails = await Promise.all(rules.map(async rule => {
+        const [conditions, actions] = await Promise.all([
+          db.select().from(acTable).where(eq(acTable.ruleId, rule.id)),
+          db.select().from(aaTable).where(eq(aaTable.ruleId, rule.id)),
+        ]);
+        return { ...rule, conditions, actions };
+      }));
+      res.json(withDetails);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/alert-rules — create rule (with conditions and actions)
+  app.post("/api/alert-rules", isAuthenticated, async (req: any, res) => {
+    try {
+      const { alertRules: arTable, alertConditions: acTable, alertActions: aaTable, SUBSCRIPTION_TIERS } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const { name, description, cooldownMinutes, conditions, actions, status } = req.body;
+      if (!name || !conditions || !actions) {
+        return res.status(400).json({ error: "name, conditions, and actions are required" });
+      }
+      // Plan limit check
+      const userTier = (req.user.subscriptionTier || 'free') as keyof typeof SUBSCRIPTION_TIERS;
+      const tierConfig = SUBSCRIPTION_TIERS[userTier];
+      const ruleLimitMap: Record<string, number | null> = { free: 0, essential: 3, growth: 10, enterprise: null };
+      const ruleLimit = ruleLimitMap[userTier] ?? null;
+      if (ruleLimit !== null) {
+        const existing = await db.select({ id: arTable.id }).from(arTable)
+          .where(eq(arTable.userId, req.user.id));
+        if (existing.length >= ruleLimit) {
+          return res.status(403).json({ error: `Your ${tierConfig?.name} plan allows up to ${ruleLimit} alert rules. Upgrade to add more.` });
+        }
+      }
+      // Action type limit check
+      const actionTypeAllowlist: Record<string, string[]> = {
+        free: ['log'],
+        essential: ['email', 'log'],
+        growth: ['email', 'sms', 'slack', 'webhook', 'log'],
+        enterprise: ['email', 'sms', 'slack', 'webhook', 'log'],
+      };
+      const allowedActions = actionTypeAllowlist[userTier] || ['log'];
+      for (const action of (actions as any[])) {
+        if (!allowedActions.includes(action.actionType)) {
+          return res.status(403).json({ error: `Action type '${action.actionType}' is not available on your ${tierConfig?.name} plan.` });
+        }
+      }
+      const [rule] = await db.insert(arTable).values({
+        userId: req.user.id,
+        name,
+        description: description || null,
+        cooldownMinutes: cooldownMinutes ?? 30,
+        status: status ?? 'active',
+      }).returning();
+      if (conditions.length > 0) {
+        await db.insert(acTable).values(
+          (conditions as any[]).map((c: any, i: number) => ({
+            ruleId: rule.id, conditionType: c.conditionType,
+            params: JSON.stringify(c.params || {}), position: i,
+          }))
+        );
+      }
+      if (actions.length > 0) {
+        await db.insert(aaTable).values(
+          (actions as any[]).map((a: any, i: number) => ({
+            ruleId: rule.id, actionType: a.actionType,
+            params: JSON.stringify(a.params || {}), position: i,
+          }))
+        );
+      }
+      const { getRuleWithDetails } = await import('./alertRuleService');
+      const full = await getRuleWithDetails(rule.id);
+      res.status(201).json(full);
+    } catch (err: any) {
+      console.error("Error creating alert rule:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/alert-rules/:id — get single rule with conditions and actions
+  app.get("/api/alert-rules/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const { getRuleWithDetails } = await import('./alertRuleService');
+      const rule = await getRuleWithDetails(req.params.id);
+      if (!rule || rule.userId !== req.user.id) return res.status(404).json({ error: "Not found" });
+      res.json(rule);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // PUT /api/alert-rules/:id — update rule (replaces conditions/actions)
+  app.put("/api/alert-rules/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const { alertRules: arTable, alertConditions: acTable, alertActions: aaTable } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const [existing] = await db.select().from(arTable).where(eq(arTable.id, req.params.id)).limit(1);
+      if (!existing || existing.userId !== req.user.id) return res.status(404).json({ error: "Not found" });
+      const { name, description, cooldownMinutes, conditions, actions, status } = req.body;
+      await db.update(arTable).set({
+        name: name ?? existing.name,
+        description: description ?? existing.description,
+        cooldownMinutes: cooldownMinutes ?? existing.cooldownMinutes,
+        status: status ?? existing.status,
+        updatedAt: new Date(),
+      }).where(eq(arTable.id, req.params.id));
+      if (conditions) {
+        await db.delete(acTable).where(eq(acTable.ruleId, req.params.id));
+        if (conditions.length > 0) {
+          await db.insert(acTable).values(
+            (conditions as any[]).map((c: any, i: number) => ({
+              ruleId: req.params.id, conditionType: c.conditionType,
+              params: JSON.stringify(c.params || {}), position: i,
+            }))
+          );
+        }
+      }
+      if (actions) {
+        await db.delete(aaTable).where(eq(aaTable.ruleId, req.params.id));
+        if (actions.length > 0) {
+          await db.insert(aaTable).values(
+            (actions as any[]).map((a: any, i: number) => ({
+              ruleId: req.params.id, actionType: a.actionType,
+              params: JSON.stringify(a.params || {}), position: i,
+            }))
+          );
+        }
+      }
+      const { getRuleWithDetails } = await import('./alertRuleService');
+      res.json(await getRuleWithDetails(req.params.id));
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // DELETE /api/alert-rules/:id
+  app.delete("/api/alert-rules/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const { alertRules: arTable, alertConditions: acTable, alertActions: aaTable, alertRuleLogs: arlTable } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const [existing] = await db.select({ id: arTable.id, userId: arTable.userId }).from(arTable).where(eq(arTable.id, req.params.id)).limit(1);
+      if (!existing || existing.userId !== req.user.id) return res.status(404).json({ error: "Not found" });
+      await db.delete(acTable).where(eq(acTable.ruleId, req.params.id));
+      await db.delete(aaTable).where(eq(aaTable.ruleId, req.params.id));
+      await db.delete(arlTable).where(eq(arlTable.ruleId, req.params.id));
+      await db.delete(arTable).where(eq(arTable.id, req.params.id));
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/alert-rules/:id/test — manually fire actions now
+  app.post("/api/alert-rules/:id/test", isAuthenticated, async (req: any, res) => {
+    try {
+      const { alertRules: arTable } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const [existing] = await db.select({ id: arTable.id, userId: arTable.userId }).from(arTable).where(eq(arTable.id, req.params.id)).limit(1);
+      if (!existing || existing.userId !== req.user.id) return res.status(404).json({ error: "Not found" });
+      const { testFireRule } = await import('./alertRuleService');
+      const result = await testFireRule(req.params.id);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/alert-rules/:id/logs — evaluation history
+  app.get("/api/alert-rules/:id/logs", isAuthenticated, async (req: any, res) => {
+    try {
+      const { alertRules: arTable, alertRuleLogs: arlTable } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const [existing] = await db.select({ id: arTable.id, userId: arTable.userId }).from(arTable).where(eq(arTable.id, req.params.id)).limit(1);
+      if (!existing || existing.userId !== req.user.id) return res.status(404).json({ error: "Not found" });
+      const logs = await db.select().from(arlTable).where(eq(arlTable.ruleId, req.params.id))
+        .orderBy(arlTable.evaluatedAt)
+        .limit(100);
+      res.json(logs.reverse());
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // PATCH /api/alert-rules/:id/toggle — active <-> paused
+  app.patch("/api/alert-rules/:id/toggle", isAuthenticated, async (req: any, res) => {
+    try {
+      const { alertRules: arTable } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const [existing] = await db.select().from(arTable).where(eq(arTable.id, req.params.id)).limit(1);
+      if (!existing || existing.userId !== req.user.id) return res.status(404).json({ error: "Not found" });
+      const newStatus = existing.status === 'active' ? 'paused' : 'active';
+      await db.update(arTable).set({ status: newStatus, updatedAt: new Date() }).where(eq(arTable.id, req.params.id));
+      res.json({ status: newStatus });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ============================================================
 
   return httpServer;
 }
