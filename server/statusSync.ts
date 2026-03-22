@@ -603,7 +603,9 @@ export async function syncVendorStatus(vendorKey?: string, limit?: number): Prom
         const activeIncidentIds = new Set(result.incidents.map((i: any) => String(i.id)));
         
         for (const existing of existingIncidents) {
-          if (!activeIncidentIds.has(String(existing.incidentId)) && existing.status !== 'resolved') {
+          // Never auto-resolve manually created incidents (created by the war room button)
+          const isManual = String(existing.incidentId).startsWith('manual-');
+          if (!isManual && !activeIncidentIds.has(String(existing.incidentId)) && existing.status !== 'resolved') {
             const previousStatus = existing.status;
             const previousSeverity = existing.severity;
             await storage.updateIncident(existing.id, { status: 'resolved' });
