@@ -571,6 +571,8 @@ export interface IStorage {
   getWarRoom(incidentId: string): Promise<any | undefined>;
   getWarRoomById(warRoomId: string): Promise<any | undefined>;
   getOpenWarRooms(): Promise<any[]>;
+  getAllWarRooms(): Promise<any[]>;
+  getClosedWarRooms(): Promise<any[]>;
   closeWarRoom(warRoomId: string): Promise<void>;
   createWarRoomPost(data: { warRoomId: string; userId: string | null; content: string; detail: string | null; isSystemUpdate: boolean }): Promise<any>;
   getWarRoomPosts(warRoomId: string): Promise<any[]>;
@@ -3984,6 +3986,14 @@ export class DatabaseStorage implements IStorage {
 
   async getOpenWarRooms(): Promise<any[]> {
     return db.select().from(warRooms).where(eq(warRooms.status, 'open'));
+  }
+
+  async getAllWarRooms(): Promise<any[]> {
+    return db.select().from(warRooms).orderBy(desc(warRooms.createdAt));
+  }
+
+  async getClosedWarRooms(): Promise<any[]> {
+    return db.select().from(warRooms).where(eq(warRooms.status, 'closed')).orderBy(desc(warRooms.closedAt));
   }
 
   async closeWarRoom(warRoomId: string): Promise<void> {

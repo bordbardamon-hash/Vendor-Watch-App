@@ -1,10 +1,16 @@
 import { db } from './db';
 import { storage } from './storage';
-import { warRooms, warRoomPosts, warRoomParticipants } from '@shared/schema';
+import { warRooms, warRoomPosts, warRoomParticipants, incidents, vendors } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
 import { sendEmail } from './emailClient';
 import type { Incident, Vendor } from '@shared/schema';
 import { broadcastToRoom } from './warRoomWebSocket';
+import OpenAI from 'openai';
+
+const openai = new OpenAI({
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+});
 
 const NOTIFICATIONS_ENABLED = process.env.NODE_ENV === 'production' || process.env.ENABLE_NOTIFICATIONS === 'true';
 const APP_URL = process.env.APP_URL || 'http://localhost:5000';
@@ -84,6 +90,10 @@ export async function handleIncidentResolved(incidentId: string): Promise<void> 
         detail: null,
         isSystemUpdate: true,
       });
+      // Generate AI summaries after closing
+      generateWarRoomSummaries(warRoom.id).catch(err =>
+        console.error('[war-room] Failed to generate summaries:', err)
+      );
       broadcastToRoom(warRoom.id, { type: 'war_room_closed' });
       closeTimers.delete(warRoom.id);
       console.log(`[war-room] Closed war room ${warRoom.id} after grace period`);
@@ -135,6 +145,113 @@ async function notifyWarRoomCreated(warRoomId: string, incident: Incident, vendo
     }
   }
   console.log(`[war-room] Notified ${sent}/${users.length} users about war room for ${vendor.name}`);
+}
+
+export async function generateWarRoomSummaries(warRoomId: string): Promise<void> {
+  try {
+    const warRoom = await storage.getWarRoomById(warRoomId);
+    if (!warRoom) return;
+
+    const posts = await storage.getWarRoomPosts(warRoomId);
+    const [incident] = await db.select().from(incidents).where(eq(incidents.id, warRoom.incidentId)).limit(1);
+    const [vendor] = incident
+      ? await db.select().from(vendors).where(eq(vendors.key, incident.vendorKey)).limit(1).then(r => [r[0]])
+      : [null];
+
+    const vendorName = warRoom.vendorName || vendor?.name || warRoom.vendorKey;
+    const severity = incident?.severity || 'unknown';
+    const startedAt = incident?.startedAt ? new Date(incident.startedAt).toISOString() : 'unknown';
+    const closedAt = warRoom.closedAt ? new Date(warRoom.closedAt).toISOString() : new Date().toISOString();
+    const durationMs = warRoom.closedAt && incident?.startedAt
+      ? new Date(warRoom.closedAt).getTime() - new Date(incident.startedAt).getTime()
+      : null;
+    const durationStr = durationMs != null
+      ? durationMs < 3600000
+        ? `${Math.round(durationMs / 60000)} minutes`
+        : `${(durationMs / 3600000).toFixed(1)} hours`
+      : 'unknown duration';
+
+    const communityPosts = posts
+      .filter(p => !p.isSystemUpdate && p.content)
+      .map(p => `- ${p.content}${p.detail ? ` | Detail: ${p.detail}` : ''}`)
+      .join('\n');
+
+    const systemPosts = posts
+      .filter(p => p.isSystemUpdate)
+      .map(p => `- [SYSTEM] ${p.content}`)
+      .join('\n');
+
+    const context = `
+Vendor: ${vendorName}
+Severity: ${severity}
+Incident title: ${incident?.title || 'N/A'}
+Impact: ${incident?.impact || 'N/A'}
+Started: ${startedAt}
+War Room closed: ${closedAt}
+Duration: ${durationStr}
+
+System updates during incident:
+${systemPosts || 'None'}
+
+Community posts / workarounds:
+${communityPosts || 'None'}
+    `.trim();
+
+    const [technicalRes, customerRes] = await Promise.all([
+      openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a technical incident manager. Write a concise post-incident technical summary for an engineering team. Include: what happened, services affected, approximate duration, and any workarounds that were identified. Keep it under 200 words. Plain text, no markdown headers.',
+          },
+          { role: 'user', content: `Summarize this war room session:\n\n${context}` },
+        ],
+        max_tokens: 300,
+      }),
+      openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a customer communications specialist. Write a brief, jargon-free customer-facing summary of this vendor incident. Focus on: what was affected, for how long, and current status. Avoid technical terms. Keep it under 100 words. Start with "We experienced..." or "Our [vendor] provider experienced..."',
+          },
+          { role: 'user', content: `Write a customer-facing summary for this incident:\n\n${context}` },
+        ],
+        max_tokens: 200,
+      }),
+    ]);
+
+    const technicalSummary = technicalRes.choices[0]?.message?.content?.trim();
+    const customerSummary = customerRes.choices[0]?.message?.content?.trim();
+
+    if (technicalSummary) {
+      await storage.createWarRoomPost({
+        warRoomId,
+        userId: null,
+        content: 'Technical Summary (AI-generated)',
+        detail: technicalSummary,
+        isSystemUpdate: true,
+      });
+    }
+
+    if (customerSummary) {
+      await storage.createWarRoomPost({
+        warRoomId,
+        userId: null,
+        content: 'Customer-Facing Summary (AI-generated)',
+        detail: customerSummary,
+        isSystemUpdate: true,
+      });
+    }
+
+    if (technicalSummary || customerSummary) {
+      broadcastToRoom(warRoomId, { type: 'summaries_ready' });
+      console.log(`[war-room] Generated summaries for war room ${warRoomId}`);
+    }
+  } catch (err) {
+    console.error('[war-room] Failed to generate summaries:', err);
+  }
 }
 
 export async function restoreOpenWarRoomTimers(): Promise<void> {

@@ -9275,8 +9275,14 @@ ${postEntries}
   // List all open war rooms
   app.get("/api/war-rooms", isAuthenticated, async (req: any, res) => {
     try {
-      const openRooms = await storage.getOpenWarRooms();
-      const enriched = await Promise.all(openRooms.map(async (room: any) => {
+      const status = req.query.status as string | undefined;
+      const rooms = status === 'closed'
+        ? await storage.getClosedWarRooms()
+        : status === 'all'
+          ? await storage.getAllWarRooms()
+          : await storage.getOpenWarRooms();
+
+      const enriched = await Promise.all(rooms.map(async (room: any) => {
         const [incident] = await db.select().from(incidents).where(eq(incidents.id, room.incidentId)).limit(1);
         const participants = await storage.getWarRoomParticipants(room.id);
         const posts = await storage.getWarRoomPosts(room.id);
@@ -9559,6 +9565,13 @@ ${postEntries}
 
       const { broadcastToRoom } = await import('./warRoomWebSocket');
       broadcastToRoom(warRoom.id, { type: 'war_room_closed' });
+
+      // Generate AI summaries in the background
+      import('./warRoom').then(({ generateWarRoomSummaries }) => {
+        generateWarRoomSummaries(warRoom.id).catch(err =>
+          console.error('[war-room] Failed to generate summaries:', err)
+        );
+      });
 
       console.log(`[war-room] Manually closed war room ${warRoom.id} for ${warRoom.vendorName} by ${user.email}`);
       res.json({ success: true });
