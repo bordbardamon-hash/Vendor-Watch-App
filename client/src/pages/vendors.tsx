@@ -748,10 +748,21 @@ export default function Vendors() {
     return a.name.localeCompare(b.name);
   });
 
-  const getVendorIncidents = (vendorKey: string) => {
-    return incidents
-      .filter(i => i.vendorKey === vendorKey)
-      .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
+  // Fetch incidents directly for the selected vendor (not subscription-filtered)
+  const { data: selectedVendorIncidents = [] } = useQuery<any[]>({
+    queryKey: ["vendor-incidents-detail", selectedVendor?.key],
+    queryFn: async () => {
+      const res = await fetch(`/api/incidents/vendor/${selectedVendor!.key}`);
+      if (!res.ok) throw new Error("Failed to fetch vendor incidents");
+      const data = await res.json();
+      return data.sort((a: any, b: any) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
+    },
+    enabled: !!selectedVendor,
+    refetchInterval: 60000,
+  });
+
+  const getVendorIncidents = (_vendorKey: string) => {
+    return selectedVendorIncidents;
   };
 
 
@@ -1248,6 +1259,24 @@ export default function Vendors() {
                     )}
                   </div>
                   <div className="flex items-center gap-2">
+                    {selectedVendor.status !== 'operational' && selectedVendorIncidents.length > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs text-red-500 border-red-500/30 hover:bg-red-500/10"
+                        onClick={async () => {
+                          const activeIncident = selectedVendorIncidents.find(i => i.status !== 'resolved') || selectedVendorIncidents[0];
+                          if (activeIncident) {
+                            await fetch(`/api/war-room/${activeIncident.id}/open`, { method: 'POST' });
+                            setLocation(`/war-room/${activeIncident.id}`);
+                          }
+                        }}
+                        data-testid="button-header-war-room"
+                      >
+                        <ShieldAlert className="w-3.5 h-3.5 mr-1" />
+                        War Room
+                      </Button>
+                    )}
                     {isMonitored(selectedVendor.key) && (
                       <Button
                         variant="outline"
