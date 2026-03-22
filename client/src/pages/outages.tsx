@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LogoAvatar } from "@/components/ui/logo-avatar";
+import { useAuth } from "@/hooks/use-auth";
 import {
   AlertTriangle, Calendar, Clock, ChevronLeft, ChevronRight,
-  Rss, Search, ExternalLink, ShieldAlert, TrendingDown
+  Rss, Search, ShieldAlert, TrendingDown, FileText
 } from "lucide-react";
 import type { BlogPost } from "@shared/schema";
 
@@ -37,6 +38,8 @@ export default function OutagesPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [vendorFilter, setVendorFilter] = useState<string>("all");
+  const { user } = useAuth();
+  const isOwner = user?.isOwner;
 
   const { data, isLoading } = useQuery<{
     posts: BlogPost[];
@@ -55,6 +58,16 @@ export default function OutagesPage() {
       if (!res.ok) throw new Error("Failed to fetch posts");
       return res.json();
     },
+  });
+
+  const { data: draftQueue } = useQuery<BlogPost[]>({
+    queryKey: ["/api/blog/queue"],
+    queryFn: async () => {
+      const res = await fetch("/api/blog/queue", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!isOwner,
   });
 
   const posts = data?.posts || [];
@@ -226,17 +239,45 @@ export default function OutagesPage() {
           </div>
         )}
 
-        {/* CTA */}
-        <div className="mt-16 border border-primary/20 rounded-xl p-8 bg-primary/5 text-center">
-          <ShieldAlert className="w-10 h-10 mx-auto mb-4 text-primary opacity-60" />
-          <h3 className="text-xl font-bold mb-2">Monitor 400+ Vendors in Real Time</h3>
-          <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-            Get instant alerts when your vendors go down. Never be the last to know about an outage affecting your clients.
-          </p>
-          <Button onClick={() => setLocation("/register")} data-testid="button-cta-register">
-            Start Free Trial
-          </Button>
-        </div>
+        {/* Owner draft banner */}
+        {isOwner && draftQueue && draftQueue.length > 0 && (
+          <div className="mt-10 border border-yellow-500/30 bg-yellow-500/5 rounded-xl p-5 flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3">
+              <FileText className="w-5 h-5 text-yellow-400 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-yellow-200">
+                  {draftQueue.length} draft {draftQueue.length === 1 ? "report" : "reports"} waiting to be published
+                </p>
+                <p className="text-xs text-yellow-400/70 mt-0.5">
+                  These were auto-generated from resolved incidents. Review and publish them in the Blog Admin.
+                </p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-yellow-500/40 text-yellow-300 hover:bg-yellow-500/10 shrink-0"
+              onClick={() => setLocation("/blog-admin")}
+              data-testid="button-go-to-blog-admin"
+            >
+              Review Drafts →
+            </Button>
+          </div>
+        )}
+
+        {/* CTA — only shown to non-logged-in users */}
+        {!user && (
+          <div className="mt-16 border border-primary/20 rounded-xl p-8 bg-primary/5 text-center">
+            <ShieldAlert className="w-10 h-10 mx-auto mb-4 text-primary opacity-60" />
+            <h3 className="text-xl font-bold mb-2">Monitor 400+ Vendors in Real Time</h3>
+            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+              Get instant alerts when your vendors go down. Never be the last to know about an outage affecting your clients.
+            </p>
+            <Button onClick={() => setLocation("/register")} data-testid="button-cta-register">
+              Start Free Trial
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );
