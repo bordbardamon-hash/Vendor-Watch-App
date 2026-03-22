@@ -123,9 +123,12 @@ function AuthenticatedRouter() {
     return <Onboarding />;
   }
 
-  // Handle full-screen routes outside Layout (for mobile Safari compatibility)
+  // Handle full-screen routes outside Layout (immersive experiences)
   if (location === "/playbooks/create") {
     return <PlaybookCreate />;
+  }
+  if (location.startsWith("/war-room/")) {
+    return <WarRoom />;
   }
 
   return (
@@ -167,6 +170,7 @@ function AuthenticatedRouter() {
         <Route path="/web3-health" component={Web3Health} />
         <Route path="/dependency-map" component={DependencyMap} />
         <Route path="/vendor-reliability" component={VendorReliability} />
+        <Route path="/settings/alert-rules" component={AlertRules} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
@@ -210,9 +214,7 @@ function Router() {
       <Route path="/pricing" component={Pricing} />
       <Route path="/accept-invite/:token" component={AcceptInvite} />
       <Route path="/status/:slug" component={PublicPortal} />
-      <Route path="/war-room/:incidentId" component={WarRoom} />
       <Route path="/web3-health/widget" component={Web3HealthWidget} />
-      <Route path="/settings/alert-rules" component={AlertRules} />
       <Route path="/outages" component={OutagesPage} />
       <Route path="/outages/:slug" component={OutagePostPage} />
       <Route path="/onboarding">

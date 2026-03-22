@@ -459,7 +459,19 @@ export default function Incidents() {
                         variant="outline"
                         size="sm"
                         className="text-xs h-8 text-red-500 border-red-500/30 hover:bg-red-500/10 shrink-0"
-                        onClick={() => setLocation(`/war-room/${incident.id}`)}
+                        onClick={async () => {
+                          try {
+                            const res = await fetch(`/api/war-room/${incident.id}/open`, { method: 'POST' });
+                            const data = await res.json();
+                            if (data?.incidentId) {
+                              setLocation(`/war-room/${data.incidentId}`);
+                            } else {
+                              setLocation(`/war-room/${incident.id}`);
+                            }
+                          } catch {
+                            setLocation(`/war-room/${incident.id}`);
+                          }
+                        }}
                         data-testid={`button-war-room-${incident.id}`}
                       >
                         <ShieldAlert className="w-3 h-3 mr-1" />
