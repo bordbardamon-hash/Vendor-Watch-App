@@ -228,6 +228,25 @@ async function lastTweetTime(incidentId: string): Promise<Date | null> {
   return rows[0]?.postedAt || null;
 }
 
+/**
+ * Returns the "Latest: X" snippet from the most recent update tweet for this incident.
+ * Used to detect whether the vendor has posted new content since we last tweeted.
+ */
+async function getLastTweetedUpdateSnippet(incidentId: string): Promise<string | null> {
+  const rows = await db.select({ content: tweetLog.content })
+    .from(tweetLog)
+    .where(and(
+      eq(tweetLog.incidentId, incidentId),
+      eq(tweetLog.tweetType, 'update'),
+      inArray(tweetLog.status, ['posted', 'skipped']),
+    ))
+    .orderBy(desc(tweetLog.postedAt))
+    .limit(1);
+  if (rows.length === 0) return null;
+  const match = rows[0].content.match(/Latest: (.+)/);
+  return match ? match[1].trim() : null;
+}
+
 async function countFailedAttempts(incidentId: string): Promise<number> {
   const rows = await db.select({ id: tweetLog.id })
     .from(tweetLog)
@@ -462,6 +481,14 @@ export async function runTwitterBotCycle(): Promise<void> {
       const last = await lastTweetTime(inc.incidentId);
       if (last && Date.now() - new Date(last).getTime() < settings.updateIntervalMinutes * 60 * 1000) continue;
 
+      // Only tweet update if the vendor has posted new content since the last update tweet
+      const currentSnippet = truncate(inc.title || 'Incident ongoing, engineers investigating.', 120);
+      const lastSnippet = await getLastTweetedUpdateSnippet(inc.incidentId);
+      if (lastSnippet !== null && lastSnippet === currentSnippet) {
+        console.log(`[twitter-bot] Skipping update for ${inc.vendorKey}: vendor content unchanged`);
+        continue;
+      }
+
       const replyToId = await getDetectedTweetId(inc.incidentId) || undefined;
       const vendorInfo = await db.select({ name: vendors.name }).from(vendors).where(eq(vendors.key, inc.vendorKey)).limit(1);
       const vendorName = vendorInfo[0]?.name || inc.vendorKey;
@@ -564,6 +591,14 @@ export async function runTwitterBotCycle(): Promise<void> {
 
       const last = await lastTweetTime(inc.id);
       if (last && Date.now() - new Date(last).getTime() < settings.updateIntervalMinutes * 60 * 1000) continue;
+
+      // Only tweet update if the chain has posted new content since the last update tweet
+      const currentSnippet = truncate(inc.title || 'Incident ongoing, engineers investigating.', 120);
+      const lastSnippet = await getLastTweetedUpdateSnippet(inc.id);
+      if (lastSnippet !== null && lastSnippet === currentSnippet) {
+        console.log(`[twitter-bot] Skipping update for blockchain ${inc.chainKey}: vendor content unchanged`);
+        continue;
+      }
 
       const replyToId = await getDetectedTweetId(inc.id) || undefined;
       const chainInfo = await db.select({ name: blockchainChains.name, symbol: blockchainChains.symbol })
