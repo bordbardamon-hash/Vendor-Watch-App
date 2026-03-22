@@ -164,6 +164,7 @@ function AuthenticatedRouter() {
         <Route path="/war-rooms" component={WarRooms} />
         <Route path="/blog-admin" component={BlogAdminPage} />
         <Route path="/admin/twitter-bot" component={TwitterBot} />
+        <Route path="/web3-health" component={Web3Health} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
@@ -211,7 +212,6 @@ function Router() {
       <Route path="/war-room/:incidentId" component={WarRoom} />
       <Route path="/dependency-map" component={DependencyMap} />
       <Route path="/web3-health/widget" component={Web3HealthWidget} />
-      <Route path="/web3-health" component={Web3Health} />
       <Route path="/settings/alert-rules" component={AlertRules} />
       <Route path="/outages" component={OutagesPage} />
       <Route path="/outages/:slug" component={OutagePostPage} />

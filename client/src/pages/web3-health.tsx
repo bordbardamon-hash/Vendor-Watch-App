@@ -6,7 +6,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Activity, RefreshCw, Share2, Code2, ExternalLink, Clock } from "lucide-react";
+import { Activity, RefreshCw, Share2, Code2, ExternalLink, Clock, ArrowLeft } from "lucide-react";
+import { useLocation } from "wouter";
 
 // ── Types ─────────────────────────────────────────────────────────────
 interface SummaryIncident {
@@ -74,6 +75,7 @@ function formatDate(d: string) {
 
 // ── Component ─────────────────────────────────────────────────────────
 export default function Web3Health() {
+  const [, setLocation] = useLocation();
   const [chainFilter, setChainFilter] = useState<ChainFilter>("all");
   const [countdown, setCountdown] = useState(60);
   const [embedCopied, setEmbedCopied] = useState(false);
@@ -137,26 +139,37 @@ export default function Web3Health() {
   const embedSnippet = `<iframe src="${window.location.origin}/web3-health/widget" width="400" height="300" frameborder="0" style="border-radius:12px;border:1px solid #e2e8f0;" title="Web3 Health Status by VendorWatch"></iframe>`;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
+    <div className="text-slate-100">
+      <div className="max-w-screen-xl mx-auto px-4 pt-4 pb-2">
+        <button
+          onClick={() => setLocation("/blockchain")}
+          className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-200 transition-colors mb-4"
+          data-testid="button-back-blockchain"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to Blockchain
+        </button>
+      </div>
+
       {/* ── Hero verdict ─────────────────────────────────────────── */}
-      <div className={`w-full py-12 md:py-20 px-4 ${vs.bg} ${vs.glow} shadow-2xl`}>
-        <div className="max-w-4xl mx-auto text-center">
+      <div className="max-w-screen-xl mx-auto px-4 pb-4">
+        <div className={`rounded-2xl py-8 px-6 ${vs.bg} ${vs.glow} shadow-xl text-center`}>
           {isLoading ? (
             <div className="flex items-center justify-center gap-3">
-              <RefreshCw className="w-8 h-8 animate-spin opacity-60" />
-              <span className="text-2xl font-bold opacity-60">Checking web3 health…</span>
+              <RefreshCw className="w-6 h-6 animate-spin opacity-60" />
+              <span className="text-xl font-bold opacity-60">Checking web3 health…</span>
             </div>
           ) : (
             <>
-              <h1 className={`text-4xl md:text-6xl font-black tracking-tight ${vs.text} mb-3`} data-testid="verdict-text">
+              <h1 className={`text-3xl md:text-5xl font-black tracking-tight ${vs.text} mb-2`} data-testid="verdict-text">
                 {summary?.verdict || "All Systems Healthy"}
               </h1>
-              <p className={`text-lg md:text-xl font-medium ${vs.text} opacity-80 mb-1`}>
+              <p className={`text-base md:text-lg font-medium ${vs.text} opacity-80 mb-1`}>
                 Is web3 down? Based on{" "}
                 <strong>{summary?.chainsMonitored ?? "—"} blockchains</strong> and{" "}
                 <strong>{summary?.vendorsMonitored ?? "—"} vendors</strong> monitored by VendorWatch
               </p>
-              <div className={`flex items-center justify-center gap-4 mt-4 ${vs.text} opacity-70 text-sm`}>
+              <div className={`flex items-center justify-center gap-4 mt-3 ${vs.text} opacity-70 text-sm`}>
                 <span data-testid="active-incident-count">
                   {summary?.activeIncidents ?? 0} active incident{summary?.activeIncidents !== 1 ? "s" : ""}
                 </span>
