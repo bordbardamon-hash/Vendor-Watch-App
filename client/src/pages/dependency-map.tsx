@@ -194,17 +194,19 @@ export default function DependencyMap() {
             label: "data(label)",
             "text-valign": "bottom",
             "text-halign": "center",
-            "font-size": 11,
+            "font-size": 10,
             "font-weight": "600",
             color: "#1e293b",
-            "text-margin-y": 4,
+            "text-margin-y": 5,
+            "text-max-width": "80px" as any,
+            "text-wrap": "ellipsis" as any,
             width: (ele: NodeSingular) => {
               const count = ele.data("downstreamCount") as number;
-              return Math.max(36, Math.min(60, 28 + count * 5));
+              return Math.max(32, Math.min(56, 24 + count * 5));
             },
             height: (ele: NodeSingular) => {
               const count = ele.data("downstreamCount") as number;
-              return Math.max(36, Math.min(60, 28 + count * 5));
+              return Math.max(32, Math.min(56, 24 + count * 5));
             },
             shape: "ellipse",
           },
@@ -265,18 +267,18 @@ export default function DependencyMap() {
         name: "cose-bilkent",
         animate: true,
         animationDuration: 800,
-        nodeRepulsion: 8000,
-        idealEdgeLength: 120,
-        edgeElasticity: 0.35,
+        nodeRepulsion: 18000,
+        idealEdgeLength: 180,
+        edgeElasticity: 0.25,
         nestingFactor: 0.1,
-        gravity: 0.35,
+        gravity: 0.20,
         numIter: 2500,
         tile: true,
-        tilingPaddingVertical: 10,
-        tilingPaddingHorizontal: 10,
+        tilingPaddingVertical: 40,
+        tilingPaddingHorizontal: 40,
         gravityRangeCompound: 1.5,
         gravityCompound: 1.0,
-        gravityRange: 3.8,
+        gravityRange: 2.0,
         initialEnergyOnIncremental: 0.3,
       } as any,
       userZoomingEnabled: true,
@@ -413,15 +415,15 @@ export default function DependencyMap() {
                       </div>
                       <div>
                         <label className="text-xs font-medium text-slate-600 block mb-1">Type</label>
-                        <Select value={suggUpstreamType} onValueChange={v => setSuggUpstreamType(v as any)}>
-                          <SelectTrigger data-testid="select-upstream-type">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="vendor">Vendor</SelectItem>
-                            <SelectItem value="blockchain">Blockchain</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <select
+                          value={suggUpstreamType}
+                          onChange={e => setSuggUpstreamType(e.target.value as any)}
+                          data-testid="select-upstream-type"
+                          className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                        >
+                          <option value="vendor">Vendor</option>
+                          <option value="blockchain">Blockchain</option>
+                        </select>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
@@ -436,29 +438,29 @@ export default function DependencyMap() {
                       </div>
                       <div>
                         <label className="text-xs font-medium text-slate-600 block mb-1">Type</label>
-                        <Select value={suggDownstreamType} onValueChange={v => setSuggDownstreamType(v as any)}>
-                          <SelectTrigger data-testid="select-downstream-type">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="vendor">Vendor</SelectItem>
-                            <SelectItem value="blockchain">Blockchain</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <select
+                          value={suggDownstreamType}
+                          onChange={e => setSuggDownstreamType(e.target.value as any)}
+                          data-testid="select-downstream-type"
+                          className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                        >
+                          <option value="vendor">Vendor</option>
+                          <option value="blockchain">Blockchain</option>
+                        </select>
                       </div>
                     </div>
                     <div>
                       <label className="text-xs font-medium text-slate-600 block mb-1">Relationship</label>
-                      <Select value={suggRel} onValueChange={setSuggRel}>
-                        <SelectTrigger data-testid="select-relationship">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Object.entries(RELATIONSHIP_LABELS).map(([k, v]) => (
-                            <SelectItem key={k} value={k}>{v}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <select
+                        value={suggRel}
+                        onChange={e => setSuggRel(e.target.value)}
+                        data-testid="select-relationship"
+                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                      >
+                        {Object.entries(RELATIONSHIP_LABELS).map(([k, v]) => (
+                          <option key={k} value={k}>{v}</option>
+                        ))}
+                      </select>
                     </div>
                     <div>
                       <label className="text-xs font-medium text-slate-600 block mb-1">Notes (optional)</label>

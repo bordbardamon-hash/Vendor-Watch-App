@@ -33,15 +33,19 @@ export async function recordParseResult(vendorKey: string, result: ParseResult):
   const now = new Date();
 
   const isTimeout = result.isTimeout || false;
+  // HTTP 404 means the vendor has no status page at that URL — treat like a
+  // timeout (don't count against parser health, it's a config issue not a bug)
+  const isNotFound = !result.success && result.httpStatus === 404;
+  const skipFailureCount = isTimeout || isNotFound;
 
   if (existing.length === 0) {
     await db.insert(parserHealth).values({
       vendorKey,
       lastSuccessAt: result.success ? now : null,
-      lastFailureAt: result.success ? null : now,
-      consecutiveFailures: result.success ? 0 : (isTimeout ? 0 : 1),
+      lastFailureAt: result.success ? null : (skipFailureCount ? null : now),
+      consecutiveFailures: result.success ? 0 : (skipFailureCount ? 0 : 1),
       totalSuccesses: result.success ? 1 : 0,
-      totalFailures: result.success ? 0 : (isTimeout ? 0 : 1),
+      totalFailures: result.success ? 0 : (skipFailureCount ? 0 : 1),
       lastHttpStatus: result.httpStatus || null,
       lastErrorMessage: result.errorMessage || null,
       incidentsParsed: result.incidentsParsed || 0,
@@ -49,18 +53,18 @@ export async function recordParseResult(vendorKey: string, result: ParseResult):
     });
   } else {
     const record = existing[0];
-    const newConsecutiveFailures = result.success ? 0 : (isTimeout ? record.consecutiveFailures : record.consecutiveFailures + 1);
+    const newConsecutiveFailures = result.success ? 0 : (skipFailureCount ? record.consecutiveFailures : record.consecutiveFailures + 1);
     const isHealthy = newConsecutiveFailures < CONSECUTIVE_FAILURE_THRESHOLD;
 
     await db.update(parserHealth)
       .set({
         lastSuccessAt: result.success ? now : record.lastSuccessAt,
-        lastFailureAt: result.success ? record.lastFailureAt : (isTimeout ? record.lastFailureAt : now),
+        lastFailureAt: result.success ? record.lastFailureAt : (skipFailureCount ? record.lastFailureAt : now),
         consecutiveFailures: newConsecutiveFailures,
         totalSuccesses: result.success ? record.totalSuccesses + 1 : record.totalSuccesses,
-        totalFailures: result.success ? record.totalFailures : (isTimeout ? record.totalFailures : record.totalFailures + 1),
+        totalFailures: result.success ? record.totalFailures : (skipFailureCount ? record.totalFailures : record.totalFailures + 1),
         lastHttpStatus: result.httpStatus || record.lastHttpStatus,
-        lastErrorMessage: isTimeout ? record.lastErrorMessage : (result.errorMessage || (result.success ? null : record.lastErrorMessage)),
+        lastErrorMessage: skipFailureCount ? record.lastErrorMessage : (result.errorMessage || (result.success ? null : record.lastErrorMessage)),
         incidentsParsed: result.incidentsParsed ?? record.incidentsParsed,
         isHealthy,
         updatedAt: now,
