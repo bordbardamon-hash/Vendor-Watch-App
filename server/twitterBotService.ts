@@ -9,7 +9,7 @@ import crypto from 'crypto';
 import { db } from './db';
 import {
   incidents, blockchainIncidents, vendors, blockchainChains,
-  userVendorSubscriptions, tweetLog, twitterBotSettings,
+  userVendorSubscriptions, tweetLog, twitterBotSettings, blogPosts,
 } from '@shared/schema';
 import { eq, and, ne, gte, sql, inArray } from 'drizzle-orm';
 
@@ -299,6 +299,62 @@ export async function manualPostIncident(incidentId: string): Promise<{ success:
   return { success: true, content, tweetId: tweetId! };
 }
 
+// ── Blockchain tweet composition ──────────────────────────────────────
+
+function composeBlockchainDetectedTweet(
+  chainName: string, chainKey: string, symbol: string | null,
+  severity: string, description: string | null, startedAt: string,
+): string {
+  const em = SEVERITY_EMOJI[severity] || '🔴';
+  const tag = '#' + (symbol || chainKey).replace(/[^A-Za-z0-9]/g, '');
+  const started = durationStr(startedAt);
+  const affected = truncate(description || 'core services', 60);
+  const url = `vendorwatch.app/web3`;
+  const parts = [
+    `${em} ${chainName} is experiencing ${severityLabel(severity)} blockchain issues`,
+    `Affected: ${affected}`,
+    `Started: ${started} ago`,
+    `Live status: ${url}`,
+    `${tag} #blockchain #incident`,
+  ].filter(Boolean);
+  return truncate(parts.join('\n'), 280);
+}
+
+function composeBlockchainUpdateTweet(
+  chainName: string, chainKey: string, symbol: string | null,
+  startedAt: string, title: string,
+): string {
+  const duration = durationStr(startedAt);
+  const tag = '#' + (symbol || chainKey).replace(/[^A-Za-z0-9]/g, '');
+  const url = `vendorwatch.app/web3`;
+  const update = truncate(title || 'Incident ongoing, engineers investigating.', 120);
+  const parts = [
+    `🟡 UPDATE: ${chainName} blockchain incident ongoing (${duration} and counting)`,
+    `Latest: ${update}`,
+    url,
+    tag,
+  ];
+  return truncate(parts.join('\n'), 280);
+}
+
+function composeBlockchainResolvedTweet(
+  chainName: string, chainKey: string, symbol: string | null,
+  severity: string, startedAt: string, blogSlug?: string,
+): string {
+  const tag = '#' + (symbol || chainKey).replace(/[^A-Za-z0-9]/g, '');
+  const duration = durationStr(startedAt);
+  const reportUrl = blogSlug
+    ? `vendorwatch.app/outages/${blogSlug}`
+    : `vendorwatch.app/web3`;
+  const parts = [
+    `🟢 RESOLVED: ${chainName} blockchain is back to normal`,
+    `Duration: ${duration} | Severity: ${severityLabel(severity)}`,
+    `Full report: ${reportUrl}`,
+    `${tag} #blockchain #resolved`,
+  ];
+  return truncate(parts.join('\n'), 280);
+}
+
 // ── Main cron evaluation ──────────────────────────────────────────────
 
 export async function runTwitterBotCycle(): Promise<void> {
@@ -412,6 +468,99 @@ export async function runTwitterBotCycle(): Promise<void> {
       const content = composeResolvedTweet(vendorName, inc.vendorKey, inc.severity, inc.startedAt, null);
 
       await sendOrPreview(settings, content, { incidentId: inc.incidentId, incidentType: 'vendor', vendorKey: inc.vendorKey, tweetType: 'resolved', replyToId });
+    }
+  }
+
+  // ── 4. NEW BLOCKCHAIN INCIDENT TWEETS ────────────────────────────
+
+  const activeChainIncidents = await db.select().from(blockchainIncidents)
+    .where(and(
+      ne(blockchainIncidents.status, 'resolved'),
+      inArray(blockchainIncidents.severity, allowedSeverities),
+    ));
+
+  for (const inc of activeChainIncidents) {
+    if (countTweetsInLastHour() >= settings.maxTweetsPerHour && !settings.previewMode) break;
+
+    const activeMs = Date.now() - new Date(inc.startedAt).getTime();
+    if (activeMs < settings.minActiveMinutes * 60 * 1000) continue;
+
+    const last = await lastTweetTime(inc.id);
+    if (last && Date.now() - new Date(last).getTime() < 30 * 60 * 1000) continue;
+
+    const existingTweet = await getDetectedTweetId(inc.id);
+    if (existingTweet) continue;
+
+    const chainInfo = await db.select({ name: blockchainChains.name, symbol: blockchainChains.symbol })
+      .from(blockchainChains).where(eq(blockchainChains.key, inc.chainKey)).limit(1);
+    const chainName = chainInfo[0]?.name || inc.chainKey;
+    const symbol = chainInfo[0]?.symbol || null;
+
+    const content = composeBlockchainDetectedTweet(chainName, inc.chainKey, symbol, inc.severity, inc.description, inc.startedAt);
+    await sendOrPreview(settings, content, { incidentId: inc.id, incidentType: 'blockchain', vendorKey: inc.chainKey, tweetType: 'detected' });
+  }
+
+  // ── 5. BLOCKCHAIN UPDATE TWEETS ───────────────────────────────────
+
+  const tweetedChainIds = (await db.selectDistinct({ incidentId: tweetLog.incidentId })
+    .from(tweetLog)
+    .where(and(eq(tweetLog.tweetType, 'detected'), eq(tweetLog.status, 'posted'), eq(tweetLog.incidentType, 'blockchain'))))
+    .map(r => r.incidentId);
+
+  if (tweetedChainIds.length > 0) {
+    const ongoingChainTweeted = await db.select().from(blockchainIncidents)
+      .where(and(
+        ne(blockchainIncidents.status, 'resolved'),
+        inArray(blockchainIncidents.id, tweetedChainIds),
+      ));
+
+    for (const inc of ongoingChainTweeted) {
+      if (countTweetsInLastHour() >= settings.maxTweetsPerHour && !settings.previewMode) break;
+
+      const durationMs = Date.now() - new Date(inc.startedAt).getTime();
+      if (durationMs < settings.updateIntervalMinutes * 60 * 1000) continue;
+
+      const last = await lastTweetTime(inc.id);
+      if (last && Date.now() - new Date(last).getTime() < settings.updateIntervalMinutes * 60 * 1000) continue;
+
+      const replyToId = await getDetectedTweetId(inc.id) || undefined;
+      const chainInfo = await db.select({ name: blockchainChains.name, symbol: blockchainChains.symbol })
+        .from(blockchainChains).where(eq(blockchainChains.key, inc.chainKey)).limit(1);
+      const chainName = chainInfo[0]?.name || inc.chainKey;
+      const symbol = chainInfo[0]?.symbol || null;
+
+      const content = composeBlockchainUpdateTweet(chainName, inc.chainKey, symbol, inc.startedAt, inc.title);
+      await sendOrPreview(settings, content, { incidentId: inc.id, incidentType: 'blockchain', vendorKey: inc.chainKey, tweetType: 'update', replyToId });
+    }
+  }
+
+  // ── 6. BLOCKCHAIN RESOLUTION TWEETS ──────────────────────────────
+
+  if (tweetedChainIds.length > 0) {
+    const resolvedChainTweeted = await db.select().from(blockchainIncidents)
+      .where(and(
+        eq(blockchainIncidents.status, 'resolved'),
+        inArray(blockchainIncidents.id, tweetedChainIds),
+      ));
+
+    for (const inc of resolvedChainTweeted) {
+      if (countTweetsInLastHour() >= settings.maxTweetsPerHour && !settings.previewMode) break;
+      if (await hasResolvedTweet(inc.id)) continue;
+
+      const replyToId = await getDetectedTweetId(inc.id) || undefined;
+      const chainInfo = await db.select({ name: blockchainChains.name, symbol: blockchainChains.symbol })
+        .from(blockchainChains).where(eq(blockchainChains.key, inc.chainKey)).limit(1);
+      const chainName = chainInfo[0]?.name || inc.chainKey;
+      const symbol = chainInfo[0]?.symbol || null;
+
+      // Check if there's a blog post slug to link to
+      const [blogPost] = await db.select({ slug: blogPosts.slug })
+        .from(blogPosts)
+        .where(and(eq(blogPosts.incidentId, inc.id), eq(blogPosts.status, 'published')))
+        .limit(1);
+
+      const content = composeBlockchainResolvedTweet(chainName, inc.chainKey, symbol, inc.severity, inc.startedAt, blogPost?.slug);
+      await sendOrPreview(settings, content, { incidentId: inc.id, incidentType: 'blockchain', vendorKey: inc.chainKey, tweetType: 'resolved', replyToId });
     }
   }
 }

@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import { db } from './db';
-import { blogPosts, incidentArchive, incidents, vendors } from '@shared/schema';
+import { blogPosts, incidentArchive, incidents, vendors, blockchainIncidents, blockchainIncidentArchive, blockchainChains } from '@shared/schema';
 import { eq, desc, and, lt, gt } from 'drizzle-orm';
 import type { BlogPost, InsertBlogPost } from '@shared/schema';
 import { OUTAGE_BLOG_PROMPT, PROMPT_VERSION } from './prompts';
@@ -186,6 +186,155 @@ export async function generateBlogPost(incidentId: string): Promise<BlogPost> {
     severity: incidentData.severity,
     durationMinutes,
     affectedComponents: incidentData.affectedComponents || null,
+    status: 'draft',
+    promptVersion: PROMPT_VERSION,
+    publishedAt: null,
+  };
+
+  const [created] = await db.insert(blogPosts).values(insertData).returning();
+  return created;
+}
+
+export async function generateBlogPostForBlockchain(incidentId: string): Promise<BlogPost> {
+  // Check if already exists (incidentId is the UUID primary key of blockchainIncidents)
+  const existing = await db
+    .select()
+    .from(blogPosts)
+    .where(eq(blogPosts.incidentId, incidentId))
+    .limit(1);
+  if (existing.length > 0) return existing[0];
+
+  // Fetch incident — check archive first (originalId), fall back to active table
+  let incidentData: {
+    chainKey: string;
+    title: string;
+    severity: string;
+    status: string;
+    description: string | null;
+    affectedServices: string | null;
+    url: string | null;
+    startedAt: string;
+    resolvedAt: Date | null;
+  } | null = null;
+
+  const [archive] = await db
+    .select()
+    .from(blockchainIncidentArchive)
+    .where(eq(blockchainIncidentArchive.originalId, incidentId))
+    .limit(1);
+
+  if (archive) {
+    incidentData = {
+      chainKey: archive.chainKey,
+      title: archive.title,
+      severity: archive.severity,
+      status: archive.status,
+      description: archive.description ?? null,
+      affectedServices: archive.affectedServices ?? null,
+      url: archive.url ?? null,
+      startedAt: archive.startedAt,
+      resolvedAt: archive.resolvedAt,
+    };
+  } else {
+    const [active] = await db
+      .select()
+      .from(blockchainIncidents)
+      .where(eq(blockchainIncidents.id, incidentId))
+      .limit(1);
+    if (!active) throw new Error(`Blockchain incident ${incidentId} not found`);
+    incidentData = {
+      chainKey: active.chainKey,
+      title: active.title,
+      severity: active.severity,
+      status: active.status,
+      description: active.description ?? null,
+      affectedServices: active.affectedServices ?? null,
+      url: active.url ?? null,
+      startedAt: active.startedAt,
+      resolvedAt: active.resolvedAt,
+    };
+  }
+
+  // Fetch chain name
+  const [chain] = await db
+    .select({ name: blockchainChains.name, symbol: blockchainChains.symbol })
+    .from(blockchainChains)
+    .where(eq(blockchainChains.key, incidentData.chainKey))
+    .limit(1);
+  const chainName = chain ? (chain.symbol ? `${chain.name} (${chain.symbol})` : chain.name) : incidentData.chainKey;
+
+  // Calculate duration
+  const startedAt = new Date(incidentData.startedAt);
+  const resolvedAt = incidentData.resolvedAt;
+  const durationMinutes = resolvedAt
+    ? Math.round((resolvedAt.getTime() - startedAt.getTime()) / 60000)
+    : null;
+
+  if (durationMinutes !== null && durationMinutes < 15) {
+    throw new Error(`Blockchain incident lasted only ${durationMinutes} minutes (< 15 min threshold)`);
+  }
+
+  const monthYear = startedAt.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const affectedList = incidentData.affectedServices
+    ? incidentData.affectedServices.split(',').map(s => s.trim()).filter(Boolean)
+    : [];
+
+  const incidentPayload = {
+    vendor_name: chainName,
+    affected_services: affectedList.length > 0 ? affectedList : [incidentData.title],
+    severity: incidentData.severity === 'critical' ? 'P1' : incidentData.severity === 'major' ? 'P2' : 'P3',
+    started_at: startedAt.toISOString(),
+    resolved_at: resolvedAt ? resolvedAt.toISOString() : null,
+    duration_minutes: durationMinutes,
+    status_updates: [] as { timestamp: string; message: string }[],
+    region: null,
+    vendor_rca_published: false,
+    impact_description: incidentData.description || incidentData.title,
+    status_page_url: incidentData.url || null,
+  };
+
+  const completion = await openai.chat.completions.create({
+    model: 'gpt-4o',
+    messages: [
+      { role: 'system', content: OUTAGE_BLOG_PROMPT },
+      { role: 'user', content: JSON.stringify(incidentPayload) },
+    ],
+    max_tokens: 1200,
+    temperature: 0.4,
+    response_format: { type: 'json_object' },
+  });
+
+  const raw = completion.choices[0]?.message?.content || '{}';
+  let parsed: { headline?: string; meta_description?: string; body?: string } = {};
+  try { parsed = JSON.parse(raw); } catch { parsed = { body: raw }; }
+
+  const generatedTitle = parsed.headline?.trim() || `${chainName} Incident — ${monthYear}`;
+  const body = parsed.body?.trim() || raw;
+  const metaDescription = (parsed.meta_description?.trim() ||
+    `${chainName} experienced a blockchain incident affecting ${affectedList[0] || 'core services'} in ${monthYear}. Read the full incident report.`)
+    .slice(0, 155);
+
+  const baseSlug = buildSlug(chainName, startedAt, incidentData.title);
+  let slug = baseSlug;
+  let attempt = 0;
+  while (true) {
+    const exists = await db.select().from(blogPosts).where(eq(blogPosts.slug, slug)).limit(1);
+    if (exists.length === 0) break;
+    attempt++;
+    slug = `${baseSlug}-${attempt}`;
+  }
+
+  const insertData: InsertBlogPost = {
+    slug,
+    title: generatedTitle,
+    body,
+    metaDescription,
+    vendorKey: incidentData.chainKey,
+    vendorName: chainName,
+    incidentId,
+    severity: incidentData.severity,
+    durationMinutes,
+    affectedComponents: incidentData.affectedServices || null,
     status: 'draft',
     promptVersion: PROMPT_VERSION,
     publishedAt: null,

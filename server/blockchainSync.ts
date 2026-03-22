@@ -364,6 +364,17 @@ async function syncBlockchainChain(chainData: { key: string; name: string; sourc
       if (updated) {
         await notifyBlockchainIncidentResolved(updated, fullChain);
         await orchestrator.processBlockchainIncident(updated, 'blockchainIncidentResolved');
+
+        // Auto-generate blog post for significant blockchain incidents
+        if (existing.severity === 'critical' || existing.severity === 'major') {
+          import('./blogService').then(({ generateBlogPostForBlockchain }) => {
+            generateBlogPostForBlockchain(existing.id).then(post => {
+              console.log(`[blog] Auto-generated draft for blockchain incident: ${existing.title} → slug: ${post.slug}`);
+            }).catch(err => {
+              console.log(`[blog] Skipped blockchain auto-generation for ${existing.title}: ${err.message}`);
+            });
+          }).catch(() => {});
+        }
       }
     }
   }
