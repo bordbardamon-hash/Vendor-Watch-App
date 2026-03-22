@@ -38,7 +38,8 @@ import {
   Twitter,
   Trophy,
   TrendingDown,
-  Newspaper
+  Newspaper,
+  Siren
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -119,6 +120,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         { href: "/", icon: LayoutDashboard, label: UI_LABELS.nav.overview, adminOnly: false, ownerOnly: false },
         { href: "/vendors", icon: Shield, label: UI_LABELS.nav.vendors, adminOnly: false, ownerOnly: false },
         { href: "/incidents", icon: AlertTriangle, label: UI_LABELS.nav.incidents, adminOnly: false, ownerOnly: false },
+        { href: "/incidents", icon: Siren, label: "Incident War Room", adminOnly: false, ownerOnly: false },
         { href: "/blockchain", icon: Boxes, label: "Blockchain", adminOnly: false, ownerOnly: false },
         { href: "/maintenance", icon: Wrench, label: "Maintenance", adminOnly: false, ownerOnly: false },
         { href: "/monitoring", icon: Activity, label: "Website Monitoring", adminOnly: false, ownerOnly: false },
@@ -131,6 +133,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         { href: "/sla", icon: Target, label: "SLA Dashboard", adminOnly: false, ownerOnly: false, requiresEssential: true },
         { href: "/vendor-reliability", icon: Trophy, label: "Reliability Scores", adminOnly: false, ownerOnly: false },
         { href: "/outages", icon: Newspaper, label: "Outage Reports", adminOnly: false, ownerOnly: false },
+        { href: "/blog-admin", icon: Newspaper, label: "Outage Blog (Admin)", adminOnly: false, ownerOnly: true },
         { href: "/dependency-map", icon: Activity, label: "Dependency Map", adminOnly: false, ownerOnly: false },
         { href: "/web3-health", icon: Globe, label: "Web3 Health", adminOnly: false, ownerOnly: false },
         { href: "/predictions", icon: TrendingUp, label: "Predictions", adminOnly: false, ownerOnly: false, requiresEnterprise: true },
@@ -138,7 +141,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         { href: "/automation", icon: Bot, label: "Automation", adminOnly: false, ownerOnly: false, requiresEssential: true },
       ],
       collapsible: true,
-      defaultCollapsed: true,
+      defaultCollapsed: false,
     },
     {
       title: "MSP Tools",
@@ -182,7 +185,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         { href: "/feedback", icon: MessageSquare, label: "Feedback", adminOnly: true, ownerOnly: false },
         { href: "/parser-health", icon: Server, label: "Parser Health", adminOnly: false, ownerOnly: true },
         { href: "/users", icon: Users, label: "Users", adminOnly: false, ownerOnly: true },
-        { href: "/blog-admin", icon: Newspaper, label: "Outage Blog", adminOnly: false, ownerOnly: true },
       ],
       collapsible: true,
       defaultCollapsed: true,
