@@ -18,6 +18,7 @@ import { db } from "./db";
 import { users, mobileAuthTokens, pendingSignups } from "@shared/models/auth";
 import { eq, and, isNull, gt, sql } from "drizzle-orm";
 import { getGraph, getBlastRadius, submitSuggestion, getPendingSuggestions, reviewSuggestion, seedDependencyEdges } from "./dependencyMapService";
+import { getWeb3Summary, getWeb3Trend } from "./web3HealthService";
 
 const SALT_ROUNDS = 10;
 
@@ -9373,6 +9374,29 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
     } catch (error) {
       console.error("Error exporting war room log:", error);
       res.status(500).json({ error: "Failed to export log" });
+    }
+  });
+
+  // ── Web3 Health Routes (public, 30s server-side cache) ──────────────
+  app.get("/api/web3-health/summary", async (_req, res) => {
+    try {
+      const data = await getWeb3Summary();
+      res.setHeader("Cache-Control", "public, max-age=30, stale-while-revalidate=10");
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching web3 health summary:", error);
+      res.status(500).json({ error: "Failed to fetch web3 health summary" });
+    }
+  });
+
+  app.get("/api/web3-health/trend", async (_req, res) => {
+    try {
+      const trend = await getWeb3Trend();
+      res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=30");
+      res.json({ trend });
+    } catch (error) {
+      console.error("Error fetching web3 health trend:", error);
+      res.status(500).json({ error: "Failed to fetch web3 health trend" });
     }
   });
 

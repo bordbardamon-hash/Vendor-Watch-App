@@ -55,6 +55,19 @@ Key entities include Users, Sessions, Vendors, Incidents, Jobs, Configurations, 
 
 ## Key Features
 
+### Is Web3 Healthy? Dashboard (`/web3-health`)
+- **SEO-optimised public page** targeting "Is web3 down?" — meta title, description, and canonical tag set; H1 contains the exact phrase
+- **Hero verdict** — full-viewport-width colored banner (green/yellow/orange/red) calculated from live incident data: "All Systems Healthy" | "Minor Disruptions" | "Degraded Performance" | "Major Outage" — logic: any critical→red, any major→orange, ≥4 minor→orange, 1–3 minor→yellow, 0→green
+- **Blockchain health grid** — card per chain with name/logo, status dot, avg block time, active incident count. Filter tabs: All | L1 Chains | L2 Networks. Sort: tier1 first (ETH/BTC/SOL/BNB), then tier2 L2s
+- **Web3 infrastructure strip** — horizontal pill row for rpc_provider, oracle, indexer, nft, staking, defi category blockchain entries (Infura, Alchemy, QuickNode, OpenSea, Aave, etc.)
+- **Live incident feed** — combined vendor + blockchain incidents, severity sorted, last 20 active. Links to `/outages`
+- **30-day trend chart** (Recharts AreaChart) — stacked chain incidents (purple) + vendor incidents (blue), reference lines at 2/day (green) and 5/day (yellow)
+- **Embeddable widget** — `/web3-health/widget` renders compact 400×300 view (verdict + top-5 incidents + footer link). Embed dialog generates `<iframe>` snippet
+- **Share button** — native share API with clipboard fallback
+- **Auto-refresh** — polls every 60s with countdown timer
+- **API** — GET `/api/web3-health/summary` (30s cache), GET `/api/web3-health/trend` (60s cache)
+- **Service** — `server/web3HealthService.ts` with 30s in-memory cache to handle traffic spikes
+
 ### Cross-Chain/Cross-Vendor Dependency Map (`/dependency-map`)
 - **Cytoscape.js** interactive graph with cose-bilkent layout
 - 34 hardcoded seed relationships between vendors (AWS, GCP, Azure, Cloudflare, GitHub, etc.) and blockchain entities (Ethereum, Infura, Alchemy, MetaMask, Aave, OpenSea, Arbitrum, etc.)
