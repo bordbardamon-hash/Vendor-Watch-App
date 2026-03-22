@@ -378,7 +378,7 @@ export default function DependencyMap() {
   const isEmbed = new URLSearchParams(window.location.search).get("embed") === "1";
 
   return (
-    <div className={`flex flex-col ${isEmbed ? "h-screen" : "min-h-screen"} bg-slate-50`}>
+    <div className={`flex flex-col ${isEmbed ? "h-screen" : "h-full min-h-screen"} bg-slate-50`}>
       {!isEmbed && (
         <div className="bg-white border-b border-slate-200 px-6 py-4">
           <div className="max-w-screen-2xl mx-auto flex items-center justify-between gap-4 flex-wrap">
