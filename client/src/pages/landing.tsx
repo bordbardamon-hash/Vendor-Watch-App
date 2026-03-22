@@ -270,6 +270,9 @@ export default function Landing() {
           <nav className="hidden md:flex items-center gap-6">
             <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition" data-testid="link-nav-features">Features</a>
             <a href="#how-it-works" className="text-sm text-muted-foreground hover:text-foreground transition" data-testid="link-nav-how-it-works">How It Works</a>
+            <Link href="/outages" className="text-sm text-muted-foreground hover:text-foreground transition" data-testid="link-nav-outages">
+              Outage Reports
+            </Link>
             <Link href="/pricing" className="text-sm text-muted-foreground hover:text-foreground transition" data-testid="link-nav-pricing">
               Pricing
             </Link>
@@ -695,6 +698,8 @@ export default function Landing() {
                 <li><a href="#features" className="hover:text-foreground transition">Features</a></li>
                 <li><Link href="/pricing" className="hover:text-foreground transition">Pricing</Link></li>
                 <li><Link href="/signup" className="hover:text-foreground transition">Free Trial</Link></li>
+                <li><Link href="/outages" className="hover:text-foreground transition">Outage Reports</Link></li>
+                <li><a href="/outages/feed.xml" className="hover:text-foreground transition flex items-center gap-1.5">RSS Feed</a></li>
               </ul>
             </div>
 

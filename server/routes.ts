@@ -9221,6 +9221,55 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
     }
   });
 
+  // GET /sitemap.xml — dynamic sitemap for SEO
+  app.get("/sitemap.xml", async (_req, res) => {
+    try {
+      const { listBlogPosts } = await import('./blogService');
+      const { posts } = await listBlogPosts({ page: 1, pageSize: 200, status: 'published' });
+      const host = process.env.APP_URL || 'https://vendorwatch.app';
+      const now = new Date().toISOString().split('T')[0];
+
+      const staticUrls = [
+        { loc: `${host}/`, changefreq: 'daily', priority: '1.0' },
+        { loc: `${host}/outages`, changefreq: 'hourly', priority: '0.9' },
+        { loc: `${host}/pricing`, changefreq: 'monthly', priority: '0.8' },
+        { loc: `${host}/web3-health`, changefreq: 'hourly', priority: '0.8' },
+      ];
+
+      const staticEntries = staticUrls.map(u => `
+  <url>
+    <loc>${u.loc}</loc>
+    <changefreq>${u.changefreq}</changefreq>
+    <priority>${u.priority}</priority>
+    <lastmod>${now}</lastmod>
+  </url>`).join('');
+
+      const postEntries = posts.map(p => {
+        const lastmod = p.publishedAt ? new Date(p.publishedAt).toISOString().split('T')[0] : now;
+        return `
+  <url>
+    <loc>${host}/outages/${p.slug}</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+    <lastmod>${lastmod}</lastmod>
+  </url>`;
+      }).join('');
+
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${staticEntries}
+${postEntries}
+</urlset>`;
+
+      res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.send(xml);
+    } catch (error) {
+      console.error("Sitemap error:", error);
+      res.status(500).send("Failed to generate sitemap");
+    }
+  });
+
   // ============ INCIDENT WAR ROOMS ============
 
   // List all open war rooms
