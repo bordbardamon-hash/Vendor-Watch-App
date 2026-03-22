@@ -84,6 +84,20 @@ export default function OutagesPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      {/* Top nav bar with back button */}
+      <div className="sticky top-0 z-50 border-b border-sidebar-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="max-w-6xl mx-auto px-4 h-12 flex items-center gap-3">
+          <Link href="/">
+            <button className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="button-back-home">
+              <ChevronLeft className="w-4 h-4" />
+              {user ? "Dashboard" : "Home"}
+            </button>
+          </Link>
+          <span className="text-muted-foreground/40">/</span>
+          <span className="text-sm text-foreground font-medium">Outage Reports</span>
+        </div>
+      </div>
+
       {/* Hero header */}
       <div className="border-b border-sidebar-border bg-sidebar/30">
         <div className="max-w-6xl mx-auto px-4 py-12">

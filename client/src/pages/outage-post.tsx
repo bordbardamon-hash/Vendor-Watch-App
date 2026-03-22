@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { LogoAvatar } from "@/components/ui/logo-avatar";
 import {
   Calendar, Clock, AlertTriangle, ExternalLink, Twitter,
-  Linkedin, Link2, ChevronRight, Rss, TrendingDown
+  Linkedin, Link2, ChevronRight, ChevronLeft, Rss, TrendingDown
 } from "lucide-react";
 import type { BlogPost } from "@shared/schema";
 
@@ -118,6 +118,20 @@ export default function OutagePostPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      {/* Sticky back nav */}
+      <div className="sticky top-0 z-50 border-b border-sidebar-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="max-w-4xl mx-auto px-4 h-12 flex items-center gap-3">
+          <Link href="/outages">
+            <button className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="button-back-outages">
+              <ChevronLeft className="w-4 h-4" />
+              Outage Reports
+            </button>
+          </Link>
+          <span className="text-muted-foreground/40">/</span>
+          <span className="text-sm text-foreground font-medium truncate">{post.vendorName}</span>
+        </div>
+      </div>
+
       {/* Breadcrumb */}
       <div className="border-b border-sidebar-border bg-sidebar/20">
         <div className="max-w-4xl mx-auto px-4 py-3">

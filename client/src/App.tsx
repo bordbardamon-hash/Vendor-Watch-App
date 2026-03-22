@@ -161,6 +161,7 @@ function AuthenticatedRouter() {
         <Route path="/sso" component={SsoPage} />
         <Route path="/monitoring" component={Monitoring} />
         <Route path="/blog-admin" component={BlogAdminPage} />
+        <Route path="/admin/twitter-bot" component={TwitterBot} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
@@ -210,7 +211,6 @@ function Router() {
       <Route path="/web3-health/widget" component={Web3HealthWidget} />
       <Route path="/web3-health" component={Web3Health} />
       <Route path="/settings/alert-rules" component={AlertRules} />
-      <Route path="/admin/twitter-bot" component={TwitterBot} />
       <Route path="/outages" component={OutagesPage} />
       <Route path="/outages/:slug" component={OutagePostPage} />
       <Route path="/onboarding">
