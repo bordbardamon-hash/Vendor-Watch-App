@@ -1259,16 +1259,20 @@ export default function Vendors() {
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    {selectedVendor.status !== 'operational' && selectedVendorIncidents.length > 0 && (
+                    {selectedVendor.status !== 'operational' && (
                       <Button
                         variant="outline"
                         size="sm"
                         className="text-xs text-red-500 border-red-500/30 hover:bg-red-500/10"
                         onClick={async () => {
-                          const activeIncident = selectedVendorIncidents.find(i => i.status !== 'resolved') || selectedVendorIncidents[0];
-                          if (activeIncident) {
-                            await fetch(`/api/war-room/${activeIncident.id}/open`, { method: 'POST' });
-                            setLocation(`/war-room/${activeIncident.id}`);
+                          try {
+                            const res = await fetch(`/api/war-room/vendor/${selectedVendor.key}/open`, { method: 'POST' });
+                            const data = await res.json();
+                            if (data.incidentId) {
+                              setLocation(`/war-room/${data.incidentId}`);
+                            }
+                          } catch (e) {
+                            console.error("Failed to open war room", e);
                           }
                         }}
                         data-testid="button-header-war-room"

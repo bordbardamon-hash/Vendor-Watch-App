@@ -16,7 +16,7 @@ import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { db } from "./db";
 import { users, mobileAuthTokens, pendingSignups } from "@shared/models/auth";
-import { eq, and, isNull, gt, sql } from "drizzle-orm";
+import { eq, and, isNull, gt, sql, desc, ne } from "drizzle-orm";
 import { getGraph, getBlastRadius, submitSuggestion, getPendingSuggestions, reviewSuggestion, seedDependencyEdges } from "./dependencyMapService";
 import { getWeb3Summary, getWeb3Trend } from "./web3HealthService";
 
@@ -9286,6 +9286,67 @@ ${postEntries}
     } catch (error) {
       console.error("Error fetching war rooms:", error);
       res.status(500).json({ error: "Failed to fetch war rooms" });
+    }
+  });
+
+  // Open a war room for a vendor — creates an incident on-demand if none exists
+  app.post("/api/war-room/vendor/:vendorKey/open", isAuthenticated, async (req: any, res) => {
+    try {
+      const { vendorKey } = req.params;
+
+      // Find the vendor
+      const [vendor] = await db.select().from(vendors).where(eq(vendors.key, vendorKey)).limit(1);
+      if (!vendor) return res.status(404).json({ error: "Vendor not found" });
+
+      // Check for an existing active incident for this vendor
+      let incident = await db.select().from(incidents)
+        .where(and(eq(incidents.vendorKey, vendorKey), ne(incidents.status, 'resolved')))
+        .orderBy(desc(incidents.createdAt))
+        .limit(1)
+        .then(rows => rows[0] || null);
+
+      // If no incident exists, create one for this outage
+      if (!incident) {
+        const vendorStatus = (vendor as any).normalizedStatus || (vendor as any).status || 'outage';
+        const severity = vendorStatus === 'outage' || vendorStatus === 'major_outage' ? 'critical' : 'major';
+        const now = new Date().toISOString();
+        const incidentId = `manual-${vendorKey}-${Date.now()}`;
+        [incident] = await db.insert(incidents).values({
+          incidentId,
+          vendorKey,
+          title: `${vendor.name} — Active ${vendorStatus.replace(/_/g, ' ')}`,
+          status: 'investigating',
+          severity,
+          impact: `${vendor.name} is currently reporting ${vendorStatus.replace(/_/g, ' ')}`,
+          url: (vendor as any).statusUrl || '',
+          startedAt: now,
+          updatedAt: now,
+        }).returning();
+      }
+
+      // Check for existing war room for this incident
+      const existing = await storage.getWarRoom(incident.id);
+      if (existing) return res.json({ warRoom: existing, incidentId: incident.id });
+
+      const warRoom = await storage.createWarRoom({
+        incidentId: incident.id,
+        vendorKey,
+        vendorName: vendor.name,
+        status: 'open',
+      });
+
+      await storage.createWarRoomPost({
+        warRoomId: warRoom.id,
+        userId: null,
+        content: `War Room opened by ${req.user?.email || 'a team member'}`,
+        detail: null,
+        isSystemUpdate: true,
+      });
+
+      res.json({ warRoom, incidentId: incident.id });
+    } catch (error) {
+      console.error("Error opening vendor war room:", error);
+      res.status(500).json({ error: "Failed to open war room" });
     }
   });
 
