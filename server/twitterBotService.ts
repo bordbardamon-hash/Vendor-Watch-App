@@ -394,7 +394,7 @@ export async function runTwitterBotCycle(): Promise<void> {
     ));
 
   for (const inc of activeIncidents) {
-    if (tweetsThisHour + countTweetsInLastHour() >= settings.maxTweetsPerHour && !settings.previewMode) break;
+    if (countTweetsInLastHour() >= settings.maxTweetsPerHour && !settings.previewMode) break;
 
     if (excludedKeys.includes(inc.vendorKey)) continue;
 
@@ -482,12 +482,20 @@ export async function runTwitterBotCycle(): Promise<void> {
 
     for (const inc of resolvedTweeted) {
       if (countTweetsInLastHour() >= settings.maxTweetsPerHour && !settings.previewMode) break;
+      if (excludedKeys.includes(inc.vendorKey)) continue;
       if (await hasResolvedTweet(inc.incidentId)) continue;
 
       const replyToId = await getDetectedTweetId(inc.incidentId) || undefined;
       const vendorInfo = await db.select({ name: vendors.name }).from(vendors).where(eq(vendors.key, inc.vendorKey)).limit(1);
       const vendorName = vendorInfo[0]?.name || inc.vendorKey;
-      const content = composeResolvedTweet(vendorName, inc.vendorKey, inc.severity, inc.startedAt, null);
+
+      // Link to published blog post if one exists for this incident
+      const [blogPost] = await db.select({ slug: blogPosts.slug })
+        .from(blogPosts)
+        .where(and(eq(blogPosts.incidentId, inc.incidentId), eq(blogPosts.status, 'published')))
+        .limit(1);
+
+      const content = composeResolvedTweet(vendorName, inc.vendorKey, inc.severity, inc.startedAt, inc.resolvedAt?.toISOString() ?? null, blogPost?.slug);
 
       await sendOrPreview(settings, content, { incidentId: inc.incidentId, incidentType: 'vendor', vendorKey: inc.vendorKey, tweetType: 'resolved', replyToId });
     }
