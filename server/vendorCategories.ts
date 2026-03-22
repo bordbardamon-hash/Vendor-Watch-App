@@ -270,7 +270,7 @@ export const VENDOR_CATEGORIES: Record<string, string> = {
 
   // Identity & Access Management
   jumpcloud: "Identity & Access",
-  cyberark: "Identity & Access",
+
   sailpoint: "Identity & Access",
   clerk: "Identity & Access",
   stytch: "Identity & Access",

@@ -131,7 +131,7 @@ export const NEW_VENDORS = [
   // IDENTITY & ACCESS MANAGEMENT
   // ═══════════════════════════════════════════════════════════════
   { key: "jumpcloud", name: "JumpCloud", statusUrl: "https://status.jumpcloud.com", parser: "statuspage_json", status: "operational" },
-  { key: "cyberark", name: "CyberArk", statusUrl: "https://status.cyberark.com", parser: "statuspage_json", status: "operational" },
+
   { key: "sailpoint", name: "SailPoint", statusUrl: "https://status.sailpoint.com", parser: "statuspage_json", status: "operational" },
   { key: "clerk", name: "Clerk", statusUrl: "https://status.clerk.com", parser: "statuspage_json", status: "operational" },
   { key: "stytch", name: "Stytch", statusUrl: "https://status.stytch.com", parser: "statuspage_json", status: "operational" },
