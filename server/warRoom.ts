@@ -3,7 +3,7 @@ import { storage } from './storage';
 import { warRooms, warRoomPosts, warRoomParticipants, incidents, vendors } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
 import { sendEmail } from './emailClient';
-import type { Incident, Vendor } from '@shared/schema';
+import type { Incident, Vendor, BlockchainIncident, BlockchainChain } from '@shared/schema';
 import { broadcastToRoom } from './warRoomWebSocket';
 import OpenAI from 'openai';
 
@@ -103,6 +103,83 @@ export async function handleIncidentResolved(incidentId: string): Promise<void> 
   } catch (err) {
     console.error('[war-room] Failed to handle incident resolution:', err);
   }
+}
+
+export async function autoCreateBlockchainWarRoom(incident: BlockchainIncident, chain: BlockchainChain): Promise<void> {
+  try {
+    if (incident.severity !== 'critical' && incident.severity !== 'major') return;
+
+    const existing = await storage.getWarRoom(incident.id);
+    if (existing) return;
+
+    const warRoom = await storage.createWarRoom({
+      incidentId: incident.id,
+      vendorKey: chain.key,
+      vendorName: chain.name,
+      status: 'open',
+    });
+
+    console.log(`[war-room] Created war room ${warRoom.id} for blockchain incident: ${incident.title} (${incident.severity})`);
+
+    const sevLabel = incident.severity === 'critical' ? 'P1 Critical' : 'P2 Major';
+    await storage.createWarRoomPost({
+      warRoomId: warRoom.id,
+      userId: null,
+      content: `${sevLabel} blockchain incident detected for ${chain.name}. War Room opened. Engineers and MSPs monitoring this chain have been notified.`,
+      detail: incident.description || null,
+      isSystemUpdate: true,
+    });
+
+    if (NOTIFICATIONS_ENABLED) {
+      notifyBlockchainWarRoomCreated(warRoom.id, incident, chain).catch(err =>
+        console.error('[war-room] Failed to send blockchain war room notifications:', err)
+      );
+    }
+  } catch (err) {
+    console.error('[war-room] Failed to auto-create blockchain war room:', err);
+  }
+}
+
+async function notifyBlockchainWarRoomCreated(warRoomId: string, incident: BlockchainIncident, chain: BlockchainChain): Promise<void> {
+  const warRoomUrl = `${APP_URL}/war-room/${incident.id}`;
+  const sevLabel = incident.severity === 'critical' ? '🔴 P1 Critical' : '🟠 P2 Major';
+
+  let users: any[] = [];
+  try {
+    users = await storage.getUsersSubscribedToBlockchain(chain.key);
+  } catch (err) {
+    console.error('[war-room] Failed to get subscribed blockchain users:', err);
+    return;
+  }
+
+  if (users.length === 0) return;
+
+  const subject = `${sevLabel} Blockchain War Room: ${chain.name}`;
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
+      <div style="background:#0a0a0a;padding:20px;border-radius:8px;border:1px solid #333">
+        <h2 style="color:#ef4444;margin:0 0 16px">${sevLabel} — ${chain.name} Blockchain War Room</h2>
+        <p style="color:#d1d5db;margin:0 0 12px"><strong style="color:#f9fafb">Incident:</strong> ${incident.title}</p>
+        ${incident.description ? `<p style="color:#d1d5db;margin:0 0 12px"><strong style="color:#f9fafb">Details:</strong> ${incident.description}</p>` : ''}
+        <p style="color:#d1d5db;margin:0 0 20px">A War Room has been opened for real-time collaboration. Join to post workarounds, share updates, and coordinate with other MSPs monitoring ${chain.name}.</p>
+        <a href="${warRoomUrl}" style="display:inline-block;background:#ef4444;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600">Join War Room →</a>
+        <p style="color:#6b7280;font-size:12px;margin:20px 0 0">You're receiving this because you're monitoring ${chain.name} on VendorWatch.</p>
+      </div>
+    </div>
+  `;
+  const text = `${sevLabel} — ${chain.name} Blockchain War Room\n\nIncident: ${incident.title}\nJoin the War Room: ${warRoomUrl}\n\nYou're receiving this because you're monitoring ${chain.name} on VendorWatch.`;
+
+  let sent = 0;
+  for (const user of users) {
+    if (!user.email) continue;
+    try {
+      await sendEmail(user.email, subject, html, text);
+      sent++;
+    } catch (err) {
+      console.error(`[war-room] Failed to notify ${user.email}:`, err);
+    }
+  }
+  console.log(`[war-room] Notified ${sent}/${users.length} users about blockchain war room for ${chain.name}`);
 }
 
 async function notifyWarRoomCreated(warRoomId: string, incident: Incident, vendor: Vendor): Promise<void> {

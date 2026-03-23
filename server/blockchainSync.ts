@@ -3,6 +3,7 @@ import { fetchWithRetry } from "./retryUtil";
 import { notifyNewBlockchainIncident, notifyBlockchainIncidentUpdate, notifyBlockchainIncidentResolved } from "./notificationDispatcher";
 import { OrchestratorEngine } from "./orchestrator";
 import { confirmBlockchainIncident, cleanupStalePendingIncidents } from "./incidentConfirmation";
+import { autoCreateBlockchainWarRoom, handleIncidentResolved } from "./warRoom";
 import type { BlockchainChain } from "@shared/schema";
 
 const orchestrator = new OrchestratorEngine();
@@ -349,6 +350,11 @@ async function syncBlockchainChain(chainData: { key: string; name: string; sourc
       
       await notifyNewBlockchainIncident(newIncident, fullChain);
       await orchestrator.processBlockchainIncident(newIncident, 'newBlockchainIncident');
+
+      // Auto-create War Room for P1/P2 blockchain incidents
+      autoCreateBlockchainWarRoom(newIncident, fullChain).catch(err =>
+        console.error('[war-room] Failed to auto-create blockchain war room:', err)
+      );
     }
   }
   
@@ -364,6 +370,11 @@ async function syncBlockchainChain(chainData: { key: string; name: string; sourc
       if (updated) {
         await notifyBlockchainIncidentResolved(updated, fullChain);
         await orchestrator.processBlockchainIncident(updated, 'blockchainIncidentResolved');
+
+        // Trigger War Room grace-period close if one was open
+        handleIncidentResolved(existing.id).catch(err =>
+          console.error('[war-room] Failed to handle blockchain incident resolution:', err)
+        );
 
         // Auto-generate blog post for significant blockchain incidents
         if (existing.severity === 'critical' || existing.severity === 'major') {
