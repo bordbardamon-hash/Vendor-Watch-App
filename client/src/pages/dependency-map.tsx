@@ -84,9 +84,9 @@ function getNodeColor(node: GraphNode): string {
 }
 
 function getSeverityColor(severity: string) {
-  if (severity === "High") return "text-red-500 bg-red-50 border-red-200";
-  if (severity === "Medium") return "text-amber-600 bg-amber-50 border-amber-200";
-  return "text-green-600 bg-green-50 border-green-200";
+  if (severity === "High") return "text-red-400 bg-red-950/40 border-red-800/60";
+  if (severity === "Medium") return "text-amber-400 bg-amber-950/40 border-amber-700/60";
+  return "text-green-400 bg-green-950/40 border-green-800/60";
 }
 
 export default function DependencyMap() {
@@ -196,7 +196,11 @@ export default function DependencyMap() {
             "text-halign": "center",
             "font-size": 10,
             "font-weight": "600",
-            color: "#1e293b",
+            color: "#f1f5f9",
+            "text-background-color": "#09090b" as any,
+            "text-background-opacity": 0.7 as any,
+            "text-background-padding": "2px" as any,
+            "text-background-shape": "roundrectangle" as any,
             "text-margin-y": 5,
             "text-max-width": "80px" as any,
             "text-wrap": "ellipsis" as any,
@@ -223,17 +227,17 @@ export default function DependencyMap() {
           selector: "edge",
           style: {
             width: (ele: any) => (ele.data("confidence") === 1 ? 2 : 1.5),
-            "line-color": (ele: any) => (ele.data("confidence") === 1 ? "#475569" : "#94a3b8"),
+            "line-color": (ele: any) => (ele.data("confidence") === 1 ? "#64748b" : "#374151"),
             "line-style": (ele: any) => (ele.data("confidence") === 3 ? "dashed" : "solid"),
-            "target-arrow-color": (ele: any) => (ele.data("confidence") === 1 ? "#475569" : "#94a3b8"),
+            "target-arrow-color": (ele: any) => (ele.data("confidence") === 1 ? "#64748b" : "#374151"),
             "target-arrow-shape": "triangle",
             "curve-style": "bezier",
             label: "data(label)",
             "font-size": 9,
-            color: "#64748b",
+            color: "#94a3b8",
             "text-rotation": "autorotate",
             "text-margin-y": -8,
-            opacity: 0.8,
+            opacity: 0.9,
           },
         },
         {
@@ -250,7 +254,8 @@ export default function DependencyMap() {
           style: {
             "border-color": "#ef4444" as any,
             "border-width": 4,
-            "background-color": "#fef2f2" as any,
+            "background-color": "data(color)" as any,
+            "border-opacity": 1 as any,
           },
         },
         {
@@ -378,16 +383,16 @@ export default function DependencyMap() {
   const isEmbed = new URLSearchParams(window.location.search).get("embed") === "1";
 
   return (
-    <div className={`flex flex-col ${isEmbed ? "h-screen" : "h-full min-h-screen"} bg-slate-50`}>
+    <div className={`flex flex-col ${isEmbed ? "h-screen" : "h-full min-h-screen"} bg-background`}>
       {!isEmbed && (
-        <div className="bg-white border-b border-slate-200 px-6 py-4">
+        <div className="bg-background border-b border-sidebar-border px-6 py-4">
           <div className="max-w-screen-2xl mx-auto flex items-center justify-between gap-4 flex-wrap">
             <div>
-              <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                <Activity className="w-5 h-5 text-violet-600" />
+              <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
+                <Activity className="w-5 h-5 text-violet-400" />
                 Cross-Chain / Cross-Vendor Dependency Map
               </h1>
-              <p className="text-sm text-slate-500 mt-0.5">
+              <p className="text-sm text-muted-foreground mt-0.5">
                 Visualize how vendors and blockchains depend on each other — click any node to analyze blast radius.
               </p>
             </div>
@@ -521,9 +526,9 @@ export default function DependencyMap() {
         {/* Graph area */}
         <div className="flex-1 flex flex-col relative">
           {/* Toolbar */}
-          <div className="absolute top-3 left-3 z-20 flex items-center gap-2 bg-white rounded-lg shadow border border-slate-200 px-2 py-1.5">
+          <div className="absolute top-3 left-3 z-20 flex items-center gap-2 bg-sidebar/90 backdrop-blur rounded-lg border border-sidebar-border px-2 py-1.5">
             <Select value={filterType} onValueChange={v => setFilterType(v as any)}>
-              <SelectTrigger className="h-7 text-xs w-32 border-0 shadow-none focus:ring-0" data-testid="select-filter-type">
+              <SelectTrigger className="h-7 text-xs w-32 border-0 shadow-none focus:ring-0 text-foreground" data-testid="select-filter-type">
                 <SelectValue placeholder="All types" />
               </SelectTrigger>
               <SelectContent>
@@ -532,9 +537,9 @@ export default function DependencyMap() {
                 <SelectItem value="blockchain">Blockchain only</SelectItem>
               </SelectContent>
             </Select>
-            <div className="w-px h-5 bg-slate-200" />
+            <div className="w-px h-5 bg-sidebar-border" />
             <Select value={filterRelationship} onValueChange={setFilterRelationship}>
-              <SelectTrigger className="h-7 text-xs w-36 border-0 shadow-none focus:ring-0" data-testid="select-filter-relationship">
+              <SelectTrigger className="h-7 text-xs w-36 border-0 shadow-none focus:ring-0 text-foreground" data-testid="select-filter-relationship">
                 <SelectValue placeholder="All edges" />
               </SelectTrigger>
               <SelectContent>
@@ -560,34 +565,34 @@ export default function DependencyMap() {
           </div>
 
           {/* Legend */}
-          <div className="absolute bottom-3 left-3 z-20 bg-white rounded-lg shadow border border-slate-200 p-2.5 text-xs space-y-1.5">
-            <p className="font-semibold text-slate-700 text-[11px] uppercase tracking-wide">Legend</p>
+          <div className="absolute bottom-3 left-3 z-20 bg-sidebar/90 backdrop-blur rounded-lg border border-sidebar-border p-2.5 text-xs space-y-1.5">
+            <p className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wide">Legend</p>
             <div className="flex items-center gap-1.5">
               <span className="w-3 h-3 rounded-full inline-block" style={{ background: NODE_COLORS.vendor }} />
-              <span className="text-slate-600">Vendor</span>
+              <span className="text-foreground">Vendor</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="w-3 h-3 rounded-full inline-block" style={{ background: NODE_COLORS.blockchain }} />
-              <span className="text-slate-600">Blockchain/RPC</span>
+              <span className="text-foreground">Blockchain/RPC</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="w-3 h-[2px] inline-block bg-slate-500" />
-              <span className="text-slate-600">Confirmed</span>
+              <span className="text-foreground">Confirmed</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="w-3 h-[2px] inline-block bg-slate-400" style={{ borderTop: "2px dashed #94a3b8" }} />
-              <span className="text-slate-600">Community</span>
+              <span className="w-3 h-[2px] inline-block" style={{ borderTop: "2px dashed #64748b" }} />
+              <span className="text-foreground">Community</span>
             </div>
-            <div className="border-t border-slate-100 pt-1 text-[10px] text-slate-500">
+            <div className="border-t border-sidebar-border pt-1 text-[10px] text-muted-foreground">
               Border = live status | Size = dependents
             </div>
           </div>
 
           {isLoading && (
-            <div className="absolute inset-0 z-30 flex items-center justify-center bg-slate-50/80">
+            <div className="absolute inset-0 z-30 flex items-center justify-center bg-background/80">
               <div className="text-center">
-                <RefreshCw className="w-8 h-8 animate-spin text-violet-600 mx-auto mb-2" />
-                <p className="text-sm text-slate-600">Building dependency graph…</p>
+                <RefreshCw className="w-8 h-8 animate-spin text-violet-400 mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">Building dependency graph…</p>
               </div>
             </div>
           )}
@@ -602,13 +607,13 @@ export default function DependencyMap() {
 
         {/* Side panel */}
         {selectedNode && (
-          <div className="w-80 border-l border-slate-200 bg-white flex flex-col overflow-y-auto" data-testid="panel-node-details">
+          <div className="w-80 border-l border-sidebar-border bg-background flex flex-col overflow-y-auto" data-testid="panel-node-details">
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-              <span className="font-semibold text-slate-900 text-sm">{selectedNode.label}</span>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-sidebar-border">
+              <span className="font-semibold text-foreground text-sm">{selectedNode.label}</span>
               <button
                 onClick={() => { setSelectedNode(null); setBlastRadius(null); }}
-                className="text-slate-400 hover:text-slate-700"
+                className="text-muted-foreground hover:text-foreground"
                 data-testid="button-close-panel"
               >
                 <X className="w-4 h-4" />
@@ -637,21 +642,21 @@ export default function DependencyMap() {
                 </Badge>
               </div>
 
-              <div className="text-sm text-slate-600">
-                <span className="font-medium text-slate-800">{selectedNode.downstreamCount}</span>{" "}
+              <div className="text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">{selectedNode.downstreamCount}</span>{" "}
                 {selectedNode.downstreamCount === 1 ? "service depends" : "services depend"} on this node.
               </div>
 
               {/* Blast Radius CTA */}
-              <Card className="border-amber-200 bg-amber-50">
+              <Card className="border-amber-700/40 bg-amber-950/20">
                 <CardHeader className="pb-2 pt-3 px-3">
-                  <CardTitle className="text-sm text-amber-800 flex items-center gap-1.5">
+                  <CardTitle className="text-sm text-amber-400 flex items-center gap-1.5">
                     <AlertTriangle className="w-4 h-4" />
                     Blast Radius Analysis
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="px-3 pb-3 space-y-2">
-                  <p className="text-xs text-amber-700">
+                  <p className="text-xs text-amber-400/80">
                     If <strong>{selectedNode.label}</strong> goes down, what breaks?
                   </p>
                   <Button
@@ -679,14 +684,14 @@ export default function DependencyMap() {
                   </div>
 
                   {blastRadius.affected.length === 0 ? (
-                    <p className="text-sm text-slate-500">No downstream dependents found in the map.</p>
+                    <p className="text-sm text-muted-foreground">No downstream dependents found in the map.</p>
                   ) : (
                     <div className="space-y-1.5">
-                      <p className="text-xs font-medium text-slate-600 uppercase tracking-wide">Affected Services</p>
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Affected Services</p>
                       {blastRadius.affected.map(n => (
                         <div
                           key={n.id}
-                          className="flex items-center gap-2 p-2 rounded-md bg-red-50 border border-red-100 cursor-pointer hover:bg-red-100 transition-colors"
+                          className="flex items-center gap-2 p-2 rounded-md bg-red-950/30 border border-red-800/40 cursor-pointer hover:bg-red-950/50 transition-colors"
                           onClick={() => {
                             setSelectedNode(n);
                             setBlastRadius(null);
@@ -697,8 +702,8 @@ export default function DependencyMap() {
                             className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                             style={{ background: STATUS_COLORS[n.status] || STATUS_COLORS.unknown }}
                           />
-                          <span className="text-sm text-slate-700 font-medium flex-1">{n.label}</span>
-                          <ChevronRight className="w-3 h-3 text-slate-400" />
+                          <span className="text-sm text-foreground font-medium flex-1">{n.label}</span>
+                          <ChevronRight className="w-3 h-3 text-muted-foreground" />
                         </div>
                       ))}
                     </div>
