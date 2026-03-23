@@ -57,7 +57,7 @@ export default function TwitterBotPage() {
   const { data: settings, isLoading: settingsLoading } = useQuery<any>({
     queryKey: ["/api/admin/twitter-bot/settings"],
     queryFn: () => apiRequest("GET", "/api/admin/twitter-bot/settings").then(r => r.json()),
-    refetchInterval: 15 * 60 * 1000,
+    refetchInterval: 30000,
     refetchIntervalInBackground: false,
   });
 
@@ -69,7 +69,7 @@ export default function TwitterBotPage() {
   const { data: logs = [], isLoading: logsLoading, refetch: refetchLogs } = useQuery<any[]>({
     queryKey: ["/api/admin/twitter-bot/logs"],
     queryFn: () => apiRequest("GET", "/api/admin/twitter-bot/logs").then(r => r.json()),
-    refetchInterval: 15 * 60 * 1000,
+    refetchInterval: 30000,
     refetchIntervalInBackground: false,
   });
 
