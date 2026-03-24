@@ -1,0 +1,55 @@
+Build individual vendor profile pages for VendorWatch with the following spec:
+URL STRUCTURE
+	∙	/vendors — master index page listing all monitored vendors
+	∙	/vendors/:slug — individual vendor profile page
+	∙	Slugs are auto-generated from vendor name: “Microsoft 365” → microsoft-365, “AWS” → aws
+	∙	Add a slug column to the vendors table if it doesn’t exist, auto-populate from vendor name on save
+API ENDPOINTS
+	∙	GET /api/vendors — paginated list of all vendors with slug, name, category, logo_url, current_status, reliability_score
+	∙	GET /api/vendors/:slug — full vendor profile data including:
+	∙	Current status (operational / degraded / outage)
+	∙	Reliability score (0–100) with breakdown
+	∙	Uptime percentage last 30 / 90 / 365 days
+	∙	Incident history (last 10 incidents) with title, severity, start time, duration, resolution status
+	∙	Average MTTR (mean time to recovery)
+	∙	Active monitors count (how many VendorWatch users monitor this vendor)
+	∙	GET /api/vendors/:slug/incidents — paginated incident history for that vendor
+VENDOR INDEX PAGE (/vendors)
+	∙	Grid of vendor cards: logo, name, category, current status badge, reliability score gauge
+	∙	Filter bar: by category (Cloud, SaaS, Security, Blockchain, etc.) and by status (All / Operational / Degraded / Down)
+	∙	Search input to filter vendors by name
+	∙	Sort options: A-Z, Reliability Score, Most Monitored
+	∙	Page title: “Vendor Status & Reliability Scores | VendorWatch”
+	∙	Meta description: “Live status, reliability scores, and incident history for 400+ vendors monitored by VendorWatch.”
+VENDOR PROFILE PAGE (/vendors/:slug)
+Layout top to bottom:
+	1.	Hero section
+	∙	Vendor logo (large), vendor name, category badge
+	∙	Current status pill: green “Operational” / yellow “Degraded” / red “Outage”
+	∙	Last checked timestamp (“Updated 2 minutes ago”)
+	∙	“Monitor this vendor” CTA button → leads to signup if not logged in
+	2.	Reliability snapshot bar (4 stat cards in a row)
+	∙	Reliability Score (circular gauge, color-coded)
+	∙	Uptime % last 30 days
+	∙	Avg MTTR
+	∙	Incidents last 90 days
+	3.	Uptime history bar (like GitHub contributions grid)
+	∙	90-day grid where each day is green / yellow / red based on worst incident that day
+	∙	Tooltip on hover showing date and incident summary if any
+	4.	Incident history table
+	∙	Columns: Date, Title, Severity badge, Duration, Status (Resolved / Ongoing)
+	∙	Clicking a row opens the outage blog post for that incident if one exists
+	∙	“View all incidents” link → paginated full history
+	5.	Related vendors section
+	∙	3–4 vendors in the same category
+	∙	Same card format as the index grid
+	6.	CTA banner at bottom
+	∙	“Get alerted the next time [Vendor Name] has an outage”
+	∙	Email capture input + “Start Free Trial” button
+SEO REQUIREMENTS (critical)
+	∙	Server-side rendered (SSR) — not client-side only. Use Next.js getServerSideProps or generateStaticParams for static generation
+	∙	Each page must have unique:
+	∙	<title>: “[Vendor Name] Status, Reliability Score & Incident History | VendorWatch”
+	∙	<meta name="description">: “Live status and reliability score for [Vendor Name]. View uptime history, incident reports, and MTTR. Monitored by VendorWatch for MSPs.”
+	∙	<link rel="canonical"> pointing to the page URL
+	∙	Add JSON-LD structured data per page:

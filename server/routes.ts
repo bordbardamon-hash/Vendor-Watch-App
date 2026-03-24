@@ -551,6 +551,314 @@ export async function registerRoutes(
     }
   });
 
+  // ============ PUBLIC VENDOR PROFILE ENDPOINTS (no auth required) ============
+
+  // Helper: generate slug from vendor name
+  function makeVendorSlug(name: string): string {
+    return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  }
+
+  // GET /api/public/vendors — paginated public vendor list
+  app.get("/api/public/vendors", async (req, res) => {
+    try {
+      const { db } = await import('./db');
+      const { vendors, vendorScores } = await import('@shared/schema');
+      const { eq, ilike, and, or, asc, desc, sql: drizzleSql } = await import('drizzle-orm');
+
+      const page = Math.max(1, parseInt(req.query.page as string || '1', 10));
+      const limit = Math.min(100, parseInt(req.query.limit as string || '50', 10));
+      const offset = (page - 1) * limit;
+      const search = (req.query.search as string || '').trim();
+      const category = req.query.category as string | undefined;
+      const status = req.query.status as string | undefined;
+      const sort = req.query.sort as string || 'name';
+
+      const conditions: any[] = [];
+      if (search) conditions.push(ilike(vendors.name, `%${search}%`));
+      if (category && category !== 'All') conditions.push(eq(vendors.category, category));
+      if (status && status !== 'All') conditions.push(eq(vendors.status, status));
+
+      const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+      let orderBy: any;
+      if (sort === 'score') orderBy = desc(vendorScores.score);
+      else orderBy = asc(vendors.name);
+
+      const rows = await db
+        .select({
+          key: vendors.key,
+          name: vendors.name,
+          slug: vendors.slug,
+          logoUrl: vendors.logoUrl,
+          category: vendors.category,
+          status: vendors.status,
+          lastChecked: vendors.lastChecked,
+          score: vendorScores.score,
+          badge: vendorScores.badge,
+        })
+        .from(vendors)
+        .leftJoin(vendorScores, eq(vendors.key, vendorScores.vendorKey))
+        .where(where)
+        .orderBy(orderBy)
+        .limit(limit)
+        .offset(offset);
+
+      const [{ total }] = await db
+        .select({ total: drizzleSql<number>`count(*)` })
+        .from(vendors)
+        .where(where);
+
+      // Ensure slugs exist (fallback to key)
+      const withSlugs = rows.map(v => ({ ...v, slug: v.slug || makeVendorSlug(v.name) }));
+
+      res.json({ vendors: withSlugs, total: Number(total), page, limit });
+    } catch (error) {
+      console.error("Public vendor list error:", error);
+      res.status(500).json({ error: "Failed to fetch vendors" });
+    }
+  });
+
+  // GET /api/public/vendors/categories — list all categories
+  app.get("/api/public/vendors/categories", async (_req, res) => {
+    try {
+      const { db } = await import('./db');
+      const { vendors } = await import('@shared/schema');
+      const { sql: drizzleSql } = await import('drizzle-orm');
+      const rows = await db
+        .selectDistinct({ category: vendors.category })
+        .from(vendors)
+        .orderBy(vendors.category);
+      res.json(rows.map(r => r.category).filter(Boolean));
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch categories" });
+    }
+  });
+
+  // GET /api/public/vendors/:slug — full vendor profile (by slug or key)
+  app.get("/api/public/vendors/:slug", async (req, res) => {
+    try {
+      const { db } = await import('./db');
+      const { vendors, vendorScores, incidents, incidentArchive, userVendorSubscriptions } = await import('@shared/schema');
+      const { eq, or, desc, and, gte, count, sql: drizzleSql } = await import('drizzle-orm');
+
+      const slug = req.params.slug;
+
+      // Lookup by slug first, then fall back to key
+      const [vendor] = await db.select().from(vendors)
+        .where(or(eq(vendors.slug, slug), eq(vendors.key, slug)))
+        .limit(1);
+
+      if (!vendor) return res.status(404).json({ error: "Vendor not found" });
+
+      const effectiveSlug = vendor.slug || makeVendorSlug(vendor.name);
+
+      // Score
+      const [scoreRow] = await db.select().from(vendorScores)
+        .where(eq(vendorScores.vendorKey, vendor.key)).limit(1);
+
+      // Active monitors count
+      const [{ monitorCount }] = await db
+        .select({ monitorCount: count() })
+        .from(userVendorSubscriptions)
+        .where(eq(userVendorSubscriptions.vendorKey, vendor.key));
+
+      // Recent incidents (active)
+      const activeIncidents = await db.select().from(incidents)
+        .where(eq(incidents.vendorKey, vendor.key))
+        .orderBy(desc(incidents.createdAt))
+        .limit(10);
+
+      // Archived incidents (last 10)
+      const archivedIncidents = await db.select().from(incidentArchive)
+        .where(eq(incidentArchive.vendorKey, vendor.key))
+        .orderBy(desc(incidentArchive.resolvedAt))
+        .limit(20);
+
+      // Merge and sort all incidents for the table (last 10)
+      const allIncidents = [
+        ...activeIncidents.map(i => ({
+          id: i.id,
+          title: i.title,
+          severity: i.severity,
+          status: i.status,
+          startedAt: i.startedAt,
+          resolvedAt: null as string | null,
+          duration: null as number | null,
+          ongoing: true,
+        })),
+        ...archivedIncidents.map(i => {
+          const start = new Date(i.startedAt).getTime();
+          const end = i.resolvedAt ? new Date(i.resolvedAt).getTime() : Date.now();
+          const durationMins = Math.round((end - start) / 60000);
+          return {
+            id: i.id,
+            title: i.title,
+            severity: i.severity,
+            status: 'resolved',
+            startedAt: i.startedAt,
+            resolvedAt: i.resolvedAt ? i.resolvedAt.toISOString() : null,
+            duration: durationMins,
+            ongoing: false,
+          };
+        }),
+      ]
+        .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
+        .slice(0, 10);
+
+      // 90-day uptime grid — one entry per day
+      const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+      const gridIncidents = await db.select({
+        startedAt: incidentArchive.startedAt,
+        resolvedAt: incidentArchive.resolvedAt,
+        severity: incidentArchive.severity,
+        title: incidentArchive.title,
+      }).from(incidentArchive)
+        .where(and(
+          eq(incidentArchive.vendorKey, vendor.key),
+          gte(incidentArchive.resolvedAt, ninetyDaysAgo),
+        ))
+        .orderBy(desc(incidentArchive.resolvedAt));
+
+      // Also include any active incidents started in last 90 days
+      const gridActive = await db.select({
+        startedAt: incidents.startedAt,
+        severity: incidents.severity,
+        title: incidents.title,
+      }).from(incidents)
+        .where(eq(incidents.vendorKey, vendor.key));
+
+      // Build day map
+      const dayMap: Record<string, { worst: string; titles: string[] }> = {};
+      const getSeverityRank = (s: string) => s === 'critical' ? 3 : s === 'major' ? 2 : s === 'minor' ? 1 : 0;
+
+      for (const inc of gridIncidents) {
+        const day = new Date(inc.startedAt).toISOString().split('T')[0];
+        const existing = dayMap[day];
+        if (!existing || getSeverityRank(inc.severity) > getSeverityRank(existing.worst)) {
+          dayMap[day] = { worst: inc.severity, titles: [inc.title] };
+        } else if (existing.worst === inc.severity) {
+          existing.titles.push(inc.title);
+        }
+      }
+      for (const inc of gridActive) {
+        const day = new Date(inc.startedAt).toISOString().split('T')[0];
+        const existing = dayMap[day];
+        if (!existing || getSeverityRank(inc.severity) > getSeverityRank(existing.worst)) {
+          dayMap[day] = { worst: inc.severity, titles: [inc.title] };
+        } else if (existing && existing.worst === inc.severity) {
+          existing.titles.push(inc.title);
+        }
+      }
+
+      // Build 90-day array
+      const uptimeGrid: Array<{ date: string; status: string; titles: string[] }> = [];
+      for (let i = 89; i >= 0; i--) {
+        const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+        const dateStr = d.toISOString().split('T')[0];
+        const entry = dayMap[dateStr];
+        uptimeGrid.push({
+          date: dateStr,
+          status: entry ? (entry.worst === 'critical' ? 'outage' : entry.worst === 'major' ? 'degraded' : 'incident') : 'operational',
+          titles: entry?.titles || [],
+        });
+      }
+
+      // Uptime % for 30/90 days from score and incident counts
+      const uptime30 = scoreRow?.uptimePercent ?? 100;
+      const incCount90 = archivedIncidents.length;
+      const uptime90 = Math.max(0, Math.min(100, 100 - incCount90 * 0.5));
+      const uptime365 = Math.max(0, Math.min(100, 100 - (scoreRow?.criticalCount ?? 0) * 1 - (scoreRow?.majorCount ?? 0) * 0.3));
+
+      res.json({
+        vendor: {
+          key: vendor.key,
+          name: vendor.name,
+          slug: effectiveSlug,
+          logoUrl: vendor.logoUrl,
+          category: vendor.category,
+          status: vendor.status,
+          lastChecked: vendor.lastChecked,
+        },
+        score: scoreRow ? {
+          score: scoreRow.score,
+          badge: scoreRow.badge,
+          trend: scoreRow.trend,
+          uptimeScore: scoreRow.uptimeScore,
+          mttrScore: scoreRow.mttrScore,
+          frequencyScore: scoreRow.frequencyScore,
+          severityScore: scoreRow.severityScore,
+          mttrHours: scoreRow.mttrHours,
+          criticalCount: scoreRow.criticalCount,
+          majorCount: scoreRow.majorCount,
+          incidentFrequency30d: scoreRow.incidentFrequency30d,
+        } : null,
+        uptime: { uptime30, uptime90, uptime365 },
+        monitorCount: Number(monitorCount),
+        incidents: allIncidents,
+        uptimeGrid,
+      });
+    } catch (error) {
+      console.error("Public vendor profile error:", error);
+      res.status(500).json({ error: "Failed to fetch vendor profile" });
+    }
+  });
+
+  // GET /api/public/vendors/:slug/incidents — paginated incident history
+  app.get("/api/public/vendors/:slug/incidents", async (req, res) => {
+    try {
+      const { db } = await import('./db');
+      const { vendors, incidents, incidentArchive } = await import('@shared/schema');
+      const { eq, or, desc } = await import('drizzle-orm');
+
+      const slug = req.params.slug;
+      const page = Math.max(1, parseInt(req.query.page as string || '1', 10));
+      const limit = Math.min(50, parseInt(req.query.limit as string || '20', 10));
+      const offset = (page - 1) * limit;
+
+      const [vendor] = await db.select({ key: vendors.key })
+        .from(vendors)
+        .where(or(eq(vendors.slug, slug), eq(vendors.key, slug)))
+        .limit(1);
+
+      if (!vendor) return res.status(404).json({ error: "Vendor not found" });
+
+      const archived = await db.select().from(incidentArchive)
+        .where(eq(incidentArchive.vendorKey, vendor.key))
+        .orderBy(desc(incidentArchive.resolvedAt))
+        .limit(limit)
+        .offset(offset);
+
+      const active = offset === 0
+        ? await db.select().from(incidents)
+            .where(eq(incidents.vendorKey, vendor.key))
+            .orderBy(desc(incidents.createdAt))
+        : [];
+
+      const combined = [
+        ...active.map(i => ({
+          id: i.id, title: i.title, severity: i.severity, status: i.status,
+          startedAt: i.startedAt, resolvedAt: null, duration: null, ongoing: true,
+        })),
+        ...archived.map(i => {
+          const start = new Date(i.startedAt).getTime();
+          const end = i.resolvedAt ? new Date(i.resolvedAt).getTime() : Date.now();
+          return {
+            id: i.id, title: i.title, severity: i.severity, status: 'resolved',
+            startedAt: i.startedAt, resolvedAt: i.resolvedAt?.toISOString() ?? null,
+            duration: Math.round((end - start) / 60000), ongoing: false,
+          };
+        }),
+      ].sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
+
+      res.json({ incidents: combined, page, limit });
+    } catch (error) {
+      console.error("Public vendor incidents error:", error);
+      res.status(500).json({ error: "Failed to fetch incidents" });
+    }
+  });
+
+  // ============ END PUBLIC VENDOR PROFILE ENDPOINTS ============
+
   // Vendor score — authenticated
   app.get("/api/vendors/:key/score", isAuthenticated, async (req, res) => {
     try {
@@ -9253,6 +9561,7 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
       const staticUrls = [
         { loc: `${host}/`, changefreq: 'daily', priority: '1.0' },
         { loc: `${host}/outages`, changefreq: 'hourly', priority: '0.9' },
+        { loc: `${host}/vendors`, changefreq: 'daily', priority: '0.9' },
         { loc: `${host}/pricing`, changefreq: 'monthly', priority: '0.8' },
         { loc: `${host}/web3-health`, changefreq: 'hourly', priority: '0.8' },
       ];
@@ -9276,10 +9585,28 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
   </url>`;
       }).join('');
 
+      // Vendor profile pages — fetched fresh on each sitemap request
+      const { vendors: vendorsTable } = await import('@shared/schema');
+      const allVendors = await db.select({ slug: vendorsTable.slug, key: vendorsTable.key, name: vendorsTable.name, lastChecked: vendorsTable.lastChecked })
+        .from(vendorsTable);
+
+      const vendorEntries = allVendors.map(v => {
+        const slug = v.slug || v.key;
+        const lastmod = v.lastChecked ? new Date(v.lastChecked).toISOString().split('T')[0] : now;
+        return `
+  <url>
+    <loc>${host}/vendors/${slug}</loc>
+    <changefreq>hourly</changefreq>
+    <priority>0.8</priority>
+    <lastmod>${lastmod}</lastmod>
+  </url>`;
+      }).join('');
+
       const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${staticEntries}
 ${postEntries}
+${vendorEntries}
 </urlset>`;
 
       res.setHeader('Content-Type', 'application/xml; charset=utf-8');

@@ -12,6 +12,7 @@ import Jobs from "@/pages/jobs";
 import Logs from "@/pages/logs";
 import Settings from "@/pages/settings";
 import Vendors from "@/pages/vendors";
+import VendorProfile from "@/pages/vendor-profile";
 import Incidents from "@/pages/incidents";
 import Blockchain from "@/pages/blockchain";
 import Consents from "@/pages/consents";
@@ -136,6 +137,7 @@ function AuthenticatedRouter() {
       <Switch>
         <Route path="/" component={Dashboard} />
         <Route path="/dashboard" component={Dashboard} />
+        <Route path="/vendors/:slug" component={VendorProfile} />
         <Route path="/vendors" component={Vendors} />
         <Route path="/incidents" component={Incidents} />
         <Route path="/blockchain" component={Blockchain} />

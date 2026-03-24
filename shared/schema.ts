@@ -26,6 +26,7 @@ export const vendors = pgTable("vendors", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   key: text("key").notNull().unique(),
   name: text("name").notNull(),
+  slug: text("slug").unique(),
   logoUrl: text("logo_url"),
   statusUrl: text("status_url").notNull(),
   parser: text("parser").notNull(),
