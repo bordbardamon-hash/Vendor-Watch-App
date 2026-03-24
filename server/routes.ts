@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import type { Express, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
@@ -999,6 +1000,136 @@ export async function registerRoutes(
   });
 
   // ============ END PUBLIC LIVE TICKER ============
+
+  // ============ PUBLIC RECENT TWEETS ============
+
+  let tweetsCache: { data: any; ts: number } | null = null;
+  const TWEETS_TTL = 10 * 60 * 1000; // 10 minutes
+
+  // OAuth 1.0a signing for GET with query params
+  function buildOAuthHeaderGET(url: string, queryParams: Record<string, string>): string {
+    const pct = (s: string) => encodeURIComponent(s).replace(/[!'()*]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase());
+    const ts = Math.floor(Date.now() / 1000).toString();
+    const nonce = crypto.randomBytes(16).toString('hex');
+    const oauthParams: Record<string, string> = {
+      oauth_consumer_key: process.env.TWITTER_API_KEY || '',
+      oauth_nonce: nonce,
+      oauth_signature_method: 'HMAC-SHA1',
+      oauth_timestamp: ts,
+      oauth_token: process.env.TWITTER_ACCESS_TOKEN || '',
+      oauth_version: '1.0',
+    };
+    const allParams = { ...oauthParams, ...queryParams };
+    const paramStr = Object.entries(allParams)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => `${pct(k)}=${pct(v)}`)
+      .join('&');
+    const base = `GET&${pct(url)}&${pct(paramStr)}`;
+    const signingKey = `${pct(process.env.TWITTER_API_SECRET || '')}&${pct(process.env.TWITTER_ACCESS_TOKEN_SECRET || '')}`;
+    const sig = crypto.createHmac('sha1', signingKey).update(base).digest('base64');
+    const all = { ...oauthParams, oauth_signature: sig };
+    return 'OAuth ' + Object.entries(all).map(([k, v]) => `${pct(k)}="${pct(v)}"`).join(', ');
+  }
+
+  const INCIDENT_KEYWORDS = ['experiencing', 'outage', 'detected', 'resolved', 'monitoring', 'degraded', 'DETECTED', 'RESOLVED', 'UPDATE'];
+
+  const FALLBACK_TWEETS = [
+    {
+      tweet_id: null,
+      text: '🔴 DETECTED: Salesforce CRM is experiencing a P1 outage. Affected: Login, API. Started: 14 min ago. Live status → vendorwatch.app/vendors/salesforce',
+      created_at: new Date(Date.now() - 14 * 60 * 1000).toISOString(),
+      public_metrics: { like_count: 12, retweet_count: 5 },
+    },
+    {
+      tweet_id: null,
+      text: '🟡 UPDATE: Microsoft 365 SharePoint degradation ongoing. Duration: 1hr 12min. 847 VendorWatch users affected. → vendorwatch.app/vendors/microsoft-365',
+      created_at: new Date(Date.now() - 72 * 60 * 1000).toISOString(),
+      public_metrics: { like_count: 8, retweet_count: 3 },
+    },
+    {
+      tweet_id: null,
+      text: '✅ RESOLVED: AWS us-east-1 EC2 outage resolved after 43 minutes. Post-incident report → vendorwatch.app/outages/aws-ec2-outage-march-2026',
+      created_at: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+      public_metrics: { like_count: 24, retweet_count: 11 },
+    },
+  ];
+
+  app.get("/api/social/recent-tweets", async (_req, res) => {
+    try {
+      if (tweetsCache && Date.now() - tweetsCache.ts < TWEETS_TTL) {
+        return res.json(tweetsCache.data);
+      }
+
+      const credsSet = process.env.TWITTER_API_KEY && process.env.TWITTER_API_SECRET &&
+        process.env.TWITTER_ACCESS_TOKEN && process.env.TWITTER_ACCESS_TOKEN_SECRET;
+
+      if (!credsSet) {
+        return res.json({ tweets: FALLBACK_TWEETS, source: 'fallback' });
+      }
+
+      // Step 1: get @vendorwatch user ID
+      const userUrl = 'https://api.twitter.com/2/users/by/username/vendorwatch';
+      const userRes = await fetch(userUrl, {
+        headers: { Authorization: buildOAuthHeaderGET(userUrl, {}) },
+      });
+
+      if (!userRes.ok) {
+        console.error(`[tweets] User lookup failed: ${userRes.status}`);
+        return res.json({ tweets: FALLBACK_TWEETS, source: 'fallback' });
+      }
+
+      const userData = await userRes.json() as any;
+      const userId = userData?.data?.id;
+      if (!userId) {
+        return res.json({ tweets: FALLBACK_TWEETS, source: 'fallback' });
+      }
+
+      // Step 2: fetch user timeline
+      const timelineUrl = `https://api.twitter.com/2/users/${userId}/tweets`;
+      const queryParams: Record<string, string> = {
+        max_results: '20',
+        'tweet.fields': 'created_at,public_metrics',
+        exclude: 'retweets,replies',
+      };
+      const qs = new URLSearchParams(queryParams).toString();
+
+      const timelineRes = await fetch(`${timelineUrl}?${qs}`, {
+        headers: { Authorization: buildOAuthHeaderGET(timelineUrl, queryParams) },
+      });
+
+      if (!timelineRes.ok) {
+        const errText = await timelineRes.text().catch(() => '');
+        console.error(`[tweets] Timeline fetch failed: ${timelineRes.status} ${errText}`);
+        return res.json({ tweets: FALLBACK_TWEETS, source: 'fallback' });
+      }
+
+      const timelineData = await timelineRes.json() as any;
+      const allTweets: any[] = timelineData?.data || [];
+
+      // Filter for incident-related content
+      const filtered = allTweets
+        .filter((t: any) => INCIDENT_KEYWORDS.some(kw => t.text.includes(kw)))
+        .slice(0, 5)
+        .map((t: any) => ({
+          tweet_id: t.id,
+          text: t.text,
+          created_at: t.created_at,
+          public_metrics: t.public_metrics || { like_count: 0, retweet_count: 0 },
+        }));
+
+      const tweets = filtered.length >= 1 ? filtered : FALLBACK_TWEETS;
+      const payload = { tweets, source: filtered.length >= 1 ? 'live' : 'fallback' };
+
+      tweetsCache = { data: payload, ts: Date.now() };
+      res.setHeader('Cache-Control', 'public, max-age=600');
+      res.json(payload);
+    } catch (error: any) {
+      console.error('[tweets] Error:', error.message);
+      res.json({ tweets: FALLBACK_TWEETS, source: 'fallback' });
+    }
+  });
+
+  // ============ END PUBLIC RECENT TWEETS ============
 
   // Vendor score — authenticated
   app.get("/api/vendors/:key/score", isAuthenticated, async (req, res) => {

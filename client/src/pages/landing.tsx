@@ -442,6 +442,165 @@ function StatsBar() {
   );
 }
 
+// ── X (Twitter) logo SVG ──────────────────────────────────────────────
+function XLogo({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className={className} fill="currentColor">
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    </svg>
+  );
+}
+
+interface RecentTweet {
+  tweet_id: string | null;
+  text: string;
+  created_at: string;
+  public_metrics: { like_count: number; retweet_count: number };
+}
+
+function TweetCard({ tweet }: { tweet: RecentTweet }) {
+  const tweetUrl = tweet.tweet_id
+    ? `https://x.com/vendorwatch/status/${tweet.tweet_id}`
+    : null;
+
+  // Linkify URLs in tweet text
+  const parts = tweet.text.split(/(https?:\/\/\S+)/g);
+
+  return (
+    <div
+      className="flex flex-col gap-3 rounded-2xl border border-[#2F3336] p-5 shadow-lg"
+      style={{ background: '#15202B' }}
+      data-testid={`card-tweet-${tweet.tweet_id || 'fallback'}`}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="h-9 w-9 rounded-full bg-black flex items-center justify-center shrink-0">
+            <XLogo className="h-4 w-4 text-white" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-white leading-tight">VendorWatch</p>
+            <p className="text-xs text-[#8B98A5] leading-tight">@vendorwatch</p>
+          </div>
+        </div>
+        <XLogo className="h-5 w-5 text-[#1D9BF0]" />
+      </div>
+
+      {/* Tweet text */}
+      <p className="text-sm text-white leading-relaxed flex-1">
+        {parts.map((part, i) =>
+          part.match(/^https?:\/\//) ? (
+            <span key={i} className="text-[#1D9BF0] break-all">{part}</span>
+          ) : (
+            <span key={i}>{part}</span>
+          )
+        )}
+      </p>
+
+      {/* Footer */}
+      <div className="flex items-center justify-between pt-1 border-t border-[#2F3336] mt-auto">
+        <div className="flex items-center gap-4 text-xs text-[#8B98A5]">
+          {/* Retweet */}
+          <span className="flex items-center gap-1">
+            <svg viewBox="0 0 24 24" fill="currentColor" className="h-3.5 w-3.5">
+              <path d="M4.5 3.88l4.432 4.14-1.364 1.46L5.5 7.55V16c0 1.1.896 2 2 2H13v2H7.5c-2.209 0-4-1.79-4-4V7.55L1.432 9.48.068 8.02 4.5 3.88zM16.5 6H11V4h5.5c2.209 0 4 1.79 4 4v8.45l2.068-1.93 1.364 1.46-4.432 4.14-4.432-4.14 1.364-1.46 2.068 1.93V8c0-1.1-.896-2-2-2z" />
+            </svg>
+            {tweet.public_metrics.retweet_count}
+          </span>
+          {/* Like */}
+          <span className="flex items-center gap-1">
+            <svg viewBox="0 0 24 24" fill="currentColor" className="h-3.5 w-3.5">
+              <path d="M16.697 5.5c-1.222-.06-2.679.51-3.89 2.16l-.805 1.09-.806-1.09C9.984 6.01 8.526 5.44 7.304 5.5c-1.243.07-2.349.78-2.91 1.91-.552 1.12-.633 2.78.479 4.82 1.074 1.97 3.257 4.27 7.129 6.61 3.87-2.34 6.052-4.64 7.126-6.61 1.111-2.04 1.03-3.7.477-4.82-.561-1.13-1.666-1.84-2.908-1.91zm4.187 7.69c-1.351 2.48-4.001 5.12-8.379 7.67l-.503.3-.504-.3c-4.379-2.55-7.029-5.19-8.382-7.67-1.36-2.5-1.41-4.86-.514-6.67.887-1.79 2.647-2.91 4.601-3.01 1.651-.09 3.368.56 4.798 2.01 1.429-1.45 3.146-2.1 4.796-2.01 1.954.1 3.714 1.22 4.601 3.01.896 1.81.846 4.17-.514 6.67z" />
+            </svg>
+            {tweet.public_metrics.like_count}
+          </span>
+          <span className="text-[#8B98A5]">
+            {formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true })}
+          </span>
+        </div>
+        {tweetUrl && (
+          <a
+            href={tweetUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-[#1D9BF0] hover:underline font-medium"
+            data-testid={`link-view-tweet-${tweet.tweet_id}`}
+          >
+            View on X →
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function XBotSection() {
+  const { data, isLoading } = useQuery<{ tweets: RecentTweet[]; source: string }>({
+    queryKey: ["/api/social/recent-tweets"],
+    queryFn: () => apiRequest("GET", "/api/social/recent-tweets").then(r => r.json()),
+    staleTime: 9 * 60 * 1000,
+    refetchInterval: 10 * 60 * 1000,
+  });
+
+  const tweets = (data?.tweets || []).slice(0, 3);
+
+  return (
+    <section className="border-t border-border/40 bg-gradient-to-b from-background to-[#0F172A]/40 py-20">
+      <div className="container mx-auto px-4">
+        {/* Heading */}
+        <div className="text-center mb-12">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#1D9BF0]/10 border border-[#1D9BF0]/20 text-[#1D9BF0] text-sm font-medium mb-4">
+            <XLogo className="h-3.5 w-3.5" />
+            Live on X
+          </div>
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">
+            Live Outage Alerts, Broadcast in Real Time
+          </h2>
+          <p className="text-muted-foreground max-w-2xl mx-auto">
+            VendorWatch automatically posts to X the moment a P1 or P2 incident is detected — so your team always knows first.
+          </p>
+        </div>
+
+        {/* Tweet cards */}
+        {isLoading ? (
+          <div className="grid md:grid-cols-3 gap-5 max-w-5xl mx-auto">
+            {[0, 1, 2].map(i => (
+              <div key={i} className="h-48 rounded-2xl border border-[#2F3336] animate-pulse" style={{ background: '#15202B' }} />
+            ))}
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-3 gap-5 max-w-5xl mx-auto">
+            {tweets.map((tweet, i) => (
+              <TweetCard key={tweet.tweet_id || i} tweet={tweet} />
+            ))}
+          </div>
+        )}
+
+        {/* Follow CTA */}
+        <div className="mt-10 text-center space-y-3">
+          <div className="flex items-center justify-center gap-3 flex-wrap">
+            <span className="text-sm text-muted-foreground">Follow @vendorwatch on X for real-time outage alerts</span>
+            <a
+              href="https://x.com/vendorwatch"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-white transition-opacity hover:opacity-90"
+              style={{ background: '#000000' }}
+              data-testid="link-follow-x"
+            >
+              <XLogo className="h-3.5 w-3.5" />
+              Follow on X
+            </a>
+          </div>
+          <p className="text-xs text-muted-foreground/60">
+            Alerts are also delivered via email, Slack, and PSA integrations
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function Landing() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -742,6 +901,8 @@ export default function Landing() {
             </div>
           </div>
         </section>
+
+        <XBotSection />
 
         <section className="border-t">
           <div className="container mx-auto px-4 py-20">

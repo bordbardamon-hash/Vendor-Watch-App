@@ -1,0 +1,39 @@
+Add an X (Twitter) outage bot social proof section to the VendorWatch homepage with the following spec:
+PURPOSE
+Showcase the X Outage Bot (@VendorWatch or your handle) as live proof that VendorWatch detects and broadcasts incidents in real time. Visitors see actual tweets as evidence the product works.
+API ENDPOINT (backend)
+	∙	GET /api/social/recent-tweets
+	∙	Fetch the last 5 tweets from your X account using the X API v2 user timeline endpoint
+	∙	Filter to only return tweets that contain incident-related keywords: “experiencing”, “outage”, “detected”, “resolved”, “monitoring”
+	∙	Cache response for 10 minutes (tweets don’t need to be real-time here)
+	∙	Each tweet object returns: tweet_id, text, created_at, public_metrics (like_count, retweet_count)
+	∙	Public endpoint — no auth required
+HOMEPAGE SECTION PLACEMENT
+	∙	Place after the features section and before the pricing or CTA section
+	∙	Section heading: “Live Outage Alerts, Broadcast in Real Time”
+	∙	Subheading: “VendorWatch automatically posts to X the moment a P1 or P2 incident is detected — so your team always knows first.”
+TWEET CARD DISPLAY
+	∙	Show 3 tweet cards in a horizontal row (on mobile: vertical stack)
+	∙	Each card displays:
+	∙	X bird / logo icon top left
+	∙	Account name “@YourHandle” with verified/bot badge
+	∙	Tweet text (full, no truncation)
+	∙	Time posted (“2 hours ago”)
+	∙	Like and retweet counts with icons
+	∙	“View on X” link that opens the tweet URL in a new tab
+	∙	Cards use a dark theme matching X’s aesthetic (#15202B background, white text)
+	∙	Subtle border and slight drop shadow
+FALLBACK (if X API is unavailable or rate limited)
+	∙	Hardcode 3 representative example tweets as static fallback content
+	∙	These should look identical to live tweets but have no “View on X” link
+	∙	Example fallback tweets:
+	∙	“🔴 DETECTED: Salesforce CRM is experiencing a P1 outage. Affected: Login, API. Started: 14 min ago. Live status → vendorwatch.app/vendors/salesforce”
+	∙	“🟡 UPDATE: Microsoft 365 SharePoint degradation ongoing. Duration: 1hr 12min. 847 VendorWatch users affected. → vendorwatch.app/vendors/microsoft-365”
+	∙	“✅ RESOLVED: AWS us-east-1 EC2 outage resolved after 43 minutes. Post-incident report → vendorwatch.app/outages/aws-ec2-outage-march-2026”
+FOLLOW CTA BELOW THE CARDS
+	∙	One line: “Follow @YourHandle on X for real-time outage alerts”
+	∙	An X-branded follow button that links to your X profile
+	∙	Small disclaimer below: “Alerts are also delivered via email, Slack, and PSA integrations”
+TECHNICAL NOTE
+	∙	If your Next.js/SSR setup makes it easier, fetch the tweets at build time with ISR (Incremental Static Regeneration) and revalidate every 10 minutes — this avoids X API rate limits hitting on every page load
+	∙	If using client-side fetching, make sure the X API call goes through your backend endpoint, never directly from the browser (exposes your API keys)
