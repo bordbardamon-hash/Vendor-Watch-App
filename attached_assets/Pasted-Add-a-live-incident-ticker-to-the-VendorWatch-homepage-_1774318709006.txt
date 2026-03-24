@@ -1,0 +1,42 @@
+Add a live incident ticker to the VendorWatch homepage with the following spec:
+WHAT IT DOES
+A horizontally scrolling or vertically updating feed of real incidents being detected right now, visible to all visitors including non-logged-in users. Proves the product is working and creates urgency.
+API ENDPOINT
+	∙	GET /api/incidents/live-ticker
+	∙	Returns last 20 incidents from the last 72 hours
+	∙	Each entry includes: vendor_name, vendor_logo_url, incident_title, severity (P1/P2/P3), started_at, status (detected / ongoing / resolved), duration_minutes (null if ongoing)
+	∙	Public endpoint — no auth required
+	∙	Cache response for 60 seconds to avoid hammering the DB
+HOMEPAGE PLACEMENT
+	∙	Place immediately below the hero section, above the features/benefits section
+	∙	Full-width strip across the page
+VISUAL DESIGN — HORIZONTAL SCROLLING TICKER
+	∙	Dark background strip (#0F172A or similar)
+	∙	Continuous auto-scrolling left (CSS animation, no JS library needed)
+	∙	Each ticker item contains:
+	∙	Vendor logo (small, 24px circle)
+	∙	Vendor name in white, bold
+	∙	Severity badge: P1 = red pill, P2 = orange pill, P3 = yellow pill
+	∙	Short label: “Outage detected” / “Ongoing” / “Resolved”
+	∙	Time ago: “14 min ago”, “2hr ago”
+	∙	Separator dot between items
+	∙	Items repeat seamlessly (duplicate the array so the scroll loops)
+	∙	Pause scroll on hover so users can read
+	∙	On mobile: same ticker, slightly smaller font
+ABOVE THE TICKER (one line of text)
+	∙	Left-aligned label in the ticker strip: “🔴 Live — [N] incidents detected in the last 24 hours”
+	∙	N is pulled from the API and updated every 60 seconds
+STATS BAR (place directly below the ticker)
+	∙	3 stat cards in a row showing real data:
+	∙	“Vendors Monitored: 400+”
+	∙	“Incidents detected last 30 days: [real number from DB]”
+	∙	“MSPs protected: [user count or a conservative rounded number]”
+	∙	Cards have a subtle border and update the dynamic numbers on page load
+	∙	On mobile: stack vertically
+REAL-TIME UPDATE
+	∙	Poll the /api/incidents/live-ticker endpoint every 60 seconds
+	∙	When new incidents arrive, prepend them to the ticker with a brief flash/highlight animation
+	∙	Do not require WebSockets — simple polling is fine here
+FALLBACK
+	∙	If the API returns no incidents in the last 72 hours, show a static message: “All monitored vendors currently operational” with a green dot
+	∙	Never show an empty ticker

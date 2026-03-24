@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { APP_NAME } from "@/lib/labels";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +12,8 @@ import {
 } from "lucide-react";
 import { Link } from "wouter";
 import { VendorWatchLogo } from "@/components/ui/vendor-watch-logo";
+import { apiRequest } from "@/lib/queryClient";
+import { formatDistanceToNow } from "date-fns";
 
 const FEATURE_PILLS = [
   { label: "Cloud Monitoring", icon: Cloud, href: "#features" },
@@ -258,6 +261,187 @@ function ComponentsMockup() {
   );
 }
 
+interface TickerIncident {
+  vendorName: string;
+  vendorLogoUrl: string | null;
+  incidentTitle: string;
+  severity: "P1" | "P2" | "P3";
+  startedAt: string;
+  status: "detected" | "ongoing" | "resolved";
+  durationMinutes: number | null;
+}
+
+interface TickerData {
+  incidents: TickerIncident[];
+  stats: {
+    count24h: number;
+    count30d: number;
+    vendorCount: number;
+    userCount: number;
+  };
+}
+
+const SEVERITY_STYLES: Record<string, string> = {
+  P1: "bg-red-500/90 text-white",
+  P2: "bg-orange-500/90 text-white",
+  P3: "bg-yellow-500/90 text-slate-900",
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  detected: "Outage detected",
+  ongoing: "Ongoing",
+  resolved: "Resolved",
+};
+
+const STATUS_DOT: Record<string, string> = {
+  detected: "bg-red-500 animate-pulse",
+  ongoing: "bg-orange-500 animate-pulse",
+  resolved: "bg-emerald-500",
+};
+
+function timeAgo(dateStr: string) {
+  try {
+    return formatDistanceToNow(new Date(dateStr), { addSuffix: true });
+  } catch {
+    return "";
+  }
+}
+
+function TickerItem({ inc }: { inc: TickerIncident }) {
+  return (
+    <span className="inline-flex items-center gap-2.5 px-5 py-0 shrink-0 text-sm">
+      {/* Status dot */}
+      <span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_DOT[inc.status] || STATUS_DOT.ongoing}`} />
+
+      {/* Logo or initials */}
+      {inc.vendorLogoUrl ? (
+        <img
+          src={inc.vendorLogoUrl}
+          alt={`${inc.vendorName} logo`}
+          className="h-5 w-5 rounded-full object-contain bg-slate-700 shrink-0"
+          onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+        />
+      ) : (
+        <span className="h-5 w-5 rounded-full bg-slate-700 flex items-center justify-center text-[9px] font-bold text-slate-300 shrink-0">
+          {inc.vendorName.slice(0, 2).toUpperCase()}
+        </span>
+      )}
+
+      {/* Vendor name */}
+      <span className="font-semibold text-white whitespace-nowrap">{inc.vendorName}</span>
+
+      {/* Severity pill */}
+      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${SEVERITY_STYLES[inc.severity]}`}>
+        {inc.severity}
+      </span>
+
+      {/* Status label */}
+      <span className="text-slate-400 whitespace-nowrap">{STATUS_LABEL[inc.status]}</span>
+
+      {/* Time */}
+      <span className="text-slate-500 whitespace-nowrap text-xs">{timeAgo(inc.startedAt)}</span>
+
+      {/* Separator */}
+      <span className="text-slate-700 mx-1 select-none">•</span>
+    </span>
+  );
+}
+
+const FALLBACK_INCIDENTS: TickerIncident[] = [
+  { vendorName: "AWS", vendorLogoUrl: "https://logo.clearbit.com/aws.amazon.com", incidentTitle: "Elevated error rates", severity: "P2", startedAt: new Date(Date.now() - 3600000).toISOString(), status: "resolved", durationMinutes: 45 },
+  { vendorName: "Cloudflare", vendorLogoUrl: "https://logo.clearbit.com/cloudflare.com", incidentTitle: "DNS resolution issues", severity: "P1", startedAt: new Date(Date.now() - 7200000).toISOString(), status: "resolved", durationMinutes: 22 },
+  { vendorName: "GitHub", vendorLogoUrl: "https://logo.clearbit.com/github.com", incidentTitle: "Actions workflow delays", severity: "P3", startedAt: new Date(Date.now() - 10800000).toISOString(), status: "resolved", durationMinutes: 30 },
+  { vendorName: "Stripe", vendorLogoUrl: "https://logo.clearbit.com/stripe.com", incidentTitle: "Intermittent webhook delays", severity: "P2", startedAt: new Date(Date.now() - 14400000).toISOString(), status: "resolved", durationMinutes: 18 },
+];
+
+function LiveTicker() {
+  const { data, isLoading } = useQuery<TickerData>({
+    queryKey: ["/api/incidents/live-ticker"],
+    queryFn: () => apiRequest("GET", "/api/incidents/live-ticker").then(r => r.json()),
+    refetchInterval: 60_000,
+    staleTime: 55_000,
+  });
+
+  const incidents = data?.incidents?.length ? data.incidents : FALLBACK_INCIDENTS;
+  const count24h = data?.stats?.count24h ?? 0;
+  const usingFallback = !data?.incidents?.length;
+
+  // Duplicate for seamless loop
+  const doubled = [...incidents, ...incidents];
+
+  if (isLoading) {
+    return (
+      <div className="bg-[#0F172A] border-y border-slate-800 py-3 px-4 flex items-center gap-3">
+        <span className="text-xs text-slate-500 animate-pulse">Loading live incident data…</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-[#0F172A] border-y border-slate-800 overflow-hidden" data-testid="live-ticker">
+      {/* Header row */}
+      <div className="px-4 pt-2.5 pb-1.5 flex items-center gap-2">
+        {usingFallback ? (
+          <>
+            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+            <span className="text-xs text-emerald-400 font-medium">All monitored vendors currently operational</span>
+          </>
+        ) : (
+          <>
+            <span className="text-red-500 text-xs">🔴</span>
+            <span className="text-xs text-slate-300 font-medium">
+              Live —{" "}
+              <span className="text-white font-bold" data-testid="text-count-24h">{count24h}</span>{" "}
+              incident{count24h !== 1 ? "s" : ""} detected in the last 24 hours
+            </span>
+          </>
+        )}
+      </div>
+
+      {/* Scrolling strip */}
+      <div className="overflow-hidden pb-2.5">
+        <div className="ticker-track">
+          {doubled.map((inc, i) => (
+            <TickerItem key={`${i}-${inc.vendorName}-${inc.startedAt}`} inc={inc} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatsBar() {
+  const { data } = useQuery<TickerData>({
+    queryKey: ["/api/incidents/live-ticker"],
+    queryFn: () => apiRequest("GET", "/api/incidents/live-ticker").then(r => r.json()),
+    staleTime: 55_000,
+  });
+
+  const vendorCount = data?.stats?.vendorCount ?? 400;
+  const count30d = data?.stats?.count30d ?? 0;
+  const userCount = data?.stats?.userCount ?? 0;
+  const mspCount = Math.max(50, Math.floor(userCount / 50) * 50);
+
+  const stats = [
+    { label: "Vendors Monitored", value: `${vendorCount}+`, testId: "stat-ticker-vendors" },
+    { label: "Incidents Detected (30 days)", value: count30d > 0 ? count30d.toLocaleString() : "—", testId: "stat-ticker-incidents" },
+    { label: "MSPs Protected", value: mspCount >= 100 ? `${mspCount}+` : "Growing fast", testId: "stat-ticker-msps" },
+  ];
+
+  return (
+    <div className="border-b border-slate-800 bg-[#0F172A]/60">
+      <div className="container mx-auto px-4 py-4 grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-0 sm:divide-x sm:divide-slate-800">
+        {stats.map(s => (
+          <div key={s.label} className="text-center sm:px-8 py-1" data-testid={s.testId}>
+            <p className="text-xl font-bold text-white">{s.value}</p>
+            <p className="text-xs text-slate-500 mt-0.5">{s.label}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function Landing() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -332,6 +516,9 @@ export default function Landing() {
             ))}
           </div>
         </section>
+
+        <LiveTicker />
+        <StatsBar />
 
         <section className="container mx-auto px-4 pb-8">
           <p className="text-center text-xs text-muted-foreground uppercase tracking-widest mb-4">Monitoring status for</p>

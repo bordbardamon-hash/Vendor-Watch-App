@@ -859,6 +859,147 @@ export async function registerRoutes(
 
   // ============ END PUBLIC VENDOR PROFILE ENDPOINTS ============
 
+  // ============ PUBLIC LIVE TICKER ============
+
+  // Simple 60-second in-memory cache for the ticker
+  let tickerCache: { data: any; ts: number } | null = null;
+  const TICKER_TTL = 60_000;
+
+  app.get("/api/incidents/live-ticker", async (_req, res) => {
+    try {
+      if (tickerCache && Date.now() - tickerCache.ts < TICKER_TTL) {
+        return res.json(tickerCache.data);
+      }
+
+      const { db } = await import('./db');
+      const { incidents, incidentArchive, vendors: vendorsTable, users } = await import('@shared/schema');
+      const { eq, desc, gte, or, count: drizzleCount, sql: drizzleSql } = await import('drizzle-orm');
+
+      const cutoff72h = new Date(Date.now() - 72 * 60 * 60 * 1000);
+      const cutoff24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const cutoff30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+      // Active incidents in last 72h
+      const activeRows = await db
+        .select({
+          incidentId: incidents.incidentId,
+          title: incidents.title,
+          severity: incidents.severity,
+          status: incidents.status,
+          startedAt: incidents.startedAt,
+          vendorKey: incidents.vendorKey,
+          vendorName: vendorsTable.name,
+          vendorLogoUrl: vendorsTable.logoUrl,
+          resolvedAt: drizzleSql<string | null>`null`,
+        })
+        .from(incidents)
+        .leftJoin(vendorsTable, eq(incidents.vendorKey, vendorsTable.key))
+        .where(gte(drizzleSql<Date>`${incidents.startedAt}::timestamp`, cutoff72h));
+
+      // Archived (resolved) incidents in last 72h
+      const archivedRows = await db
+        .select({
+          incidentId: incidentArchive.incidentId,
+          title: incidentArchive.title,
+          severity: incidentArchive.severity,
+          status: drizzleSql<string>`'resolved'`,
+          startedAt: incidentArchive.startedAt,
+          vendorKey: incidentArchive.vendorKey,
+          vendorName: vendorsTable.name,
+          vendorLogoUrl: vendorsTable.logoUrl,
+          resolvedAt: drizzleSql<string | null>`${incidentArchive.resolvedAt}::text`,
+        })
+        .from(incidentArchive)
+        .leftJoin(vendorsTable, eq(incidentArchive.vendorKey, vendorsTable.key))
+        .where(gte(incidentArchive.resolvedAt, cutoff72h));
+
+      // Merge, sort and pick top 20
+      const severityRank = (s: string) => s === 'critical' ? 3 : s === 'major' ? 2 : s === 'minor' ? 1 : 0;
+
+      const merged = [...activeRows, ...archivedRows]
+        .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
+        .slice(0, 20)
+        .map(row => {
+          const start = new Date(row.startedAt).getTime();
+          const end = row.resolvedAt ? new Date(row.resolvedAt).getTime() : Date.now();
+          const durationMinutes = Math.round((end - start) / 60000);
+
+          // Map severity to P-level
+          const pLevel = row.severity === 'critical' ? 'P1' : row.severity === 'major' ? 'P2' : 'P3';
+          // Map status to ticker label
+          const tickerStatus = row.status === 'resolved' ? 'resolved'
+            : row.status === 'investigating' ? 'detected'
+            : 'ongoing';
+
+          return {
+            vendorName: row.vendorName || row.vendorKey,
+            vendorLogoUrl: row.vendorLogoUrl || null,
+            incidentTitle: row.title,
+            severity: pLevel,
+            startedAt: row.startedAt,
+            status: tickerStatus,
+            durationMinutes: row.resolvedAt ? durationMinutes : null,
+          };
+        });
+
+      // Stats
+      // Count incidents in last 24h (active + archived)
+      const [{ activeCount24h }] = await db
+        .select({ activeCount24h: drizzleCount() })
+        .from(incidents)
+        .where(gte(drizzleSql<Date>`${incidents.startedAt}::timestamp`, cutoff24h));
+
+      const [{ archivedCount24h }] = await db
+        .select({ archivedCount24h: drizzleCount() })
+        .from(incidentArchive)
+        .where(gte(incidentArchive.resolvedAt, cutoff24h));
+
+      const count24h = Number(activeCount24h) + Number(archivedCount24h);
+
+      // Incidents in last 30d
+      const [{ activeCount30d }] = await db
+        .select({ activeCount30d: drizzleCount() })
+        .from(incidents)
+        .where(gte(drizzleSql<Date>`${incidents.startedAt}::timestamp`, cutoff30d));
+
+      const [{ archivedCount30d }] = await db
+        .select({ archivedCount30d: drizzleCount() })
+        .from(incidentArchive)
+        .where(gte(incidentArchive.resolvedAt, cutoff30d));
+
+      const count30d = Number(activeCount30d) + Number(archivedCount30d);
+
+      // Vendor count
+      const [{ vendorCount }] = await db
+        .select({ vendorCount: drizzleCount() })
+        .from(vendorsTable);
+
+      // User count (rounded conservatively)
+      const [{ userCount }] = await db
+        .select({ userCount: drizzleCount() })
+        .from(users);
+
+      const payload = {
+        incidents: merged,
+        stats: {
+          count24h,
+          count30d,
+          vendorCount: Number(vendorCount),
+          userCount: Number(userCount),
+        },
+      };
+
+      tickerCache = { data: payload, ts: Date.now() };
+      res.setHeader('Cache-Control', 'public, max-age=60');
+      res.json(payload);
+    } catch (error) {
+      console.error("Live ticker error:", error);
+      res.status(500).json({ error: "Failed to fetch live ticker" });
+    }
+  });
+
+  // ============ END PUBLIC LIVE TICKER ============
+
   // Vendor score — authenticated
   app.get("/api/vendors/:key/score", isAuthenticated, async (req, res) => {
     try {
