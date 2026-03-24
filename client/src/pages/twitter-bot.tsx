@@ -54,7 +54,7 @@ export default function TwitterBotPage() {
 
   const [testTweetPending, setTestTweetPending] = useState(false);
 
-  const { data: settings, isLoading: settingsLoading } = useQuery<any>({
+  const { data: settings, isLoading: settingsLoading, isFetching: settingsFetching, refetch: refetchSettings } = useQuery<any>({
     queryKey: ["/api/admin/twitter-bot/settings"],
     queryFn: () => apiRequest("GET", "/api/admin/twitter-bot/settings").then(r => r.json()),
     refetchInterval: 30000,
@@ -66,12 +66,19 @@ export default function TwitterBotPage() {
     queryFn: () => apiRequest("GET", "/api/admin/twitter-bot/creds").then(r => r.json()),
   });
 
-  const { data: logs = [], isLoading: logsLoading, refetch: refetchLogs } = useQuery<any[]>({
+  const { data: logs = [], isLoading: logsLoading, isFetching: logsFetching, refetch: refetchLogs } = useQuery<any[]>({
     queryKey: ["/api/admin/twitter-bot/logs"],
     queryFn: () => apiRequest("GET", "/api/admin/twitter-bot/logs").then(r => r.json()),
     refetchInterval: 30000,
     refetchIntervalInBackground: false,
   });
+
+  const isRefreshing = settingsFetching || logsFetching;
+
+  const handleRefresh = () => {
+    refetchSettings();
+    refetchLogs();
+  };
 
   const updateMutation = useMutation({
     mutationFn: (patch: any) => apiRequest("PUT", "/api/admin/twitter-bot/settings", patch).then(r => r.json()),
@@ -180,8 +187,8 @@ export default function TwitterBotPage() {
             Automatically tweets when P1/P2 incidents are detected, updated, or resolved.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => refetchLogs()} data-testid="button-refresh-logs">
-          <RefreshCw className="h-4 w-4 mr-2" /> Refresh
+        <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing} data-testid="button-refresh-logs">
+          <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} /> Refresh
         </Button>
       </div>
 
