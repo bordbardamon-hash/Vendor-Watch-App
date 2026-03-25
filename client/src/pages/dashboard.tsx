@@ -278,7 +278,7 @@ export default function Dashboard() {
           <CardContent>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {vendors.slice(0, 12).map((vendor: any) => (
-                <Link key={vendor.key} href="/vendors">
+                <Link key={vendor.key} href={`/vendors/${vendor.slug || vendor.key}`}>
                   <div className="flex items-center gap-2.5 p-2.5 rounded-lg border border-sidebar-border bg-background/50 hover:border-primary/30 transition-colors cursor-pointer" data-testid={`monitored-vendor-${vendor.key}`}>
                     <LogoAvatar src={vendor.logoUrl} name={vendor.name} size="sm" />
                     <span className="text-sm font-medium truncate flex-1">{vendor.name}</span>
