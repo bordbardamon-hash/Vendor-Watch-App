@@ -751,6 +751,17 @@ export async function syncVendorStatus(vendorKey?: string, limit?: number): Prom
                   affectedServices: affectedComponents,
                 }).catch(err => console.error('[notify] Failed to send update notification:', err));
               }
+
+              // Auto-create War Room if severity escalated to major/critical and incident is not resolved
+              const escalatedToHighSeverity =
+                (normalizedSeverity === 'critical' || normalizedSeverity === 'major') &&
+                (previousSeverity !== 'critical' && previousSeverity !== 'major');
+              if (escalatedToHighSeverity && normalizedStatus !== 'resolved') {
+                const updatedIncident = { ...exists, status: normalizedStatus, severity: normalizedSeverity };
+                autoCreateWarRoom(updatedIncident as any, vendor).catch(err =>
+                  console.error('[war-room] Failed to auto-create war room on escalation:', err)
+                );
+              }
             }
           }
         }
