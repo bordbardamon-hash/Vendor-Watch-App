@@ -1,6 +1,6 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRoute, useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -170,6 +170,8 @@ export default function VendorProfile() {
   const [, params] = useRoute("/vendors/:slug");
   const [, navigate] = useLocation();
   const slug = params?.slug || "";
+  const queryClient = useQueryClient();
+  const [toggling, setToggling] = useState(false);
 
   const { data, isLoading, isError } = useQuery<VendorProfile>({
     queryKey: ["/api/public/vendors", slug],
@@ -177,6 +179,35 @@ export default function VendorProfile() {
     enabled: !!slug,
     retry: 1,
   });
+
+  // Check if user is logged in and already monitoring this vendor
+  const { data: myVendors, isError: myVendorsError } = useQuery<any[]>({
+    queryKey: ["/api/my-vendors"],
+    queryFn: async () => {
+      const res = await fetch("/api/my-vendors");
+      if (!res.ok) return null;
+      return res.json();
+    },
+    retry: false,
+    staleTime: 30_000,
+  });
+
+  const isLoggedIn = !myVendorsError && myVendors !== null && myVendors !== undefined;
+  const isAlreadyMonitoring = isLoggedIn && Array.isArray(myVendors) &&
+    myVendors.some((v: any) => v.key === data?.vendor.key || v.slug === data?.vendor.slug);
+
+  async function handleToggleMonitor() {
+    if (!data) return;
+    setToggling(true);
+    try {
+      await apiRequest("POST", `/api/vendors/${data.vendor.key}/toggle`);
+      await queryClient.invalidateQueries({ queryKey: ["/api/my-vendors"] });
+    } catch {
+      // ignore
+    } finally {
+      setToggling(false);
+    }
+  }
 
   const { data: relatedRaw } = useQuery<{ vendors: RelatedVendor[] }>({
     queryKey: ["/api/public/vendors/related", data?.vendor.category],
@@ -341,13 +372,33 @@ export default function VendorProfile() {
 
               {/* CTA */}
               <div className="shrink-0">
-                <Button
-                  onClick={() => navigate("/signup")}
-                  className="bg-indigo-600 hover:bg-indigo-500 text-white"
-                  data-testid="button-monitor-vendor"
-                >
-                  <Bell className="h-4 w-4 mr-2" /> Monitor this vendor
-                </Button>
+                {isAlreadyMonitoring ? (
+                  <Button
+                    onClick={() => navigate("/dashboard")}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white"
+                    data-testid="button-already-monitoring"
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-2" /> Already Monitoring
+                  </Button>
+                ) : isLoggedIn ? (
+                  <Button
+                    onClick={handleToggleMonitor}
+                    disabled={toggling}
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white"
+                    data-testid="button-add-to-watchlist"
+                  >
+                    <Bell className="h-4 w-4 mr-2" />
+                    {toggling ? "Adding…" : "Add to Watchlist"}
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => navigate("/signup")}
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white"
+                    data-testid="button-monitor-vendor"
+                  >
+                    <Bell className="h-4 w-4 mr-2" /> Monitor this vendor
+                  </Button>
+                )}
               </div>
             </div>
           </CardContent>
@@ -511,13 +562,33 @@ export default function VendorProfile() {
                 </p>
               </div>
               <div className="shrink-0 flex gap-2">
-                <Button
-                  onClick={() => navigate("/signup")}
-                  className="bg-indigo-600 hover:bg-indigo-500 text-white"
-                  data-testid="button-cta-signup"
-                >
-                  Start Free Trial
-                </Button>
+                {isAlreadyMonitoring ? (
+                  <Button
+                    onClick={() => navigate("/dashboard")}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white"
+                    data-testid="button-cta-dashboard"
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-2" /> Go to Dashboard
+                  </Button>
+                ) : isLoggedIn ? (
+                  <Button
+                    onClick={handleToggleMonitor}
+                    disabled={toggling}
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white"
+                    data-testid="button-cta-add-watchlist"
+                  >
+                    <Bell className="h-4 w-4 mr-2" />
+                    {toggling ? "Adding…" : "Add to Watchlist"}
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => navigate("/signup")}
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white"
+                    data-testid="button-cta-signup"
+                  >
+                    Start Free Trial
+                  </Button>
+                )}
               </div>
             </div>
           </CardContent>
