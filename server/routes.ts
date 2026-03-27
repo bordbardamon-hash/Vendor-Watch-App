@@ -1,7 +1,7 @@
 import type { Express, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertVendorSchema, insertIncidentSchema, insertJobSchema, insertConfigSchema, insertFeedbackSchema, insertNotificationConsentSchema, insertCustomVendorRequestSchema, SUBSCRIPTION_TIERS, incidents, vendors, blogPosts } from "@shared/schema";
+import { insertVendorSchema, insertIncidentSchema, insertJobSchema, insertConfigSchema, insertFeedbackSchema, insertNotificationConsentSchema, insertCustomVendorRequestSchema, SUBSCRIPTION_TIERS, incidents, vendors, blogPosts, warRoomParticipants, warRoomPosts } from "@shared/schema";
 import { setupEmailAuth, isAuthenticated as emailIsAuthenticated } from "./emailAuth";
 import { registerAuthRoutes } from "./replit_integrations/auth";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
@@ -16,7 +16,7 @@ import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { db } from "./db";
 import { users, mobileAuthTokens, pendingSignups } from "@shared/models/auth";
-import { eq, and, isNull, gt, sql, desc, ne } from "drizzle-orm";
+import { eq, and, isNull, gt, sql, desc, ne, inArray, count } from "drizzle-orm";
 import { getGraph, getBlastRadius, submitSuggestion, getPendingSuggestions, reviewSuggestion, seedDependencyEdges } from "./dependencyMapService";
 import { getWeb3Summary, getWeb3Trend } from "./web3HealthService";
 
@@ -9901,12 +9901,39 @@ ${vendorEntries}
           ? await storage.getAllWarRooms()
           : await storage.getOpenWarRooms();
 
-      const enriched = await Promise.all(rooms.map(async (room: any) => {
-        const [incident] = await db.select().from(incidents).where(eq(incidents.id, room.incidentId)).limit(1);
-        const participants = await storage.getWarRoomParticipants(room.id);
-        const posts = await storage.getWarRoomPosts(room.id);
-        return { ...room, incident: incident || null, participantCount: participants.length, postCount: posts.length };
+      if (rooms.length === 0) {
+        return res.json([]);
+      }
+
+      // Fetch all related data in bulk (4 queries total, not N*3)
+      const roomIds = rooms.map((r: any) => r.id);
+      const incidentIds = rooms.map((r: any) => r.incidentId).filter(Boolean);
+
+      const [allIncidents, participantCounts, postCounts] = await Promise.all([
+        incidentIds.length > 0
+          ? db.select().from(incidents).where(inArray(incidents.id, incidentIds))
+          : Promise.resolve([]),
+        db.select({
+          warRoomId: warRoomParticipants.warRoomId,
+          count: count(),
+        }).from(warRoomParticipants).where(inArray(warRoomParticipants.warRoomId, roomIds)).groupBy(warRoomParticipants.warRoomId),
+        db.select({
+          warRoomId: warRoomPosts.warRoomId,
+          count: count(),
+        }).from(warRoomPosts).where(inArray(warRoomPosts.warRoomId, roomIds)).groupBy(warRoomPosts.warRoomId),
+      ]);
+
+      const incidentMap = Object.fromEntries(allIncidents.map((i: any) => [i.id, i]));
+      const participantMap = Object.fromEntries(participantCounts.map((p: any) => [p.warRoomId, Number(p.count)]));
+      const postMap = Object.fromEntries(postCounts.map((p: any) => [p.warRoomId, Number(p.count)]));
+
+      const enriched = rooms.map((room: any) => ({
+        ...room,
+        incident: incidentMap[room.incidentId] || null,
+        participantCount: participantMap[room.id] || 0,
+        postCount: postMap[room.id] || 0,
       }));
+
       res.json(enriched);
     } catch (error) {
       console.error("Error fetching war rooms:", error);

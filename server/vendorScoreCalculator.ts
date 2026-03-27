@@ -99,7 +99,7 @@ async function getMttrHours(vendorKey: string, days: number): Promise<number | n
 
   const avg = Number(rows[0]?.avg);
   if (!avg || isNaN(avg)) return null;
-  return Math.max(0, Math.round(avg * 10) / 10);
+  return Math.max(0, Math.round(avg));
 }
 
 async function getIncidentCounts(vendorKey: string, days30: number, days90: number): Promise<{

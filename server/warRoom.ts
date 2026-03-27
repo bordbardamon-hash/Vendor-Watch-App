@@ -1,7 +1,7 @@
 import { db } from './db';
 import { storage } from './storage';
 import { warRooms, warRoomPosts, warRoomParticipants, incidents, vendors } from '@shared/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, ne, inArray } from 'drizzle-orm';
 import { sendEmail } from './emailClient';
 import type { Incident, Vendor, BlockchainIncident, BlockchainChain } from '@shared/schema';
 import { broadcastToRoom } from './warRoomWebSocket';
@@ -332,12 +332,38 @@ ${communityPosts || 'None'}
 }
 
 export async function restoreOpenWarRoomTimers(): Promise<void> {
-  // On restart, re-arm close timers for any war rooms in a "pending close" state
-  // (We can't know for certain, but we reload open rooms — they just won't auto-close
-  //  unless the incident is re-resolved, which is fine since the timer will fire next time)
   try {
     const openRooms = await storage.getOpenWarRooms();
     console.log(`[war-room] Found ${openRooms.length} open war room(s) on startup`);
+
+    if (openRooms.length === 0) return;
+
+    // Auto-close war rooms whose incidents are resolved or no longer exist
+    const incidentIds = openRooms.map((r: any) => r.incidentId).filter(Boolean);
+    const activeIncidents = incidentIds.length > 0
+      ? await db.select({ id: incidents.id })
+          .from(incidents)
+          .where(and(
+            inArray(incidents.id, incidentIds),
+            ne(incidents.status, 'resolved')
+          ))
+      : [];
+
+    const activeIncidentIds = new Set(activeIncidents.map((i: any) => i.id));
+
+    const staleRooms = openRooms.filter((r: any) =>
+      !r.incidentId || !activeIncidentIds.has(r.incidentId)
+    );
+
+    if (staleRooms.length > 0) {
+      console.log(`[war-room] Auto-closing ${staleRooms.length} stale war room(s) with resolved/missing incidents`);
+      for (const room of staleRooms) {
+        await db.update(warRooms)
+          .set({ status: 'closed', closedAt: new Date() })
+          .where(eq(warRooms.id, room.id));
+      }
+      console.log(`[war-room] Cleanup complete. ${openRooms.length - staleRooms.length} war room(s) remain active`);
+    }
   } catch (err) {
     console.error('[war-room] Failed to restore war room timers:', err);
   }

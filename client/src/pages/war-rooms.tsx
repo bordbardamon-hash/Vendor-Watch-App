@@ -53,14 +53,18 @@ export default function WarRooms() {
   const [, setLocation] = useLocation();
   const [tab, setTab] = useState<'active' | 'archived'>('active');
 
-  const { data: activeRooms = [], isLoading: activeLoading } = useQuery<WarRoom[]>({
+  const { data: activeRooms = [], isLoading: activeLoading, error: activeError } = useQuery<WarRoom[]>({
     queryKey: ["war-rooms", "open"],
     queryFn: async () => {
       const res = await fetch("/api/war-rooms");
-      if (!res.ok) throw new Error("Failed to fetch war rooms");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `Failed to fetch war rooms (${res.status})`);
+      }
       return res.json();
     },
     refetchInterval: 30000,
+    retry: 2,
   });
 
   const { data: archivedRooms = [], isLoading: archiveLoading } = useQuery<WarRoom[]>({
@@ -129,6 +133,14 @@ export default function WarRooms() {
         <div className="flex items-center justify-center py-16">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
+      ) : activeError && tab === 'active' ? (
+        <Card className="border-red-500/20 bg-red-950/10">
+          <CardContent className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+            <ShieldAlert className="w-16 h-16 mb-4 text-red-500/40" />
+            <p className="text-lg font-medium text-red-400">Failed to load war rooms</p>
+            <p className="text-sm opacity-50 mt-1">{(activeError as Error).message}</p>
+          </CardContent>
+        </Card>
       ) : rooms.length === 0 ? (
         <Card className="border-sidebar-border bg-sidebar/10">
           <CardContent className="flex flex-col items-center justify-center py-16 text-muted-foreground">
