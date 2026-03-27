@@ -344,6 +344,13 @@ app.use((req, res, next) => {
         } catch (err) {
           console.error('[archive] Startup archival failed:', err);
         }
+
+        // Clean up stale war rooms immediately — don't wait for initial sync to finish
+        try {
+          await restoreOpenWarRoomTimers();
+        } catch (err) {
+          console.error('[war-room] Startup cleanup failed:', err);
+        }
       })();
 
       const startupDelay = isProduction ? 5000 : 3000;
@@ -372,9 +379,6 @@ app.use((req, res, next) => {
       console.log(`[sync] Full sync: every ${SYNC_INTERVAL_MS / 60000} minutes (all vendors + blockchains in parallel, batch size 25)`);
       
       function startBackgroundTasks() {
-        // Restore war room close timers for any open rooms from before restart
-        restoreOpenWarRoomTimers();
-
         const ARCHIVE_INTERVAL_MS = 60 * 60 * 1000;
         const ARCHIVE_AFTER_DAYS = 1;
         const PURGE_AFTER_DAYS = 365;
