@@ -210,6 +210,7 @@ export default function Predictions() {
   const resolvedPredictions = predictions.filter(p => p.status === 'dismissed' || p.status === 'occurred' || p.status === 'false_positive');
   
   const filteredPredictions = predictions.filter(p => {
+    if (p.status !== 'active') return false;
     if (filterSource === "ai") return p.source === "ai";
     if (filterSource === "crowdsourced") return p.source === "crowdsourced";
     return true;

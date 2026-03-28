@@ -8164,7 +8164,8 @@ Vendor Watch | Blockchain Infrastructure Monitoring`;
         return res.status(403).json({ error: "Predictive analytics requires Enterprise plan" });
       }
       
-      const predictions = await storage.getAllOutagePredictions();
+      const allPredictions = await storage.getAllOutagePredictions();
+      const predictions = allPredictions.filter(p => p.status === 'active');
       const enriched = predictions.map(p => ({
         ...p,
         source: p.predictionType.startsWith('crowdsourced') ? 'crowdsourced' : 'ai',
