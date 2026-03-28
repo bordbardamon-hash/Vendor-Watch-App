@@ -354,35 +354,43 @@ export default function WarRoomPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Top bar */}
-      <div className={`border-b border-sidebar-border px-4 py-3 flex items-center justify-between ${isClosed ? "bg-muted/30" : "bg-red-500/5"}`}>
-        <div className="flex items-center gap-3">
-          <div className={`w-2.5 h-2.5 rounded-full ${isClosed ? "bg-muted-foreground" : "bg-red-500 animate-pulse"}`} />
-          <span className="font-bold text-sm uppercase tracking-wider text-red-500">
-            {isClosed ? "War Room (Closed)" : "Incident War Room — LIVE"}
-          </span>
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+      <div className={`border-b border-sidebar-border px-3 sm:px-4 py-2 sm:py-3 ${isClosed ? "bg-muted/30" : "bg-red-500/5"}`}>
+        {/* Row 1: title + connection status */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className={`w-2 h-2 rounded-full shrink-0 ${isClosed ? "bg-muted-foreground" : "bg-red-500 animate-pulse"}`} />
+            <span className="font-bold text-xs sm:text-sm uppercase tracking-wider text-red-500 truncate">
+              {isClosed ? "War Room (Closed)" : "Incident War Room — LIVE"}
+            </span>
+          </div>
+          <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
             {wsConnected ? (
-              <><Wifi className="w-3 h-3 text-emerald-500" /> Connected</>
+              <><Wifi className="w-3 h-3 text-emerald-500" /><span className="hidden sm:inline ml-1">Connected</span></>
             ) : (
-              <><WifiOff className="w-3 h-3 text-red-500" /> Reconnecting…</>
+              <><WifiOff className="w-3 h-3 text-red-500" /><span className="hidden sm:inline ml-1">Reconnecting…</span></>
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs" onClick={copyClientSummary} data-testid="button-copy-summary">
-            {copiedSummary ? <><Check className="w-3 h-3" />Copied!</> : <><Copy className="w-3 h-3" />Copy Client Summary</>}
+        {/* Row 2: action buttons */}
+        <div className="flex items-center gap-1.5 mt-2">
+          <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={copyClientSummary} data-testid="button-copy-summary">
+            {copiedSummary ? (
+              <><Check className="w-3 h-3" /><span className="hidden sm:inline">Copied!</span></>
+            ) : (
+              <><Copy className="w-3 h-3" /><span className="hidden sm:inline">Copy Client Summary</span></>
+            )}
           </Button>
-          <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs" onClick={exportLog} data-testid="button-export-log">
-            <Download className="w-3 h-3" />Export Log
+          <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={exportLog} data-testid="button-export-log">
+            <Download className="w-3 h-3" /><span className="hidden sm:inline">Export Log</span>
           </Button>
           {!isClosed && (user?.isOwner || user?.isAdmin) && (
             confirmClose ? (
               <div className="flex items-center gap-1.5">
-                <span className="text-xs text-muted-foreground">Close war room?</span>
+                <span className="text-xs text-muted-foreground hidden sm:inline">Close war room?</span>
                 <Button
                   size="sm"
                   variant="destructive"
-                  className="h-7 gap-1.5 text-xs"
+                  className="h-7 gap-1 text-xs"
                   onClick={() => closeMutation.mutate()}
                   disabled={closeMutation.isPending}
                   data-testid="button-confirm-close-war-room"
@@ -403,11 +411,11 @@ export default function WarRoomPage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="h-7 gap-1.5 text-xs text-red-500 border-red-500/30 hover:bg-red-500/10 hover:text-red-400"
+                className="h-7 gap-1 text-xs text-red-500 border-red-500/30 hover:bg-red-500/10 hover:text-red-400"
                 onClick={() => setConfirmClose(true)}
                 data-testid="button-close-war-room"
               >
-                <XCircle className="w-3 h-3" />Close War Room
+                <XCircle className="w-3 h-3" /><span className="hidden sm:inline">Close War Room</span>
               </Button>
             )
           )}
