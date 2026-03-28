@@ -11,7 +11,7 @@ import { LogoAvatar } from "@/components/ui/logo-avatar";
 import {
   AlertTriangle, Shield, Copy, Check, Download, Users, ArrowUp,
   Send, Wifi, WifiOff, Clock, ExternalLink, Lock, ChevronDown,
-  ChevronUp, Zap, Bot, XCircle, Sparkles, RefreshCw, Lightbulb
+  ChevronUp, Zap, Bot, XCircle, Sparkles, RefreshCw, Lightbulb, Timer
 } from "lucide-react";
 
 interface WarRoom {
@@ -174,6 +174,7 @@ export default function WarRoomPage() {
   const [digest, setDigest] = useState<{ situation: string; workaround: string | null } | null>(null);
   const [digestLoading, setDigestLoading] = useState(false);
   const [digestGeneratedAt, setDigestGeneratedAt] = useState<Date | null>(null);
+  const [closureSecondsLeft, setClosureSecondsLeft] = useState<number | null>(null);
   const feedRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
@@ -243,6 +244,26 @@ export default function WarRoomPage() {
     if (!data?.warRoom || !user) return;
     fetch(`/api/war-room/${incidentId}/join`, { method: "POST" }).catch(() => {});
   }, [data?.warRoom?.id, user?.id]);
+
+  // Countdown to war room closure
+  useEffect(() => {
+    if (!data?.posts) return;
+    const GRACE_MS = 60 * 60 * 1000; // 1 hour — must match server constant
+    const resolvePost = data.posts.find(p =>
+      p.isSystemUpdate && p.content.includes("War Room will close in 1 hour")
+    );
+    if (!resolvePost) { setClosureSecondsLeft(null); return; }
+
+    const closeAt = new Date(resolvePost.createdAt).getTime() + GRACE_MS;
+
+    const tick = () => {
+      const left = Math.max(0, Math.floor((closeAt - Date.now()) / 1000));
+      setClosureSecondsLeft(left);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [data?.posts]);
 
   const postMutation = useMutation({
     mutationFn: async () => {
@@ -385,6 +406,14 @@ export default function WarRoomPage() {
   const charCount = content.length;
   const overLimit = charCount > 280;
 
+  const formatCountdown = (secs: number) => {
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    const s = secs % 60;
+    if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Top bar */}
@@ -457,6 +486,26 @@ export default function WarRoomPage() {
           )}
         </div>
       </div>
+
+      {/* Closure countdown banner */}
+      {closureSecondsLeft !== null && closureSecondsLeft > 0 && (
+        <div className="bg-amber-500/10 border-b border-amber-500/30 px-4 py-2 flex items-center justify-center gap-3" data-testid="war-room-countdown-banner">
+          <Timer className="w-4 h-4 text-amber-400 shrink-0" />
+          <span className="text-sm text-amber-300">
+            War Room closing in{" "}
+            <span className="font-mono font-bold text-amber-200" data-testid="text-countdown">
+              {formatCountdown(closureSecondsLeft)}
+            </span>
+            {" "}— add your final notes now
+          </span>
+        </div>
+      )}
+      {closureSecondsLeft === 0 && (
+        <div className="bg-muted/30 border-b border-sidebar-border px-4 py-2 flex items-center justify-center gap-2">
+          <Timer className="w-4 h-4 text-muted-foreground shrink-0" />
+          <span className="text-sm text-muted-foreground">War Room is closing…</span>
+        </div>
+      )}
 
       <div className="max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
         {/* Main column */}
