@@ -14,6 +14,8 @@ const DEFAULT_OPTIONS: Required<RetryOptions> = {
   retryOn: () => false,
 };
 
+const FETCH_TIMEOUT_MS = 6000;
+
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -23,6 +25,15 @@ function calculateDelay(attempt: number, baseDelayMs: number, maxDelayMs: number
   const cappedDelay = Math.min(exponentialDelay, maxDelayMs);
   const jitter = Math.random() * jitterMs;
   return cappedDelay + jitter;
+}
+
+function createTimeoutSignal(ms: number): AbortSignal {
+  const controller = new AbortController();
+  const timer = setTimeout(() => {
+    controller.abort(new DOMException('The operation was aborted due to timeout', 'TimeoutError'));
+  }, ms);
+  timer.unref?.();
+  return controller.signal;
 }
 
 export async function fetchWithRetry(
@@ -38,7 +49,7 @@ export async function fetchWithRetry(
     try {
       const response = await fetch(url, {
         ...init,
-        signal: init?.signal || AbortSignal.timeout(8000),
+        signal: init?.signal || createTimeoutSignal(FETCH_TIMEOUT_MS),
       });
 
       if (!response.ok) {

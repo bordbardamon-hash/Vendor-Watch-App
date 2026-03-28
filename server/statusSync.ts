@@ -517,8 +517,8 @@ async function fetchSlackStatus(vendor: { key: string; statusUrl: string }): Pro
   }
 }
 
-const SYNC_BATCH_SIZE = 30;
-const PER_VENDOR_TIMEOUT_MS = 12000;
+const SYNC_BATCH_SIZE = 20;
+const PER_VENDOR_TIMEOUT_MS = 7000;
 
 function shuffleArray<T>(arr: T[]): T[] {
   const shuffled = [...arr];
@@ -536,7 +536,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   ]);
 }
 
-const INTER_BATCH_DELAY_MS = 300;
+const INTER_BATCH_DELAY_MS = 800;
 
 async function processBatch<T>(items: T[], batchSize: number, fn: (item: T) => Promise<void>): Promise<number> {
   let processed = 0;
