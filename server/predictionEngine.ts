@@ -73,12 +73,31 @@ export async function generatePredictions(): Promise<void> {
     const vendorPatterns = await analyzeEnhancedPatterns('vendor', vendors.map(v => v.key));
     const blockchainPatterns = await analyzeEnhancedPatterns('blockchain', chains.map(c => c.key));
     
-    const allPatterns = [...vendorPatterns, ...blockchainPatterns];
+    // Deduplicate: keep only the single best pattern per resource key.
+    // Patterns are already sorted by weightedScore descending, so the first
+    // occurrence of each key is the strongest one.
+    const seenKeys = new Set<string>();
+    const vendorKeys = new Set(vendors.map(v => v.key));
+    const dedupedPatterns: EnhancedIncidentPattern[] = [];
+    
+    for (const pattern of [...vendorPatterns, ...blockchainPatterns]) {
+      // Skip blockchain patterns whose key also exists as a vendor — the
+      // vendor prediction already covers it and avoids UI duplicates.
+      if (pattern.resourceType === 'blockchain' && vendorKeys.has(pattern.resourceKey)) {
+        continue;
+      }
+      const compositeKey = `${pattern.resourceType}:${pattern.resourceKey}`;
+      if (!seenKeys.has(compositeKey)) {
+        seenKeys.add(compositeKey);
+        dedupedPatterns.push(pattern);
+      }
+    }
+
     let created = 0;
     let skippedLowConfidence = 0;
     let skippedTooFarAhead = 0;
     
-    for (const pattern of allPatterns) {
+    for (const pattern of dedupedPatterns) {
       // Higher threshold: require 5+ incidents
       if (pattern.totalIncidents < PREDICTION_CONFIG.MIN_INCIDENTS_REQUIRED) {
         continue;
@@ -229,15 +248,16 @@ async function createEnhancedPrediction(
     return 'low_confidence';
   }
   
-  // Check for duplicates
+  // Check for duplicates: only allow one active future prediction per resource.
   const existingPredictions = await storage.getActivePredictions();
   const isDuplicate = existingPredictions.some(p => {
-    const matchesResource = pattern.resourceType === 'vendor' 
-      ? p.vendorKey === pattern.resourceKey 
-      : p.chainKey === pattern.resourceKey;
-    const sameDate = p.predictedStartAt && 
-      new Date(p.predictedStartAt).toDateString() === predictedDate.toDateString();
-    return matchesResource && sameDate;
+    if (pattern.resourceType === 'vendor') {
+      // Block if same vendor key (either as vendor or as a blockchain alias)
+      return p.vendorKey === pattern.resourceKey || p.chainKey === pattern.resourceKey;
+    } else {
+      // Block if same chain key (either direction)
+      return p.chainKey === pattern.resourceKey || p.vendorKey === pattern.resourceKey;
+    }
   });
   
   if (isDuplicate) {
@@ -312,6 +332,48 @@ function getNextOccurrence(dayOfWeek: number, hourOfDay: number): Date {
   return result;
 }
 
+// Remove duplicate active predictions, keeping only the nearest upcoming one per resource.
+async function deduplicateActivePredictions(): Promise<number> {
+  const now = new Date();
+  const active = (await storage.getAllOutagePredictions()).filter(p =>
+    p.status === 'active' &&
+    p.predictedStartAt &&
+    new Date(p.predictedStartAt) > now
+  );
+
+  // Group by canonical resource key
+  const groups = new Map<string, typeof active>();
+  for (const p of active) {
+    const key = p.vendorKey
+      ? `vendor:${p.vendorKey}`
+      : p.chainKey
+        ? `chain:${p.chainKey}`
+        : null;
+    if (!key) continue;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(p);
+  }
+
+  let removed = 0;
+  for (const [, predictions] of groups) {
+    if (predictions.length <= 1) continue;
+    // Keep the prediction with the earliest predictedStartAt
+    predictions.sort((a, b) =>
+      new Date(a.predictedStartAt!).getTime() - new Date(b.predictedStartAt!).getTime()
+    );
+    const [, ...extras] = predictions;
+    for (const extra of extras) {
+      await storage.updateOutagePrediction(extra.id, { status: 'expired' });
+      removed++;
+    }
+  }
+
+  if (removed > 0) {
+    console.log(`[PredictionEngine] Deduplicated ${removed} excess active predictions`);
+  }
+  return removed;
+}
+
 // Clean up and maintain predictions - expires old ones, validates against actual incidents
 export async function maintainPredictions(): Promise<{ expired: number; validated: number; invalidated: number }> {
   console.log('[PredictionEngine] Running prediction maintenance...');
@@ -322,6 +384,9 @@ export async function maintainPredictions(): Promise<{ expired: number; validate
   let invalidated = 0;
   
   try {
+    // Clean up any duplicates that accumulated before this fix
+    await deduplicateActivePredictions();
+
     const allPredictions = await storage.getAllOutagePredictions();
     const vendorIncidents = await storage.getIncidents();
     const blockchainIncidents = await storage.getBlockchainIncidents();
