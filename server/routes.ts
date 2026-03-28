@@ -10051,6 +10051,30 @@ ${vendorEntries}
     }
   });
 
+  // AI live digest — returns current-situation TL;DR + best workaround
+  app.post("/api/war-room/:incidentId/ai-digest", isAuthenticated, async (req, res) => {
+    try {
+      const { generateWarRoomDigest } = await import('./aiCopilot');
+      const digest = await generateWarRoomDigest(req.params.incidentId);
+      res.json(digest);
+    } catch (error) {
+      console.error("Error generating war room digest:", error);
+      res.status(500).json({ error: "Failed to generate digest" });
+    }
+  });
+
+  // AI client summary — feed-aware message ready to copy to clients
+  app.post("/api/war-room/:incidentId/ai-client-summary", isAuthenticated, async (req, res) => {
+    try {
+      const { generateWarRoomClientSummary } = await import('./aiCopilot');
+      const summary = await generateWarRoomClientSummary(req.params.incidentId);
+      res.json({ summary });
+    } catch (error) {
+      console.error("Error generating war room client summary:", error);
+      res.status(500).json({ error: "Failed to generate client summary" });
+    }
+  });
+
   // Get posts (public)
   app.get("/api/war-room/:incidentId/posts", async (req, res) => {
     try {

@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import { db } from './db';
 import { incidents, vendors, incidentArchive, blockchainIncidents, blockchainChains } from '@shared/schema';
 import { eq, desc } from 'drizzle-orm';
+import { storage } from './storage';
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -433,5 +434,105 @@ Format your response as JSON with keys: likelyCauses (array), confidence, recomm
       recommendation: 'Monitor the situation and try again later.',
       historicalPattern: null,
     };
+  }
+}
+
+// Build shared war room context string for AI prompts
+async function buildWarRoomContext(incidentId: string): Promise<{
+  context: string;
+  vendorName: string;
+} | null> {
+  const warRoom = await storage.getWarRoom(incidentId);
+  if (!warRoom) return null;
+  const posts = await storage.getWarRoomPosts(warRoom.id);
+  const [incident] = await db.select().from(incidents).where(eq(incidents.id, incidentId)).limit(1);
+  const vendorName = warRoom.vendorName || incident?.vendorKey || 'Unknown vendor';
+
+  const systemUpdates = posts
+    .filter(p => p.isSystemUpdate)
+    .map(p => `[${new Date(p.createdAt).toUTCString()}] ${p.content}`)
+    .join('\n');
+
+  const communityPosts = posts
+    .filter(p => !p.isSystemUpdate && p.content)
+    .sort((a, b) => b.upvotes - a.upvotes)
+    .map(p => `[${p.upvotes} upvotes] ${p.content}${p.detail ? ` — ${p.detail}` : ''}`)
+    .join('\n');
+
+  const context = `
+Vendor: ${vendorName}
+Severity: ${incident?.severity || 'unknown'}
+Incident: ${incident?.title || 'N/A'}
+Status: ${incident?.status || 'investigating'}
+Impact: ${incident?.impact || 'N/A'}
+Started: ${incident?.startedAt ? new Date(incident.startedAt).toUTCString() : 'unknown'}
+
+System timeline:
+${systemUpdates || 'No system updates yet'}
+
+Community posts (sorted by upvotes):
+${communityPosts || 'No community posts yet'}
+`.trim();
+
+  return { context, vendorName };
+}
+
+// Live digest: current-situation TL;DR + best workaround
+export async function generateWarRoomDigest(incidentId: string): Promise<{ situation: string; workaround: string | null }> {
+  const ctx = await buildWarRoomContext(incidentId);
+  if (!ctx) throw new Error('War room not found');
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a live incident coordinator. Produce a very short real-time digest of a vendor war room for an MSP team. Respond with JSON containing exactly two keys: "situation" (2-3 sentences describing current status and known impact, written in present tense) and "workaround" (one sentence describing the best available workaround if any, or null if none).',
+        },
+        { role: 'user', content: `Generate a live digest for this war room:\n\n${ctx.context}` },
+      ],
+      response_format: { type: 'json_object' },
+      max_tokens: 300,
+    });
+
+    const raw = response.choices[0]?.message?.content || '{}';
+    const result = JSON.parse(raw) as { situation?: string; workaround?: string | null };
+    return {
+      situation: result.situation || `${ctx.vendorName} is currently experiencing an active incident. Monitoring in progress.`,
+      workaround: result.workaround || null,
+    };
+  } catch (err) {
+    console.error('[AI] Failed to generate war room digest:', err);
+    return {
+      situation: `${ctx.vendorName} is currently experiencing an active incident. Monitoring in progress.`,
+      workaround: null,
+    };
+  }
+}
+
+// AI-powered client summary: feed-aware message ready to send to clients
+export async function generateWarRoomClientSummary(incidentId: string): Promise<string> {
+  const ctx = await buildWarRoomContext(incidentId);
+  if (!ctx) throw new Error('War room not found');
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a client communications specialist at a managed service provider. Write a brief, professional, jargon-free message to send to a client about an active vendor incident. 2-3 sentences: acknowledge the issue, state what is affected and current status, and reassure them you are monitoring. Plain prose only — no bullet points, no headers.',
+        },
+        { role: 'user', content: `Write a client-facing summary for this incident:\n\n${ctx.context}` },
+      ],
+      max_tokens: 200,
+    });
+
+    return response.choices[0]?.message?.content?.trim() ||
+      `We are aware of an active issue with ${ctx.vendorName}. Our team is actively monitoring the situation and will provide updates as more information becomes available.`;
+  } catch (err) {
+    console.error('[AI] Failed to generate client summary:', err);
+    return `We are aware of an active issue with ${ctx.vendorName}. Our team is actively monitoring the situation and will provide updates as more information becomes available.`;
   }
 }

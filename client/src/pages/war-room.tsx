@@ -11,7 +11,7 @@ import { LogoAvatar } from "@/components/ui/logo-avatar";
 import {
   AlertTriangle, Shield, Copy, Check, Download, Users, ArrowUp,
   Send, Wifi, WifiOff, Clock, ExternalLink, Lock, ChevronDown,
-  ChevronUp, Zap, Bot, XCircle
+  ChevronUp, Zap, Bot, XCircle, Sparkles, RefreshCw, Lightbulb
 } from "lucide-react";
 
 interface WarRoom {
@@ -167,9 +167,13 @@ export default function WarRoomPage() {
   const [detail, setDetail] = useState("");
   const [showDetail, setShowDetail] = useState(false);
   const [copiedSummary, setCopiedSummary] = useState(false);
+  const [generatingClientSummary, setGeneratingClientSummary] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
   const [userUpvotes, setUserUpvotes] = useState<Set<string>>(new Set());
+  const [digest, setDigest] = useState<{ situation: string; workaround: string | null } | null>(null);
+  const [digestLoading, setDigestLoading] = useState(false);
+  const [digestGeneratedAt, setDigestGeneratedAt] = useState<Date | null>(null);
   const feedRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
@@ -296,15 +300,45 @@ export default function WarRoomPage() {
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  const copyClientSummary = useCallback(() => {
-    if (!data) return;
-    const { warRoom, incident } = data;
-    const text = `We are aware of an ongoing issue with ${warRoom.vendorName}. Current status: ${incident?.status || "investigating"}. We are monitoring and will update you as more information becomes available.`;
-    navigator.clipboard.writeText(text).then(() => {
+  const copyClientSummary = useCallback(async () => {
+    if (!data || !user) return;
+    setGeneratingClientSummary(true);
+    try {
+      const res = await fetch(`/api/war-room/${incidentId}/ai-client-summary`, { method: 'POST' });
+      const json = await res.json();
+      const text = res.ok && json.summary
+        ? json.summary
+        : `We are aware of an ongoing issue with ${data.warRoom.vendorName}. Current status: ${data.incident?.status || "investigating"}. We are monitoring and will update you as more information becomes available.`;
+      await navigator.clipboard.writeText(text);
       setCopiedSummary(true);
       setTimeout(() => setCopiedSummary(false), 2500);
-    });
-  }, [data]);
+    } catch {
+      const { warRoom, incident } = data;
+      const fallback = `We are aware of an ongoing issue with ${warRoom.vendorName}. Current status: ${incident?.status || "investigating"}. We are monitoring and will update you as more information becomes available.`;
+      navigator.clipboard.writeText(fallback).then(() => {
+        setCopiedSummary(true);
+        setTimeout(() => setCopiedSummary(false), 2500);
+      });
+    } finally {
+      setGeneratingClientSummary(false);
+    }
+  }, [data, incidentId, user]);
+
+  const generateDigest = useCallback(async () => {
+    if (!user) return;
+    setDigestLoading(true);
+    try {
+      const res = await fetch(`/api/war-room/${incidentId}/ai-digest`, { method: 'POST' });
+      if (!res.ok) throw new Error("Failed");
+      const result = await res.json();
+      setDigest(result);
+      setDigestGeneratedAt(new Date());
+    } catch {
+      toast({ title: "Digest unavailable", description: "Could not generate AI digest right now.", variant: "destructive" });
+    } finally {
+      setDigestLoading(false);
+    }
+  }, [incidentId, user, toast]);
 
   const exportLog = useCallback(() => {
     window.open(`/api/war-room/${incidentId}/export`, "_blank");
@@ -373,11 +407,13 @@ export default function WarRoomPage() {
         </div>
         {/* Row 2: action buttons */}
         <div className="flex items-center gap-1.5 mt-2">
-          <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={copyClientSummary} data-testid="button-copy-summary">
-            {copiedSummary ? (
+          <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={copyClientSummary} disabled={generatingClientSummary} data-testid="button-copy-summary">
+            {generatingClientSummary ? (
+              <><RefreshCw className="w-3 h-3 animate-spin" /><span className="hidden sm:inline">Generating…</span></>
+            ) : copiedSummary ? (
               <><Check className="w-3 h-3" /><span className="hidden sm:inline">Copied!</span></>
             ) : (
-              <><Copy className="w-3 h-3" /><span className="hidden sm:inline">Copy Client Summary</span></>
+              <><Sparkles className="w-3 h-3" /><span className="hidden sm:inline">Copy Client Summary</span></>
             )}
           </Button>
           <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={exportLog} data-testid="button-export-log">
@@ -469,6 +505,53 @@ export default function WarRoomPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* AI Live Digest */}
+          {!isClosed && user && (
+            <Card className="border-violet-500/20 bg-violet-500/5" data-testid="war-room-ai-digest">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-violet-400" />
+                    <span className="text-sm font-semibold text-violet-400">AI Live Digest</span>
+                    {digestGeneratedAt && (
+                      <span className="text-[10px] text-muted-foreground">
+                        Updated {digestGeneratedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-xs text-violet-400 hover:text-violet-300 hover:bg-violet-500/10 gap-1"
+                    onClick={generateDigest}
+                    disabled={digestLoading}
+                    data-testid="button-generate-digest"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${digestLoading ? "animate-spin" : ""}`} />
+                    {digest ? "Refresh" : "Generate"}
+                  </Button>
+                </div>
+                {digest ? (
+                  <div className="space-y-2">
+                    <p className="text-sm text-foreground leading-relaxed">{digest.situation}</p>
+                    {digest.workaround && (
+                      <div className="flex items-start gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-md px-3 py-2 mt-2">
+                        <Lightbulb className="w-3.5 h-3.5 text-emerald-400 mt-0.5 shrink-0" />
+                        <p className="text-xs text-emerald-300">{digest.workaround}</p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    {digestLoading
+                      ? "Analyzing feed and generating digest…"
+                      : "Generate a real-time AI summary of the current situation and any known workarounds."}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Activity feed */}
           <div>
