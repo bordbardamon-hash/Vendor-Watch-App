@@ -4060,19 +4060,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getWarRoomParticipants(warRoomId: string): Promise<any[]> {
-    return db.select({
+    const rows = await db.select({
       id: warRoomParticipants.id,
       warRoomId: warRoomParticipants.warRoomId,
       userId: warRoomParticipants.userId,
       joinedAt: warRoomParticipants.joinedAt,
       lastActiveAt: warRoomParticipants.lastActiveAt,
-      userName: users.name,
+      userFirstName: users.firstName,
+      userLastName: users.lastName,
       userEmail: users.email,
     })
       .from(warRoomParticipants)
       .leftJoin(users, eq(users.id, warRoomParticipants.userId))
       .where(eq(warRoomParticipants.warRoomId, warRoomId))
       .orderBy(warRoomParticipants.joinedAt);
+
+    return rows.map(r => ({
+      ...r,
+      userName: [r.userFirstName, r.userLastName].filter(Boolean).join(' ') || null,
+    }));
   }
 }
 
