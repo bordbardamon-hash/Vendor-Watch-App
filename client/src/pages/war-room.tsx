@@ -11,7 +11,7 @@ import { LogoAvatar } from "@/components/ui/logo-avatar";
 import {
   AlertTriangle, Shield, Copy, Check, Download, Users, ArrowUp,
   Send, Wifi, WifiOff, Clock, ExternalLink, Lock, ChevronDown,
-  ChevronUp, Zap, Bot, XCircle, Sparkles, RefreshCw, Lightbulb, Timer
+  ChevronUp, Zap, Bot, XCircle, Sparkles, RefreshCw, Lightbulb, Timer, CheckCircle2
 } from "lucide-react";
 
 interface WarRoom {
@@ -51,6 +51,7 @@ interface Incident {
   impact: string;
   startedAt: string;
   updatedAt: string;
+  resolvedAt?: string | null;
   url: string;
 }
 
@@ -540,7 +541,13 @@ export default function WarRoomPage() {
                         Started {timeAgo(incident.startedAt)}
                       </span>
                     )}
-                    {incident?.updatedAt && (
+                    {incident?.resolvedAt && (
+                      <span className="flex items-center gap-1 text-emerald-400">
+                        <CheckCircle2 className="w-3 h-3" />
+                        Resolved {timeAgo(incident.resolvedAt)}
+                      </span>
+                    )}
+                    {!incident?.resolvedAt && incident?.updatedAt && (
                       <span>Last update: {timeAgo(incident.updatedAt)}</span>
                     )}
                     {incident?.url && (

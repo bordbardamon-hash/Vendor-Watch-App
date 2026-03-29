@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Siren, ShieldAlert, Users, MessageSquare, Clock, CheckCircle2, Loader2, Archive } from "lucide-react";
+import { Siren, ShieldAlert, Users, MessageSquare, Clock, CheckCircle2, Loader2, Archive, Timer } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
@@ -26,6 +26,7 @@ interface WarRoom {
     impact: string;
     vendorKey: string;
     startedAt: string;
+    resolvedAt?: string | null;
   } | null;
 }
 
@@ -193,15 +194,22 @@ export default function WarRooms() {
                       <CardDescription className="text-sm">{room.incident.impact}</CardDescription>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
                     {room.incident?.severity && (
                       <Badge className={getSeverityColor(room.incident.severity)}>
                         {room.incident.severity.toUpperCase()}
                       </Badge>
                     )}
-                    <Badge variant="outline" className={`capitalize text-xs ${tab === 'archived' ? 'border-emerald-500/30 text-emerald-500' : ''}`}>
-                      {tab === 'archived' ? 'Resolved' : room.incident?.status || 'active'}
-                    </Badge>
+                    {tab === 'active' && room.incident?.status === 'resolved' ? (
+                      <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/30 text-xs flex items-center gap-1">
+                        <Timer className="w-3 h-3" />
+                        Closing Soon
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className={`capitalize text-xs ${tab === 'archived' ? 'border-emerald-500/30 text-emerald-500' : ''}`}>
+                        {tab === 'archived' ? 'Resolved' : room.incident?.status || 'active'}
+                      </Badge>
+                    )}
                   </div>
                 </div>
               </CardHeader>
@@ -222,11 +230,17 @@ export default function WarRooms() {
                     ) : (
                       <span>
                         {room.closedAt
-                          ? `Resolved ${formatDistanceToNow(new Date(room.closedAt), { addSuffix: true })}`
+                          ? `Closed ${formatDistanceToNow(new Date(room.closedAt), { addSuffix: true })}`
                           : `Opened ${formatDistanceToNow(new Date(room.createdAt), { addSuffix: true })}`}
                       </span>
                     )}
                   </div>
+                  {tab === 'active' && room.incident?.resolvedAt && (
+                    <div className="flex items-center gap-1.5 text-emerald-400">
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Resolved {formatDistanceToNow(new Date(room.incident.resolvedAt), { addSuffix: true })}</span>
+                    </div>
+                  )}
                   {tab === 'archived' && room.closedAt && (
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs text-muted-foreground/60">
@@ -234,7 +248,7 @@ export default function WarRooms() {
                       </span>
                     </div>
                   )}
-                  {tab === 'active' && room.incident?.startedAt && (
+                  {tab === 'active' && !room.incident?.resolvedAt && room.incident?.startedAt && (
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs text-muted-foreground/60">
                         Incident started {formatDistanceToNow(new Date(room.incident.startedAt), { addSuffix: true })}

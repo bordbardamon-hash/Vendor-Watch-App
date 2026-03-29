@@ -338,7 +338,7 @@ export async function restoreOpenWarRoomTimers(): Promise<void> {
 
     if (openRooms.length === 0) return;
 
-    // Auto-close war rooms whose incidents are resolved or no longer exist
+    // Separate rooms into "still active incident" vs "resolved/missing incident"
     const incidentIds = openRooms.map((r: any) => r.incidentId).filter(Boolean);
     const activeIncidents = incidentIds.length > 0
       ? await db.select({ id: incidents.id })
@@ -355,14 +355,64 @@ export async function restoreOpenWarRoomTimers(): Promise<void> {
       !r.incidentId || !activeIncidentIds.has(r.incidentId)
     );
 
-    if (staleRooms.length > 0) {
-      console.log(`[war-room] Auto-closing ${staleRooms.length} stale war room(s) with resolved/missing incidents`);
-      for (const room of staleRooms) {
-        await db.update(warRooms)
-          .set({ status: 'closed', closedAt: new Date() })
-          .where(eq(warRooms.id, room.id));
+    if (staleRooms.length === 0) return;
+
+    console.log(`[war-room] Restoring 1-hour grace period for ${staleRooms.length} resolved war room(s)`);
+
+    for (const room of staleRooms) {
+      // Check if there is already a "War Room will close in 1 hour" system post
+      const posts = await storage.getWarRoomPosts(room.id);
+      const resolvePost = posts.find((p: any) =>
+        p.isSystemUpdate && p.content?.includes('War Room will close in 1 hour')
+      );
+
+      let msRemaining: number;
+
+      if (resolvePost) {
+        // Timer was started before restart — honour remaining time
+        const closeAt = new Date(resolvePost.createdAt).getTime() + GRACE_PERIOD_MS;
+        msRemaining = Math.max(0, closeAt - Date.now());
+        console.log(`[war-room] Room ${room.id}: ${Math.round(msRemaining / 60000)}m remaining in grace period`);
+      } else {
+        // First time we're detecting this room as stale — create the system post and give a fresh hour
+        await storage.createWarRoomPost({
+          warRoomId: room.id,
+          userId: null,
+          content: 'Incident marked as resolved by vendor. War Room will close in 1 hour.',
+          detail: null,
+          isSystemUpdate: true,
+        });
+        msRemaining = GRACE_PERIOD_MS;
+        console.log(`[war-room] Room ${room.id}: incident resolved, starting fresh 1-hour grace period`);
       }
-      console.log(`[war-room] Cleanup complete. ${openRooms.length - staleRooms.length} war room(s) remain active`);
+
+      // Schedule closure (immediately if timer already elapsed)
+      const closeRoom = async () => {
+        await storage.closeWarRoom(room.id);
+        await storage.createWarRoomPost({
+          warRoomId: room.id,
+          userId: null,
+          content: 'War Room closed. This session has been archived permanently.',
+          detail: null,
+          isSystemUpdate: true,
+        });
+        generateWarRoomSummaries(room.id).catch(err =>
+          console.error('[war-room] Failed to generate summaries:', err)
+        );
+        broadcastToRoom(room.id, { type: 'war_room_closed' });
+        closeTimers.delete(room.id);
+        console.log(`[war-room] Closed war room ${room.id} after grace period`);
+      };
+
+      const existing = closeTimers.get(room.id);
+      if (existing) clearTimeout(existing);
+
+      if (msRemaining <= 0) {
+        await closeRoom();
+      } else {
+        const timer = setTimeout(closeRoom, msRemaining);
+        closeTimers.set(room.id, timer);
+      }
     }
   } catch (err) {
     console.error('[war-room] Failed to restore war room timers:', err);
