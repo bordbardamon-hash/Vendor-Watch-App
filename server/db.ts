@@ -12,3 +12,18 @@ if (!process.env.DATABASE_URL) {
 
 export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 export const db = drizzle(pool, { schema });
+
+// Safe column additions that run on every startup — idempotent via IF NOT EXISTS
+export async function runStartupMigrations(): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query(`
+      ALTER TABLE incidents ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMP;
+    `);
+    console.log('[db] Startup migrations complete');
+  } catch (err) {
+    console.error('[db] Startup migrations failed:', err);
+  } finally {
+    client.release();
+  }
+}

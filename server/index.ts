@@ -16,6 +16,7 @@ import { apiLimiter, authLimiter, strictLimiter } from './rateLimiter';
 import { registerEmbedRoutes } from './embedRoutes';
 import { initWarRoomWebSocket } from './warRoomWebSocket';
 import { restoreOpenWarRoomTimers } from './warRoom';
+import { runStartupMigrations } from './db';
 
 // Global error handlers
 process.on('unhandledRejection', (reason, promise) => {
@@ -221,6 +222,9 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Apply safe column additions before anything else queries the DB
+  await runStartupMigrations();
+
   // Initialize Stripe integration
   await initStripe();
 
