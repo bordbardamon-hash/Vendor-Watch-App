@@ -608,7 +608,7 @@ export async function syncVendorStatus(vendorKey?: string, limit?: number): Prom
           if (!isManual && !activeIncidentIds.has(String(existing.incidentId)) && existing.status !== 'resolved') {
             const previousStatus = existing.status;
             const previousSeverity = existing.severity;
-            await storage.updateIncident(existing.id, { status: 'resolved' });
+            await storage.updateIncident(existing.id, { status: 'resolved', resolvedAt: new Date() });
             console.log(`  → Resolved incident: ${existing.title}`);
             
             const lifecycleEvent = determineLifecycleEvent(

@@ -57,6 +57,7 @@ export const incidents = pgTable("incidents", {
   startedAt: text("started_at").notNull(),
   updatedAt: text("updated_at").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  resolvedAt: timestamp("resolved_at"),                   // Set when incident first transitions to resolved
   manuallyResolvedAt: timestamp("manually_resolved_at"), // Set when stale cleanup resolves - sync respects this
 });
 

@@ -10043,6 +10043,25 @@ ${vendorEntries}
       // Fetch incident from active or archive
       const [incidentRow] = await db.select().from(incidents).where(eq(incidents.id, req.params.incidentId)).limit(1);
       const posts = await storage.getWarRoomPosts(warRoom.id);
+
+      // Self-heal: if war room is open and incident is resolved but the closure notice is missing, create it now
+      // Await so the response already includes the new post (countdown shows on first load)
+      if (warRoom.status === 'open' && incidentRow?.status === 'resolved') {
+        const hasClosurePost = posts.some((p: any) =>
+          p.isSystemUpdate && p.content?.includes('War Room will close in 1 hour')
+        );
+        if (!hasClosurePost) {
+          const { handleIncidentResolved } = await import('./warRoom');
+          await handleIncidentResolved(req.params.incidentId).catch(err =>
+            console.error('[war-room] Self-heal: failed to handle incident resolution:', err)
+          );
+          // Re-fetch posts so the new closure notice is included in this response
+          const updatedPosts = await storage.getWarRoomPosts(warRoom.id);
+          const participants = await storage.getWarRoomParticipants(warRoom.id);
+          return res.json({ warRoom, incident: incidentRow || null, posts: updatedPosts, participants, participantCount: participants.length });
+        }
+      }
+
       const participants = await storage.getWarRoomParticipants(warRoom.id);
       res.json({ warRoom, incident: incidentRow || null, posts, participants, participantCount: participants.length });
     } catch (error) {
