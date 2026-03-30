@@ -16,7 +16,7 @@ import { apiLimiter, authLimiter, strictLimiter } from './rateLimiter';
 import { registerEmbedRoutes } from './embedRoutes';
 import { initWarRoomWebSocket } from './warRoomWebSocket';
 import { restoreOpenWarRoomTimers } from './warRoom';
-import { runStartupMigrations } from './db';
+import { runStartupMigrations, backfillMissingBlogPosts } from './db';
 
 // Global error handlers
 process.on('unhandledRejection', (reason, promise) => {
@@ -224,6 +224,9 @@ app.use((req, res, next) => {
 (async () => {
   // Apply safe column additions before anything else queries the DB
   await runStartupMigrations();
+
+  // Backfill missing blog drafts for any resolved incidents that were missed during the broken window
+  backfillMissingBlogPosts().catch(err => console.error('[blog] Backfill startup error:', err));
 
   // Initialize Stripe integration
   await initStripe();
