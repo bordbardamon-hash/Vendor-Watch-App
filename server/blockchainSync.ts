@@ -351,10 +351,17 @@ async function syncBlockchainChain(chainData: { key: string; name: string; sourc
       await notifyNewBlockchainIncident(newIncident, fullChain);
       await orchestrator.processBlockchainIncident(newIncident, 'newBlockchainIncident');
 
-      // Auto-create War Room for P1/P2 blockchain incidents
-      autoCreateBlockchainWarRoom(newIncident, fullChain).catch(err =>
-        console.error('[war-room] Failed to auto-create blockchain war room:', err)
-      );
+      // Auto-create War Room for P1/P2 blockchain incidents.
+      // If already resolved when first detected, chain handleIncidentResolved immediately.
+      if (incident.status === 'resolved' || incident.status === 'postmortem') {
+        autoCreateBlockchainWarRoom(newIncident, fullChain)
+          .then(() => handleIncidentResolved(newIncident.id))
+          .catch(err => console.error('[war-room] Pre-resolved blockchain war room setup failed:', err));
+      } else {
+        autoCreateBlockchainWarRoom(newIncident, fullChain).catch(err =>
+          console.error('[war-room] Failed to auto-create blockchain war room:', err)
+        );
+      }
     }
   }
   

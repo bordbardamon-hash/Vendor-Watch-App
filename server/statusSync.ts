@@ -698,10 +698,19 @@ export async function syncVendorStatus(vendorKey?: string, limit?: number): Prom
               }).catch(err => console.error('[notify] Failed to send new incident notification:', err));
             }
 
-            // Auto-create War Room for critical/major incidents
-            autoCreateWarRoom(newIncident, vendor).catch(err =>
-              console.error('[war-room] Failed to auto-create war room:', err)
-            );
+            // Auto-create War Room for critical/major incidents.
+            // If the incident is already resolved when first detected (vendor created+resolved it
+            // between our sync cycles), chain handleIncidentResolved so the 1-hour grace period
+            // starts immediately — no page visit required.
+            if (normalizedStatus === 'resolved' || normalizedStatus === 'postmortem') {
+              autoCreateWarRoom(newIncident, vendor)
+                .then(() => handleIncidentResolved(newIncident.id))
+                .catch(err => console.error('[war-room] Pre-resolved war room setup failed:', err));
+            } else {
+              autoCreateWarRoom(newIncident, vendor).catch(err =>
+                console.error('[war-room] Failed to auto-create war room:', err)
+              );
+            }
           } else {
             const statusChanged = exists.status !== normalizedStatus;
             const severityChanged = exists.severity !== normalizedSeverity;
