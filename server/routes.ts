@@ -9910,7 +9910,7 @@ ${vendorEntries}
       const roomIds = rooms.map((r: any) => r.id);
       const incidentIds = rooms.map((r: any) => r.incidentId).filter(Boolean);
 
-      const [allIncidents, participantCounts, postCounts] = await Promise.all([
+      const [allIncidents, participantCounts, postCounts, closingPosts] = await Promise.all([
         incidentIds.length > 0
           ? db.select().from(incidents).where(inArray(incidents.id, incidentIds))
           : Promise.resolve([]),
@@ -9922,18 +9922,32 @@ ${vendorEntries}
           warRoomId: warRoomPosts.warRoomId,
           count: count(),
         }).from(warRoomPosts).where(inArray(warRoomPosts.warRoomId, roomIds)).groupBy(warRoomPosts.warRoomId),
+        // Detect which rooms have a "closing in 1 hour" system post (works even when incident is deleted)
+        db.select({ warRoomId: warRoomPosts.warRoomId })
+          .from(warRoomPosts)
+          .where(and(
+            inArray(warRoomPosts.warRoomId, roomIds),
+            eq(warRoomPosts.isSystemUpdate, true),
+            sql`${warRoomPosts.content} LIKE '%War Room will close in 1 hour%'`
+          )),
       ]);
 
       const incidentMap = Object.fromEntries(allIncidents.map((i: any) => [i.id, i]));
       const participantMap = Object.fromEntries(participantCounts.map((p: any) => [p.warRoomId, Number(p.count)]));
       const postMap = Object.fromEntries(postCounts.map((p: any) => [p.warRoomId, Number(p.count)]));
+      const closingSoonSet = new Set(closingPosts.map((p: any) => p.warRoomId));
 
-      const enriched = rooms.map((room: any) => ({
-        ...room,
-        incident: incidentMap[room.incidentId] || null,
-        participantCount: participantMap[room.id] || 0,
-        postCount: postMap[room.id] || 0,
-      }));
+      const enriched = rooms.map((room: any) => {
+        const incident = incidentMap[room.incidentId] || null;
+        const isClosingSoon = closingSoonSet.has(room.id) || incident?.status === 'resolved' || incident?.status === 'postmortem';
+        return {
+          ...room,
+          incident,
+          participantCount: participantMap[room.id] || 0,
+          postCount: postMap[room.id] || 0,
+          isClosingSoon,
+        };
+      });
 
       res.json(enriched);
     } catch (error) {

@@ -524,8 +524,8 @@ export default function WarRoomPage() {
                         {incident.severity.toUpperCase()}
                       </Badge>
                     )}
-                    <Badge variant="outline" className={`text-[10px] ${isClosed ? "text-muted-foreground" : "text-red-500 border-red-500/30"}`}>
-                      {isClosed ? "RESOLVED" : incident?.status?.toUpperCase() || "INVESTIGATING"}
+                    <Badge variant="outline" className={`text-[10px] ${isClosed || closureSecondsLeft !== null ? "text-emerald-500 border-emerald-500/30" : "text-red-500 border-red-500/30"}`}>
+                      {isClosed || closureSecondsLeft !== null ? "RESOLVED" : incident?.status?.toUpperCase() || "INVESTIGATING"}
                     </Badge>
                   </div>
                   {incident && (

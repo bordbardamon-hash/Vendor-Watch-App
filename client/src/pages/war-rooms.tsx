@@ -18,6 +18,7 @@ interface WarRoom {
   closedAt?: string;
   participantCount: number;
   postCount: number;
+  isClosingSoon: boolean;
   incident: {
     id: string;
     title: string;
@@ -188,7 +189,7 @@ export default function WarRooms() {
                     </div>
                     <CardTitle className="text-lg flex items-center gap-2">
                       <ShieldAlert className={`w-5 h-5 shrink-0 ${tab === 'active' ? 'text-red-500' : 'text-muted-foreground'}`} />
-                      {room.incident?.title || `Incident War Room`}
+                      {room.incident?.title || `${room.vendorName || room.vendorKey} Incident`}
                     </CardTitle>
                     {room.incident?.impact && (
                       <CardDescription className="text-sm">{room.incident.impact}</CardDescription>
@@ -200,7 +201,7 @@ export default function WarRooms() {
                         {room.incident.severity.toUpperCase()}
                       </Badge>
                     )}
-                    {tab === 'active' && room.incident?.status === 'resolved' ? (
+                    {tab === 'active' && room.isClosingSoon ? (
                       <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/30 text-xs flex items-center gap-1">
                         <Timer className="w-3 h-3" />
                         Closing Soon
