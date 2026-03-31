@@ -1,7 +1,7 @@
 import { db } from './db';
 import { storage } from './storage';
 import { warRooms, warRoomPosts, warRoomParticipants, incidents, vendors } from '@shared/schema';
-import { eq, and, ne, inArray } from 'drizzle-orm';
+import { eq, and, ne, inArray, isNotNull, or } from 'drizzle-orm';
 import { sendEmail } from './emailClient';
 import type { Incident, Vendor, BlockchainIncident, BlockchainChain } from '@shared/schema';
 import { broadcastToRoom } from './warRoomWebSocket';
@@ -26,9 +26,28 @@ export async function autoCreateWarRoom(incident: Incident, vendor: Vendor): Pro
     // Only create for critical and major severity
     if (incident.severity !== 'critical' && incident.severity !== 'major') return;
 
-    // Check if war room already exists for this incident
+    // Check if war room already exists for this incident (by our internal UUID)
     const existing = await storage.getWarRoom(incident.id);
     if (existing) return;
+
+    // Cross-vendor dedup: if the same status page incident ID already has a war room
+    // (e.g. Intercom and Intercom Messenger share the same statuspage incident),
+    // skip creating a duplicate.
+    if (incident.incidentId) {
+      const [duplicate] = await db
+        .select({ id: warRooms.id })
+        .from(warRooms)
+        .innerJoin(incidents, eq(incidents.id, warRooms.incidentId))
+        .where(and(
+          eq(incidents.incidentId, incident.incidentId),
+          ne(warRooms.status, 'closed')
+        ))
+        .limit(1);
+      if (duplicate) {
+        console.log(`[war-room] Skipping duplicate war room for statuspage incident ${incident.incidentId} (already exists for another vendor)`);
+        return;
+      }
+    }
 
     const warRoom = await storage.createWarRoom({
       incidentId: incident.id,
@@ -339,17 +358,35 @@ export async function restoreOpenWarRoomTimers(): Promise<void> {
     if (openRooms.length === 0) return;
 
     // Separate rooms into "still active incident" vs "resolved/missing incident"
+    // An incident is considered resolved if its status is 'resolved'/'postmortem'
+    // OR if resolvedAt has been set (covers backfilled rows where status update lagged).
     const incidentIds = openRooms.map((r: any) => r.incidentId).filter(Boolean);
     const activeIncidents = incidentIds.length > 0
       ? await db.select({ id: incidents.id })
           .from(incidents)
           .where(and(
             inArray(incidents.id, incidentIds),
-            ne(incidents.status, 'resolved')
+            ne(incidents.status, 'resolved'),
+            ne(incidents.status, 'postmortem'),
           ))
       : [];
+    // Promote any "active" incident that actually has resolvedAt set into the stale bucket
+    const resolvedByTimestamp = incidentIds.length > 0
+      ? await db.select({ id: incidents.id })
+          .from(incidents)
+          .where(and(
+            inArray(incidents.id, incidentIds),
+            isNotNull(incidents.resolvedAt),
+          ))
+      : [];
+    const resolvedByTimestampIds = new Set(resolvedByTimestamp.map((i: any) => i.id));
 
-    const activeIncidentIds = new Set(activeIncidents.map((i: any) => i.id));
+    // activeIncidentIds = truly active (no resolved status, no resolvedAt timestamp)
+    const activeIncidentIds = new Set(
+      activeIncidents
+        .filter((i: any) => !resolvedByTimestampIds.has(i.id))
+        .map((i: any) => i.id)
+    );
 
     const staleRooms = openRooms.filter((r: any) =>
       !r.incidentId || !activeIncidentIds.has(r.incidentId)
