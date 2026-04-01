@@ -9923,7 +9923,7 @@ ${vendorEntries}
           count: count(),
         }).from(warRoomPosts).where(inArray(warRoomPosts.warRoomId, roomIds)).groupBy(warRoomPosts.warRoomId),
         // Detect which rooms have a "closing in 1 hour" system post (works even when incident is deleted)
-        db.select({ warRoomId: warRoomPosts.warRoomId })
+        db.select({ warRoomId: warRoomPosts.warRoomId, createdAt: warRoomPosts.createdAt })
           .from(warRoomPosts)
           .where(and(
             inArray(warRoomPosts.warRoomId, roomIds),
@@ -9935,14 +9935,25 @@ ${vendorEntries}
       const incidentMap = Object.fromEntries(allIncidents.map((i: any) => [i.id, i]));
       const participantMap = Object.fromEntries(participantCounts.map((p: any) => [p.warRoomId, Number(p.count)]));
       const postMap = Object.fromEntries(postCounts.map((p: any) => [p.warRoomId, Number(p.count)]));
-      const closingSoonSet = new Set(closingPosts.map((p: any) => p.warRoomId));
+
+      // Keep the OLDEST closure post per room (most accurate resolved-at time)
+      const closurePostAtMap = new Map<string, Date>();
+      for (const p of closingPosts) {
+        const ts = new Date(p.createdAt);
+        const existing = closurePostAtMap.get(p.warRoomId);
+        if (!existing || ts < existing) closurePostAtMap.set(p.warRoomId, ts);
+      }
+      const closingSoonSet = new Set(closurePostAtMap.keys());
 
       const enriched = rooms.map((room: any) => {
         const incident = incidentMap[room.incidentId] || null;
         const isClosingSoon = closingSoonSet.has(room.id) || incident?.status === 'resolved' || incident?.status === 'postmortem';
+        // resolvedAt: prefer DB value, fall back to closure-post timestamp so the card always shows it
+        const resolvedAt = incident?.resolvedAt
+          ?? (isClosingSoon ? (closurePostAtMap.get(room.id) ?? incident?.updatedAt ?? null) : null);
         return {
           ...room,
-          incident,
+          incident: incident ? { ...incident, resolvedAt } : null,
           participantCount: participantMap[room.id] || 0,
           postCount: postMap[room.id] || 0,
           isClosingSoon,
