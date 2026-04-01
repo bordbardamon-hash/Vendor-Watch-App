@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { LogoAvatar } from "@/components/ui/logo-avatar";
 import {
   CheckCircle2, Clock, Eye, Edit2, Send, AlertTriangle,
-  FileText, Calendar, ExternalLink, ChevronDown, ChevronUp, RefreshCw, Star, Trash2
+  FileText, Calendar, ExternalLink, ChevronDown, ChevronUp, RefreshCw, Star, Trash2, SendHorizonal
 } from "lucide-react";
 import type { BlogPost } from "@shared/schema";
 
@@ -282,6 +282,8 @@ export default function BlogAdminPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
+  const [confirmPublishAll, setConfirmPublishAll] = useState(false);
+  const [isPublishingAll, setIsPublishingAll] = useState(false);
 
   const { data: drafts = [], isLoading } = useQuery<BlogPost[]>({
     queryKey: ["/api/blog/queue"],
@@ -369,6 +371,33 @@ export default function BlogAdminPage() {
     },
   });
 
+  const handlePublishAll = async () => {
+    setConfirmPublishAll(false);
+    setIsPublishingAll(true);
+    let succeeded = 0;
+    let failed = 0;
+    for (const post of drafts) {
+      try {
+        const res = await fetch(`/api/blog/posts/${post.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "published" }),
+        });
+        if (res.ok) succeeded++; else failed++;
+      } catch {
+        failed++;
+      }
+    }
+    setIsPublishingAll(false);
+    queryClient.invalidateQueries({ queryKey: ["/api/blog/queue"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/blog/posts-all"] });
+    if (failed === 0) {
+      toast({ title: `${succeeded} report${succeeded !== 1 ? "s" : ""} published`, description: "All drafts are now live." });
+    } else {
+      toast({ title: `${succeeded} published, ${failed} failed`, variant: "destructive" });
+    }
+  };
+
   return (
     <div className="space-y-8 max-w-4xl">
       <div>
@@ -409,10 +438,50 @@ export default function BlogAdminPage() {
 
       {/* Draft queue */}
       <div>
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
-          <Clock className="w-4 h-4 text-yellow-500" />
-          Pending Review ({drafts.length})
-        </h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+            <Clock className="w-4 h-4 text-yellow-500" />
+            Pending Review ({drafts.length})
+          </h2>
+          {drafts.length > 1 && (
+            confirmPublishAll ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Publish all {drafts.length} drafts?</span>
+                <Button
+                  size="sm"
+                  className="h-7 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700"
+                  onClick={handlePublishAll}
+                  disabled={isPublishingAll}
+                  data-testid="button-confirm-publish-all"
+                >
+                  {isPublishingAll ? <RefreshCw className="w-3 h-3 animate-spin" /> : <SendHorizonal className="w-3 h-3" />}
+                  Confirm
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={() => setConfirmPublishAll(false)}
+                  data-testid="button-cancel-publish-all"
+                >
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs gap-1.5 border-emerald-600/40 text-emerald-500 hover:bg-emerald-600/10 hover:border-emerald-500"
+                onClick={() => setConfirmPublishAll(true)}
+                disabled={isPublishingAll}
+                data-testid="button-publish-all"
+              >
+                {isPublishingAll ? <RefreshCw className="w-3 h-3 animate-spin" /> : <SendHorizonal className="w-3 h-3" />}
+                Publish All
+              </Button>
+            )
+          )}
+        </div>
 
         {isLoading ? (
           <div className="space-y-3">
