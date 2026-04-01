@@ -16,6 +16,7 @@ interface WarRoom {
   status: string;
   createdAt: string;
   closedAt?: string;
+  resolvedAt?: string | null;
   participantCount: number;
   postCount: number;
   isClosingSoon: boolean;
@@ -236,10 +237,10 @@ export default function WarRooms() {
                       </span>
                     )}
                   </div>
-                  {tab === 'active' && room.incident?.resolvedAt && (
+                  {tab === 'active' && room.resolvedAt && (
                     <div className="flex items-center gap-1.5 text-emerald-400">
                       <CheckCircle2 className="w-4 h-4" />
-                      <span>Resolved {formatDistanceToNow(new Date(room.incident.resolvedAt), { addSuffix: true })}</span>
+                      <span>Resolved {formatDistanceToNow(new Date(room.resolvedAt), { addSuffix: true })}</span>
                     </div>
                   )}
                   {tab === 'archived' && room.closedAt && (
@@ -249,7 +250,7 @@ export default function WarRooms() {
                       </span>
                     </div>
                   )}
-                  {tab === 'active' && !room.incident?.resolvedAt && room.incident?.startedAt && (
+                  {tab === 'active' && !room.resolvedAt && room.incident?.startedAt && (
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs text-muted-foreground/60">
                         Incident started {formatDistanceToNow(new Date(room.incident.startedAt), { addSuffix: true })}

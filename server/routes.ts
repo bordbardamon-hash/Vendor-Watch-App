@@ -9948,12 +9948,14 @@ ${vendorEntries}
       const enriched = rooms.map((room: any) => {
         const incident = incidentMap[room.incidentId] || null;
         const isClosingSoon = closingSoonSet.has(room.id) || incident?.status === 'resolved' || incident?.status === 'postmortem';
-        // resolvedAt: prefer DB value, fall back to closure-post timestamp so the card always shows it
+        // resolvedAt: prefer DB value, fall back to closure-post timestamp.
+        // Stored at the TOP LEVEL so it's available even when incident record is null.
         const resolvedAt = incident?.resolvedAt
-          ?? (isClosingSoon ? (closurePostAtMap.get(room.id) ?? incident?.updatedAt ?? null) : null);
+          ?? (isClosingSoon ? (closurePostAtMap.get(room.id) ?? null) : null);
         return {
           ...room,
-          incident: incident ? { ...incident, resolvedAt } : null,
+          resolvedAt,
+          incident,
           participantCount: participantMap[room.id] || 0,
           postCount: postMap[room.id] || 0,
           isClosingSoon,
