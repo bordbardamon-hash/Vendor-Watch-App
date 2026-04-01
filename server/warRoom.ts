@@ -357,74 +357,9 @@ export async function restoreOpenWarRoomTimers(): Promise<void> {
 
     if (openRooms.length === 0) return;
 
-    // Separate rooms into "still active incident" vs "resolved/missing incident"
-    // An incident is considered resolved if its status is 'resolved'/'postmortem'
-    // OR if resolvedAt has been set (covers backfilled rows where status update lagged).
-    const incidentIds = openRooms.map((r: any) => r.incidentId).filter(Boolean);
-    const activeIncidents = incidentIds.length > 0
-      ? await db.select({ id: incidents.id })
-          .from(incidents)
-          .where(and(
-            inArray(incidents.id, incidentIds),
-            ne(incidents.status, 'resolved'),
-            ne(incidents.status, 'postmortem'),
-          ))
-      : [];
-    // Promote any "active" incident that actually has resolvedAt set into the stale bucket
-    const resolvedByTimestamp = incidentIds.length > 0
-      ? await db.select({ id: incidents.id })
-          .from(incidents)
-          .where(and(
-            inArray(incidents.id, incidentIds),
-            isNotNull(incidents.resolvedAt),
-          ))
-      : [];
-    const resolvedByTimestampIds = new Set(resolvedByTimestamp.map((i: any) => i.id));
-
-    // activeIncidentIds = truly active (no resolved status, no resolvedAt timestamp)
-    const activeIncidentIds = new Set(
-      activeIncidents
-        .filter((i: any) => !resolvedByTimestampIds.has(i.id))
-        .map((i: any) => i.id)
-    );
-
-    const staleRooms = openRooms.filter((r: any) =>
-      !r.incidentId || !activeIncidentIds.has(r.incidentId)
-    );
-
-    if (staleRooms.length === 0) return;
-
-    console.log(`[war-room] Restoring 1-hour grace period for ${staleRooms.length} resolved war room(s)`);
-
-    for (const room of staleRooms) {
-      // Check if there is already a "War Room will close in 1 hour" system post
-      const posts = await storage.getWarRoomPosts(room.id);
-      const resolvePost = posts.find((p: any) =>
-        p.isSystemUpdate && p.content?.includes('War Room will close in 1 hour')
-      );
-
-      let msRemaining: number;
-
-      if (resolvePost) {
-        // Timer was started before restart — honour remaining time
-        const closeAt = new Date(resolvePost.createdAt).getTime() + GRACE_PERIOD_MS;
-        msRemaining = Math.max(0, closeAt - Date.now());
-        console.log(`[war-room] Room ${room.id}: ${Math.round(msRemaining / 60000)}m remaining in grace period`);
-      } else {
-        // First time we're detecting this room as stale — create the system post and give a fresh hour
-        await storage.createWarRoomPost({
-          warRoomId: room.id,
-          userId: null,
-          content: 'Incident marked as resolved by vendor. War Room will close in 1 hour.',
-          detail: null,
-          isSystemUpdate: true,
-        });
-        msRemaining = GRACE_PERIOD_MS;
-        console.log(`[war-room] Room ${room.id}: incident resolved, starting fresh 1-hour grace period`);
-      }
-
-      // Schedule closure (immediately if timer already elapsed)
-      const closeRoom = async () => {
+    // Helper: build and schedule the closure timer for a room
+    const scheduleClose = async (room: any, resolvePostCreatedAt: Date | null) => {
+      const makeCloseRoom = () => async () => {
         await storage.closeWarRoom(room.id);
         await storage.createWarRoomPost({
           warRoomId: room.id,
@@ -444,12 +379,99 @@ export async function restoreOpenWarRoomTimers(): Promise<void> {
       const existing = closeTimers.get(room.id);
       if (existing) clearTimeout(existing);
 
-      if (msRemaining <= 0) {
-        await closeRoom();
+      if (resolvePostCreatedAt) {
+        const closeAt = resolvePostCreatedAt.getTime() + GRACE_PERIOD_MS;
+        const msRemaining = Math.max(0, closeAt - Date.now());
+        console.log(`[war-room] Room ${room.id}: ${Math.round(msRemaining / 60000)}m remaining in grace period`);
+        if (msRemaining <= 0) {
+          await makeCloseRoom()();
+        } else {
+          closeTimers.set(room.id, setTimeout(makeCloseRoom(), msRemaining));
+        }
       } else {
-        const timer = setTimeout(closeRoom, msRemaining);
-        closeTimers.set(room.id, timer);
+        // No resolve post yet — create one and give a fresh 1-hour window
+        await storage.createWarRoomPost({
+          warRoomId: room.id,
+          userId: null,
+          content: 'Incident marked as resolved by vendor. War Room will close in 1 hour.',
+          detail: null,
+          isSystemUpdate: true,
+        });
+        console.log(`[war-room] Room ${room.id}: incident resolved, starting fresh 1-hour grace period`);
+        closeTimers.set(room.id, setTimeout(makeCloseRoom(), GRACE_PERIOD_MS));
       }
+    };
+
+    // ── PASS 1: rooms that already have a closure post ──────────────────────
+    // The post is the ground truth regardless of what the incidents table says.
+    // This fixes stuck rooms where the incident status in the DB is stale but
+    // handleIncidentResolved already ran and created the post before a restart.
+    const roomIds = openRooms.map((r: any) => r.id);
+    const allPosts = await db.select().from(warRoomPosts)
+      .where(and(
+        inArray(warRoomPosts.warRoomId, roomIds),
+        eq(warRoomPosts.isSystemUpdate, true),
+      ));
+
+    const closurePostByRoom = new Map<string, Date>();
+    for (const post of allPosts) {
+      if (post.content?.includes('War Room will close in 1 hour')) {
+        const existing = closurePostByRoom.get(post.warRoomId);
+        const ts = new Date(post.createdAt);
+        // Keep the OLDEST closure post (most accurate close-at time)
+        if (!existing || ts < existing) closurePostByRoom.set(post.warRoomId, ts);
+      }
+    }
+
+    const roomsWithClosurePost = openRooms.filter((r: any) => closurePostByRoom.has(r.id));
+    if (roomsWithClosurePost.length > 0) {
+      console.log(`[war-room] Restoring timers for ${roomsWithClosurePost.length} room(s) with existing closure post`);
+      for (const room of roomsWithClosurePost) {
+        await scheduleClose(room, closurePostByRoom.get(room.id)!);
+      }
+    }
+
+    // ── PASS 2: rooms without closure post but whose incident is resolved ───
+    // For these we need to check the incident status and create a fresh post.
+    const roomsWithoutClosurePost = openRooms.filter((r: any) => !closurePostByRoom.has(r.id));
+    if (roomsWithoutClosurePost.length === 0) return;
+
+    const incidentIds = roomsWithoutClosurePost.map((r: any) => r.incidentId).filter(Boolean);
+    const activeIncidents = incidentIds.length > 0
+      ? await db.select({ id: incidents.id })
+          .from(incidents)
+          .where(and(
+            inArray(incidents.id, incidentIds),
+            ne(incidents.status, 'resolved'),
+            ne(incidents.status, 'postmortem'),
+          ))
+      : [];
+
+    const resolvedByTimestamp = incidentIds.length > 0
+      ? await db.select({ id: incidents.id })
+          .from(incidents)
+          .where(and(
+            inArray(incidents.id, incidentIds),
+            isNotNull(incidents.resolvedAt),
+          ))
+      : [];
+    const resolvedByTimestampIds = new Set(resolvedByTimestamp.map((i: any) => i.id));
+
+    const activeIncidentIds = new Set(
+      activeIncidents
+        .filter((i: any) => !resolvedByTimestampIds.has(i.id))
+        .map((i: any) => i.id)
+    );
+
+    const staleRooms = roomsWithoutClosurePost.filter((r: any) =>
+      !r.incidentId || !activeIncidentIds.has(r.incidentId)
+    );
+
+    if (staleRooms.length === 0) return;
+
+    console.log(`[war-room] Creating closure posts for ${staleRooms.length} newly-resolved war room(s)`);
+    for (const room of staleRooms) {
+      await scheduleClose(room, null);
     }
   } catch (err) {
     console.error('[war-room] Failed to restore war room timers:', err);
