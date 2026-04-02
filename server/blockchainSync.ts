@@ -302,18 +302,31 @@ async function syncBlockchainChain(chainData: { key: string; name: string; sourc
       
       if (existing.status !== incident.status) {
         const previousStatus = existing.status;
+        const transitioningToResolved =
+          (incident.status === 'resolved' || incident.status === 'postmortem') &&
+          previousStatus !== 'resolved' && previousStatus !== 'postmortem';
+
         const updated = await storage.updateBlockchainIncident(existing.id, {
           status: incident.status,
           updatedAt: incident.updated_at,
+          // Set resolvedAt when first transitioning to resolved/postmortem
+          ...(transitioningToResolved ? { resolvedAt: new Date() } : {}),
           // Clear manuallyResolvedAt if we're updating from external source
           manuallyResolvedAt: null,
         });
         console.log(`[blockchain:${chainData.key}] Updated incident: ${incident.name}`);
         
         if (updated) {
-          if (incident.status === 'resolved') {
+          if (incident.status === 'resolved' || incident.status === 'postmortem') {
             await notifyBlockchainIncidentResolved(updated, fullChain);
             await orchestrator.processBlockchainIncident(updated, 'blockchainIncidentResolved');
+
+            // Start War Room grace-period close when transitioning to resolved
+            if (transitioningToResolved) {
+              handleIncidentResolved(existing.id).catch(err =>
+                console.error('[war-room] Failed to handle blockchain resolution (status-change):', err)
+              );
+            }
           } else {
             await notifyBlockchainIncidentUpdate(updated, fullChain, previousStatus);
             await orchestrator.processBlockchainIncident(updated, 'blockchainIncidentUpdate');

@@ -730,12 +730,17 @@ export async function syncVendorStatus(vendorKey?: string, limit?: number): Prom
             if (statusChanged || severityChanged || updatedAtChanged) {
               const previousStatus = exists.status;
               const previousSeverity = exists.severity;
-              
+              const transitioningToResolved =
+                (normalizedStatus === 'resolved' || normalizedStatus === 'postmortem') &&
+                previousStatus !== 'resolved' && previousStatus !== 'postmortem';
+
               await storage.updateIncident(exists.id, { 
                 status: normalizedStatus,
                 severity: normalizedSeverity,
                 updatedAt: incident.updated_at,
                 impact: affectedComponents || incident.impact || exists.impact,
+                // Set resolvedAt when first transitioning to resolved/postmortem
+                ...(transitioningToResolved ? { resolvedAt: new Date() } : {}),
                 // Clear manuallyResolvedAt if we're updating from external source
                 manuallyResolvedAt: null,
               });
@@ -769,6 +774,13 @@ export async function syncVendorStatus(vendorKey?: string, limit?: number): Prom
                 const updatedIncident = { ...exists, status: normalizedStatus, severity: normalizedSeverity };
                 autoCreateWarRoom(updatedIncident as any, vendor).catch(err =>
                   console.error('[war-room] Failed to auto-create war room on escalation:', err)
+                );
+              }
+
+              // Start War Room grace-period close when incident transitions to resolved/postmortem
+              if (transitioningToResolved) {
+                handleIncidentResolved(exists.id).catch(err =>
+                  console.error('[war-room] Failed to handle incident resolution (status-change):', err)
                 );
               }
             }
